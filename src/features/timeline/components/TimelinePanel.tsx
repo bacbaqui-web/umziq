@@ -1,10 +1,10 @@
 import TimelineHeader from "@/features/timeline/components/TimelineHeader";
 import TimelineRuler from "@/features/timeline/components/TimelineRuler";
 import TimelineTrackRows from "@/features/timeline/components/TimelineTrackRows";
-import type { TimelinePanelProps } from "@/features/timeline/types/timelineTypes";
+import type { TimelineEngineViewProps as TimelinePanelProps } from "@/engines/timeline";
 
 export default function TimelinePanel(props: TimelinePanelProps) {
-  const { selectedComp, selectedMeta, timelineNameColWidth } = props;
+  const { readModel, commands, interactions, rulerRef, switcherRef, scrollContainerRef } = props;
 
   return (
     <div
@@ -17,11 +17,17 @@ export default function TimelinePanel(props: TimelinePanelProps) {
         overflow: "hidden",
       }}
     >
-      <TimelineHeader {...props} />
+      <TimelineHeader
+        viewModel={readModel.header}
+        commands={commands}
+        interactions={interactions}
+        switcherRef={switcherRef}
+      />
 
-      {selectedComp && selectedMeta ? (
+      {readModel.available ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minHeight: 0 }}>
           <div
+            ref={scrollContainerRef}
             style={{
               flex: 1,
               minHeight: 0,
@@ -32,13 +38,13 @@ export default function TimelinePanel(props: TimelinePanelProps) {
               style={{
                 display: "grid",
                 width: "100%",
-                gridTemplateColumns: `${timelineNameColWidth}px minmax(0, 1fr)`,
+                gridTemplateColumns: `${readModel.nameColumnWidth}px minmax(0, 1fr)`,
                 columnGap: 6,
                 rowGap: 0,
               }}
             >
-              <TimelineRuler {...props} />
-              <TimelineTrackRows {...props} />
+              <TimelineRuler viewModel={readModel.ruler} commands={commands} rulerRef={rulerRef} />
+              <TimelineTrackRows readModel={readModel} interactions={interactions} />
             </div>
           </div>
         </div>

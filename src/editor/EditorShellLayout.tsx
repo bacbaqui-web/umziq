@@ -1,8 +1,8 @@
 import type { ComponentProps } from "react";
-import PsdTree from "@/features/psdtree/components/PsdTree";
-import PreviewWorkspacePane from "@/features/preview/components/PreviewWorkspacePane";
-import PropertiesPanel from "@/features/properties/components/PropertiesPanel";
-import TimelinePanel from "@/features/timeline/components/TimelinePanel";
+import { PsdTree } from "@/engines/psd-tree";
+import { PreviewWorkspacePane } from "@/engines/canvas";
+import { PropertiesPanel } from "@/engines/properties";
+import { TimelinePanel } from "@/engines/timeline";
 
 export type EditorShellLayoutProps = {
   leftPanelWidth: number;

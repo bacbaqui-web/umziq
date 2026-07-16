@@ -1,25 +1,15 @@
 import { useState } from "react";
-import type { Composition, CompositionMeta } from "@/editor/types/types";
+import type { PropertiesInfoViewModel } from "@/engines/properties";
 
 type PropertiesInfoPopoverProps = {
-  selectedComp: Composition;
-  selectedMeta: CompositionMeta | null;
+  info: PropertiesInfoViewModel;
 };
 
-export default function PropertiesInfoPopover({
-  selectedComp,
-  selectedMeta,
-}: PropertiesInfoPopoverProps) {
+export default function PropertiesInfoPopover({ info }: PropertiesInfoPopoverProps) {
   const [isInfoHovered, setIsInfoHovered] = useState(false);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "flex-end",
-        marginBottom: 8,
-      }}
-    >
+    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
       <div
         onMouseEnter={() => setIsInfoHovered(true)}
         onMouseLeave={() => setIsInfoHovered(false)}
@@ -80,17 +70,13 @@ export default function PropertiesInfoPopover({
             }}
           >
             <strong style={{ color: "#d8e1ea" }}>Name</strong>
-            <span>{selectedComp.name}</span>
+            <span>{info.name}</span>
             <strong style={{ color: "#d8e1ea" }}>PSD</strong>
-            <span>{selectedMeta?.sourceFileName ?? "-"}</span>
+            <span>{info.sourceFileName}</span>
             <strong style={{ color: "#d8e1ea" }}>Canvas</strong>
-            <span>{selectedMeta ? `${selectedMeta.width} x ${selectedMeta.height}` : "-"}</span>
+            <span>{info.canvasSize}</span>
             <strong style={{ color: "#d8e1ea" }}>Duration</strong>
-            <span>
-              {selectedMeta
-                ? `${(selectedMeta.durationFrames / selectedMeta.frameRate).toFixed(1)}s`
-                : "-"}
-            </span>
+            <span>{info.duration}</span>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
-import type { ScaleHandleDirection } from "@/editor/types/editorViewTypes";
+import type { ScaleHandleDirection } from "@/engines/canvas";
+export { GIZMO_HANDLE_SIZE } from "@/engines/canvas";
 
 export type PreviewPoint = {
   x: number;
@@ -22,5 +23,3 @@ export type HoveredGizmoHandle =
   | "opacity"
   | "move"
   | null;
-
-export const GIZMO_HANDLE_SIZE = 10;

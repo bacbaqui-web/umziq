@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import PreviewGuideLayers from "@/features/preview/components/PreviewGuideLayers";
-import type { PreviewGuideGeometry } from "@/editor/preview/guideGeometry";
-import type { Position } from "@/editor/types/types";
+import type { CanvasGuideViewModel } from "@/engines/canvas";
+import type { Position } from "@/models";
 
 type PreviewViewportLayersProps = {
   previewCanvasRef: RefObject<HTMLCanvasElement | null>;
@@ -12,9 +12,7 @@ type PreviewViewportLayersProps = {
     width: number;
     height: number;
   };
-  guideGeometry: PreviewGuideGeometry;
-  showShortformFrameOverlay: boolean;
-  showSafeZoneGuides: boolean;
+  guide: CanvasGuideViewModel;
 };
 
 export default function PreviewViewportLayers({
@@ -23,9 +21,7 @@ export default function PreviewViewportLayers({
   previewPan,
   previewZoom,
   previewSize,
-  guideGeometry,
-  showShortformFrameOverlay,
-  showSafeZoneGuides,
+  guide,
 }: PreviewViewportLayersProps) {
   const previewStageStyle = {
     position: "absolute" as const,
@@ -64,11 +60,7 @@ export default function PreviewViewportLayers({
         }}
       >
         <PreviewGuideLayers
-          previewSize={previewSize}
-          viewportScale={previewZoom}
-          guideGeometry={guideGeometry}
-          showShortformFrame={showShortformFrameOverlay}
-          showSafeZoneGuides={showSafeZoneGuides}
+          guide={guide}
         />
       </div>
     </>

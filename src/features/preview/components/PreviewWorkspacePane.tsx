@@ -1,14 +1,13 @@
-import type { Dispatch, RefObject, SetStateAction, WheelEvent, MouseEvent } from "react";
+import type { RefObject, WheelEvent, MouseEvent } from "react";
 import PreviewInteractionOverlay from "@/features/preview/components/PreviewInteractionOverlay";
 import PreviewViewportLayers from "@/features/preview/components/PreviewViewportLayers";
 import PreviewWorkspaceControls from "@/features/preview/components/PreviewWorkspaceControls";
-import type { Composition, CompositionMeta, Position, Scale } from "@/editor/types/types";
+import type { Composition, CompositionMeta, Position } from "@/models";
 import type {
-  PreviewMotionPathPoint,
-  PreviewOverlay as PreviewOverlayData,
-  ScaleHandleDirection,
-} from "@/editor/types/editorViewTypes";
-import type { PreviewGuideGeometry } from "@/editor/preview/guideGeometry";
+  CanvasGuideViewModel,
+  CanvasGizmoViewModel,
+  CanvasInteractionCommands,
+} from "@/engines/canvas";
 
 type PreviewWorkspacePaneProps = {
   selectedComp: Composition | null;
@@ -25,14 +24,11 @@ type PreviewWorkspacePaneProps = {
     width: number;
     height: number;
   };
-  previewViewportOffset: Position;
   previewViewportWidth: number;
   previewViewportHeight: number;
-  guideGeometry: PreviewGuideGeometry;
-  showShortformFrameOverlay: boolean;
-  setShowShortformFrameOverlay: Dispatch<SetStateAction<boolean>>;
-  showSafeZoneGuides: boolean;
-  setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
+  guide: CanvasGuideViewModel;
+  toggleShortformFrame: () => void;
+  toggleSafeZone: () => void;
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
   centerPreviewView: () => void;
@@ -40,35 +36,8 @@ type PreviewWorkspacePaneProps = {
   handlePreviewViewportMouseDownCapture: (event: MouseEvent<HTMLDivElement>) => void;
   isPreviewPanning: boolean;
   isPreviewPanModifierActive: boolean;
-  overlay: PreviewOverlayData;
-  motionPath: PreviewMotionPathPoint[];
-  currentOpacity: number;
-  currentRotation: number;
-  currentScale: Scale;
-  isDraggingAnchor: boolean;
-  isDraggingPosition: boolean;
-  isDraggingOpacity: boolean;
-  isDraggingRotation: boolean;
-  positionReadout: string | null;
-  opacityReadout: string | null;
-  rotationReadout: string | null;
-  scaleReadout: {
-    handle: ScaleHandleDirection;
-    text: string;
-  } | null;
-  onStartScaleDrag: (handle: ScaleHandleDirection) => void;
-  onStartMoveDrag: (clientX: number, clientY: number) => void;
-  onStartOpacityDrag: () => void;
-  onStartRotationDrag: (clientX: number, clientY: number) => void;
-  onTargetMouseDown: (event: MouseEvent<SVGPolygonElement>) => void;
-  onAnchorMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
-  onMotionPathDotClick: (frame: number, isKeyframe: boolean) => void;
-  onStartMotionPathKeyframeDrag: (frame: number, clientX: number, clientY: number) => void;
-  draggingMotionPathFrame: number | null;
-  motionPathDragReadout: string | null;
-  onCommitScaleInput: (handle: ScaleHandleDirection, value: number) => void;
-  onCommitRotationInput: (value: number) => void;
-  onCommitOpacityInput: (value: number) => void;
+  interactionViewModel: CanvasGizmoViewModel;
+  interactionCommands: CanvasInteractionCommands;
 };
 
 export default function PreviewWorkspacePane({
@@ -83,14 +52,11 @@ export default function PreviewWorkspacePane({
   previewZoom,
   previewZoomPercent,
   previewSize,
-  previewViewportOffset,
   previewViewportWidth,
   previewViewportHeight,
-  guideGeometry,
-  showShortformFrameOverlay,
-  setShowShortformFrameOverlay,
-  showSafeZoneGuides,
-  setShowSafeZoneGuides,
+  guide,
+  toggleShortformFrame,
+  toggleSafeZone,
   resetPreviewView,
   setOneToOnePreviewView,
   centerPreviewView,
@@ -98,32 +64,8 @@ export default function PreviewWorkspacePane({
   handlePreviewViewportMouseDownCapture,
   isPreviewPanning,
   isPreviewPanModifierActive,
-  overlay,
-  motionPath,
-  currentOpacity,
-  currentRotation,
-  currentScale,
-  isDraggingAnchor,
-  isDraggingPosition,
-  isDraggingOpacity,
-  isDraggingRotation,
-  positionReadout,
-  opacityReadout,
-  rotationReadout,
-  scaleReadout,
-  onStartScaleDrag,
-  onStartMoveDrag,
-  onStartOpacityDrag,
-  onStartRotationDrag,
-  onTargetMouseDown,
-  onAnchorMouseDown,
-  onMotionPathDotClick,
-  onStartMotionPathKeyframeDrag,
-  draggingMotionPathFrame,
-  motionPathDragReadout,
-  onCommitScaleInput,
-  onCommitRotationInput,
-  onCommitOpacityInput,
+  interactionViewModel,
+  interactionCommands,
 }: PreviewWorkspacePaneProps) {
   return (
     <div
@@ -169,10 +111,10 @@ export default function PreviewWorkspacePane({
           >
             <PreviewWorkspaceControls
               previewZoomPercent={previewZoomPercent}
-              showShortformFrameOverlay={showShortformFrameOverlay}
-              setShowShortformFrameOverlay={setShowShortformFrameOverlay}
-              showSafeZoneGuides={showSafeZoneGuides}
-              setShowSafeZoneGuides={setShowSafeZoneGuides}
+              showShortformFrameOverlay={guide.showShortformFrame}
+              toggleShortformFrame={toggleShortformFrame}
+              showSafeZoneGuides={guide.showSafeZoneGuides}
+              toggleSafeZone={toggleSafeZone}
               resetPreviewView={resetPreviewView}
               setOneToOnePreviewView={setOneToOnePreviewView}
               centerPreviewView={centerPreviewView}
@@ -183,44 +125,14 @@ export default function PreviewWorkspacePane({
               previewPan={previewPan}
               previewZoom={previewZoom}
               previewSize={previewSize}
-              guideGeometry={guideGeometry}
-              showShortformFrameOverlay={showShortformFrameOverlay}
-              showSafeZoneGuides={showSafeZoneGuides}
+              guide={guide}
             />
             <PreviewInteractionOverlay
               previewOverlayRef={previewOverlayRef}
-              previewZoom={previewZoom}
-              previewViewportOffset={previewViewportOffset}
               previewViewportWidth={previewViewportWidth}
               previewViewportHeight={previewViewportHeight}
-              previewSize={previewSize}
-              selectedMeta={selectedMeta}
-              overlay={overlay}
-              motionPath={motionPath}
-              currentOpacity={currentOpacity}
-              currentRotation={currentRotation}
-              currentScale={currentScale}
-              isDraggingAnchor={isDraggingAnchor}
-              isDraggingPosition={isDraggingPosition}
-              isDraggingOpacity={isDraggingOpacity}
-              isDraggingRotation={isDraggingRotation}
-              positionReadout={positionReadout}
-              opacityReadout={opacityReadout}
-              rotationReadout={rotationReadout}
-              scaleReadout={scaleReadout}
-              onStartScaleDrag={onStartScaleDrag}
-              onStartMoveDrag={onStartMoveDrag}
-              onStartOpacityDrag={onStartOpacityDrag}
-              onStartRotationDrag={onStartRotationDrag}
-              onTargetMouseDown={onTargetMouseDown}
-              onAnchorMouseDown={onAnchorMouseDown}
-              onMotionPathDotClick={onMotionPathDotClick}
-              onStartMotionPathKeyframeDrag={onStartMotionPathKeyframeDrag}
-              draggingMotionPathFrame={draggingMotionPathFrame}
-              motionPathDragReadout={motionPathDragReadout}
-              onCommitScaleInput={onCommitScaleInput}
-              onCommitRotationInput={onCommitRotationInput}
-              onCommitOpacityInput={onCommitOpacityInput}
+              viewModel={interactionViewModel}
+              commands={interactionCommands}
             />
           </div>
         ) : (

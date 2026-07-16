@@ -1,11 +1,9 @@
-import type { Dispatch, SetStateAction } from "react";
-
 type PreviewWorkspaceControlsProps = {
   previewZoomPercent: number;
   showShortformFrameOverlay: boolean;
-  setShowShortformFrameOverlay: Dispatch<SetStateAction<boolean>>;
+  toggleShortformFrame: () => void;
   showSafeZoneGuides: boolean;
-  setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
+  toggleSafeZone: () => void;
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
   centerPreviewView: () => void;
@@ -39,9 +37,9 @@ const controlsContainerStyle = {
 export default function PreviewWorkspaceControls({
   previewZoomPercent,
   showShortformFrameOverlay,
-  setShowShortformFrameOverlay,
+  toggleShortformFrame,
   showSafeZoneGuides,
-  setShowSafeZoneGuides,
+  toggleSafeZone,
   resetPreviewView,
   setOneToOnePreviewView,
   centerPreviewView,
@@ -56,7 +54,7 @@ export default function PreviewWorkspaceControls({
       >
         <button
           type="button"
-          onClick={() => setShowShortformFrameOverlay((prev) => !prev)}
+          onClick={toggleShortformFrame}
           style={{
             ...overlayButtonStyle,
             border: `1px solid ${
@@ -73,7 +71,7 @@ export default function PreviewWorkspaceControls({
         </button>
         <button
           type="button"
-          onClick={() => setShowSafeZoneGuides((prev) => !prev)}
+          onClick={toggleSafeZone}
           style={{
             ...overlayButtonStyle,
             border: `1px solid ${

@@ -1,4 +1,4 @@
-import type { AnimatableProperty } from "@/editor/types/types";
+import type { AnimatableProperty } from "@/models";
 
 export type PropertyVisualTokens = {
   accent: string;

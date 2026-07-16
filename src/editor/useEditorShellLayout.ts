@@ -1,4 +1,15 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import {
+  SHELL_CENTER_MIN_WIDTH,
+  SHELL_LEFT_PANEL_MAX_FLOOR_WIDTH,
+  SHELL_LEFT_PANEL_MIN_WIDTH,
+  SHELL_MAIN_AREA_MIN_HEIGHT,
+  SHELL_RIGHT_PANEL_MAX_FLOOR_WIDTH,
+  SHELL_RIGHT_PANEL_MIN_WIDTH,
+  SHELL_SIDE_PANEL_MAX_WIDTH,
+  SHELL_TIMELINE_PANEL_MAX_HEIGHT,
+  SHELL_TIMELINE_PANEL_MIN_HEIGHT,
+} from "@/editor/editorShellLayoutConstants";
 
 type PanelResizeType = "left" | "right" | "bottom";
 
@@ -63,29 +74,59 @@ export function useEditorShellLayout({
 
       if (resize.type === "left") {
         const maxWidth = Math.max(
-          260,
-          Math.min(520, window.innerWidth - rightPanelWidth - 420)
+          SHELL_LEFT_PANEL_MAX_FLOOR_WIDTH,
+          Math.min(
+            SHELL_SIDE_PANEL_MAX_WIDTH,
+            window.innerWidth - rightPanelWidth - SHELL_CENTER_MIN_WIDTH
+          )
         );
         setLeftPanelWidth(
-          Math.min(maxWidth, Math.max(220, resize.startSize + (event.clientX - resize.startClientX)))
+          Math.min(
+            maxWidth,
+            Math.max(
+              SHELL_LEFT_PANEL_MIN_WIDTH,
+              resize.startSize + (event.clientX - resize.startClientX)
+            )
+          )
         );
         return;
       }
 
       if (resize.type === "right") {
         const maxWidth = Math.max(
-          280,
-          Math.min(520, window.innerWidth - leftPanelWidth - 420)
+          SHELL_RIGHT_PANEL_MAX_FLOOR_WIDTH,
+          Math.min(
+            SHELL_SIDE_PANEL_MAX_WIDTH,
+            window.innerWidth - leftPanelWidth - SHELL_CENTER_MIN_WIDTH
+          )
         );
         setRightPanelWidth(
-          Math.min(maxWidth, Math.max(260, resize.startSize + (resize.startClientX - event.clientX)))
+          Math.min(
+            maxWidth,
+            Math.max(
+              SHELL_RIGHT_PANEL_MIN_WIDTH,
+              resize.startSize + (resize.startClientX - event.clientX)
+            )
+          )
         );
         return;
       }
 
-      const maxHeight = Math.max(220, Math.min(480, window.innerHeight - 220));
+      const maxHeight = Math.max(
+        SHELL_TIMELINE_PANEL_MIN_HEIGHT,
+        Math.min(
+          SHELL_TIMELINE_PANEL_MAX_HEIGHT,
+          window.innerHeight - SHELL_MAIN_AREA_MIN_HEIGHT
+        )
+      );
       setTimelinePanelHeight(
-        Math.min(maxHeight, Math.max(220, resize.startSize + (resize.startClientY - event.clientY)))
+        Math.min(
+          maxHeight,
+          Math.max(
+            SHELL_TIMELINE_PANEL_MIN_HEIGHT,
+            resize.startSize + (resize.startClientY - event.clientY)
+          )
+        )
       );
     };
 

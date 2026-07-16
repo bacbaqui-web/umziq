@@ -1,10 +1,4 @@
-import type { ScaleHandleDirection } from "@/editor/types/editorViewTypes";
-import {
-  getMoveHandleCursor,
-  getOpacityHandleCursor,
-  getRotationHandleCursor,
-  getScaleHandleCursor,
-} from "@/features/preview/geometry/previewOverlayHelpers";
+import type { ScaleHandleDirection } from "@/engines/canvas";
 import {
   GIZMO_HANDLE_SIZE,
   type HoveredGizmoHandle,
@@ -13,6 +7,12 @@ import {
 } from "@/features/preview/types/previewGizmoTypes";
 
 type PreviewGizmoHandlesProps = {
+  cursors: {
+    move: string;
+    rotation: string;
+    opacity: string;
+    scale: Record<ScaleHandleDirection, string>;
+  };
   previewMoveHandle: PreviewLineHandle;
   previewRotationHandle: PreviewLineHandle;
   previewOpacityHandle: PreviewLineHandle;
@@ -68,6 +68,7 @@ function createCircularHandleStyle({
 }
 
 export default function PreviewGizmoHandles({
+  cursors,
   previewMoveHandle,
   previewRotationHandle,
   previewOpacityHandle,
@@ -105,7 +106,7 @@ export default function PreviewGizmoHandles({
           point: previewMoveHandle.point,
           border: "1px solid rgba(118, 197, 255, 0.95)",
           background: "rgba(118, 197, 255, 0.88)",
-          cursor: isDraggingPosition ? "grabbing" : getMoveHandleCursor(),
+          cursor: isDraggingPosition ? "grabbing" : cursors.move,
           opacity: hoveredHandle === "move" || isDraggingPosition ? 0.98 : 0.56,
           boxShadow:
             hoveredHandle === "move" || isDraggingPosition
@@ -133,7 +134,7 @@ export default function PreviewGizmoHandles({
           point: previewRotationHandle.point,
           border: "1px solid rgba(255, 186, 112, 0.92)",
           background: "rgba(255, 186, 112, 0.9)",
-          cursor: isDraggingRotation ? "grabbing" : getRotationHandleCursor(),
+          cursor: isDraggingRotation ? "grabbing" : cursors.rotation,
           opacity: hoveredHandle === "rotation" || isDraggingRotation ? 0.96 : 0.56,
           boxShadow: isDraggingRotation
             ? "0 0 0 1px rgba(255, 186, 112, 0.22)"
@@ -164,7 +165,7 @@ export default function PreviewGizmoHandles({
             point: handle.point,
             border: `1px solid ${handle.borderColor}`,
             background: handle.borderColor.replace("0.98", "0.88"),
-            cursor: getScaleHandleCursor(handle.key),
+            cursor: cursors.scale[handle.key],
             opacity: hoveredHandle === handle.key ? 0.96 : 0.56,
             boxShadow:
               hoveredHandle === handle.key
@@ -193,7 +194,7 @@ export default function PreviewGizmoHandles({
           point: previewOpacityHandle.point,
           border: "1px solid rgba(255, 255, 255, 0.95)",
           background: "rgba(255, 255, 255, 0.92)",
-          cursor: getOpacityHandleCursor(),
+          cursor: cursors.opacity,
           opacity: hoveredHandle === "opacity" || isDraggingOpacity ? 0.96 : 0.56,
           boxShadow:
             hoveredHandle === "opacity" || isDraggingOpacity

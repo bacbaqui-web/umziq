@@ -1,41 +1,25 @@
-import type { PropertiesPanelProps } from "@/features/properties/types/propertiesPanelTypes";
+import type {
+  PropertiesCommand,
+  PropertiesKeyframeViewModel,
+} from "@/engines/properties";
 
-type PropertiesKeyframeSectionProps = Pick<
-  PropertiesPanelProps,
-  | "selectedLayer"
-  | "selectedTimelineComp"
-  | "selectedPropertyState"
-  | "selectedKeyframe"
-  | "selectedMeta"
-  | "defaultFrameRate"
-  | "propertyLabels"
-  | "formatCompactTime"
-  | "onSavePositionKeyframe"
-  | "onDeleteSelectedKeyframe"
->;
+type PropertiesKeyframeSectionProps = {
+  viewModel: PropertiesKeyframeViewModel;
+  commands: PropertiesCommand;
+};
 
 export default function PropertiesKeyframeSection({
-  selectedLayer,
-  selectedTimelineComp,
-  selectedPropertyState,
-  selectedKeyframe,
-  selectedMeta,
-  defaultFrameRate,
-  propertyLabels,
-  formatCompactTime,
-  onSavePositionKeyframe,
-  onDeleteSelectedKeyframe,
+  viewModel,
+  commands,
 }: PropertiesKeyframeSectionProps) {
-  if (!selectedLayer && !selectedTimelineComp) {
-    return null;
-  }
+  if (!viewModel.visible) return null;
 
   return (
     <>
       <div style={{ fontWeight: 700, marginTop: 14, marginBottom: 8 }}>
         Keyframe Actions
       </div>
-      {selectedLayer && (
+      {viewModel.showPositionSave && (
         <div
           style={{
             display: "flex",
@@ -52,15 +36,15 @@ export default function PropertiesKeyframeSection({
             수동 저장은 위치 키프레임만 지원합니다.
           </div>
           <button
-            onClick={onSavePositionKeyframe}
-            disabled={!selectedPropertyState.position}
+            onClick={commands.savePositionKeyframe}
+            disabled={!viewModel.canSavePosition}
             style={{
               padding: "8px 10px",
               borderRadius: 6,
               border: "1px solid #35556d",
-              background: selectedPropertyState.position ? "#1e3344" : "#262a2e",
-              color: selectedPropertyState.position ? "#fff" : "#79838d",
-              cursor: selectedPropertyState.position ? "pointer" : "not-allowed",
+              background: viewModel.canSavePosition ? "#1e3344" : "#262a2e",
+              color: viewModel.canSavePosition ? "#fff" : "#79838d",
+              cursor: viewModel.canSavePosition ? "pointer" : "not-allowed",
             }}
           >
             위치 키프레임 저장
@@ -68,17 +52,11 @@ export default function PropertiesKeyframeSection({
         </div>
       )}
       <div style={{ marginTop: 10, fontSize: 12, color: "#aab7c4" }}>
-        선택된 키프레임:{" "}
-        {selectedKeyframe
-          ? `${propertyLabels[selectedKeyframe.property]} · ${formatCompactTime(
-              selectedKeyframe.frame,
-              selectedMeta?.frameRate ?? defaultFrameRate
-            )}`
-          : "없음"}
+        선택된 키프레임: {viewModel.selectedText}
       </div>
-      {selectedKeyframe && (
+      {viewModel.canDeleteSelected && (
         <button
-          onClick={onDeleteSelectedKeyframe}
+          onClick={commands.deleteSelectedKeyframe}
           style={{
             marginTop: 8,
             padding: "8px 10px",

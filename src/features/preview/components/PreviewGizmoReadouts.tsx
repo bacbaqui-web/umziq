@@ -1,6 +1,6 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { ScaleHandleDirection } from "@/editor/types/editorViewTypes";
-import type { DirectInputState } from "@/features/preview/hooks/usePreviewOverlayState";
+import type { ScaleHandleDirection } from "@/engines/canvas";
+import type { CanvasDirectInputState } from "@/engines/canvas";
 import type { PreviewLineHandle, PreviewScaleHandle } from "@/features/preview/types/previewGizmoTypes";
 
 type PreviewGizmoReadoutsProps = {
@@ -17,7 +17,7 @@ type PreviewGizmoReadoutsProps = {
   } | null;
   isDraggingOpacity: boolean;
   isDraggingRotation: boolean;
-  directInput: DirectInputState;
+  directInput: CanvasDirectInputState;
   onDirectInputChange: (value: string) => void;
   onDirectInputKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onCloseDirectInput: () => void;

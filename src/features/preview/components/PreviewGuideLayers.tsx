@@ -1,28 +1,13 @@
-import type { PreviewGuideGeometry } from "@/editor/preview/guideGeometry";
+import type { CanvasGuideViewModel } from "@/engines/canvas";
 
 type PreviewGuideLayersProps = {
-  previewSize: {
-    width: number;
-    height: number;
-  };
-  viewportScale: number;
-  guideGeometry: PreviewGuideGeometry;
-  showShortformFrame: boolean;
-  showSafeZoneGuides: boolean;
+  guide: CanvasGuideViewModel;
 };
 
-export default function PreviewGuideLayers({
-  previewSize,
-  viewportScale,
-  guideGeometry,
-  showShortformFrame,
-  showSafeZoneGuides,
-}: PreviewGuideLayersProps) {
-  if (!showShortformFrame && !showSafeZoneGuides) {
+export default function PreviewGuideLayers({ guide }: PreviewGuideLayersProps) {
+  if (!guide.showShortformFrame && !guide.showSafeZoneGuides) {
     return null;
   }
-
-  const safeZoneStrokeWidth = 1 / Math.max(viewportScale, 0.0001);
 
   return (
     <div
@@ -35,9 +20,9 @@ export default function PreviewGuideLayers({
       }}
     >
       <svg
-        width={previewSize.width}
-        height={previewSize.height}
-        viewBox={`0 0 ${previewSize.width} ${previewSize.height}`}
+        width={guide.previewSize.width}
+        height={guide.previewSize.height}
+        viewBox={`0 0 ${guide.previewSize.width} ${guide.previewSize.height}`}
         style={{
           position: "absolute",
           inset: 0,
@@ -45,10 +30,10 @@ export default function PreviewGuideLayers({
           pointerEvents: "none",
         }}
       >
-        {showShortformFrame && (
+        {guide.showShortformFrame && (
           <g>
             <g fill="rgba(0, 0, 0, 0.7)">
-              {guideGeometry.dimRects.map((rect, index) => (
+              {guide.geometry.dimRects.map((rect, index) => (
                 <rect
                   key={`dim-${index}`}
                   x={rect.x}
@@ -60,16 +45,16 @@ export default function PreviewGuideLayers({
             </g>
           </g>
         )}
-        {showSafeZoneGuides && (
+        {guide.showSafeZoneGuides && (
           <g
             stroke="rgba(255, 0, 0, 0.5)"
-            strokeWidth={safeZoneStrokeWidth}
+            strokeWidth={guide.safeZoneStrokeWidth}
             strokeLinecap="round"
             fill="none"
             vectorEffect="non-scaling-stroke"
             shapeRendering="geometricPrecision"
           >
-            {guideGeometry.safeZoneLines.map((line, index) => (
+            {guide.geometry.safeZoneLines.map((line, index) => (
               <line
                 key={`guide-${index}`}
                 x1={line.x1}

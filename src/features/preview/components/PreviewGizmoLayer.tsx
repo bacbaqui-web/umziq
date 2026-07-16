@@ -9,7 +9,7 @@ export default function PreviewGizmoLayer(props: PreviewGizmoLayerProps) {
     previewOpacityHandle,
   } = props;
 
-  if (!previewAnchor || !previewMoveHandle || !previewRotationHandle || !previewOpacityHandle) {
+  if (!props.isVisible || !previewAnchor || !previewMoveHandle || !previewRotationHandle || !previewOpacityHandle) {
     return null;
   }
 

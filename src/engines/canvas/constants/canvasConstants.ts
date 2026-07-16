@@ -1,0 +1,7 @@
+export const PREVIEW_MIN_WORKSPACE_WIDTH = 360;
+export const PREVIEW_MIN_WORKSPACE_HEIGHT = 320;
+export const PREVIEW_MIN_ZOOM = 0.2;
+export const PREVIEW_MAX_ZOOM = 8;
+export const SHORTFORM_FRAME_WIDTH = 1080;
+export const SHORTFORM_FRAME_HEIGHT = 1920;
+export const GIZMO_HANDLE_SIZE = 10;

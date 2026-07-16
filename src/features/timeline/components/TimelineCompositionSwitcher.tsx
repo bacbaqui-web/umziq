@@ -1,4 +1,4 @@
-import type { TimelineCompositionSwitcherItem } from "@/features/timeline/timelineSelectionPath";
+import type { TimelineCompositionSwitcherItem } from "@/engines/timeline";
 
 type TimelineCompositionSwitcherProps = {
   parentName: string | null;

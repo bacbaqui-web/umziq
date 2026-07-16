@@ -1,5 +1,5 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
-import type { ScaleHandleDirection } from "@/editor/types/editorViewTypes";
+import type { ScaleHandleDirection } from "@/engines/canvas";
 
 type PreviewGizmoBackdropProps = {
   viewportSize: {

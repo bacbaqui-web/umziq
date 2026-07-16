@@ -1,83 +1,24 @@
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
-import type { TimelineRow } from "@/editor/types/editorViewTypes";
-import { getTimelineItemSourceSyncStatus } from "@/features/timeline/timelineSourceSyncUtils";
-import { isTimelineItemSelected } from "@/features/timeline/timelineSelectionUtils";
-import { TIMELINE_ITEM_ROW_HEIGHT } from "@/features/timeline/timelineUiConstants";
-import type { TimelinePanelProps } from "@/features/timeline/types/timelineTypes";
-
-type TimelineItemTrackRowProps = Pick<
-  TimelinePanelProps,
-  | "timelinePxPerFrame"
-  | "timelineContentWidth"
-  | "draggedTimelineItemId"
-  | "selectedTimelineTarget"
-  | "allLayersById"
-  | "allCompositionsById"
-  | "onSetDraggedTimelineItemId"
-  | "onTimelineReorder"
-  | "onSelectTimelineItem"
-  | "onAcknowledgeTimelineSourceStatus"
-  | "onResolveTimelineSourceDelete"
-  | "onRenameTimelineItem"
-  | "onBeginMoveTimelineItem"
-  | "onBeginResizeTimelineItemStart"
-  | "onBeginResizeTimelineItemEnd"
-> & {
-  row: Extract<TimelineRow, { type: "item" }>;
-  connectToProperties: boolean;
-  rowIndex: number;
-};
+import { useEffect, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  TIMELINE_ITEM_ROW_HEIGHT,
+  type TimelineInteractionCommands,
+  type TimelineItemRowViewModel,
+} from "@/engines/timeline";
 
 export default function TimelineItemTrackRow({
-  row,
-  timelinePxPerFrame,
-  timelineContentWidth,
-  draggedTimelineItemId,
-  selectedTimelineTarget,
-  allLayersById,
-  allCompositionsById,
-  onSetDraggedTimelineItemId,
-  onTimelineReorder,
-  onSelectTimelineItem,
-  onAcknowledgeTimelineSourceStatus,
-  onResolveTimelineSourceDelete,
-  onRenameTimelineItem,
-  onBeginMoveTimelineItem,
-  onBeginResizeTimelineItemStart,
-  onBeginResizeTimelineItemEnd,
-  connectToProperties,
-  rowIndex,
-}: TimelineItemTrackRowProps) {
-  const item = row.item;
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [draftName, setDraftName] = useState(() => item.name);
-  const [showDeleteDecision, setShowDeleteDecision] = useState(false);
+  viewModel,
+  contentWidth,
+  interactions,
+}: {
+  viewModel: TimelineItemRowViewModel;
+  contentWidth: number;
+  interactions: TimelineInteractionCommands;
+}) {
+  const item = viewModel.item;
   const nameInputRef = useRef<HTMLInputElement | null>(null);
-  const isSelectedItem = isTimelineItemSelected(selectedTimelineTarget, item);
-  const sourceSyncStatus = getTimelineItemSourceSyncStatus(
-    item,
-    allLayersById,
-    allCompositionsById
-  );
-  const isDeletePending = sourceSyncStatus === "deletePending";
-  const baseRowBackground = item.kind === "subComp" ? "#21334a" : "#2a2a2a";
-  const rowBackground =
-    draggedTimelineItemId === item.id
-      ? "#4b3f2b"
-      : isDeletePending
-        ? "rgba(133, 46, 52, 0.58)"
-      : baseRowBackground;
-  const isSelectedBlockRow = isSelectedItem;
-  const statusBadge =
-    sourceSyncStatus === "updated"
-      ? { label: "update", color: "#7fb0de", background: "rgba(63, 96, 128, 0.34)" }
-      : sourceSyncStatus === "new"
-        ? { label: "new", color: "#96cda0", background: "rgba(50, 90, 56, 0.34)" }
-      : sourceSyncStatus === "deletePending"
-        ? { label: "delete?", color: "#f2a3a9", background: "rgba(126, 44, 50, 0.42)" }
-      : sourceSyncStatus === "missing"
-        ? { label: "missing", color: "#d7b27d", background: "rgba(111, 78, 39, 0.34)" }
-      : null;
+  const isEditingName = viewModel.isEditingName;
+  const isDeletePending = viewModel.source.isDeletePending;
+  const statusBadge = viewModel.source.badge;
 
   useEffect(() => {
     if (!isEditingName) {
@@ -88,35 +29,14 @@ export default function TimelineItemTrackRow({
     nameInputRef.current?.select();
   }, [isEditingName]);
 
-  useEffect(() => {
-    setShowDeleteDecision(false);
-  }, [item.id, sourceSyncStatus]);
-
   const handleSelectFullName = (
     event: ReactMouseEvent<HTMLInputElement> | FocusEvent<HTMLInputElement>
   ) => {
     event.currentTarget.select();
   };
 
-  const commitNameEditing = () => {
-    onRenameTimelineItem(item.id, draftName);
-    setIsEditingName(false);
-  };
-
-  const cancelNameEditing = () => {
-    setDraftName(item.name);
-    setIsEditingName(false);
-  };
-
   const handleNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      commitNameEditing();
-      return;
-    }
-
-    if (event.key === "Escape") {
-      cancelNameEditing();
-    }
+    interactions.handleTimelineItemNameKey(event.key);
   };
 
   const handleRowNameClick = () => {
@@ -124,19 +44,7 @@ export default function TimelineItemTrackRow({
       return;
     }
 
-    if (sourceSyncStatus === "updated" || sourceSyncStatus === "new") {
-      onAcknowledgeTimelineSourceStatus(item);
-      onSelectTimelineItem(item);
-      return;
-    }
-
-    if (sourceSyncStatus === "deletePending") {
-      onSelectTimelineItem(item);
-      setShowDeleteDecision(true);
-      return;
-    }
-
-    onSelectTimelineItem(item);
+    interactions.activateTimelineItem(item, viewModel.source.status);
   };
 
   return (
@@ -145,12 +53,12 @@ export default function TimelineItemTrackRow({
         draggable={!isEditingName}
         onDragStart={() => {
           if (!isEditingName) {
-            onSetDraggedTimelineItemId(item.id);
+            interactions.setDraggedTimelineItemId(item.id);
           }
         }}
-        onDragEnd={() => onSetDraggedTimelineItemId(null)}
+        onDragEnd={() => interactions.setDraggedTimelineItemId(null)}
         onDragOver={(event) => event.preventDefault()}
-        onDrop={() => onTimelineReorder(item.id)}
+        onDrop={() => interactions.reorderTimelineItem(item.id)}
         onClick={handleRowNameClick}
         onDoubleClick={(event) => {
           if (isDeletePending) {
@@ -158,23 +66,22 @@ export default function TimelineItemTrackRow({
           }
 
           event.stopPropagation();
-          setDraftName(item.name);
-          setIsEditingName(true);
+          interactions.beginRenameTimelineItem(item);
         }}
         style={{
           gridColumn: 1,
-          gridRow: rowIndex,
+          gridRow: viewModel.rowIndex,
           position: "relative",
           zIndex: 1,
           padding: "0 10px",
           height: TIMELINE_ITEM_ROW_HEIGHT,
-          background: rowBackground,
-          border: isSelectedBlockRow
+          background: viewModel.rowBackground,
+          border: viewModel.selected
             ? "1px solid transparent"
             : isDeletePending
               ? "1px solid rgba(160, 70, 78, 0.7)"
               : "1px solid #3a3a3a",
-          borderRadius: connectToProperties ? "6px 6px 0 0" : 6,
+          borderRadius: viewModel.connectToProperties ? "6px 6px 0 0" : 6,
           fontSize: 12,
           display: "flex",
           justifyContent: "space-between",
@@ -186,10 +93,10 @@ export default function TimelineItemTrackRow({
         {isEditingName ? (
           <input
             ref={nameInputRef}
-            value={draftName}
-            onChange={(event) => setDraftName(event.target.value)}
+            value={viewModel.draftName}
+            onChange={(event) => interactions.changeTimelineItemName(event.target.value)}
             onKeyDown={handleNameKeyDown}
-            onBlur={commitNameEditing}
+            onBlur={interactions.commitTimelineItemName}
             onFocus={handleSelectFullName}
             onClick={(event) => {
               event.stopPropagation();
@@ -254,7 +161,7 @@ export default function TimelineItemTrackRow({
           </span>
         )}
 
-        {showDeleteDecision && (
+        {viewModel.showDeleteDecision && (
           <div
             onClick={(event) => event.stopPropagation()}
             style={{
@@ -273,8 +180,7 @@ export default function TimelineItemTrackRow({
           >
             <button
               onClick={() => {
-                onResolveTimelineSourceDelete(item, "delete");
-                setShowDeleteDecision(false);
+                interactions.resolveTimelineSourceDelete(item, "delete");
               }}
               style={{
                 border: "1px solid rgba(192, 95, 105, 0.85)",
@@ -291,8 +197,7 @@ export default function TimelineItemTrackRow({
 
             <button
               onClick={() => {
-                onResolveTimelineSourceDelete(item, "keep");
-                setShowDeleteDecision(false);
+                interactions.resolveTimelineSourceDelete(item, "keep");
               }}
               style={{
                 border: "1px solid rgba(180, 180, 180, 0.18)",
@@ -312,15 +217,15 @@ export default function TimelineItemTrackRow({
 
       <div
         onDragOver={(event) => event.preventDefault()}
-        onDrop={() => onTimelineReorder(item.id)}
-        onClick={() => onSelectTimelineItem(item)}
+        onDrop={() => interactions.reorderTimelineItem(item.id)}
+        onClick={() => interactions.selectTimelineItem(item)}
         style={{
           gridColumn: 2,
-          gridRow: rowIndex,
+          gridRow: viewModel.rowIndex,
           position: "relative",
           zIndex: 2,
-          width: timelineContentWidth,
-          minWidth: timelineContentWidth,
+          width: contentWidth,
+          minWidth: contentWidth,
           height: TIMELINE_ITEM_ROW_HEIGHT,
           border: "none",
           borderRadius: 0,
@@ -344,17 +249,14 @@ export default function TimelineItemTrackRow({
         <div
           style={{
             position: "absolute",
-            left: item.startFrame * timelinePxPerFrame,
+            left: viewModel.trackLeft,
             top: 5,
             height: 14,
-            width: item.durationFrames * timelinePxPerFrame,
+            width: viewModel.trackWidth,
             borderRadius: 2,
             border: "1px solid rgba(255,255,255,0.12)",
-            background:
-              item.kind === "subComp"
-                ? "linear-gradient(90deg, #3a6ea5 0%, #4f83bc 100%)"
-                : "linear-gradient(90deg, #4a4a4a 0%, #636363 100%)",
-            opacity: item.visible ? 0.92 : 0.42,
+            background: viewModel.trackBackground,
+            opacity: viewModel.trackOpacity,
             display: "flex",
             alignItems: "center",
             paddingLeft: 0,
@@ -367,10 +269,18 @@ export default function TimelineItemTrackRow({
             zIndex: 2,
             boxShadow: "inset 1px 0 0 rgba(0,0,0,0.26), inset -1px 0 0 rgba(0,0,0,0.26)",
           }}
-          onMouseDown={(event) => onBeginMoveTimelineItem(event, item)}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            interactions.beginMoveTimelineItem(event.clientX, item);
+          }}
         >
           <div
-            onMouseDown={(event) => onBeginResizeTimelineItemStart(event, item)}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              interactions.beginResizeTimelineItemStart(event.clientX, item);
+            }}
             style={{
               position: "absolute",
               left: 0,
@@ -382,7 +292,11 @@ export default function TimelineItemTrackRow({
           />
 
           <div
-            onMouseDown={(event) => onBeginResizeTimelineItemEnd(event, item)}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              interactions.beginResizeTimelineItemEnd(event.clientX, item);
+            }}
             style={{
               position: "absolute",
               right: 0,

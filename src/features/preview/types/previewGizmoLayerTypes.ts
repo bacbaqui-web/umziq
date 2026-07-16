@@ -2,8 +2,7 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
 } from "react";
-import type { ScaleHandleDirection } from "@/editor/types/editorViewTypes";
-import type { DirectInputState } from "@/features/preview/hooks/usePreviewOverlayState";
+import type { CanvasDirectInputState, ScaleHandleDirection } from "@/engines/canvas";
 import type {
   HoveredGizmoHandle,
   PreviewLineHandle,
@@ -12,6 +11,13 @@ import type {
 } from "@/features/preview/types/previewGizmoTypes";
 
 export type PreviewGizmoLayerProps = {
+  isVisible: boolean;
+  cursors: {
+    move: string;
+    rotation: string;
+    opacity: string;
+    scale: Record<ScaleHandleDirection, string>;
+  };
   viewportSize: {
     width: number;
     height: number;
@@ -41,7 +47,7 @@ export type PreviewGizmoLayerProps = {
     text: string;
   } | null;
   activeScaleHandle: PreviewScaleHandle | null;
-  directInput: DirectInputState;
+  directInput: CanvasDirectInputState;
   anchorOpacity: number;
   isAnchorHovered: boolean;
   onTargetMouseDown: (event: ReactMouseEvent<SVGPolygonElement>) => void;

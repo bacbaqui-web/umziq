@@ -9,29 +9,16 @@ import {
 import {
   TIMELINE_DURATION_EDITOR_HEIGHT,
   TIMELINE_DURATION_EDITOR_INPUT_WIDTH,
-} from "@/features/timeline/timelineUiConstants";
+  type TimelineDurationViewModel,
+} from "@/engines/timeline";
 
 type TimelineDurationSplitEditorProps = {
-  valueFrames: number;
-  frameRate: number;
-  title: string;
-  accent: "range" | "timeline";
-  onCommit: (nextDurationFrames: number) => void;
+  viewModel: TimelineDurationViewModel;
+  onCommit: (seconds: string, frames: string) => void;
 };
 
-function splitCompositionDuration(durationFrames: number, frameRate: number) {
-  const safeFrameRate = Math.max(frameRate, 1);
-  return {
-    seconds: Math.floor(durationFrames / safeFrameRate),
-    frames: durationFrames % safeFrameRate,
-  };
-}
-
 export default function TimelineDurationSplitEditor({
-  valueFrames,
-  frameRate,
-  title,
-  accent,
+  viewModel,
   onCommit,
 }: TimelineDurationSplitEditorProps) {
   const hiddenCaretInputStyle = {
@@ -53,42 +40,19 @@ export default function TimelineDurationSplitEditor({
   }, [isEditing]);
 
   const beginEditing = () => {
-    const durationParts = splitCompositionDuration(Math.max(valueFrames, 1), frameRate);
-    setSecondsInput(String(durationParts.seconds));
-    setFramesInput(String(durationParts.frames));
+    setSecondsInput(String(viewModel.seconds));
+    setFramesInput(String(viewModel.frames));
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    const durationParts = splitCompositionDuration(Math.max(valueFrames, 1), frameRate);
-    setSecondsInput(String(durationParts.seconds));
-    setFramesInput(String(durationParts.frames));
+    setSecondsInput(String(viewModel.seconds));
+    setFramesInput(String(viewModel.frames));
     setIsEditing(false);
   };
 
   const commitEditing = () => {
-    const nextSeconds = Number(secondsInput.trim());
-    const nextFrames = Number(framesInput.trim());
-
-    if (
-      !Number.isFinite(nextSeconds) ||
-      !Number.isFinite(nextFrames) ||
-      nextSeconds < 0 ||
-      nextFrames < 0
-    ) {
-      cancelEditing();
-      return;
-    }
-
-    const parsedDuration = Math.max(
-      1,
-      Math.floor(nextSeconds) * frameRate + Math.floor(nextFrames)
-    );
-
-    if (parsedDuration !== valueFrames) {
-      onCommit(parsedDuration);
-    }
-
+    onCommit(secondsInput, framesInput);
     setIsEditing(false);
   };
 
@@ -118,7 +82,7 @@ export default function TimelineDurationSplitEditor({
   };
 
   const fieldStyles =
-    accent === "range"
+    viewModel.accent === "range"
       ? {
           border: "1px solid rgba(245,165,36,0.38)",
           background: "rgba(245,165,36,0.12)",
@@ -129,14 +93,14 @@ export default function TimelineDurationSplitEditor({
           background: "#242424",
           color: "#d8e1ea",
         };
-  const compactDisplayValue = splitCompositionDuration(Math.max(valueFrames, 1), frameRate);
-  const valueColor = accent === "range" ? "#f6e4be" : "#eef5fc";
+  const compactDisplayValue = viewModel;
+  const valueColor = viewModel.accent === "range" ? "#f6e4be" : "#eef5fc";
   const unitColor =
-    accent === "range" ? "rgba(248, 222, 176, 0.68)" : "rgba(216, 225, 234, 0.62)";
+    viewModel.accent === "range" ? "rgba(248, 222, 176, 0.68)" : "rgba(216, 225, 234, 0.62)";
   const inputBackground =
-    accent === "range" ? "rgba(42, 33, 25, 0.92)" : "rgba(30, 34, 39, 0.94)";
+    viewModel.accent === "range" ? "rgba(42, 33, 25, 0.92)" : "rgba(30, 34, 39, 0.94)";
   const inputBorder =
-    accent === "range"
+    viewModel.accent === "range"
       ? "1px solid rgba(245,165,36,0.24)"
       : "1px solid rgba(255,255,255,0.12)";
 
@@ -241,7 +205,7 @@ export default function TimelineDurationSplitEditor({
         </div>
       ) : (
         <div
-          title={title}
+          title={viewModel.title}
           style={{
             width: "100%",
             color: "inherit",

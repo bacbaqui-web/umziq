@@ -3,6 +3,7 @@ import PreviewGizmoControls from "@/features/preview/components/PreviewGizmoCont
 import type { ActivePreviewGizmoLayerProps } from "@/features/preview/types/previewGizmoLayerTypes";
 
 export default function PreviewGizmoActiveLayer({
+  cursors,
   viewportSize,
   previewCorners,
   polygonPoints,
@@ -41,6 +42,7 @@ export default function PreviewGizmoActiveLayer({
   onAnchorHoverChange,
 }: ActivePreviewGizmoLayerProps) {
   const handlesProps = {
+    cursors,
     previewMoveHandle,
     previewRotationHandle,
     previewOpacityHandle,

@@ -3,25 +3,9 @@ import PropertiesKeyframeSection from "@/features/properties/sections/Properties
 import PropertiesTransformSection from "@/features/properties/sections/PropertiesTransformSection";
 import type { PropertiesPanelProps } from "@/features/properties/types/propertiesPanelTypes";
 
-export default function PropertiesPanel({
-  selectedComp,
-  selectedMeta,
-  selectedPropertyTarget,
-  playheadFrame,
-  defaultFrameRate,
-  importError,
-  importNotice,
-  formatCompactTime,
-  ...props
-}: PropertiesPanelProps) {
+export default function PropertiesPanel({ readModel, commands }: PropertiesPanelProps) {
   return (
-    <div
-      style={{
-        borderLeft: "1px solid #333",
-        padding: 12,
-        overflow: "auto",
-      }}
-    >
+    <div style={{ borderLeft: "1px solid #333", padding: 12, overflow: "auto" }}>
       <div
         style={{
           display: "flex",
@@ -38,11 +22,11 @@ export default function PropertiesPanel({
         <span style={{ fontSize: 18, fontWeight: 700 }}>Properties</span>
       </div>
 
-      {selectedComp ? (
+      {readModel.hasSelectedComposition ? (
         <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-          <PropertiesInfoPopover selectedComp={selectedComp} selectedMeta={selectedMeta} />
+          {readModel.info && <PropertiesInfoPopover info={readModel.info} />}
 
-          {selectedPropertyTarget && (
+          {readModel.targetName && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div
                 style={{
@@ -66,7 +50,7 @@ export default function PropertiesPanel({
                     fontWeight: 600,
                   }}
                 >
-                  {selectedPropertyTarget.name}
+                  {readModel.targetName}
                 </div>
                 <div
                   style={{
@@ -76,31 +60,21 @@ export default function PropertiesPanel({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {formatCompactTime(playheadFrame, selectedMeta?.frameRate ?? defaultFrameRate)}
+                  {readModel.currentTimeText}
                 </div>
               </div>
 
-              <PropertiesTransformSection
-                {...props}
-              />
-
-              <PropertiesKeyframeSection
-                selectedLayer={props.selectedLayer}
-                selectedTimelineComp={props.selectedTimelineComp}
-                selectedPropertyState={props.selectedPropertyState}
-                selectedKeyframe={props.selectedKeyframe}
-                selectedMeta={selectedMeta}
-                defaultFrameRate={defaultFrameRate}
-                propertyLabels={props.propertyLabels}
-                formatCompactTime={formatCompactTime}
-                onSavePositionKeyframe={props.onSavePositionKeyframe}
-                onDeleteSelectedKeyframe={props.onDeleteSelectedKeyframe}
-              />
+              <PropertiesTransformSection rows={readModel.rows} commands={commands} />
+              <PropertiesKeyframeSection viewModel={readModel.keyframe} commands={commands} />
             </div>
           )}
 
-          {importError && <div style={{ color: "#d08d8d", marginTop: 10 }}>{importError}</div>}
-          {importNotice && <div style={{ color: "#9bc18a", marginTop: 10 }}>{importNotice}</div>}
+          {readModel.importError && (
+            <div style={{ color: "#d08d8d", marginTop: 10 }}>{readModel.importError}</div>
+          )}
+          {readModel.importNotice && (
+            <div style={{ color: "#9bc18a", marginTop: 10 }}>{readModel.importNotice}</div>
+          )}
         </div>
       ) : (
         <div style={{ color: "#aaa" }}>선택된 컴포지션이 없습니다.</div>

@@ -1,21 +1,9 @@
+import type { CanvasMotionPathPointViewModel } from "@/engines/canvas";
+
 type PreviewMotionPathLayerProps = {
-  previewMotionPath: Array<{
-    frame: number;
-    isCurrent: boolean;
-    isKeyframe: boolean;
-    point: {
-      x: number;
-      y: number;
-    };
-  }>;
+  points: CanvasMotionPathPointViewModel[];
   motionPathPolyline: string;
-  protectedControlPoints: Array<{ x: number; y: number }>;
-  currentMotionFrame: number | null;
-  hoveredMotionFrame: number | null;
-  draggingMotionPathFrame: number | null;
-  motionPathInteractionLocked: boolean;
   motionPathDragReadout: string | null;
-  suppressedMotionPathClickFrame: number | null;
   onHoverMotionFrame: (frame: number | null) => void;
   onPressMotionPathDot: (
     frame: number,
@@ -23,32 +11,20 @@ type PreviewMotionPathLayerProps = {
     clientX: number,
     clientY: number
   ) => void;
-  onClickMotionPathDot: (
-    frame: number,
-    isKeyframe: boolean,
-    suppressedClickFrame: number | null
-  ) => void;
+  onClickMotionPathDot: (frame: number, isKeyframe: boolean) => void;
 };
 
-const MOTION_PATH_HANDLE_PROTECTION_RADIUS = 18;
-
 export default function PreviewMotionPathLayer({
-  previewMotionPath,
+  points,
   motionPathPolyline,
-  protectedControlPoints,
-  currentMotionFrame,
-  hoveredMotionFrame,
-  draggingMotionPathFrame,
-  motionPathInteractionLocked,
   motionPathDragReadout,
-  suppressedMotionPathClickFrame,
   onHoverMotionFrame,
   onPressMotionPathDot,
   onClickMotionPathDot,
 }: PreviewMotionPathLayerProps) {
   return (
     <>
-      {previewMotionPath.length > 1 && (
+      {points.length > 1 && (
         <polyline
           points={motionPathPolyline}
           fill="none"
@@ -58,128 +34,96 @@ export default function PreviewMotionPathLayer({
           strokeLinecap="round"
         />
       )}
-      {previewMotionPath.map(({ frame, point, isKeyframe, isCurrent }) => {
-        const frameDistance =
-          currentMotionFrame === null ? Number.POSITIVE_INFINITY : Math.abs(frame - currentMotionFrame);
-        const proximity = Number.isFinite(frameDistance)
-          ? Math.max(0, 1 - frameDistance / 10)
-          : 0;
-        const nearestControlDistance = Math.min(
-          ...protectedControlPoints.map((controlPoint) =>
-            Math.hypot(point.x - controlPoint.x, point.y - controlPoint.y)
-          )
-        );
-        const isNearProtectedControl =
-          nearestControlDistance < MOTION_PATH_HANDLE_PROTECTION_RADIUS;
-        const isInteractive = !motionPathInteractionLocked && !isNearProtectedControl;
-        const isHovered = hoveredMotionFrame === frame && isInteractive;
-        const radius = isCurrent
-          ? 4
-          : isKeyframe
-            ? 2.6 + proximity * 0.8
-            : 1.2 + proximity * 1.2;
-        const hoverRadius = radius + (isCurrent ? 0.8 : 1.2);
-        const fillOpacity = isCurrent
-          ? 0.96
-          : isKeyframe
-            ? 0.52 + proximity * 0.34
-            : 0.12 + proximity * 0.32;
-        const displayedOpacity = isNearProtectedControl
-          ? Math.max(0.08, fillOpacity * 0.45)
-          : fillOpacity;
-        const hitRadius = isKeyframe ? 8 : 6;
-
-        return (
-          <g key={`motion-${frame}`}>
-            {isHovered && isInteractive && (
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={hoverRadius}
-                fill="rgba(118, 197, 255, 0.08)"
-                stroke="rgba(255,255,255,0.38)"
-                strokeWidth={1}
-                pointerEvents="none"
-              />
-            )}
+      {points.map((point) => (
+        <g key={`motion-${point.frame}`}>
+          {point.isHovered && point.isInteractive && (
             <circle
-              cx={point.x}
-              cy={point.y}
-              r={radius + (isHovered || draggingMotionPathFrame === frame ? 0.45 : 0)}
-              fill={
-                isCurrent
-                  ? "rgba(255,255,255,0.96)"
-                  : `rgba(118, 197, 255, ${Math.min(
-                      1,
-                      displayedOpacity +
-                        (isInteractive && (isHovered || draggingMotionPathFrame === frame)
-                          ? 0.18
-                          : 0)
-                    )})`
-              }
-              stroke={
-                isCurrent
-                  ? "rgba(118, 197, 255, 0.9)"
-                  : isKeyframe
-                    ? "rgba(255,255,255,0.48)"
-                    : "none"
-              }
-              strokeWidth={isCurrent ? 1.5 : isKeyframe ? 1 : 0}
+              cx={point.point.x}
+              cy={point.point.y}
+              r={point.hoverRadius}
+              fill="rgba(118, 197, 255, 0.08)"
+              stroke="rgba(255,255,255,0.38)"
+              strokeWidth={1}
               pointerEvents="none"
             />
-            {isInteractive && (
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={hitRadius}
-                fill="transparent"
-                stroke="none"
+          )}
+          <circle
+            cx={point.point.x}
+            cy={point.point.y}
+            r={point.radius + (point.isHovered || point.isDragging ? 0.45 : 0)}
+            fill={
+              point.isCurrent
+                ? "rgba(255,255,255,0.96)"
+                : `rgba(118, 197, 255, ${Math.min(
+                    1,
+                    point.displayedOpacity +
+                      (point.isInteractive && (point.isHovered || point.isDragging) ? 0.18 : 0)
+                  )})`
+            }
+            stroke={
+              point.isCurrent
+                ? "rgba(118, 197, 255, 0.9)"
+                : point.isKeyframe
+                  ? "rgba(255,255,255,0.48)"
+                  : "none"
+            }
+            strokeWidth={point.isCurrent ? 1.5 : point.isKeyframe ? 1 : 0}
+            pointerEvents="none"
+          />
+          {point.isInteractive && (
+            <circle
+              cx={point.point.x}
+              cy={point.point.y}
+              r={point.hitRadius}
+              fill="transparent"
+              stroke="none"
+              style={{ pointerEvents: "auto", cursor: "pointer" }}
+              onMouseEnter={() => onHoverMotionFrame(point.frame)}
+              onMouseLeave={() => onHoverMotionFrame(null)}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onPressMotionPathDot(
+                  point.frame,
+                  point.isKeyframe,
+                  event.clientX,
+                  event.clientY
+                );
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onClickMotionPathDot(point.frame, point.isKeyframe);
+              }}
+            />
+          )}
+          {point.isDragging && motionPathDragReadout && (
+            <foreignObject
+              x={point.point.x + 8}
+              y={point.point.y - 18}
+              width={120}
+              height={24}
+              pointerEvents="none"
+            >
+              <div
                 style={{
-                  pointerEvents: "auto",
-                  cursor: "pointer",
+                  display: "inline-flex",
+                  padding: "1px 5px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(118, 197, 255, 0.36)",
+                  background: "rgba(17, 21, 27, 0.92)",
+                  color: "#d9ebff",
+                  fontSize: 10,
+                  lineHeight: 1.2,
+                  whiteSpace: "nowrap",
                 }}
-                onMouseEnter={() => onHoverMotionFrame(frame)}
-                onMouseLeave={() => onHoverMotionFrame(null)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onPressMotionPathDot(frame, isKeyframe, event.clientX, event.clientY);
-                }}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onClickMotionPathDot(frame, isKeyframe, suppressedMotionPathClickFrame);
-                }}
-              />
-            )}
-            {draggingMotionPathFrame === frame && motionPathDragReadout && (
-              <foreignObject
-                x={point.x + 8}
-                y={point.y - 18}
-                width={120}
-                height={24}
-                pointerEvents="none"
               >
-                <div
-                  style={{
-                    display: "inline-flex",
-                    padding: "1px 5px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(118, 197, 255, 0.36)",
-                    background: "rgba(17, 21, 27, 0.92)",
-                    color: "#d9ebff",
-                    fontSize: 10,
-                    lineHeight: 1.2,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {motionPathDragReadout}
-                </div>
-              </foreignObject>
-            )}
-          </g>
-        );
-      })}
+                {motionPathDragReadout}
+              </div>
+            </foreignObject>
+          )}
+        </g>
+      ))}
     </>
   );
 }

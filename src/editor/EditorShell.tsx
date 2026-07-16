@@ -1,8 +1,8 @@
 import { EditorShellLayout } from "@/editor/EditorShellLayout";
-import { useEditorShellController } from "@/editor/useEditorShellController";
+import { useEditorCompositionRoot } from "@/editor/useEditorCompositionRoot";
 
 export default function EditorShell() {
-  const shellLayoutProps = useEditorShellController();
+  const shellLayoutProps = useEditorCompositionRoot();
 
   return <EditorShellLayout {...shellLayoutProps} />;
 }

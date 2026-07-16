@@ -1,312 +1,494 @@
 # Shortform Editor source map
 
 > 점검 기준: 2026-07-16, 현재 작업 폴더의 소스 코드 기준
-> 대상: `src` 전체와 실행/빌드 설정. 이 문서는 다음 작업자가 코드를 빠르게 찾기 위한 지도다.
+> 리팩토링 상태: Seven-engine Task 1~17 완료. 구조 리팩토링과 자동 QA를 종료했다.
+> 목적: 다음 작업자가 파일 책임, 상태 소유권, Engine 연결 경계를 빠르게 파악하기 위한 지도다.
 
 ## 1. 프로젝트 한눈에 보기
 
-브라우저에서 PSD 파일을 불러와 Photoshop 그룹을 컴포지션으로, 픽셀 레이어를 레이어로 변환하고, 세로형 숏폼 캔버스에서 배치·애니메이션을 편집하는 React 프로토타입이다.
+PSD를 불러와 Photoshop group을 Composition으로, pixel layer를 Layer/drawable로 바꾸고 세로형 Canvas에서 transform과 keyframe을 편집하는 React/Vite 프로토타입이다.
 
-현재 구현된 큰 기능은 다음과 같다.
+현재 주요 기능:
 
-- 여러 PSD import, 같은 이름 PSD 교체, PSD 트리 탐색/정렬/삭제
-- PSD 그룹 → 중첩 컴포지션, 픽셀 레이어 → 캔버스 drawable 변환
-- PSD 재선택/파일 핸들을 통한 refresh 및 원본 변경 상태 표시
-- Canvas 2D 기반 중첩 컴포지션 렌더링
-- position, scale, rotation, opacity 정적 값 및 키프레임 편집
-- 프리뷰 gizmo, anchor 이동, motion path/keyframe 드래그
-- 타임라인 재생/스크럽, 항목 이동·리사이즈·정렬·복제·분할·이름 변경
-- 컴포지션 이동 breadcrumb/switcher, 재생 범위/길이 편집
-- 컴포지션 단위 undo/redo (`Cmd/Ctrl+Z`, `Shift+Cmd/Ctrl+Z`)
+- 여러 PSD import, 같은 이름 교체, refresh, source 상태 승인/삭제
+- PSD composition tree 탐색, 선택, 정렬, 삭제
+- 중첩 Composition의 Canvas 2D 렌더
+- position/scale/rotation/opacity 정적 값과 keyframe 편집
+- Canvas gizmo, anchor, motion path/keyframe drag
+- Playback, scrub, range, duration 편집
+- Timeline item move/resize/reorder/duplicate/split/rename/delete
+- Composition 단위 Undo/Redo와 drag 1회당 history 1회
 
-현재 없는 큰 기능은 프로젝트 저장/불러오기, 영상·이미지 export, 오디오, 텍스트 편집, 자동화 테스트다. 새로고침하면 메모리 상태는 사라진다.
+아직 없는 큰 기능은 프로젝트 영속 저장/불러오기, 영상 export, 오디오/텍스트 편집이다.
 
-## 2. 실행 구조와 핵심 데이터 흐름
-
-```text
-main.tsx
-  └─ App.tsx
-      └─ EditorShell.tsx
-          └─ useEditorShellController
-              ├─ useEditorShellModels
-              │   ├─ useEditorState            원본/편집/UI 상태 + history
-              │   └─ useEditorSelectionModel   선택 대상과 화면용 파생 모델
-              └─ useEditorShellFeatures
-                  ├─ useProjectActions          PSD import/refresh/delete/reorder
-                  ├─ useTransformActions        값/키프레임 변경
-                  ├─ useTimelineController      재생/항목/키프레임 상호작용
-                  ├─ usePreviewController       캔버스/viewport/gizmo 상호작용
-                  └─ useEditorShellLayout       패널 resize
-                      ↓ props 조립
-          └─ EditorShellLayout
-              ├─ PsdTree
-              ├─ PreviewWorkspacePane
-              ├─ PropertiesPanel
-              └─ TimelinePanel
-```
-
-PSD 데이터가 화면에 도달하는 경로:
+## 2. 앱 실행과 Composition Root
 
 ```text
-File / FileSystemFileHandle
-  → psdParser (ag-psd)
-  → psdCompositionBuilder
-      ├─ Composition / Layer 트리
-      ├─ CompositionMeta 사전
-      ├─ TimelineItem 사전
-      └─ RenderItem + HTMLCanvasElement 사전
-  → useEditorState
-  → selection model / timeline / property model
-  → previewRenderer(Canvas 2D) + React overlay UI
+src/main.tsx
+  → src/app/App.tsx
+    → src/editor/EditorShell.tsx
+      → useEditorCompositionRoot
+        ├─ useEditorState
+        │   ├─ Shell-owned Engine State Stores
+        │   ├─ Editor Session/Layout State
+        │   └─ Project Commands/History
+        ├─ Project Selection + PSD Engine
+        ├─ PSD Tree Engine
+        ├─ Playback Engine
+        ├─ Timeline Engine
+        ├─ Properties Engine
+        ├─ Animation Engine
+        ├─ Canvas Composition + Render Engine
+        ├─ History Shortcut
+        └─ Shell Layout
+             ↓ ViewProps
+        EditorShellLayout
+          ├─ PsdTree
+          ├─ PreviewWorkspacePane
+          ├─ PropertiesPanel
+          └─ TimelinePanel
 ```
 
-편집 입력이 반영되는 경로:
+`src/editor/useEditorCompositionRoot.ts`가 일곱 Engine을 모두 아는 유일한 앱 파일이다. 여기서 공개 Engine hook을 호출하고 read/command/history port를 서로 연결한다. 내부 Controller나 Helper를 직접 호출하지 않는다.
+
+### 핵심 입력 흐름
 
 ```text
-Properties / Timeline / Preview pointer event
-  → feature controller 또는 interaction hook
-  → transformActions / keyframeActions / compositionActions
-  → setComps 또는 master 전용 state 변경
-  → selection/geometry 재계산
-  → Canvas 다시 렌더 + 패널 props 갱신
+PSD File/FileHandle
+  → PSD Tree picker
+  → Project PSD parser/builder/import controller
+  → Project records + runtime render records
+  → Project Selection ReadModel
+  → Timeline / Properties / Canvas / Render
 ```
 
-## 3. 핵심 데이터 모델
+```text
+Timeline / Properties / Preview DOM event
+  → 해당 UI Engine Command
+  → Project 또는 Animation 공개 Command
+  → History Port + State Store
+  → ReadModel 재계산
+  → ViewProps 갱신
+```
 
-`src/editor/types/types.ts`가 프로젝트 도메인의 중심이다.
+```text
+Playback currentFrame
+  → Timeline item global/local frame 계산
+  → Animation evaluation
+  → Render Frame Command
+  → Canvas 2D Adapter
+```
 
-| 모델 | 역할 |
+## 3. Import 경계 규칙
+
+- Engine 외부에서는 `@/engines/<engine>`의 `index.ts`만 import한다.
+- 외부에서 Engine façade 아래의 어떤 구현 하위 경로도 직접 참조하지 않는다.
+- Core Engine인 Project, Animation, Playback & Render는 Editor/Feature/UI Engine을 import하지 않는다.
+- UI Engine인 PSD Tree, Canvas, Properties, Timeline은 서로 import하지 않는다.
+- Controller는 다른 Controller를 직접 import하거나 호출하지 않는다. Engine hook이 각 Controller를 조립한다.
+- 순수 Helper는 React, DOM, setter, Command를 사용하지 않는다.
+- 공유 가능한 저장 Domain은 `src/models`, Engine별 runtime/session/view model은 해당 Engine이 소유한다.
+- `scripts/verifyEngineImportBoundaries.ts`가 위 규칙을 검사한다.
+
+현재 검사 결과:
+
+- Engine 외부 내부 경로 import: 0
+- Core → UI/Editor/Feature: 0
+- UI Engine → 다른 UI Engine: 0
+- Controller → Controller 직접 import: 0
+
+## 4. 공유 Domain Model
+
+| 파일 | 책임 |
 |---|---|
-| `Composition` | `master` / PSD 루트인 `main` / PSD 그룹인 `sub` 컴포지션. 자식·레이어·transform·keyframe·원본 sync 상태를 보유한다. |
-| `Layer` | PSD 픽셀 레이어의 편집 모델. 위치/anchor/scale/rotation/opacity 및 속성별 keyframe을 보유한다. |
-| `CompositionMeta` | 해상도, FPS, duration, 원본 파일명, 레이어 수. |
-| `TimelineItem` | 특정 컴포지션 타임라인에 놓인 layer/subComp 인스턴스. 시작 프레임과 길이는 여기 있다. |
-| `RenderItem` | 화면 합성용 항목. `TimelineItem.sourceId`와 연결되며 drawable 또는 하위 comp를 참조한다. |
-| `RenderDrawable` | `ag-psd`가 만든 레이어 canvas와 PSD 좌표/visible 상태. |
-| `TimelineSelection` | 현재 타임라인에서 선택한 item/source를 가리킨다. |
-| `SelectedKeyframe` | 대상 종류, 대상 ID, 속성, frame으로 선택 키프레임을 식별한다. |
+| `src/models/transformModel.ts` | `Position`, `Scale` 값 구조 |
+| `src/models/animationModel.ts` | animatable property, track state, keyframe 타입과 기본 생성 |
+| `src/models/compositionModel.ts` | Composition/Layer/meta/tree/source sync 저장 계약 |
+| `src/models/timelineItemModel.ts` | Timeline item kind/timing/instance 계약 |
+| `src/models/selectionModel.ts` | UI Engine이 공유하는 `TimelineSelection` 계약 |
+| `src/models/index.ts` | 공유 Domain 공개 barrel |
 
-중요한 ID 연결:
+`HTMLCanvasElement`, `File`, file handle, React draft/hover/drag state는 공유 저장 Domain에 넣지 않는다.
 
-- `TimelineItem.compId`: 이 항목이 놓인 타임라인의 컴포지션 ID
-- `TimelineItem.sourceId`: 실제 `Layer.id` 또는 `Composition.id`
-- `TimelineItem.targetCompId`: subComp 렌더링 시 들어갈 컴포지션 ID
-- `RenderItem.sourceId`: `TimelineItem.sourceId`와 연결
-- `sourcePath`: PSD 계층에서 동일 엔티티를 refresh 전후에 찾는 안정 키
-- `sourceFingerprint`: PSD 내용/크기/위치 등의 변경을 감지하는 값
-- `sourceSyncStatus`: `normal | updated | new | deletePending | missing`
+## 5. Editor Shell 파일
 
-## 4. 디렉터리별 파일 책임
+| 파일 | 책임 |
+|---|---|
+| `src/editor/EditorShell.tsx` | Composition Root 결과를 Layout에 전달하는 최상위 View 경계 |
+| `src/editor/useEditorCompositionRoot.ts` | state 생성, 일곱 Engine 호출, port wiring, Layout props 조립 |
+| `src/editor/EditorShellLayout.tsx` | 네 panel과 resize separator 배치. 기능 계산 없음 |
+| `src/editor/useEditorShellLayout.ts` | panel resize mouse lifecycle |
+| `src/editor/editorShellLayoutConstants.ts` | panel 기본/최소/최대 크기 |
+| `src/editor/useEditorHistoryShortcuts.ts` | Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z 전역 listener와 History port 호출 |
+이전 Shell controller/features/models와 Editor actions/import/preview/types compatibility 구현은 참조가 없어 삭제됐다.
 
-### 앱 진입점과 셸
+### Editor State
 
-- `src/main.tsx`: React root 생성, 전역 CSS 로드, `App` 마운트.
-- `src/app/App.tsx`: 현재는 `EditorShell`만 렌더하는 최상위 앱.
-- `src/editor/EditorShell.tsx`: controller가 만든 props를 layout에 전달하는 얇은 경계.
-- `src/editor/useEditorShellController.ts`: models와 features를 순서대로 조립해 layout props를 반환.
-- `src/editor/useEditorShellModels.ts`: `useEditorState`와 `useEditorSelectionModel`을 연결.
-- `src/editor/useEditorShellFeatures.ts`: 앱의 composition root. 프로젝트/transform/timeline/preview/layout hook을 연결하고 네 패널의 전체 props와 undo/redo·재생 effect를 만든다. 기능 연결을 추적할 때 가장 먼저 볼 파일.
-- `src/editor/EditorShellLayout.tsx`: 좌측 PSD 트리, 중앙 프리뷰, 우측 속성, 하단 타임라인의 CSS grid 배치 및 resize separator.
-- `src/editor/useEditorShellLayout.ts`: 세 패널 크기 드래그, 최소/최대 크기, 전역 mousemove/mouseup 처리.
-- `src/editor/editorShellConstants.ts`: master/숏폼 해상도(1080×1920), 30fps, timeline 배율, 패널 최소 크기, 속성 목록/라벨.
+| 파일 | 책임 |
+|---|---|
+| `state/useEditorState.ts` | Shell state hook과 공개 Project Commands/History를 조립해 Root에 제공 |
+| `state/useEditorEngineStateStores.ts` | Project record/master/runtime, Playback, Canvas, Timeline React state 생성 |
+| `state/useEditorSessionState.ts` | selection, 마지막 선택, keyframe, transform/property draft, import feedback |
+| `state/useEditorShellLayoutState.ts` | panel 폭/높이와 resize session |
 
-### 상태와 파생 모델
+State store는 값을 저장할 뿐 mutation 정책, geometry, rendering, Timeline 계산을 구현하지 않는다.
 
-- `src/editor/state/useEditorState.ts`: 모든 변경 가능한 상태의 단일 저장소 역할. comps/meta/timeline/render, master transform, selection, drafts, playback, preview, panel, drag/readout 상태와 PSD 파일 핸들 ref를 보유한다. 컴포지션별 최대 100개 snapshot의 undo/redo 및 연속 drag history capture도 담당.
-- `src/editor/state/useEditorSelectionModel.ts`: 원본 state에서 master 가상 컴포지션, 전체 ID map, 현재 comp/layer/subComp, transform 대상, meta, timeline items와 노출할 property row를 계산.
-- `src/editor/state/useEditorPropertyModel.ts`: playhead/local frame에서 선택 대상 transform을 평가하고 입력창용 draft 문자열/수치를 계산.
-- `src/editor/models/projectModelHelpers.ts`: master comp/meta/timeline 생성, 트리 탐색, ID map 수집, 선택 복원, 순서 변경, render 순서 동기화, 컴포지션 subtree record 제거.
+## 6. Project Engine
 
-### 공통 타입
+공개 경계: `src/engines/project/index.ts`
 
-- `src/editor/types/types.ts`: 핵심 도메인 타입과 `createPropertyTrackState`.
-- `src/editor/types/editorViewTypes.ts`: timeline row/selection, preview overlay/motion path, gizmo handle, selected keyframe 등 화면 모델.
-- `src/editor/types/transformActionTypes.ts`: layer/composition transform 대상과 static/animated 편집 모드.
-- `src/editor/types/psdSourceTypes.ts`: browser file handle을 포함한 PSD import source와 메모리 저장 정보.
+주요 공개 API:
 
-### PSD import 파이프라인
+- `useProjectCommands`, `ProjectCommands`
+- `useProjectHistory`, `ProjectHistory`
+- `useProjectPsdEngine`
+- `useProjectSelectionModel`
+- Project constants와 외부에 필요한 PSD/runtime type
 
-- `src/editor/import/psdParser.ts`: `File.arrayBuffer()`를 읽어 `ag-psd.readPsd` 결과로 변환.
-- `src/editor/import/psdLoader.ts`: parser와 composition builder를 잇는 공개 진입점.
-- `src/editor/import/psdCompositionBuilder.ts`: PSD children을 순회한다. 그룹을 sub composition, 일반 레이어를 layer/timeline/render item으로 만들고 comp별 meta/timeline/render record를 완성.
-- `src/editor/import/psdDocumentFactory.ts`: 기본 30fps/5초 meta와 기본 composition transform 생성.
-- `src/editor/import/psdLayerConverter.ts`: PSD 레이어를 편집 `Layer`와 canvas `RenderDrawable`로 변환하고 source fingerprint 계산.
-- `src/editor/import/psdImportHelpers.ts`: 이름/slug/ID/path/hash/opacity/stacking order와 drawable flatten 유틸.
+### Command와 History
 
-### 프로젝트 액션과 PSD 동기화
+| 파일 | 책임 |
+|---|---|
+| `useProjectCommands.ts` | 내부 Command Controller를 공개 hook으로 감싼다 |
+| `models/projectCommandModel.ts` | Project record bundle과 Command Port 계약 |
+| `controllers/useProjectCommandController.ts` | composition/meta/timeline/render record 교체·갱신 command |
+| `useProjectHistory.ts` | History state와 Controller를 하나의 공개 hook으로 조립 |
+| `state/useProjectHistoryState.ts` | composition별 past/future/pending capture ref |
+| `controllers/useProjectHistoryController.ts` | push/undo/redo/begin/dirty/commit/cancel/reset |
+| `history/projectHistorySnapshot.ts` | snapshot clone/capture/restore, runtime canvas 참조 보존 |
 
-- `src/editor/actions/useProjectActions.ts`: UI에서 호출하는 PSD 진입 액션. import, comp 진입, refresh source 재확보, main 삭제/재정렬, sync 상태 승인/삭제 결정을 state 변경으로 연결.
-- `src/editor/actions/projectActionHelpers.ts`: 여러 PSD를 이름순 import하고 같은 이름의 기존 main을 교체하며 master timeline과 선택을 재구축.
-- `src/editor/actions/psdRefreshHelpers.ts`: refresh의 핵심 병합 엔진. `sourcePath`와 fingerprint를 기준으로 기존 사용자의 transform/timing을 보존하면서 updated/new/deletePending을 판정하고 composition/timeline/render record를 병합. 승인, missing 표시, 실제 삭제도 처리.
-- `src/editor/actions/compositionActions.ts`: 중첩 composition/layer를 불변 방식으로 갱신하고 순서를 바꾸는 재귀 helper.
-- `src/editor/actions/editorActions.ts`: composition/keyframe/transform 순수 액션을 한 경로로 재수출하는 barrel.
+### Selection과 Project 구조
 
-### Transform/keyframe 액션
+| 파일 | 책임 |
+|---|---|
+| `useProjectSelectionModel.ts` | master virtual comp, ID map, 현재 selection/meta/items, Properties target 파생 |
+| `helpers/projectModelHelpers.ts` | tree 탐색/map/selection 복원/master model/reorder 동기화 |
+| `helpers/compositionTreeHelpers.ts` | composition tree 불변 갱신과 timeline 순서 기반 reorder |
+| `constants/projectConstants.ts` | master ID/1080×1920, 30fps, 기본 duration, history limit |
 
-- `src/editor/actions/transformActions.ts`: composition tree에 position/scale/rotation/opacity, scale link, property track enabled 값을 반영하는 순수 함수.
-- `src/editor/actions/keyframeActions.ts`: 속성별 keyframe upsert, 이동, 선택 keyframe 삭제를 composition tree에 적용.
-- `src/editor/actions/keyframeTrackHelpers.ts`: keyframe 배열의 정렬된 upsert/move/remove 제네릭 연산.
-- `src/editor/actions/keyframeTargetHelpers.ts`: layer/composition의 속성별 keyframe list를 타입 안전하게 교체.
-- `src/editor/actions/transformPropertyActionHelpers.ts`: 선택 keyframe 생성/일치 확인과 transform draft 초기화.
-- `src/editor/actions/useTransformActions.ts`: 하위 transform hook들을 조립해 shell이 사용하는 단일 API 제공.
-- `src/editor/actions/useTransformValueActions.ts`: static/animated 값 적용 hook을 묶음.
-- `src/editor/actions/useStaticTransformValueActions.ts`: 속성 track이 꺼진 정적 transform 값을 layer/subComp/master에 적용.
-- `src/editor/actions/useAnimatedTransformValueActions.ts`: track이 켜진 속성 값을 현재 local frame keyframe으로 생성/갱신.
-- `src/editor/actions/useTransformInputActions.ts`: 프리뷰 readout/속성 입력값을 보정하고 anchor/offset 좌표 규칙을 반영.
-- `src/editor/actions/useTransformCommitActions.ts`: 프리뷰 숫자 입력 commit을 적절한 edit mode와 값 액션으로 전달.
-- `src/editor/actions/useTransformPropertyActions.ts`: property track toggle과 keyframe 명령을 조립.
-- `src/editor/actions/useTransformPropertyToggleActions.ts`: 속성 track on/off, 초기 keyframe 구성, draft/선택 정리.
-- `src/editor/actions/useTransformPropertyKeyframeActions.ts`: position keyframe 저장과 현재 선택 keyframe 삭제.
+### PSD Lifecycle
 
-### 프리뷰 계산/렌더 엔진 (`src/editor/preview`)
+```text
+useProjectPsdEngine
+  ├─ usePsdSourceController
+  ├─ useProjectNavigationController
+  ├─ usePsdImportController
+  ├─ usePsdRefreshController
+  ├─ usePsdLibraryController
+  └─ usePsdSourceSyncController
+```
 
-- `previewEngine.ts`: camera/format/guide/motion/coordinate/evaluation/renderer 전체 공개 barrel.
-- `previewGeometry.ts`: geometry/evaluation만 다시 내보내는 축소 barrel.
-- `previewCamera.ts`: zoom clamp, 중앙 pan, world↔screen, pointer→composition 좌표 변환.
-- `previewCoordinateMath.ts`: 회전/anchor/transform geometry, 축 투영, anchor 이동 시 offset 보상 계산.
-- `previewValueEvaluation.ts`: 프레임 사이 keyframe 값을 선형 보간해 layer/composition transform 평가.
-- `motionPathGeometry.ts`: local frame map, ruler frame, layer/subComp overlay, position motion path 계산.
-- `guideGeometry.ts`: 9:16 숏폼 프레임과 safe-zone guide 선/라벨 geometry 계산.
-- `previewRenderer.ts`: 활성 timeline 범위를 거른 뒤 Canvas 2D에 layer와 중첩 comp를 transform/opacity 순서대로 합성.
-- `previewFormatting.ts`: 시간, rotation, scale, position readout 표시 문자열.
+| 영역 | 파일/폴더 | 책임 |
+|---|---|---|
+| Engine | `useProjectPsdEngine.ts` | 독립 Controller와 source port 조립 |
+| Navigation | `controllers/useProjectNavigationController.ts` | selected composition 진입/이동 |
+| Source | `controllers/usePsdSourceController.ts` | file handle 등록/조회/삭제 |
+| Import | `controllers/usePsdImportController.ts` | 여러 PSD 변환, 같은 이름 교체, 원자적 record commit |
+| Refresh | `controllers/usePsdRefreshController.ts` | 최신 source 재로딩, diff/merge, selection/history 후처리 |
+| Library | `controllers/usePsdLibraryController.ts` | main 삭제와 reorder |
+| Sync | `controllers/usePsdSourceSyncController.ts` | updated/new/deletePending/missing 처리 |
+| Parser | `import/psdParser.ts`, `psdLoader.ts` | File → parsed PSD/document |
+| Builder | `import/psdCompositionBuilder.ts`, `psdDocumentFactory.ts`, `psdLayerConverter.ts`, `psdImportHelpers.ts` | PSD → composition/meta/timeline/render records |
+| Merge | `helpers/psd/*` | source match/status, timeline/render/composition merge, cleanup, import 정책 |
+| Runtime model | `models/psdSourceRuntimeModel.ts`, `runtimeRenderModel.ts` | File handle/source와 Canvas drawable/render item |
+| Refresh model | `models/psdRefreshResultModel.ts` | refresh 중간 결과 계약 |
 
-### 프리뷰 controller/hooks
+## 7. Animation Engine
 
-- `src/features/preview/hooks/usePreviewController.ts`: viewport, scene geometry, canvas renderer, transform/motion-path interaction을 조립하는 프리뷰 진입 controller.
-- `usePreviewViewport.ts`: viewport 값, refs, resize, camera command, pan interaction을 조립.
-- `usePreviewViewportCommands.ts`: reset/center/1:1/zoom 명령.
-- `usePreviewWorkspaceResize.ts`: `ResizeObserver`로 workspace 크기 추적.
-- `usePreviewCanvasRenderer.ts`: scene 데이터가 바뀔 때 `drawRenderItems` 호출.
-- `usePreviewSceneGeometry.ts`: 활성 render item, source별 local frame, 선택 overlay/motion path를 memo 계산.
-- `usePreviewOverlayState.ts`: 직접 숫자 입력, hover, pending handle/motion-path 상태와 전역 입력 종료 처리.
+공개 경계: `src/engines/animation/index.ts`
 
-### 프리뷰 pointer interaction
+```text
+useAnimationEngine
+  ├─ useTransformValueController
+  ├─ usePropertyTrackController
+  ├─ useKeyframeController
+  └─ useTransformInputAdapter
+       ↓
+  Project / Master / Session / History Port
+```
 
-- `src/features/preview/interaction/usePreviewTransformInteractions.ts`: anchor와 각 transform handle interaction을 조립.
-- `usePreviewHandleInteractions.ts`: move/scale/rotation/opacity interaction을 선택 속성 상태에 맞춰 조립.
-- `usePreviewDirectMoveInteraction.ts`: 대상 클릭 선택과 position 직접 드래그; history capture와 static/animated 값 적용.
-- `usePreviewAnchorInteraction.ts`: anchor drag 및 시각 위치 유지용 transformOffset 보상.
-- `usePreviewScaleInteraction.ts`: x/y/xy scale handle drag와 readout.
-- `usePreviewRotationInteraction.ts`: 원형 rotation handle drag와 각도 정규화/readout.
-- `usePreviewOpacityInteraction.ts`: 방사형 opacity handle drag와 0~100 clamp/readout.
-- `usePreviewMotionPathInteractions.ts`: motion path 점 선택 및 position keyframe frame/value 드래그.
-- `usePreviewPanInteractions.ts`: space/middle mouse pan, wheel zoom, 관련 전역 pointer/key 상태.
-- `previewPointerMath.ts`: pointer context와 drag 시작 snapshot 생성.
-- `previewInteractionMath.ts`: position/scale/opacity/rotation drag 수치 계산.
-- `previewHandleEditModes.ts`: enabled property에 따라 각 gizmo가 static/animated 중 어느 방식으로 쓸지 결정.
+| 영역 | 파일/폴더 | 책임 |
+|---|---|---|
+| Engine | `useAnimationEngine.ts` | Controller 결과를 `AnimationCommands`로 조립 |
+| Transform | `controllers/useTransformValueController.ts` | static/animated position/scale/rotation/opacity/anchor 적용 |
+| Track | `controllers/usePropertyTrackController.ts` | track on/off, initial keyframe, scale link |
+| Keyframe | `controllers/useKeyframeController.ts` | upsert/move/remove/select/save |
+| Input adapter | `adapters/useTransformInputAdapter.ts` | Preview/Properties input을 command로 변환 |
+| Pure mutation | `actions/animationProjectMutations.ts` | Composition tree 불변 변경. React state 호출 없음 |
+| Command model | `models/animationCommandModel.ts` | Project/Master/Session/History port |
+| Session model | `models/animationSessionModel.ts` | selected keyframe, transform target/edit mode |
+| Constants | `constants/animationConstants.ts` | 지원 animatable property 목록 |
+| Track helpers | `helpers/keyframeTrackHelpers.ts`, `keyframeTargetHelpers.ts`, `propertyTrackHelpers.ts` | keyframe/track 순수 조작 |
+| Evaluation | `helpers/animationEvaluationHelpers.ts` | frame별 transform 보간과 fallback |
+| Frame/selection | `helpers/animationFrameHelpers.ts`, `animationSelectionHelpers.ts` | global/local frame과 selection descriptor |
+| Motion/value | `helpers/motionPathSamplingHelpers.ts`, `transformValueHelpers.ts` | motion sample, opacity/rotation 정규화 |
 
-### 프리뷰 React 컴포넌트/geometry/type
+Animation Controller는 History를 구현하지 않고 주입된 History Port만 호출한다.
 
-- `src/features/preview/components/PreviewWorkspacePane.tsx`: 중앙 workspace 최상위 UI. controls, viewport, canvas, interaction overlay 연결.
-- `PreviewWorkspaceControls.tsx`: zoom 표시, reset/center/1:1, 숏폼 프레임/safe-zone 토글.
-- `PreviewViewportLayers.tsx`: 실제 canvas와 guide layer 적층.
-- `PreviewGuideLayers.tsx`: 숏폼/safe-zone SVG guide 렌더.
-- `PreviewInteractionOverlay.tsx`: 선택 대상이 있을 때 overlay event 영역 제공.
-- `PreviewOverlay.tsx`: overlay view model 생성 후 gizmo와 motion path 배치.
-- `PreviewGizmoLayer.tsx`: active gizmo layer로 전달하는 얇은 wrapper.
-- `PreviewGizmoActiveLayer.tsx`: backdrop과 controls 적층.
-- `PreviewGizmoBackdrop.tsx`: 선택 bounding box/회전된 사각형/중심 표시.
-- `PreviewGizmoControls.tsx`: anchor, handles, readout 묶음.
-- `PreviewGizmoHandles.tsx`: move/scale/rotation/opacity 실제 SVG/HTML hit target.
-- `PreviewAnchorControl.tsx`: anchor 표시/drag target.
-- `PreviewGizmoReadouts.tsx`: 드래그 값과 직접 입력 UI.
-- `PreviewMotionPathLayer.tsx`: motion path 선, keyframe 점, drag readout.
-- `src/features/preview/geometry/previewOverlayGeometry.ts`: domain overlay를 viewport 좌표의 view model로 변환.
-- `previewOverlayHelpers.ts`: handle 위치/커서/반경 descriptor.
-- `previewViewportValues.ts`: fit zoom, 실제 preview 크기/offset, guide geometry 계산.
-- `src/features/preview/types/previewControllerTypes.ts`: preview controller가 받는 transform target의 경량 타입.
-- `previewGizmoLayerTypes.ts`: gizmo component props 계약.
-- `previewGizmoTypes.ts`: point/line/handle/hover 타입과 handle 크기.
+## 8. Playback & Render Engine
 
-### Properties 패널
+공개 경계: `src/engines/playback-render/index.ts`
 
-- `src/features/properties/components/PropertiesPanel.tsx`: 선택/PSD 상태 메시지, transform section, keyframe section을 배치.
-- `PropertiesInfoPopover.tsx`: 현재 comp의 크기/FPS/duration/source 정보 팝오버.
-- `PropertiesPropertyRow.tsx`: 속성별 on/off, 숫자 입력, keyframe 상태/색상, scale link 등 실제 편집 행.
-- `src/features/properties/sections/PropertiesTransformSection.tsx`: 네 속성 row를 구성.
-- `PropertiesKeyframeSection.tsx`: 선택 keyframe 정보, position 저장, 선택 keyframe 삭제 UI.
-- `src/features/properties/types/propertiesPanelTypes.ts`: 패널과 하위 row의 props 계약.
-- `src/features/propertyVisualTokens.ts`: 속성별 색상/아이콘/시각 토큰을 properties와 timeline에 공통 제공.
+### Playback
 
-### PSD 트리
+| 파일 | 책임 |
+|---|---|
+| `usePlaybackEngine.ts` | playback/range/loop Controller와 read/command 조립 |
+| `controllers/usePlaybackController.ts` | play/pause/toggle/seek/step/reset |
+| `controllers/usePlaybackRangeController.ts` | composition별 exclusive-end range 정규화 |
+| `controllers/usePlaybackLoopController.ts` | frame rate 기반 interval lifecycle과 끝 처리 |
+| `helpers/playbackFrameHelpers.ts` | frame clamp/step/advance 순수 계산 |
+| `helpers/playbackRangeHelpers.ts` | range 생성/정규화/축소 순수 계산 |
+| `models/playbackModel.ts` | Playback state/read/command port |
+| `timeFormatting.ts` | timeline/compact time 문자열 포맷 |
 
-- `src/features/psdtree/components/PsdTree.tsx`: File System Access API 우선, file input fallback으로 PSD import/refresh. main comp drag 상태 관리.
-- `PsdTreeNode.tsx`: master/main/sub 계층 재귀 렌더, comp 선택, main refresh/delete, main 간 drag reorder.
-- `src/features/psdtree/model/psdTreeTypes.ts`: tree/drop/source action props 타입.
+Playback state 자체는 Shell-owned `useEditorPlaybackState`가 한 번 생성하고 Engine에 Port로 주입한다.
 
-### 타임라인 controller와 유틸
+### Render
 
-- `src/features/timeline/hooks/useTimelineController.ts`: playback, item, keyframe interaction을 조립하고 frame/local frame/폭/선택 항목을 계산.
-- `useTimelinePlayback.ts`: ruler scrub, reset, step, play/pause, frame clamp와 선택 항목 local frame 계산.
-- `useTimelineItemInteractions.ts`: item reorder, 좌우 resize, 이동, 선택, 복제, split, rename. timeline과 render 순서를 같이 맞춤.
-- `useTimelineKeyframeInteractions.ts`: keyframe 선택과 pointer drag로 frame 이동, history capture.
-- `src/features/timeline/timelineSelectionPath.ts`: breadcrumb 문자열과 부모/형제 composition switcher 모델.
-- `timelineSelectionUtils.ts`: item/property row 선택 여부 판정.
-- `timelineSourceSyncUtils.ts`: item이 가리키는 layer/subComp의 source sync 상태 조회.
-- `timelineTrackRowLayout.ts`: item/property row 높이와 top 좌표 계산.
-- `timelineUiConstants.ts`: row/gap/duration editor 치수.
-- `src/features/timeline/types/timelineTypes.ts`: TimelinePanel 전체 props 계약.
-- `timelineInteractionTypes.ts`: move/resize/keyframe drag 중인 interaction union.
+| 파일 | 책임 |
+|---|---|
+| `useRenderEngine.ts` | selected composition/frame/runtime records로 Render Frame 생성 |
+| `controllers/buildRenderFrame.ts` | drawable/composition render command graph 생성 |
+| `helpers/activeTimelineItemHelpers.ts` | global frame에서 active item/local frame/order 계산 |
+| `helpers/renderSourceHelpers.ts` | Layer/Composition source와 transform evaluation 결합 |
+| `models/renderFrameModel.ts` | Render Frame/Command 계약 |
+| `adapters/canvas2dRenderAdapter.ts` | 유일한 CanvasRenderingContext2D draw adapter |
 
-### 타임라인 컴포넌트
+## 9. PSD Tree Engine
 
-- `src/features/timeline/components/TimelinePanel.tsx`: header, ruler, rows의 최상위 배치.
-- `TimelineHeader.tsx`: transport, breadcrumb, comp switcher 조립.
-- `TimelineTransportControls.tsx`: reset/step/play, duplicate/split 버튼과 현재 시간.
-- `TimelineSelectionBreadcrumb.tsx`: 현재 선택 경로 표시.
-- `TimelineCompositionSwitcher.tsx`: 부모/형제 comp로 이동하는 팝오버형 선택 UI.
-- `TimelineRuler.tsx`: tick/playhead/hover, scrub, 전체 duration 및 playback range split editor.
-- `TimelineDurationSplitEditor.tsx`: duration과 in/out 경계를 드래그/숫자 입력으로 편집.
-- `TimelineTrackRows.tsx`: item/property row와 overlay를 같은 layout으로 적층.
-- `TimelineItemTrackRow.tsx`: item 이름/가시성/sync 상태, 선택, rename, DnD reorder, move/resize, deletePending 결정을 표시.
-- `TimelinePropertyTrackRow.tsx`: 속성명과 해당 keyframe 점을 렌더하고 선택/drag 시작.
-- `TimelineTrackOverlays.tsx`: 전체 row 위 playhead, hover line, 드래그 guide를 렌더.
+공개 경계: `src/engines/psd-tree/index.ts`
 
-### 스타일과 설정
+| 파일/폴더 | 책임 |
+|---|---|
+| `usePsdTreeEngine.ts` | picker/source/selection/reorder Controller와 ViewModel 조립 |
+| `controllers/usePsdPickerController.ts` | import/refresh picker intent |
+| `controllers/useSourceActionController.ts` | refresh/delete/source status UI action |
+| `controllers/useTreeSelectionController.ts` | composition 선택 intent |
+| `controllers/useTreeReorderController.ts` | drag/drop order intent |
+| `state/usePsdTreeState.ts` | picker ref, pending mode, dragged/drop UI state |
+| `adapters/psdFilePickerAdapter.ts` | File System Access API와 file input fallback |
+| `helpers/psdTreeDropHelpers.ts` | drop 위치와 order 순수 계산 |
+| `helpers/psdTreeViewModelHelpers.ts` | Project tree → node ViewModel |
+| `models/psdTreeModel.ts` | read/command/selection port와 ViewProps |
+| `features/psdtree/components/PsdTree.tsx`, `PsdTreeNode.tsx` | 계산된 tree를 렌더하고 DOM event 전달 |
 
-- `src/app/index.css`: body/root reset, 폰트와 전역 box sizing.
-- `src/app/App.css`: Vite 기본 스타일 잔재. 현재 import되지 않아 실제 화면에는 적용되지 않는다.
-- `src/shared/assets/react.svg`, `public/vite.svg`: Vite 템플릿 잔재. 현재 앱에서 사용하지 않는다.
-- `index.html`: Vite HTML 진입점과 `#root`.
-- `vite.config.ts`: React plugin과 `@` → `src` alias.
-- `tsconfig.json`: app/node TypeScript project reference.
-- `tsconfig.app.json`: 브라우저 소스의 strict TypeScript 및 alias 설정.
-- `tsconfig.node.json`: Vite 설정용 Node TypeScript 설정.
-- `eslint.config.js`: TypeScript/React hooks/refresh lint 규칙, `dist` 제외.
-- `package.json`: Vite/React/TypeScript scripts와 `ag-psd` 의존성.
-- `package-lock.json`: 실제 설치 버전 잠금.
-- `.gitignore`: node/build/editor 생성물 제외.
-- `README.md`: 아직 Vite 기본 안내문으로, 프로젝트 설명은 이 문서가 대신하고 있다.
+## 10. Canvas Engine과 Preview View
 
-## 5. 상태 소유권과 수정 시 주의점
+공개 경계: `src/engines/canvas/index.ts`
 
-- `useEditorState`는 앱 전체 상태를 한 hook에 모아 둔다. 새 전역 편집 상태는 여기서 시작하지만, 파생 가능한 값은 selection/property/feature hook에서 계산하는 편이 현재 구조와 맞다.
-- master comp는 `comps` 배열에 저장되지 않고 `useEditorSelectionModel`이 가상으로 만든다. master transform은 별도 state다. 일반 comp 수정 코드로 master를 다루면 누락될 수 있다.
-- timeline 인스턴스의 시간은 `TimelineItem`, 실제 transform은 `Layer`/`Composition`, 픽셀은 `RenderItem`에 분리되어 있다. reorder/delete/refresh 시 세 구조를 함께 동기화해야 한다.
-- 화면에 보이는 frame은 선택 item의 `startFrame`을 뺀 local frame과 다를 수 있다. keyframe 편집은 `selectedTransformLocalFrame`을 사용한다.
-- PSD refresh는 ID가 아니라 `sourcePath`를 우선 안정 키로 사용한다. import ID 생성 규칙이나 source path를 바꾸면 refresh 병합도 함께 수정해야 한다.
-- canvas 객체는 JSON 직렬화 대상이 아니어서 현재 history snapshot은 render record를 별도 얕은 clone 방식으로 다룬다. 향후 저장 기능에서는 픽셀 원본 재로딩 전략이 필요하다.
-- drag 한 번에 undo snapshot 하나를 만들기 위해 begin/mark/commit history capture가 여러 interaction hook에 전달된다. pointer 종료/취소 경로에서 commit 누락을 주의해야 한다.
+```text
+useCanvasComposition
+  ├─ useRenderEngine
+  └─ useCanvasEngine
+      ├─ useCanvasViewportEngine
+      ├─ Guide/Selection/Render Controller
+      ├─ Pointer/Transform/Motion Controller
+      └─ Gizmo Controller
+           ↓
+      PreviewWorkspacePane ViewProps
+```
 
-## 6. 현재 검증 상태와 알려진 경계
+### 조립과 Controller
 
-- `npm run build`: 성공. TypeScript와 production Vite build가 통과한다.
-- 번들 경고: minified JS 약 603 kB로 Vite의 500 kB 경고 기준을 넘는다. `ag-psd`와 편집기 코드가 단일 chunk에 들어간다.
-- `npm run lint`: 실패 1건. `TimelineItemTrackRow.tsx:92`의 effect 내부 동기 `setShowDeleteDecision(false)`가 `react-hooks/set-state-in-effect`에 걸린다.
-- 테스트 파일과 test script가 없다. 수학/refresh/타임라인 편집 로직의 회귀를 자동으로 막는 장치가 없다.
-- `.git` 디렉터리가 없어 이 폴더만으로 커밋/branch/과거 diff를 확인할 수 없다.
-- 프로젝트 persistence/export가 없다. 브라우저 reload 시 state와 file handle ref가 사라진다.
-- File System Access API가 없는 브라우저에서는 file input fallback을 쓰므로 원본 파일 핸들을 보존하지 못하고 refresh 때 재선택해야 한다.
-- README, 버전 `0.0.0`, Vite 로고 등 초기 템플릿 정리가 아직 남아 있다.
+| 파일 | 책임 |
+|---|---|
+| `useCanvasComposition.ts` | Project/Animation/Playback data와 Render/Canvas를 연결하고 Preview props 생성 |
+| `useCanvasEngine.ts` | Canvas Controller 전체 조립, pointer port와 gizmo command 연결 |
+| `useCanvasViewportEngine.ts` | viewport/workspace/pan Controller 조립 |
+| `controllers/useCanvasViewportController.ts` | zoom/reset/1:1/pointer zoom |
+| `controllers/useCanvasWorkspaceController.ts` | workspace ResizeObserver lifecycle |
+| `controllers/useCanvasPanController.ts` | pan pointer/keyboard modifier lifecycle |
+| `controllers/useCanvasGuideController.ts` | shortform/safe-zone guide read/command |
+| `controllers/useCanvasSelectionController.ts` | selected Layer/Composition overlay read model |
+| `controllers/useCanvasRenderController.ts` | Render Frame를 Canvas Adapter에 전달 |
+| `controllers/useCanvasPointerController.ts` | global pointer session/listener 조립 |
+| `controllers/useCanvasTransformController.ts` | move/scale/rotate/opacity/anchor interaction |
+| `controllers/useCanvasMotionPathController.ts` | motion path point/keyframe drag interaction |
+| `controllers/useCanvasGizmoController.ts` | geometry/readout/hover/cursor ViewModel과 command 조립 |
 
-## 7. 다음 작업자가 읽을 추천 순서
+### Helper/Model/Adapter
 
-1. `src/editor/types/types.ts`
-2. `src/editor/useEditorShellFeatures.ts`
-3. `src/editor/state/useEditorState.ts`
-4. `src/editor/state/useEditorSelectionModel.ts`
-5. 작업 영역에 따라 아래 중 하나
-   - PSD: `psdCompositionBuilder.ts` → `useProjectActions.ts` → `psdRefreshHelpers.ts`
-   - Preview: `usePreviewController.ts` → `usePreviewSceneGeometry.ts` → `previewRenderer.ts`
-   - Timeline: `useTimelineController.ts` → 세 interaction hook → components
-   - Transform: `useTransformActions.ts` → static/animated actions → preview interactions
+- `helpers/canvasViewportHelpers.ts`: zoom/pan/fit/pointer 좌표
+- `helpers/canvasCoordinateHelpers.ts`: world/canvas transform와 anchor 보정
+- `helpers/canvasGuideHelpers.ts`: 9:16/safe-zone guide
+- `helpers/canvasSelectionHelpers.ts`: Layer/Sub Composition selection overlay
+- `helpers/canvasPointerHelpers.ts`: pointer session 초기 상태와 좌표
+- `helpers/canvasInteractionHelpers.ts`: drag delta, snap, clamp, readout
+- `helpers/canvasMotionPathHelpers.ts`: motion path point geometry
+- `helpers/canvasGizmoGeometryHelpers.ts`, `canvasGizmoHelpers.ts`: handle/path/overlay ViewModel
+- `models/canvasEngineModel.ts`: viewport/guide/selection/read port
+- `models/canvasInteractionModel.ts`: pointer/gizmo/motion session/command
+- `models/canvasViewModel.ts`: overlay/handle/motion point view type
+- `adapters/canvasWorkspaceAdapter.ts`: ResizeObserver adapter
+- `constants/canvasConstants.ts`: workspace/zoom/shortform/gizmo 상수
+
+### Preview View
+
+- `features/preview/components/PreviewWorkspacePane.tsx`: canvas/overlay/control 배치
+- `PreviewViewportLayers.tsx`, `PreviewGuideLayers.tsx`: Canvas와 guide layer 렌더
+- `PreviewInteractionOverlay.tsx`, `PreviewOverlay.tsx`: interaction overlay 배치
+- `PreviewGizmoLayer.tsx`, `PreviewGizmoActiveLayer.tsx`, `PreviewGizmoBackdrop.tsx`, `PreviewGizmoHandles.tsx`, `PreviewGizmoControls.tsx`, `PreviewGizmoReadouts.tsx`: gizmo 표시와 DOM intent 전달
+- `PreviewAnchorControl.tsx`, `PreviewMotionPathLayer.tsx`: anchor/motion path 표시와 event 전달
+- `PreviewWorkspaceControls.tsx`: zoom/guide control
+- `features/preview/types/*`: View 전용 gizmo props/type
+
+Feature View는 Canvas 공개 façade만 사용하며 interaction 계산을 갖지 않는다.
+
+## 11. Properties Engine과 View
+
+공개 경계: `src/engines/properties/index.ts`
+
+| 파일/폴더 | 책임 |
+|---|---|
+| `usePropertiesEngine.ts` | Controller와 draft scope를 조립해 ReadModel/Command/ViewProps 반환 |
+| `controllers/usePropertiesDraftController.ts` | 선택/frame scope별 draft 동기화 |
+| `controllers/usePropertiesNumericInputController.ts` | focus/input/Enter/Blur/Escape commit lifecycle |
+| `controllers/usePropertiesPropertyViewController.ts` | property row/info/resolved value ViewModel |
+| `controllers/usePropertiesTrackController.ts` | Animation track command adapter |
+| `controllers/usePropertiesKeyframeController.ts` | save/delete keyframe command adapter |
+| `helpers/propertiesNumericHelpers.ts` | partial number parse/clamp/precision/scale link |
+| `helpers/propertiesViewModelHelpers.ts` | row/info/draft scope 순수 계산 |
+| `models/propertiesEngineModel.ts` | 공개 ReadModel/Command/ViewProps |
+| `models/propertiesInternalModel.ts` | 내부 Animation port와 draft state 계약 |
+| `constants/propertiesConstants.ts` | property label |
+| `features/properties/components/*` | Panel/info/property row View |
+| `features/properties/sections/*` | transform/keyframe section View |
+| `features/properties/types/propertiesPanelTypes.ts` | 공개 ViewProps compatibility type |
+| `features/propertyVisualTokens.ts` | property별 UI 색 token |
+
+Properties는 Animation Command만 사용하고 Project setter를 직접 사용하지 않는다.
+
+## 12. Timeline Engine과 View
+
+공개 경계: `src/engines/timeline/index.ts`
+
+```text
+useTimelineEngine
+  ├─ View Controller
+  ├─ Navigation Controller
+  ├─ Playback UI Controller
+  ├─ Duration Controller
+  ├─ Item / Resize / Reorder Controller
+  ├─ Rename / Duplicate / Split Controller
+  ├─ Keyframe Controller
+  └─ Pointer Controller
+```
+
+### Controller
+
+| 파일 | 책임 |
+|---|---|
+| `useTimelineViewController.ts` | header/rows/track ViewModel 조립 |
+| `useTimelineNavigationController.ts` | breadcrumb/switcher navigation |
+| `useTimelinePlaybackUIController.ts` | ruler, scrub, range, playback UI command |
+| `useTimelineDurationController.ts` | Project duration command와 Playback normalize |
+| `useTimelineItemController.ts` | select/move/delete/source decision |
+| `useTimelineResizeController.ts` | left/right resize |
+| `useTimelineReorderController.ts` | timeline/render/composition order 동기화 |
+| `useTimelineRenameController.ts` | draft, Enter/Blur commit, Escape cancel |
+| `useTimelineDuplicateController.ts` | item/render 복제와 selection |
+| `useTimelineSplitController.ts` | current frame split |
+| `useTimelineKeyframeController.ts` | select/drag/move/delete와 Animation command |
+| `useTimelinePointerController.ts` | global pointer listener와 edge auto-scroll |
+
+### Helper/Model
+
+- `helpers/timelineBreadcrumbHelpers.ts`: ancestor path/switcher
+- `helpers/timelineLayoutHelpers.ts`: row layout/ruler/duration parsing/px
+- `helpers/timelineSourceStatusHelpers.ts`: source status 표시 모델
+- `helpers/timelineViewModelHelpers.ts`: header/duration/rows/overlay ViewModel
+- `helpers/timelineInteractionHelpers.ts`: snap/delta/clamp/resize/reorder/flatten/rename/split
+- `models/timelineViewModel.ts`: Timeline Read/View model
+- `models/timelineEngineTypes.ts`: 공개 Timeline/Interaction Commands와 ViewProps
+- `models/timelineInteractionModel.ts`: move/resize/keyframe/pointer session
+- `constants/timelineConstants.ts`: px/frame, row/gap/editor 치수
+
+### Timeline View
+
+- `features/timeline/components/TimelinePanel.tsx`: Header/Ruler/Rows 배치와 scroll ref
+- `TimelineHeader.tsx`, `TimelineTransportControls.tsx`: header/transport View
+- `TimelineSelectionBreadcrumb.tsx`, `TimelineCompositionSwitcher.tsx`: navigation View
+- `TimelineRuler.tsx`, `TimelineDurationSplitEditor.tsx`: ruler/duration View와 DOM event 전달
+- `TimelineTrackRows.tsx`, `TimelineTrackOverlays.tsx`: 계산된 grid/overlay 렌더
+- `TimelineItemTrackRow.tsx`, `TimelinePropertyTrackRow.tsx`: row 렌더와 interaction intent 전달
+
+Timeline item mutation은 Project Commands, keyframe mutation은 Animation Commands, frame은 Playback Read/Command, drag history는 기존 History Port를 사용한다.
+
+## 13. 상태 소유권과 중요한 정책
+
+- Project records/master/runtime, Playback, Canvas, Timeline session state는 Shell이 각각 한 번 생성한다.
+- Project History stack/capture state는 Project History 내부에 있다.
+- PSD Tree picker/drop state는 PSD Tree Engine 내부에 있다.
+- 선택과 입력 draft는 Editor Session State가 소유한다.
+- master comp는 `comps` 배열에 저장하지 않고 Project Selection Model이 가상으로 만든다.
+- Timeline instance timing은 `TimelineItem`, transform은 `Layer`/`Composition`, pixel/runtime은 `RenderItem`에 나뉜다.
+- reorder/delete/refresh는 timeline/render/composition records를 함께 맞춰야 한다.
+- Playback range의 `endFrame`은 exclusive다. 마지막 표시 frame은 `endFrame - 1`이다.
+- Project duration은 `CompositionMeta.durationFrames`가 소유하며 Timeline duration command 뒤 Playback을 정규화한다.
+- keyframe frame은 선택 item의 global frame과 source local frame을 구분한다.
+- drag History는 `begin → markDirty → commit/cancel`이며 한 drag가 Undo 한 번이어야 한다.
+- Render canvas와 PSD File/FileHandle은 직렬화 Domain이 아닌 runtime resource다.
+- Anchor는 animatable property가 아니며 Canvas 계산 결과를 Animation command가 적용한다.
+
+## 14. 스타일과 설정
+
+| 파일 | 책임 |
+|---|---|
+| `src/app/index.css` | 전역 reset/font/root |
+| `index.html` | Vite HTML entry와 `#root` |
+| `vite.config.ts` | React plugin, `@` → `src` alias |
+| `tsconfig*.json` | strict browser/Vite TypeScript 설정 |
+| `eslint.config.js` | TypeScript/React lint 설정 |
+| `package.json`, `package-lock.json` | scripts와 의존성 |
+| `README.md` | 실행, 검증, 일곱 Engine 구조와 현재 범위 |
+
+## 15. 검증 스크립트
+
+모든 검증은 Node 24에서 `scripts/typescriptAliasLoader.mjs`와 TypeScript strip mode로 실행한다.
+
+| 스크립트 | 검증 범위 |
+|---|---|
+| `verifyEngineImportBoundaries.ts` | façade/internal/Core/UI/Controller import 경계 |
+| `verifyAnimationHelpers.ts` | track/evaluation/frame/motion/selection/value |
+| `verifyAnimationCommands.ts` | static/animated mutation, track, anchor, keyframe collision |
+| `verifyPlaybackHelpers.ts` | clamp/step/range/exclusive end |
+| `verifyRenderHelpers.ts` | active source, render command, canvas adapter 순서 |
+| `verifyPsdTreeHelpers.ts` | drop/order/view model/file picker adapter |
+| `verifyPsdPipeline.ts` | 합성 PSD binary parse/import/replace와 record 정리 |
+| `verifyProjectHistory.ts` | snapshot 보존, undo/redo, drag transaction/reset |
+| `verifyCanvasHelpers.ts` | viewport/coordinate/guide/selection/workspace |
+| `verifyCanvasInteractionHelpers.ts` | transform/motion/gizmo interaction 계산 |
+| `verifyPropertiesHelpers.ts` | numeric draft/parse/clamp/view model |
+| `verifyTimelineHelpers.ts` | breadcrumb/layout/duration/source ViewModel |
+| `verifyTimelineInteractionHelpers.ts` | move/resize/snap/order/keyframe/auto-scroll/split |
+
+Task 17 최종 상태:
+
+- `npm run build`: 성공, 226 modules. 기존 500 kB chunk 경고만 존재
+- `npm run lint`: 성공
+- `npm test`: 13개 검증 스크립트 성공
+- `npm run qa`: lint + test + build 성공
+- `git diff --check`: 성공
+- production preview HTML/JS asset 응답: 성공
+- PSD binary import/replace와 Project History undo/redo 회귀: 성공
+- 인앱 브라우저 대상이 없어 실제 pointer/keyboard 클릭 smoke는 미실행
+
+## 16. 알려진 한계
+
+- `useEditorCompositionRoot.ts`는 의도적으로 모든 wiring을 모으므로 길다. 기능 계산을 다시 넣지 않는다.
+- 실제 PSD picker/File System Access API와 Canvas/Timeline pointer visual regression은 자동화하지 않았다.
+- 단일 JS chunk가 Vite 500 kB 경고 기준을 넘는다.
+- persistence/export가 없어 reload 시 편집 상태와 runtime file binding이 사라진다.
+
+## 17. 다음 작업자 추천 읽기 순서
+
+1. `recent_task.md`
+2. `refactor_plan.md`
+3. `src_map.md`
+4. `src/editor/useEditorCompositionRoot.ts`
+5. `src/editor/state/useEditorState.ts`, `useEditorEngineStateStores.ts`, `useEditorSessionState.ts`
+6. 각 `src/engines/*/index.ts`
+7. 수정 대상 Engine의 `use*Engine.ts` → model → controller → helper → feature View
+8. `scripts/verifyEngineImportBoundaries.ts`
+9. 관련 Helper/Command 검증 스크립트

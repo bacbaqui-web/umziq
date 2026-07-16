@@ -1,4 +1,4 @@
-import type { PsdTreeNodeProps } from "@/features/psdtree/model/psdTreeTypes";
+import type { PsdTreeNodeProps } from "@/engines/psd-tree";
 
 function FolderIcon() {
   return (
@@ -19,74 +19,45 @@ function FolderIcon() {
 }
 
 export default function PsdTreeNode({
-  comp,
-  depth,
-  isSelected,
-  isRoot,
+  node,
   isFirstRoot,
   draggedMainCompId,
   dropTarget,
-  selectedCompId,
-  onSelectComp,
+  onSelectNode,
   onRefreshMainComp,
   onDeleteMainComp,
-  onSetDraggedMainCompId,
-  onSetDropTarget,
-  onReorderMainComps,
+  onBeginMainDrag,
+  onDragOverMain,
+  onDropMain,
+  onEndMainDrag,
 }: PsdTreeNodeProps) {
-  const hasChildren = (comp.children?.length ?? 0) > 0;
-  const rowIndent = 6 + depth * 12;
-  const isDragging = comp.type === "main" && draggedMainCompId === comp.id;
+  const isRoot = node.depth === 0;
+  const hasChildren = node.children.length > 0;
+  const rowIndent = 6 + node.depth * 12;
+  const isDragging = node.canReorder && draggedMainCompId === node.id;
   const showDropBefore =
-    comp.type === "main" &&
-    dropTarget?.targetId === comp.id &&
+    node.canReorder &&
+    dropTarget?.targetId === node.id &&
     dropTarget.position === "before";
   const showDropAfter =
-    comp.type === "main" &&
-    dropTarget?.targetId === comp.id &&
+    node.canReorder &&
+    dropTarget?.targetId === node.id &&
     dropTarget.position === "after";
 
   return (
     <div
-      draggable={comp.type === "main"}
+      draggable={node.canReorder}
       onDragStart={() => {
-        if (comp.type !== "main") return;
-        onSetDraggedMainCompId(comp.id);
-        onSetDropTarget(null);
+        if (node.canReorder) onBeginMainDrag(node.id);
       }}
-      onDragEnd={() => {
-        onSetDraggedMainCompId(null);
-        onSetDropTarget(null);
-      }}
+      onDragEnd={onEndMainDrag}
       onDragOver={(event) => {
-        if (comp.type !== "main" || !draggedMainCompId || draggedMainCompId === comp.id) return;
-
-        event.preventDefault();
-
         const bounds = event.currentTarget.getBoundingClientRect();
-        const pointerOffset = event.clientY - bounds.top;
-        const nextPosition =
-          pointerOffset < bounds.height / 2 ? "before" : "after";
-
-        onSetDropTarget({
-          targetId: comp.id,
-          position: nextPosition,
-        });
-      }}
-      onDrop={() => {
-        if (
-          comp.type !== "main" ||
-          !draggedMainCompId ||
-          !dropTarget ||
-          dropTarget.targetId !== comp.id
-        ) {
-          return;
+        if (onDragOverMain(node.id, event.clientY, bounds.top, bounds.height)) {
+          event.preventDefault();
         }
-
-        onReorderMainComps(draggedMainCompId, comp.id, dropTarget.position);
-        onSetDraggedMainCompId(null);
-        onSetDropTarget(null);
       }}
+      onDrop={() => onDropMain(node.id)}
       style={{
         position: "relative",
         borderRadius: 6,
@@ -125,11 +96,11 @@ export default function PsdTreeNode({
           padding: "1px 4px",
           paddingLeft: rowIndent,
           borderRadius: 4,
-          background: isSelected ? "#2f4f7f" : "transparent",
+          background: node.selected ? "#2f4f7f" : "transparent",
           transition: "background 140ms ease",
         }}
       >
-        {depth > 0 && (
+        {node.depth > 0 && (
           <span
             aria-hidden="true"
             style={{
@@ -144,7 +115,7 @@ export default function PsdTreeNode({
         )}
 
         <button
-          onClick={() => onSelectComp(comp)}
+          onClick={() => onSelectNode(node.id)}
           style={{
             flex: 1,
             minWidth: 0,
@@ -161,7 +132,7 @@ export default function PsdTreeNode({
             padding: "1px 0",
           }}
         >
-          {comp.type === "master" ? (
+          {node.type === "master" ? (
             <span
               style={{
                 color: "#c6b36b",
@@ -173,7 +144,7 @@ export default function PsdTreeNode({
             >
               MASTER
             </span>
-          ) : comp.type === "main" ? (
+          ) : node.type === "main" ? (
             <span
               style={{
                 color: "#d96a72",
@@ -206,18 +177,18 @@ export default function PsdTreeNode({
               whiteSpace: "nowrap",
             }}
           >
-            {comp.name}
+            {node.name}
           </span>
         </button>
 
-        {comp.type === "main" && (
+        {node.canRefresh && node.canDelete && (
           <>
             <button
               onClick={(event) => {
                 event.stopPropagation();
-                onRefreshMainComp(comp.id);
+                onRefreshMainComp(node.id);
               }}
-              aria-label={`${comp.name} 새로고침`}
+              aria-label={`${node.name} 새로고침`}
               style={{
                 width: 16,
                 height: 16,
@@ -253,9 +224,9 @@ export default function PsdTreeNode({
             <button
               onClick={(event) => {
                 event.stopPropagation();
-                onDeleteMainComp(comp.id);
+                onDeleteMainComp(node.id);
               }}
-              aria-label={`${comp.name} 삭제`}
+              aria-label={`${node.name} 삭제`}
               style={{
                 width: 16,
                 height: 16,
@@ -328,23 +299,20 @@ export default function PsdTreeNode({
             }}
           />
 
-          {comp.children?.map((child, index) => (
+          {node.children.map((child, index) => (
             <PsdTreeNode
               key={child.id}
-              comp={child}
-              depth={depth + 1}
-              isSelected={selectedCompId === child.id}
-              isRoot={false}
+              node={child}
               isFirstRoot={index === 0}
               draggedMainCompId={draggedMainCompId}
               dropTarget={dropTarget}
-              selectedCompId={selectedCompId}
-              onSelectComp={onSelectComp}
+              onSelectNode={onSelectNode}
               onRefreshMainComp={onRefreshMainComp}
               onDeleteMainComp={onDeleteMainComp}
-              onSetDraggedMainCompId={onSetDraggedMainCompId}
-              onSetDropTarget={onSetDropTarget}
-              onReorderMainComps={onReorderMainComps}
+              onBeginMainDrag={onBeginMainDrag}
+              onDragOverMain={onDragOverMain}
+              onDropMain={onDropMain}
+              onEndMainDrag={onEndMainDrag}
             />
           ))}
         </div>
