@@ -26,6 +26,8 @@ export function createBaseComposition(
   params: Pick<Composition, "id" | "name" | "type" | "layers" | "children"> & {
     parentId?: string;
     sourcePath?: string;
+    sourceIdentity?: Composition["sourceIdentity"];
+    importSettings?: Composition["importSettings"];
     sourceFingerprint?: string;
     sourceSyncStatus?: Composition["sourceSyncStatus"];
     width: number;
@@ -38,6 +40,8 @@ export function createBaseComposition(
     type: params.type,
     parentId: params.parentId,
     sourcePath: params.sourcePath,
+    sourceIdentity: params.sourceIdentity,
+    importSettings: params.importSettings,
     sourceFingerprint: params.sourceFingerprint,
     sourceSyncStatus: params.sourceSyncStatus ?? "normal",
     children: params.children,
@@ -66,5 +70,6 @@ export function createBaseComposition(
     opacity: 100,
     opacityKeyframes: [],
     enabledProperties: buildPropertyTrackState(),
+    modifiers: [],
   };
 }

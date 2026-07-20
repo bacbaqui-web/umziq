@@ -1,5 +1,9 @@
-import type { AnimatableProperty, Position, Scale } from "@/models";
-import type { PropertiesNumericInputId } from "@/engines/properties/models/propertiesEngineModel";
+import type { Position, Scale } from "@/models";
+import type { ApplyAnchorCommand } from "@/engines/animation";
+import type {
+  PropertiesNumericInputId,
+  PropertiesNumericProperty,
+} from "@/engines/properties/models/propertiesEngineModel";
 
 export type ParsedNumericDraft =
   | { kind: "number"; value: number }
@@ -27,7 +31,7 @@ export function parsePropertiesNumericDraft(value: string): ParsedNumericDraft {
 }
 
 export function clampPropertiesNumericValue(
-  property: AnimatableProperty,
+  property: PropertiesNumericProperty,
   value: number
 ) {
   if (property === "scale") {
@@ -47,7 +51,7 @@ export function roundPropertiesNumericValue(value: number, precision: number) {
 }
 
 export function formatPropertiesNumericValue(
-  property: AnimatableProperty,
+  property: PropertiesNumericProperty,
   value: number
 ) {
   if (property === "scale" || property === "opacity") {
@@ -63,7 +67,7 @@ export function formatPropertiesNumericValue(
 
 export function getPropertiesNumericInputDescriptor(inputId: PropertiesNumericInputId) {
   const [property, axis] = inputId.split(".") as [
-    AnimatableProperty,
+    PropertiesNumericProperty,
     "x" | "y" | "value"
   ];
   return { property, axis };
@@ -95,4 +99,13 @@ export function applyPositionInput(
   value: number
 ): Position {
   return { ...basePosition, [axis]: value };
+}
+
+export function hasPropertiesAnchorSemanticChange(
+  initialAnchor: Position | null,
+  command: ApplyAnchorCommand | null
+) {
+  return !!initialAnchor && !!command && (
+    initialAnchor.x !== command.anchor.x || initialAnchor.y !== command.anchor.y
+  );
 }

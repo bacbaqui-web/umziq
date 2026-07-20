@@ -7,6 +7,9 @@ import type {
   CanvasGuideViewModel,
   CanvasGizmoViewModel,
   CanvasInteractionCommands,
+  PreviewQualityControlCommands,
+  PreviewQualityControlViewModel,
+  RendererMode,
 } from "@/engines/canvas";
 
 type PreviewWorkspacePaneProps = {
@@ -20,6 +23,10 @@ type PreviewWorkspacePaneProps = {
   previewPan: Position;
   previewZoom: number;
   previewZoomPercent: number;
+  rendererMode: RendererMode;
+  setRendererMode: (mode: RendererMode) => void;
+  previewQuality: PreviewQualityControlViewModel;
+  previewQualityCommands: PreviewQualityControlCommands;
   previewSize: {
     width: number;
     height: number;
@@ -51,6 +58,10 @@ export default function PreviewWorkspacePane({
   previewPan,
   previewZoom,
   previewZoomPercent,
+  rendererMode,
+  setRendererMode,
+  previewQuality,
+  previewQualityCommands,
   previewSize,
   previewViewportWidth,
   previewViewportHeight,
@@ -118,6 +129,10 @@ export default function PreviewWorkspacePane({
               resetPreviewView={resetPreviewView}
               setOneToOnePreviewView={setOneToOnePreviewView}
               centerPreviewView={centerPreviewView}
+              rendererMode={rendererMode}
+              setRendererMode={setRendererMode}
+              previewQuality={previewQuality}
+              previewQualityCommands={previewQualityCommands}
             />
             <PreviewViewportLayers
               previewCanvasRef={previewCanvasRef}

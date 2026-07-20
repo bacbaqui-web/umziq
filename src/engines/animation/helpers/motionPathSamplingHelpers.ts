@@ -1,5 +1,6 @@
-import type { Position, PositionKeyframe } from "@/models";
+import type { ModifierInstance, Position, PositionKeyframe } from "@/models";
 import { evaluatePositionKeyframes } from "@/engines/animation/helpers/animationEvaluationHelpers";
+import { applyPositionModifiers } from "@/engines/animation/helpers/modifierEvaluationHelpers";
 import {
   globalFrameToLocalFrame,
   localFrameToGlobalFrame,
@@ -18,6 +19,9 @@ type BuildMotionPathSamplesOptions = {
   startFrame: number;
   durationFrames: number;
   compositionDurationFrames: number;
+  targetId?: string;
+  modifiers?: readonly ModifierInstance[];
+  frameRate?: number;
 };
 
 export function buildPositionMotionPathSamples({
@@ -27,6 +31,9 @@ export function buildPositionMotionPathSamples({
   startFrame,
   durationFrames,
   compositionDurationFrames,
+  targetId,
+  modifiers,
+  frameRate = 30,
 }: BuildMotionPathSamplesOptions): MotionPathSample[] {
   const keyframeGlobalFrames = positionTrackEnabled
     ? new Set(positionKeyframes.map((keyframe) => localFrameToGlobalFrame(keyframe.frame, startFrame)))
@@ -38,13 +45,19 @@ export function buildPositionMotionPathSamples({
 
     samples.push({
       frame,
-      position: positionTrackEnabled
-        ? evaluatePositionKeyframes(
-            basePosition,
-            positionKeyframes,
-            globalFrameToLocalFrame(frame, startFrame)
-          )
-        : basePosition,
+      position: applyPositionModifiers(
+        positionTrackEnabled
+          ? evaluatePositionKeyframes(
+              basePosition,
+              positionKeyframes,
+              globalFrameToLocalFrame(frame, startFrame)
+            )
+          : basePosition,
+        targetId ?? "motion-path",
+        modifiers,
+        globalFrameToLocalFrame(frame, startFrame),
+        frameRate
+      ),
       isKeyframe: keyframeGlobalFrames.has(frame),
     });
   }

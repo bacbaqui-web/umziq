@@ -12,6 +12,7 @@ import type {
 import { useTransformValueController } from "@/engines/animation/controllers/useTransformValueController";
 import { usePropertyTrackController } from "@/engines/animation/controllers/usePropertyTrackController";
 import { useKeyframeController } from "@/engines/animation/controllers/useKeyframeController";
+import { useModifierController } from "@/engines/animation/controllers/useModifierController";
 import { useTransformInputAdapter } from "@/engines/animation/adapters/useTransformInputAdapter";
 
 export type UseAnimationEngineOptions = {
@@ -88,12 +89,19 @@ export function useAnimationEngine(options: UseAnimationEngineOptions) {
     applyRotation: transformCommands.applyRotation,
     applyOpacity: transformCommands.applyOpacity,
   });
+  const modifierCommands = useModifierController({
+    masterCompId: options.masterCompId,
+    selectedTarget: options.selectedTransformTarget,
+    project: options.project,
+    history: options.history,
+  });
 
   return {
     ...transformCommands,
     ...propertyTrackCommands,
     ...keyframeCommands,
     ...inputCommands,
+    ...modifierCommands,
     applyPositionValue: transformCommands.applyPosition,
     applyScaleValue: transformCommands.applyScale,
     applyRotationValue: transformCommands.applyRotation,

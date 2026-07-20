@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Position, Scale } from "@/models";
 import type { SelectedKeyframe } from "@/engines/animation";
+import type { DraftTransformSnapshot } from "@/engines/canvas";
 import { MASTER_COMP_ID } from "@/engines/project";
 import type { TimelineSelection } from "@/engines/timeline";
 
@@ -23,6 +24,8 @@ export function useEditorSessionState() {
   const [scaleDraft, setScaleDraft] = useState<Scale | null>(null);
   const [rotationDraft, setRotationDraft] = useState<number | null>(null);
   const [opacityDraft, setOpacityDraft] = useState<number | null>(null);
+  const [draftTransformSnapshot, setDraftTransformSnapshot] =
+    useState<DraftTransformSnapshot | null>(null);
   const [propertiesInputDrafts, setPropertiesInputDrafts] = useState<Record<string, string>>({});
   const [propertiesInputDraftScope, setPropertiesInputDraftScope] = useState<string | null>(null);
   const [focusedPropertiesInputId, setFocusedPropertiesInputId] = useState<string | null>(null);
@@ -72,6 +75,8 @@ export function useEditorSessionState() {
     setRotationDraft,
     opacityDraft,
     setOpacityDraft,
+    draftTransformSnapshot,
+    setDraftTransformSnapshot,
     propertiesInputDrafts,
     setPropertiesInputDrafts,
     propertiesInputDraftScope,

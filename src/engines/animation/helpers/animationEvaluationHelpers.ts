@@ -9,6 +9,7 @@ import type {
   ScaleKeyframe,
 } from "@/models";
 import { clampOpacity } from "@/engines/animation/helpers/transformValueHelpers";
+import { applyPositionModifiers } from "@/engines/animation/helpers/modifierEvaluationHelpers";
 
 export function evaluatePositionKeyframes(
   baseValue: Position,
@@ -74,7 +75,25 @@ export function evaluateScalarKeyframes(
   return previousKeyframe.value + (nextKeyframe.value - previousKeyframe.value) * progress;
 }
 
-export function evaluateLayerPosition(layer: Layer, currentFrame: number): Position {
+export function evaluateLayerPosition(
+  layer: Layer,
+  currentFrame: number,
+  frameRate = 30
+): Position {
+  const basePosition = evaluateLayerBasePosition(layer, currentFrame);
+  return applyPositionModifiers(
+    basePosition,
+    layer.id,
+    layer.modifiers,
+    currentFrame,
+    frameRate
+  );
+}
+
+export function evaluateLayerBasePosition(
+  layer: Layer,
+  currentFrame: number
+): Position {
   return layer.enabledProperties.position
     ? evaluatePositionKeyframes(layer.position, layer.positionKeyframes, currentFrame)
     : layer.position;
@@ -99,7 +118,25 @@ export function evaluateLayerOpacity(layer: Layer, currentFrame: number) {
   return clampOpacity(value);
 }
 
-export function evaluateCompositionPosition(composition: Composition, currentFrame: number) {
+export function evaluateCompositionPosition(
+  composition: Composition,
+  currentFrame: number,
+  frameRate = 30
+) {
+  const basePosition = evaluateCompositionBasePosition(composition, currentFrame);
+  return applyPositionModifiers(
+    basePosition,
+    composition.id,
+    composition.modifiers,
+    currentFrame,
+    frameRate
+  );
+}
+
+export function evaluateCompositionBasePosition(
+  composition: Composition,
+  currentFrame: number
+) {
   return composition.enabledProperties.position
     ? evaluatePositionKeyframes(composition.position, composition.positionKeyframes, currentFrame)
     : composition.position;

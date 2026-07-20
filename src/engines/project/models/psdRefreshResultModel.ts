@@ -9,10 +9,22 @@ export type ProjectDataState = {
 };
 
 export type PsdRefreshCounts = {
+  newGroups: number;
+  newLayers: number;
   updated: number;
-  added: number;
+  missing: number;
   deletePending: number;
 };
+
+export type PsdRefreshSummary = PsdRefreshCounts & {
+  compositionId: string;
+  compositionName: string;
+  problematic: number;
+};
+
+export type PsdRefreshCommandResult =
+  | { status: "completed"; summary: PsdRefreshSummary | null }
+  | { status: "needsSource"; summary: null };
 
 export type PsdRefreshMergeResult = ProjectDataState & {
   counts: PsdRefreshCounts;
@@ -32,7 +44,6 @@ export type PsdDirectSourceDescriptor = {
   sourceStatus: SourceSyncStatus;
   isNewSource: boolean;
   isMissingSource: boolean;
-  nextName: string;
   nextVisible: boolean;
   nextDrawables: RenderDrawable[] | null;
   newTimelineItemTemplate: TimelineItem | null;

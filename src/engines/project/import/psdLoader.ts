@@ -3,8 +3,12 @@ import { parsePsdFile } from "@/engines/project/import/psdParser";
 
 export type { ParsedPsdDocument } from "@/engines/project/import/psdCompositionBuilder";
 
-export async function loadPsd(file: File, index = 0): Promise<ParsedPsdDocument> {
+export async function loadPsd(
+  file: File,
+  index = 0,
+  settings?: unknown
+): Promise<ParsedPsdDocument> {
   const psd = await parsePsdFile(file);
 
-  return parsePsdToComposition(psd, file.name, index);
+  return parsePsdToComposition(psd, file.name, index, undefined, settings);
 }

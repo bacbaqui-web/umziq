@@ -1,12 +1,14 @@
 import type { Composition, CompositionMeta, Layer, TimelineItem } from "@/models";
 import type { RenderItem } from "@/engines/project";
 import type { PreviewMotionPathPoint } from "@/engines/canvas/models/canvasViewModel";
+import type { DraftTransformSnapshot } from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
 import { getTransformGeometry } from "@/engines/canvas/helpers/canvasCoordinateHelpers";
 import {
   evaluateCompositionRotation,
   evaluateCompositionScale,
   evaluateLayerRotation,
   evaluateLayerScale,
+  upsertKeyframeValue,
 } from "@/engines/animation";
 import {
   buildPositionMotionPathSamples,
@@ -14,6 +16,41 @@ import {
 } from "@/engines/animation";
 
 export { buildLocalFrameBySourceId } from "@/engines/animation";
+
+function resolveMotionPathPositionInputs(
+  target: Layer | Composition,
+  draftTransformSnapshot: DraftTransformSnapshot | null
+) {
+  if (!draftTransformSnapshot?.draft.changed.position) {
+    return {
+      basePosition: target.position,
+      positionKeyframes: target.positionKeyframes,
+    };
+  }
+
+  return {
+    basePosition: draftTransformSnapshot.position,
+    positionKeyframes: target.enabledProperties.position
+      ? upsertKeyframeValue(
+          target.positionKeyframes,
+          draftTransformSnapshot.localFrame,
+          draftTransformSnapshot.position
+        )
+      : target.positionKeyframes,
+  };
+}
+
+function resolveMotionPathGeometryInputs(
+  target: Layer | Composition,
+  draftTransformSnapshot: DraftTransformSnapshot | null
+) {
+  return {
+    anchor: draftTransformSnapshot?.anchor ?? target.anchor,
+    transformOffset:
+      draftTransformSnapshot?.transformOffset ?? target.transformOffset,
+  };
+}
+
 export function buildRulerFrames(durationFrames: number, frameRate: number) {
   return Array.from({ length: durationFrames }, (_, frame) => ({
     frame,
@@ -26,7 +63,9 @@ export function buildLayerMotionPath(
   renderItems: RenderItem[],
   timelineItems: TimelineItem[],
   durationFrames: number,
-  currentFrame: number
+  currentFrame: number,
+  frameRate = 30,
+  draftTransformSnapshot: DraftTransformSnapshot | null = null
 ): PreviewMotionPathPoint[] {
   const timelineItem = timelineItems.find(
     (item) => item.kind === "layer" && item.sourceId === layer.id
@@ -42,13 +81,21 @@ export function buildLayerMotionPath(
 
   if (!drawable || !canvas) return [];
 
+  const positionInputs = resolveMotionPathPositionInputs(layer, draftTransformSnapshot);
+  const geometryInputs = resolveMotionPathGeometryInputs(
+    layer,
+    draftTransformSnapshot
+  );
+
   return buildPositionMotionPathSamples({
-    basePosition: layer.position,
-    positionKeyframes: layer.positionKeyframes,
+    ...positionInputs,
     positionTrackEnabled: layer.enabledProperties.position,
     startFrame: timelineItem.startFrame,
     durationFrames: timelineItem.durationFrames,
     compositionDurationFrames: durationFrames,
+    targetId: layer.id,
+    modifiers: layer.modifiers,
+    frameRate,
   }).map((sample) => {
     const localFrame = globalFrameToLocalFrame(sample.frame, timelineItem.startFrame);
     const scale = evaluateLayerScale(layer, localFrame);
@@ -57,8 +104,8 @@ export function buildLayerMotionPath(
       canvas.width || 0,
       canvas.height || 0,
       sample.position,
-      layer.transformOffset,
-      layer.anchor,
+      geometryInputs.transformOffset,
+      geometryInputs.anchor,
       scale,
       rotation
     );
@@ -78,7 +125,8 @@ export function buildCompositionMotionPath(
   timelineItems: TimelineItem[],
   metaByCompId: Record<string, CompositionMeta>,
   durationFrames: number,
-  currentFrame: number
+  currentFrame: number,
+  draftTransformSnapshot: DraftTransformSnapshot | null = null
 ): PreviewMotionPathPoint[] {
   const timelineItem = timelineItems.find(
     (item) => item.kind === "subComp" && item.sourceId === composition.id
@@ -89,13 +137,24 @@ export function buildCompositionMotionPath(
     return [];
   }
 
+  const positionInputs = resolveMotionPathPositionInputs(
+    composition,
+    draftTransformSnapshot
+  );
+  const geometryInputs = resolveMotionPathGeometryInputs(
+    composition,
+    draftTransformSnapshot
+  );
+
   return buildPositionMotionPathSamples({
-    basePosition: composition.position,
-    positionKeyframes: composition.positionKeyframes,
+    ...positionInputs,
     positionTrackEnabled: composition.enabledProperties.position,
     startFrame: timelineItem.startFrame,
     durationFrames: timelineItem.durationFrames,
     compositionDurationFrames: durationFrames,
+    targetId: composition.id,
+    modifiers: composition.modifiers,
+    frameRate: compositionMeta.frameRate,
   }).map((sample) => {
     const localFrame = globalFrameToLocalFrame(sample.frame, timelineItem.startFrame);
     const scale = evaluateCompositionScale(composition, localFrame);
@@ -104,8 +163,8 @@ export function buildCompositionMotionPath(
       compositionMeta.width,
       compositionMeta.height,
       sample.position,
-      composition.transformOffset,
-      composition.anchor,
+      geometryInputs.transformOffset,
+      geometryInputs.anchor,
       scale,
       rotation
     );

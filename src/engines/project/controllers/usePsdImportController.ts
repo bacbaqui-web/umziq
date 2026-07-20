@@ -1,4 +1,4 @@
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type {
   Composition,
   CompositionMeta,
@@ -7,15 +7,18 @@ import type {
 } from "@/models";
 import type { RenderItem } from "@/engines/project/models/runtimeRenderModel";
 import type { PsdImportSource, StoredPsdSource } from "@/engines/project/models/psdSourceRuntimeModel";
+import type { PsdImportPlan } from "@/engines/project/models/psdImportPlanModel";
 import type { TimelineSelection } from "@/models";
 import type { ProjectCommandPort } from "@/engines/project/models/projectCommandModel";
 import { findCompositionById } from "@/engines/project/helpers/projectModelHelpers";
 import {
   buildRootComps,
-  importPsdSourcesIntoProject,
+  importPreparedPsdPlanIntoProject,
   rebuildMasterTimelineItems,
   resolveTimelineSelection,
 } from "@/engines/project/helpers/psd/psdImportProjectHelpers";
+import { preparePsdImportSource } from "@/engines/project/import/psdImportAnalyzer";
+import { createPreparedPsdImportStore } from "@/engines/project/state/preparedPsdImportStore";
 
 type UsePsdImportControllerOptions = {
   masterCompId: string;
@@ -65,6 +68,13 @@ export function usePsdImportController({
   registerSource,
   removeSource,
 }: UsePsdImportControllerOptions) {
+  const preparedStoreRef = useRef(createPreparedPsdImportStore());
+  const tokenSequenceRef = useRef(0);
+
+  useEffect(() => {
+    const store = preparedStoreRef.current;
+    return () => store.clear();
+  }, []);
   const getRootComps = useCallback(
     (sceneComps: Composition[]) =>
       buildRootComps(sceneComps, masterEnabledProperties, {
@@ -75,15 +85,8 @@ export function usePsdImportController({
     [masterCompId, masterEnabledProperties, masterHeight, masterWidth]
   );
 
-  const importPsdFiles = useCallback(
-    async (importSources: PsdImportSource[]) => {
-      const importedProject = await importPsdSourcesIntoProject(importSources, {
-        comps,
-        metaByCompId,
-        timelineItemsByCompId,
-        renderItemsByCompId,
-        nextImportIndex,
-      });
+  const applyImportedProject = useCallback(
+    (importedProject: ReturnType<typeof importPreparedPsdPlanIntoProject>) => {
       const nextTimeline = rebuildMasterTimelineItems(
         importedProject.comps,
         importedProject.timelineItemsByCompId,
@@ -136,24 +139,93 @@ export function usePsdImportController({
     [
       applySelectionForComposition,
       clearAllCompositionHistories,
-      comps,
       getRootComps,
       lastSelectedItemByCompId,
       masterCompId,
-      metaByCompId,
-      nextImportIndex,
       projectCommands,
       registerSource,
       removeSource,
-      renderItemsByCompId,
       selectedCompId,
       setImportError,
       setImportNotice,
       setNextImportIndex,
       setSelectedCompId,
+    ]
+  );
+
+  const preparePsdImport = useCallback(
+    async (importSources: PsdImportSource[]): Promise<PsdImportPlan> => {
+      const sources = importSources
+        .filter((source) => source.file.name.toLowerCase().endsWith(".psd"))
+        .sort((a, b) =>
+          a.file.name.localeCompare(b.file.name, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          })
+        );
+      const entries: PsdImportPlan["entries"] = [];
+      const failedFiles: string[] = [];
+
+      for (const source of sources) {
+        try {
+          tokenSequenceRef.current += 1;
+          const token = `psd-import-${Date.now()}-${tokenSequenceRef.current}`;
+          const result = await preparePsdImportSource(source, token);
+          preparedStoreRef.current.register(result.prepared);
+          entries.push(result.planEntry);
+        } catch (error) {
+          console.error("PSD PREPARE ERROR:", source.file.name, error);
+          failedFiles.push(source.file.name);
+        }
+      }
+
+      setImportError(
+        failedFiles.length > 0
+          ? `분석하지 못한 PSD: ${failedFiles.join(", ")}`
+          : null
+      );
+      setImportNotice(null);
+      return { entries };
+    },
+    [setImportError, setImportNotice]
+  );
+
+  const cancelPsdImport = useCallback((plan: PsdImportPlan) => {
+    preparedStoreRef.current.discard(plan.entries.map((entry) => entry.token));
+  }, []);
+
+  const confirmPsdImport = useCallback(
+    async (plan: PsdImportPlan) => {
+      const importedProject = importPreparedPsdPlanIntoProject(
+        plan,
+        preparedStoreRef.current,
+        { comps, metaByCompId, timelineItemsByCompId, renderItemsByCompId, nextImportIndex }
+      );
+      try {
+        if (importedProject.importedSources.length > 0) {
+          applyImportedProject(importedProject);
+        } else if (importedProject.failedFiles.length > 0) {
+          setImportError(`불러오지 못한 PSD: ${importedProject.failedFiles.join(", ")}`);
+        }
+      } finally {
+        cancelPsdImport(plan);
+      }
+      return {
+        importedCount: importedProject.importedSources.length,
+        failedFiles: importedProject.failedFiles,
+      };
+    },
+    [
+      applyImportedProject,
+      cancelPsdImport,
+      comps,
+      metaByCompId,
+      nextImportIndex,
+      renderItemsByCompId,
+      setImportError,
       timelineItemsByCompId,
     ]
   );
 
-  return { importPsdFiles };
+  return { preparePsdImport, confirmPsdImport, cancelPsdImport };
 }

@@ -146,6 +146,7 @@ export default function PreviewGizmoReadouts({
           }}
         >
           <input
+            className="ui-input"
             autoFocus
             type="number"
             value={directInput.value}
@@ -158,7 +159,6 @@ export default function PreviewGizmoReadouts({
             style={{
               width: 64,
               padding: "4px 6px",
-              borderRadius: 5,
               border: "1px solid #39424a",
               background: "#14181d",
               color: "#f4f7fb",

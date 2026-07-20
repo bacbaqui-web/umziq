@@ -36,6 +36,7 @@ export type ProjectHistoryReadState = {
 };
 
 export type ProjectHistoryRestorePort = {
+  clearEditorDraftRuntime: () => void;
   setComps: Dispatch<SetStateAction<Composition[]>>;
   setMasterEnabledProperties: Dispatch<SetStateAction<PropertyTrackState>>;
   setMasterScale: Dispatch<SetStateAction<Scale>>;
@@ -150,6 +151,7 @@ export function restoreProjectHistorySnapshot(
   port.setScaleDraft(null);
   port.setRotationDraft(null);
   port.setOpacityDraft(null);
+  port.clearEditorDraftRuntime();
   port.setMetaByCompId((current) =>
     snapshot.meta ? { ...current, [snapshot.compId]: snapshot.meta } : current
   );

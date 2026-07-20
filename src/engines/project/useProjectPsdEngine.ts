@@ -69,7 +69,9 @@ export function useProjectPsdEngine(options: UseProjectPsdEngineOptions) {
 
   return {
     enterComposition: navigation.enterComposition,
-    handleImportPsdFiles: importer.importPsdFiles,
+    preparePsdImport: importer.preparePsdImport,
+    confirmPsdImport: importer.confirmPsdImport,
+    cancelPsdImport: importer.cancelPsdImport,
     handleRefreshMainComp: refresher.refreshMainComp,
     handleDeleteMainComp: library.deleteMainComp,
     handleReorderMainComps: library.reorderMainComps,

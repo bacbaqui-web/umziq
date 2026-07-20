@@ -1,4 +1,9 @@
 import { loadPsd } from "@/engines/project/import/psdLoader";
+import { parsePsdToComposition } from "@/engines/project/import/psdCompositionBuilder";
+import type {
+  PsdImportPlan,
+  PreparedPsdImportStore,
+} from "@/engines/project/models/psdImportPlanModel";
 import type { PsdImportSource } from "@/engines/project/models/psdSourceRuntimeModel";
 import type {
   Composition,
@@ -159,6 +164,80 @@ export async function importPsdSourcesIntoProject(
       failedFiles.push(file.name);
     }
   }
+
+  return {
+    comps: nextComps,
+    metaByCompId: nextMeta,
+    timelineItemsByCompId: nextTimeline,
+    renderItemsByCompId: nextRender,
+    nextImportIndex: importOffset,
+    failedFiles,
+    replacedFiles,
+    importedSources,
+  };
+}
+
+export function importPreparedPsdPlanIntoProject(
+  plan: PsdImportPlan,
+  preparedStore: PreparedPsdImportStore,
+  currentState: ProjectImportState
+) {
+  let nextComps = [...currentState.comps];
+  let nextMeta = { ...currentState.metaByCompId };
+  let nextTimeline = { ...currentState.timelineItemsByCompId };
+  let nextRender = { ...currentState.renderItemsByCompId };
+  const failedFiles: string[] = [];
+  const replacedFiles: string[] = [];
+  const importedSources: ImportedPsdSourceBinding[] = [];
+  let importOffset = currentState.nextImportIndex;
+
+  plan.entries.forEach((entry) => {
+    const prepared = preparedStore.get(entry.token);
+    if (!prepared) {
+      failedFiles.push(entry.analysis.fileName);
+      return;
+    }
+
+    try {
+      const fileName = entry.analysis.fileName;
+      const existingComp = nextComps.find(
+        (comp) =>
+          comp.type === "main" &&
+          (comp.sourceIdentity?.sourceFileName === fileName ||
+            (!comp.sourceIdentity && comp.name === fileName))
+      );
+      const replacedCompId = existingComp?.id ?? null;
+      if (existingComp) {
+        nextComps = nextComps.filter((comp) => comp.id !== existingComp.id);
+        nextMeta = removeCompDataFromRecord(nextMeta, existingComp);
+        nextTimeline = removeCompDataFromRecord(nextTimeline, existingComp);
+        nextRender = removeCompDataFromRecord(nextRender, existingComp);
+        replacedFiles.push(fileName);
+      }
+
+      const parsed = parsePsdToComposition(
+        prepared.parsedPsd,
+        fileName,
+        importOffset,
+        { nodes: entry.tree, sourceNodeByKey: prepared.sourceNodeByKey },
+        entry.settings
+      );
+      importOffset += 1;
+      nextComps = [...nextComps, parsed.composition];
+      Object.assign(nextMeta, parsed.metaByCompId);
+      Object.assign(nextTimeline, parsed.timelineItemsByCompId);
+      Object.assign(nextRender, parsed.renderItemsByCompId);
+      importedSources.push({
+        compId: parsed.composition.id,
+        fileName,
+        fileHandle: prepared.source.fileHandle,
+        replacedCompId,
+      });
+    } catch (error) {
+      console.error("PSD IMPORT CONFIRM ERROR:", entry.analysis.fileName, error);
+      failedFiles.push(entry.analysis.fileName);
+    }
+  });
 
   return {
     comps: nextComps,

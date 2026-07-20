@@ -54,11 +54,16 @@ export function usePlaybackEngine({ state, project, session }: UsePlaybackEngine
   const range = usePlaybackRangeController({ state, project, playbackRange });
   usePlaybackLoopController({ state, project, session: sessionPort, playbackRange });
 
-  const commands: PlaybackCommands = { ...playback, ...range };
+  const commands: PlaybackCommands = {
+    ...playback,
+    ...range,
+    setRendererMode: state.setRendererMode,
+  };
   const read: PlaybackReadModel = {
     currentFrame: state.currentFrame,
     playheadFrame: clampPlaybackFrame(state.currentFrame, project.durationFrames),
     isPlaying: state.isPlaying,
+    rendererMode: state.rendererMode,
     playbackRange,
   };
 

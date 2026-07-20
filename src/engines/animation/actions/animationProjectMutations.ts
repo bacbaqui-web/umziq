@@ -2,6 +2,8 @@ import type {
   AnimatableProperty,
   Composition,
   Layer,
+  ModifierNumberField,
+  ModifierType,
   Position,
   Scale,
 } from "@/models";
@@ -26,6 +28,12 @@ import {
   type PropertyTrackValues,
   updateTargetPropertyTrack,
 } from "@/engines/animation/helpers/propertyTrackHelpers";
+import {
+  createDefaultModifier,
+  findModifier,
+  normalizeModifierInstances,
+  normalizeModifierNumber,
+} from "@/engines/animation/modifiers/modifierRegistry";
 
 function updateLayerInComposition(
   composition: Composition,
@@ -179,6 +187,51 @@ export function setPropertyTrackEnabledOnlyInCompositions(
   return updateAnimationTarget(comps, target, (current) => ({
     ...current,
     enabledProperties: { ...current.enabledProperties, [property]: enabled },
+  }));
+}
+
+export function addModifierToCompositions(
+  comps: Composition[],
+  target: AnimationTargetDescriptor,
+  type: ModifierType
+) {
+  return updateAnimationTarget(comps, target, (current) => {
+    const modifiers = normalizeModifierInstances(current.modifiers, current.id);
+    if (findModifier(modifiers, type)) return current;
+    return {
+      ...current,
+      modifiers: [...modifiers, createDefaultModifier(type, current.id)],
+    };
+  });
+}
+
+export function removeModifierFromCompositions(
+  comps: Composition[],
+  target: AnimationTargetDescriptor,
+  type: ModifierType
+) {
+  return updateAnimationTarget(comps, target, (current) => ({
+    ...current,
+    modifiers: normalizeModifierInstances(current.modifiers, current.id).filter(
+      (modifier) => modifier.type !== type
+    ),
+  }));
+}
+
+export function updateModifierNumberInCompositions(
+  comps: Composition[],
+  target: AnimationTargetDescriptor,
+  type: ModifierType,
+  field: ModifierNumberField,
+  value: number
+) {
+  return updateAnimationTarget(comps, target, (current) => ({
+    ...current,
+    modifiers: normalizeModifierInstances(current.modifiers, current.id).map(
+      (modifier) => modifier.type === type
+        ? { ...modifier, [field]: normalizeModifierNumber(value) }
+        : modifier
+    ),
   }));
 }
 

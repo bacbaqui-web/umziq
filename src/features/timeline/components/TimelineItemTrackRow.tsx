@@ -92,6 +92,7 @@ export default function TimelineItemTrackRow({
       >
         {isEditingName ? (
           <input
+            className="ui-input ui-input--compact"
             ref={nameInputRef}
             value={viewModel.draftName}
             onChange={(event) => interactions.changeTimelineItemName(event.target.value)}
@@ -110,7 +111,6 @@ export default function TimelineItemTrackRow({
               minWidth: 0,
               flex: 1,
               border: "1px solid rgba(255,255,255,0.18)",
-              borderRadius: 4,
               background: "rgba(12, 15, 20, 0.72)",
               color: "#eef5fc",
               WebkitTextFillColor: "transparent",
@@ -144,15 +144,10 @@ export default function TimelineItemTrackRow({
 
             {statusBadge && (
               <span
+                className={`ui-badge${statusBadge.label === "NEW" ? " ui-badge--new" : ""}`}
                 style={{
-                  flex: "0 0 auto",
-                  padding: "1px 5px",
-                  borderRadius: 999,
-                  background: statusBadge.background,
-                  color: statusBadge.color,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: 0.2,
+                  background: statusBadge.label === "NEW" ? undefined : statusBadge.background,
+                  color: statusBadge.label === "NEW" ? undefined : statusBadge.color,
                 }}
               >
                 {statusBadge.label}

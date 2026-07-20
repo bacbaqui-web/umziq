@@ -1,11 +1,12 @@
-import { useCallback, useRef } from "react";
-import { getTransformEditMode } from "@/engines/animation";
-import type { PropertyTrackState } from "@/models";
+import { useCallback, useEffect, useEffectEvent, useRef } from "react";
+import { getTransformEditMode, type ApplyAnchorCommand } from "@/engines/animation";
+import type { Position, PropertyTrackState } from "@/models";
 import {
   applyLinkedScaleInput,
   applyPositionInput,
   clampPropertiesNumericValue,
   getPropertiesNumericInputDescriptor,
+  hasPropertiesAnchorSemanticChange,
   parsePropertiesNumericDraft,
 } from "@/engines/properties/helpers/propertiesNumericHelpers";
 import type {
@@ -15,33 +16,82 @@ import type {
 import type {
   PropertiesAnimationCommandPort,
   PropertiesDraftControllerPort,
+  PropertiesTransformDraftCommandPort,
 } from "@/engines/properties/models/propertiesInternalModel";
 
 type Options = {
   editableProperties: PropertyTrackState;
+  anchorEditable: boolean;
   propertyState: PropertyTrackState;
   scaleLinked: boolean;
   values: PropertiesResolvedValues;
   draft: PropertiesDraftControllerPort;
   animation: PropertiesAnimationCommandPort;
+  transformDraft: PropertiesTransformDraftCommandPort;
 };
 
 export function usePropertiesNumericInputController(options: Options) {
   const activeInputRef = useRef<PropertiesNumericInputId | null>(null);
+  const initialAnchorRef = useRef<Position | null>(null);
+  const latestAnchorCommandRef = useRef<ApplyAnchorCommand | null>(null);
+  const clearAnchorEditRefs = useCallback(() => {
+    initialAnchorRef.current = null;
+    latestAnchorCommandRef.current = null;
+  }, []);
+  const cancelAnchorInputForScopeChange = useEffectEvent(() => {
+    const inputId = activeInputRef.current;
+    if (!inputId) return;
+    if (getPropertiesNumericInputDescriptor(inputId).property !== "anchor") return;
+    activeInputRef.current = null;
+    clearAnchorEditRefs();
+    options.transformDraft.reset();
+    options.draft.clearNumericDraft(inputId);
+    options.draft.clearNumericFocus();
+    options.animation.cancelHistory();
+  });
+  useEffect(() => {
+    cancelAnchorInputForScopeChange();
+  }, [options.draft.scope]);
+  const clearAnchorInputForExternalReset = useEffectEvent(() => {
+    const inputId = activeInputRef.current;
+    if (!inputId || options.draft.focusedInputId !== null) return;
+    if (getPropertiesNumericInputDescriptor(inputId).property !== "anchor") return;
+    activeInputRef.current = null;
+    clearAnchorEditRefs();
+    options.transformDraft.reset();
+  });
+  useEffect(() => {
+    clearAnchorInputForExternalReset();
+  }, [options.draft.focusedInputId]);
+  const isEditable = useCallback((inputId: PropertiesNumericInputId) => {
+    const { property } = getPropertiesNumericInputDescriptor(inputId);
+    return property === "anchor"
+      ? options.anchorEditable
+      : options.editableProperties[property];
+  }, [options.anchorEditable, options.editableProperties]);
 
   const cancelInput = useCallback((inputId: PropertiesNumericInputId) => {
     if (activeInputRef.current !== inputId) return;
     activeInputRef.current = null;
+    if (getPropertiesNumericInputDescriptor(inputId).property === "anchor") {
+      clearAnchorEditRefs();
+      options.transformDraft.reset();
+    }
     options.draft.clearNumericDraft(inputId);
     options.draft.clearNumericFocus();
     options.animation.cancelHistory();
-  }, [options.animation, options.draft]);
+  }, [clearAnchorEditRefs, options.animation, options.draft, options.transformDraft]);
 
   const commitInput = useCallback((inputId: PropertiesNumericInputId) => {
     if (activeInputRef.current !== inputId) return;
     activeInputRef.current = null;
+    const { property, axis } = getPropertiesNumericInputDescriptor(inputId);
 
     if (options.draft.focusedInputId !== inputId || !options.draft.hasNumericDraft(inputId)) {
+      if (property === "anchor") {
+        clearAnchorEditRefs();
+        options.transformDraft.reset();
+      }
       options.draft.clearNumericFocus();
       options.animation.cancelHistory();
       return;
@@ -49,9 +99,12 @@ export function usePropertiesNumericInputController(options: Options) {
 
     const rawValue = options.draft.getNumericDraft(inputId) ?? "";
     const parsed = parsePropertiesNumericDraft(rawValue);
-    const { property, axis } = getPropertiesNumericInputDescriptor(inputId);
 
-    if (parsed.kind !== "number" || !options.editableProperties[property]) {
+    if (parsed.kind !== "number" || !isEditable(inputId)) {
+      if (property === "anchor") {
+        clearAnchorEditRefs();
+        options.transformDraft.reset();
+      }
       options.draft.clearNumericDraft(inputId);
       options.draft.clearNumericFocus();
       options.animation.cancelHistory();
@@ -59,6 +112,35 @@ export function usePropertiesNumericInputController(options: Options) {
     }
 
     const value = clampPropertiesNumericValue(property, parsed.value);
+    if (property === "anchor") {
+      latestAnchorCommandRef.current = axis === "value"
+        ? null
+        : options.transformDraft.updateAnchor({
+          ...options.values.anchor,
+          [axis]: parsed.value,
+        });
+      const command = latestAnchorCommandRef.current;
+      const hasSemanticChange = hasPropertiesAnchorSemanticChange(
+        initialAnchorRef.current,
+        command
+      );
+      if (!command || !hasSemanticChange) {
+        clearAnchorEditRefs();
+        options.transformDraft.reset();
+        options.draft.clearNumericDraft(inputId);
+        options.draft.clearNumericFocus();
+        options.animation.cancelHistory();
+        return;
+      }
+      options.animation.applyAnchor(command);
+      options.animation.markHistoryDirty();
+      clearAnchorEditRefs();
+      options.transformDraft.reset();
+      options.animation.commitHistory();
+      options.draft.clearNumericDraft(inputId);
+      options.draft.clearNumericFocus();
+      return;
+    }
     const mode = getTransformEditMode(options.propertyState[property]);
 
     if (property === "position" && axis !== "value") {
@@ -81,22 +163,31 @@ export function usePropertiesNumericInputController(options: Options) {
     options.animation.commitHistory();
     options.draft.clearNumericDraft(inputId);
     options.draft.clearNumericFocus();
-  }, [options]);
+  }, [clearAnchorEditRefs, isEditable, options]);
 
   const focusNumericInput = useCallback((inputId: PropertiesNumericInputId) => {
-    const { property } = getPropertiesNumericInputDescriptor(inputId);
-    if (!options.editableProperties[property]) return;
+    if (!isEditable(inputId)) return;
+    if (getPropertiesNumericInputDescriptor(inputId).property === "anchor") {
+      initialAnchorRef.current = { ...options.values.anchor };
+      latestAnchorCommandRef.current = null;
+    }
     activeInputRef.current = inputId;
     options.draft.focusNumericDraft(inputId);
     options.animation.beginHistory();
-  }, [options.animation, options.draft, options.editableProperties]);
+  }, [isEditable, options.animation, options.draft, options.values.anchor]);
 
   const changeNumericInput = useCallback((inputId: PropertiesNumericInputId, value: string) => {
-    const { property } = getPropertiesNumericInputDescriptor(inputId);
-    if (!options.editableProperties[property]) return;
-    if (parsePropertiesNumericDraft(value).kind === "invalid") return;
+    if (!isEditable(inputId)) return;
+    const parsed = parsePropertiesNumericDraft(value);
+    if (parsed.kind === "invalid") return;
     options.draft.setNumericDraft(inputId, value);
-  }, [options.draft, options.editableProperties]);
+    const { property, axis } = getPropertiesNumericInputDescriptor(inputId);
+    if (property !== "anchor" || axis === "value" || parsed.kind !== "number") return;
+    latestAnchorCommandRef.current = options.transformDraft.updateAnchor({
+      ...options.values.anchor,
+      [axis]: parsed.value,
+    });
+  }, [isEditable, options.draft, options.transformDraft, options.values.anchor]);
 
   const blurNumericInput = useCallback((inputId: PropertiesNumericInputId) => {
     commitInput(inputId);

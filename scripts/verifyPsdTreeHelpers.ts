@@ -13,7 +13,12 @@ import {
   isValidPsdTreeDrop,
   reorderPsdTreeIds,
 } from "@/engines/psd-tree/helpers/psdTreeDropHelpers";
-import { buildPsdTreeViewModel } from "@/engines/psd-tree/helpers/psdTreeViewModelHelpers";
+import {
+  buildPsdRefreshSummaryViewModel,
+  buildPsdTreeViewModel,
+} from "@/engines/psd-tree/helpers/psdTreeViewModelHelpers";
+import { movePsdImportPlanNode } from "@/engines/psd-tree/helpers/psdImportPlanTreeHelpers";
+import type { PsdImportPlanNode } from "@/engines/project";
 
 const disabledProperties = {
   position: false,
@@ -45,6 +50,7 @@ function createComposition(
     opacity: 100,
     opacityKeyframes: [],
     enabledProperties: { ...disabledProperties },
+    modifiers: [],
   };
 }
 
@@ -74,6 +80,7 @@ assert.equal(reorderPsdTreeIds(ids, "main-a", "main-a", "after"), ids);
 const subNested = createComposition("sub-nested", "sub");
 subNested.sourceSyncStatus = "updated";
 const sub = createComposition("sub", "sub", [subNested]);
+sub.sourceSyncStatus = "new";
 const mainA = createComposition("main-a", "main", [sub]);
 const mainB = createComposition("main-b", "main");
 mainB.sourceSyncStatus = "missing";
@@ -94,6 +101,7 @@ assert.deepEqual(
   ]
 );
 assert.equal(tree[1].children[0].depth, 1);
+assert.equal(tree[1].children[0].sourceSyncStatus, "new");
 assert.equal(tree[1].children[0].children[0].depth, 2);
 assert.equal(tree[1].children[0].children[0].selected, true);
 assert.equal(tree[1].children[0].children[0].sourceSyncStatus, "updated");
@@ -138,6 +146,67 @@ await assert.rejects(
     },
   ]),
   /read failed/
+);
+
+function planNode(
+  id: string,
+  kind: PsdImportPlanNode["kind"],
+  children: PsdImportPlanNode[] = [],
+  originalName = id
+): PsdImportPlanNode {
+  return { id, sourceKey: id, kind, originalName, displayName: originalName, autoRenamed: false, children };
+}
+
+const previewTree = [
+  planNode("group-a", "group", [planNode("layer-a", "layer")]),
+  planNode("group-b", "group", [planNode("layer-b", "layer", [], "same")]),
+  planNode("layer-root", "layer", [], "same"),
+];
+const movedInside = movePsdImportPlanNode(previewTree, "layer-root", "group-b", "inside");
+assert.deepEqual(movedInside.map((node) => node.id), ["group-a", "group-b"]);
+assert.deepEqual(movedInside[1]?.children.map((node) => node.id), ["layer-b", "layer-root"]);
+assert.deepEqual(movedInside[1]?.children.map((node) => node.displayName), ["same_1", "same_2"]);
+assert.equal(movedInside[1]?.children.every((node) => node.autoRenamed), true);
+
+const reordered = movePsdImportPlanNode(movedInside, "group-b", "group-a", "before");
+assert.deepEqual(reordered.map((node) => node.id), ["group-b", "group-a"]);
+const preventedCycle = movePsdImportPlanNode(previewTree, "group-a", "layer-a", "inside");
+assert.deepEqual(preventedCycle, previewTree);
+const movedToRoot = movePsdImportPlanNode(movedInside, "layer-b", null, "inside");
+assert.equal(movedToRoot.at(-1)?.id, "layer-b");
+
+const summaryViewModel = buildPsdRefreshSummaryViewModel({
+  compositionId: "main-a",
+  compositionName: "character.psd",
+  newGroups: 2,
+  newLayers: 3,
+  updated: 4,
+  missing: 1,
+  deletePending: 2,
+  problematic: 3,
+});
+assert.equal(summaryViewModel.hasChanges, true);
+assert.deepEqual(summaryViewModel.items.map((item) => item.label), [
+  "새 그룹",
+  "새 레이어",
+  "업데이트",
+  "누락",
+  "삭제 대기",
+  "문제",
+]);
+assert.equal(summaryViewModel.items.at(-1)?.value, 3);
+assert.equal(
+  buildPsdRefreshSummaryViewModel({
+    compositionId: "main-a",
+    compositionName: "character.psd",
+    newGroups: 0,
+    newLayers: 0,
+    updated: 0,
+    missing: 0,
+    deletePending: 0,
+    problematic: 0,
+  }).hasChanges,
+  false
 );
 
 console.log("PSD Tree helper verification passed");

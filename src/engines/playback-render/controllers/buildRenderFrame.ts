@@ -2,29 +2,18 @@ import type {
   Composition,
   CompositionMeta,
   Layer,
-  Position,
-  Scale,
   TimelineItem,
 } from "@/models";
-import type { RenderDrawable, RenderItem } from "@/engines/project";
+import type { RenderItem } from "@/engines/project";
 import {
-  buildLocalFrameBySourceId,
-  evaluateCompositionOpacity,
-  evaluateCompositionPosition,
-  evaluateCompositionRotation,
-  evaluateCompositionScale,
-  evaluateLayerOpacity,
-  evaluateLayerPosition,
-  evaluateLayerRotation,
-  evaluateLayerScale,
-} from "@/engines/animation";
-import { getActiveRenderItems } from "@/engines/playback-render/helpers/activeTimelineItemHelpers";
-import type {
-  EvaluatedRenderTransform,
-  RenderCommand,
-  RenderDrawableCommand,
-  RenderFrame,
-} from "@/engines/playback-render/models/renderFrameModel";
+  buildEvaluatedScene,
+  buildEvaluatedSceneFromItems,
+} from "@/engines/playback-render/helpers/evaluatedSceneHelpers";
+import type { EvaluatedScene } from "@/engines/playback-render/models/evaluatedSceneModel";
+import type { RenderFrame } from "@/engines/playback-render/models/renderFrameModel";
+import type { RenderDrawableSourceResolver } from "@/engines/playback-render/models/renderSourceModel";
+import type { RendererMode } from "@/engines/playback-render/models/rendererModeModel";
+import { renderWithRendererMode } from "@/engines/playback-render/renderers/rendererMode";
 
 type BuildRenderFrameOptions = {
   compositionId: string;
@@ -36,6 +25,9 @@ type BuildRenderFrameOptions = {
   compositionMap: ReadonlyMap<string, Composition>;
   metaByCompId: Record<string, CompositionMeta>;
   globalFrame: number;
+  frameRate?: number;
+  resolveDrawableSource?: RenderDrawableSourceResolver;
+  rendererMode?: RendererMode;
 };
 
 type BuildRenderFrameFromItemsOptions = Omit<
@@ -45,187 +37,51 @@ type BuildRenderFrameFromItemsOptions = Omit<
   localFrameBySourceId: ReadonlyMap<string, number>;
 };
 
-function buildEvaluatedTransform(
-  width: number,
-  height: number,
-  position: Position,
-  transformOffset: Position,
-  anchor: Position,
-  scale: Scale,
-  rotation: number
-): EvaluatedRenderTransform {
-  return {
-    position,
-    transformOffset,
-    anchor,
-    scale,
-    rotation,
-    origin: {
-      x: position.x + transformOffset.x - width / 2,
-      y: position.y + transformOffset.y - height / 2,
-    },
-  };
-}
+type BuildRenderFrameFromEvaluatedSceneOptions = {
+  evaluatedScene: EvaluatedScene;
+  renderItems: readonly RenderItem[];
+  resolveDrawableSource?: RenderDrawableSourceResolver;
+  rendererMode?: RendererMode;
+};
 
-function buildDrawableCommand(options: {
-  renderItem: RenderItem;
-  drawable: RenderDrawable;
-  layerMap: ReadonlyMap<string, Layer>;
-  globalFrame: number;
-  localFrameBySourceId: ReadonlyMap<string, number>;
-}): RenderDrawableCommand | null {
-  const { renderItem, drawable, layerMap, globalFrame, localFrameBySourceId } =
-    options;
-  const canvas = drawable.canvas;
-
-  if (!drawable.visible || !canvas) {
-    return null;
-  }
-
-  const layer = drawable.sourceLayerId
-    ? layerMap.get(drawable.sourceLayerId)
-    : undefined;
-  const localFrame =
-    drawable.sourceLayerId && localFrameBySourceId.has(drawable.sourceLayerId)
-      ? localFrameBySourceId.get(drawable.sourceLayerId) ?? globalFrame
-      : globalFrame;
-  const width = canvas.width || 0;
-  const height = canvas.height || 0;
-  const position = layer
-    ? evaluateLayerPosition(layer, localFrame)
-    : { x: drawable.left + width / 2, y: drawable.top + height / 2 };
-  const scale = layer
-    ? evaluateLayerScale(layer, localFrame)
-    : { x: 100, y: 100 };
-  const rotation = layer ? evaluateLayerRotation(layer, localFrame) : 0;
-  const opacity = layer ? evaluateLayerOpacity(layer, localFrame) : 100;
-  const anchor = layer ? layer.anchor : { x: width / 2, y: height / 2 };
-  const transformOffset = layer?.transformOffset ?? { x: 0, y: 0 };
-
-  return {
-    type: "drawable",
-    renderItemId: renderItem.id,
-    drawableId: drawable.id,
-    sourceId: drawable.sourceLayerId ?? renderItem.sourceId,
-    localFrame,
-    width,
-    height,
-    canvas,
-    transform: buildEvaluatedTransform(
-      width,
-      height,
-      position,
-      transformOffset,
-      anchor,
-      scale,
-      rotation
-    ),
-    opacity,
-  };
-}
-
-export function buildRenderFrameFromItems({
-  compositionId,
-  width,
-  height,
+export function buildRenderFrameFromEvaluatedScene({
+  evaluatedScene,
   renderItems,
-  layerMap,
-  compositionMap,
-  metaByCompId,
-  globalFrame,
-  localFrameBySourceId,
-}: BuildRenderFrameFromItemsOptions): RenderFrame {
-  const commands: RenderCommand[] = [];
-
-  [...renderItems].reverse().forEach((renderItem) => {
-    if (!renderItem.visible) {
-      return;
-    }
-
-    const composition =
-      renderItem.kind === "subComp" && renderItem.targetCompId
-        ? compositionMap.get(renderItem.targetCompId)
-        : undefined;
-
-    if (composition && renderItem.targetCompId) {
-      const localFrame = localFrameBySourceId.has(renderItem.sourceId)
-        ? localFrameBySourceId.get(renderItem.sourceId) ?? globalFrame
-        : globalFrame;
-      const meta = metaByCompId[composition.id];
-      const compositionWidth = meta?.width ?? width;
-      const compositionHeight = meta?.height ?? height;
-      const position = evaluateCompositionPosition(composition, localFrame);
-      const scale = evaluateCompositionScale(composition, localFrame);
-      const rotation = evaluateCompositionRotation(composition, localFrame);
-      const opacity = evaluateCompositionOpacity(composition, localFrame);
-      const children = [...renderItem.drawables]
-        .reverse()
-        .map((drawable) =>
-          buildDrawableCommand({
-            renderItem,
-            drawable,
-            layerMap,
-            globalFrame,
-            localFrameBySourceId,
-          })
-        )
-        .filter((command): command is RenderDrawableCommand => command !== null);
-
-      commands.push({
-        type: "composition",
-        renderItemId: renderItem.id,
-        sourceId: renderItem.sourceId,
-        targetCompId: renderItem.targetCompId,
-        localFrame,
-        width: compositionWidth,
-        height: compositionHeight,
-        transform: buildEvaluatedTransform(
-          compositionWidth,
-          compositionHeight,
-          position,
-          composition.transformOffset,
-          composition.anchor,
-          scale,
-          rotation
-        ),
-        opacity,
-        children,
-      });
-      return;
-    }
-
-    [...renderItem.drawables].reverse().forEach((drawable) => {
-      const command = buildDrawableCommand({
-        renderItem,
-        drawable,
-        layerMap,
-        globalFrame,
-        localFrameBySourceId,
-      });
-
-      if (command) {
-        commands.push(command);
-      }
-    });
+  resolveDrawableSource,
+  rendererMode = "full-render",
+}: BuildRenderFrameFromEvaluatedSceneOptions): RenderFrame {
+  const result = renderWithRendererMode({
+    mode: rendererMode,
+    evaluatedScene,
+    renderItems,
+    resolveDrawableSource,
   });
 
-  return { compositionId, globalFrame, width, height, commands };
+  if (result.mode !== "full-render") {
+    throw new Error("Fast Preview Renderer does not produce a RenderFrame");
+  }
+
+  return result.frame;
+}
+
+export function buildRenderFrameFromItems(
+  options: BuildRenderFrameFromItemsOptions
+): RenderFrame {
+  const evaluatedScene = buildEvaluatedSceneFromItems(options);
+  return buildRenderFrameFromEvaluatedScene({
+    evaluatedScene,
+    renderItems: options.renderItems,
+    resolveDrawableSource: options.resolveDrawableSource,
+    rendererMode: options.rendererMode,
+  });
 }
 
 export function buildRenderFrame(options: BuildRenderFrameOptions) {
-  const localFrameBySourceId = buildLocalFrameBySourceId(
-    [...options.timelineItems],
-    options.globalFrame
-  );
-  const activeRenderItems = getActiveRenderItems(
-    options.renderItems,
-    options.timelineItems,
-    options.globalFrame
-  );
-
-  return buildRenderFrameFromItems({
-    ...options,
-    renderItems: activeRenderItems,
-    localFrameBySourceId,
+  const evaluatedScene = buildEvaluatedScene(options);
+  return buildRenderFrameFromEvaluatedScene({
+    evaluatedScene,
+    renderItems: options.renderItems,
+    resolveDrawableSource: options.resolveDrawableSource,
+    rendererMode: options.rendererMode,
   });
 }

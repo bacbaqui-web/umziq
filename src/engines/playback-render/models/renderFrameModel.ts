@@ -1,4 +1,8 @@
 import type { Position, Scale } from "@/models";
+import type {
+  RenderDrawableSource,
+  RenderSize,
+} from "@/engines/playback-render/models/renderSourceModel";
 
 export type EvaluatedRenderTransform = {
   position: Position;
@@ -15,9 +19,8 @@ export type RenderDrawableCommand = {
   drawableId: string;
   sourceId: string;
   localFrame: number;
-  width: number;
-  height: number;
-  canvas: HTMLCanvasElement;
+  logicalSize: RenderSize;
+  source: RenderDrawableSource;
   transform: EvaluatedRenderTransform;
   opacity: number;
 };

@@ -49,6 +49,29 @@ export function acknowledgeTimelineSourceStatus(
   );
 }
 
+export function acknowledgeCompositionSourceStatus(
+  comps: Composition[],
+  targetCompId: string
+): Composition[] {
+  let changed = false;
+
+  const visit = (composition: Composition): Composition => {
+    if (composition.id === targetCompId && composition.sourceSyncStatus === "new") {
+      changed = true;
+      return { ...composition, sourceSyncStatus: "normal" };
+    }
+
+    const children = composition.children?.map(visit);
+    if (children?.some((child, index) => child !== composition.children?.[index])) {
+      return { ...composition, children };
+    }
+    return composition;
+  };
+
+  const nextComps = comps.map(visit);
+  return changed ? nextComps : comps;
+}
+
 export function markTimelineSourceMissing(
   comps: Composition[],
   item: TimelineItem

@@ -4,16 +4,21 @@ import type {
   Composition,
   CompositionMeta,
   Layer,
+  ModifierNumberField,
+  ModifierType,
   Position,
   PropertyTrackState,
   Scale,
 } from "@/models";
 import type {
   SelectedKeyframe,
+  ApplyAnchorCommand,
   TransformEditMode,
   TransformTargetSelection,
 } from "@/engines/animation";
-import type { PropertiesNumericInputId } from "@/engines/properties/models/propertiesEngineModel";
+import type {
+  PropertiesDraftInputId,
+} from "@/engines/properties/models/propertiesEngineModel";
 
 export type PropertiesSelectionReadPort = {
   selectedComposition: Composition | null;
@@ -57,11 +62,11 @@ export type PropertiesDraftStatePort = {
 };
 
 export type PropertiesAnimationReadPort = {
-  evaluateLayerPosition: (layer: Layer, frame: number) => Position;
+  evaluateLayerPosition: (layer: Layer, frame: number, frameRate?: number) => Position;
   evaluateLayerScale: (layer: Layer, frame: number) => Scale;
   evaluateLayerRotation: (layer: Layer, frame: number) => number;
   evaluateLayerOpacity: (layer: Layer, frame: number) => number;
-  evaluateCompositionPosition: (composition: Composition, frame: number) => Position;
+  evaluateCompositionPosition: (composition: Composition, frame: number, frameRate?: number) => Position;
   evaluateCompositionScale: (composition: Composition, frame: number) => Scale;
   evaluateCompositionRotation: (composition: Composition, frame: number) => number;
   evaluateCompositionOpacity: (composition: Composition, frame: number) => number;
@@ -77,24 +82,40 @@ export type PropertiesAnimationCommandPort = {
   applyScale: (value: Scale, mode: TransformEditMode) => void;
   applyRotation: (value: number, mode: TransformEditMode) => void;
   applyOpacity: (value: number, mode: TransformEditMode) => void;
+  applyAnchor: (command: ApplyAnchorCommand) => void;
   setScaleLinked: (linked: boolean) => void;
   setPropertyTrackEnabled: (property: AnimatableProperty, enabled: boolean) => void;
   savePositionKeyframe: () => void;
   removeSelectedKeyframe: () => void;
+  toggleModifier: (type: ModifierType) => void;
+  updateModifierNumber: (
+    type: ModifierType,
+    field: ModifierNumberField,
+    value: number
+  ) => void;
   beginHistory: () => void;
   markHistoryDirty: () => void;
   commitHistory: () => void;
   cancelHistory: () => void;
 };
 
+export type PropertiesTransformDraftCommandPort = {
+  updateAnchor: (anchor: Position) => ApplyAnchorCommand | null;
+  reset: () => void;
+};
+
+export type PropertiesTransformDraftReadPort = {
+  anchor: Position | null;
+};
+
 export type PropertiesDraftControllerPort = {
   scope: string;
-  focusedInputId: PropertiesNumericInputId | null;
-  getNumericDraft: (inputId: PropertiesNumericInputId) => string | undefined;
-  hasNumericDraft: (inputId: PropertiesNumericInputId) => boolean;
-  focusNumericDraft: (inputId: PropertiesNumericInputId) => void;
-  setNumericDraft: (inputId: PropertiesNumericInputId, value: string) => void;
-  clearNumericDraft: (inputId: PropertiesNumericInputId) => void;
+  focusedInputId: PropertiesDraftInputId | null;
+  getNumericDraft: (inputId: PropertiesDraftInputId) => string | undefined;
+  hasNumericDraft: (inputId: PropertiesDraftInputId) => boolean;
+  focusNumericDraft: (inputId: PropertiesDraftInputId) => void;
+  setNumericDraft: (inputId: PropertiesDraftInputId, value: string) => void;
+  clearNumericDraft: (inputId: PropertiesDraftInputId) => void;
   clearNumericFocus: () => void;
   setPositionDraft: (value: Position) => void;
   setScaleDraft: (value: Scale) => void;

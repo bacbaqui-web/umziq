@@ -1,4 +1,10 @@
-import type { AnimatableProperty, Position, Scale } from "@/models";
+import type {
+  AnimatableProperty,
+  ModifierNumberField,
+  ModifierType,
+  Position,
+  Scale,
+} from "@/models";
 
 export type PropertiesNumericInputId =
   | "position.x"
@@ -6,7 +12,19 @@ export type PropertiesNumericInputId =
   | "scale.x"
   | "scale.y"
   | "rotation.value"
-  | "opacity.value";
+  | "opacity.value"
+  | "anchor.x"
+  | "anchor.y";
+
+export type PropertiesNumericProperty = AnimatableProperty | "anchor";
+
+export type PropertiesModifierInputId =
+  | "modifier.wiggle.frequency"
+  | "modifier.wiggle.amount";
+
+export type PropertiesDraftInputId =
+  | PropertiesNumericInputId
+  | PropertiesModifierInputId;
 
 export type PropertiesPropertyIcon = "position" | "scale" | "rotation" | "opacity";
 
@@ -42,6 +60,14 @@ export type PropertiesPropertyRowViewModel = {
   tokens: PropertiesVisualTokens;
 };
 
+export type PropertiesTransformOriginViewModel = {
+  label: string;
+  visible: boolean;
+  editable: boolean;
+  inputs: PropertiesNumericInputViewModel[];
+  tokens: PropertiesVisualTokens;
+};
+
 export type PropertiesInfoViewModel = {
   name: string;
   sourceFileName: string;
@@ -54,6 +80,7 @@ export type PropertiesResolvedValues = {
   scale: Scale;
   rotation: number;
   opacity: number;
+  anchor: Position;
 };
 
 export type PropertiesKeyframeViewModel = {
@@ -64,6 +91,30 @@ export type PropertiesKeyframeViewModel = {
   canDeleteSelected: boolean;
 };
 
+export type PropertiesModifierFieldViewModel = {
+  id: PropertiesModifierInputId;
+  field: ModifierNumberField;
+  label: string;
+  value: string;
+};
+
+export type PropertiesModifierViewModel = {
+  type: ModifierType;
+  label: string;
+  fields: PropertiesModifierFieldViewModel[];
+};
+
+export type PropertiesModifierLibraryItemViewModel = {
+  type: ModifierType;
+  label: string;
+  active: boolean;
+};
+
+export type PropertiesModifierLibraryViewModel = {
+  visible: boolean;
+  items: PropertiesModifierLibraryItemViewModel[];
+};
+
 export type PropertiesReadModel = {
   hasSelectedComposition: boolean;
   info: PropertiesInfoViewModel | null;
@@ -71,7 +122,10 @@ export type PropertiesReadModel = {
   currentTimeText: string;
   currentValues: PropertiesResolvedValues;
   rows: PropertiesPropertyRowViewModel[];
+  transformOrigin: PropertiesTransformOriginViewModel;
   keyframe: PropertiesKeyframeViewModel;
+  modifiers: PropertiesModifierViewModel[];
+  modifierLibrary: PropertiesModifierLibraryViewModel;
   importError: string | null;
   importNotice: string | null;
 };
@@ -88,6 +142,14 @@ export type PropertiesCommand = {
   toggleScaleLink: () => void;
   savePositionKeyframe: () => void;
   deleteSelectedKeyframe: () => void;
+  toggleModifier: (type: ModifierType) => void;
+  focusModifierInput: (inputId: PropertiesModifierInputId) => void;
+  changeModifierInput: (inputId: PropertiesModifierInputId, value: string) => void;
+  blurModifierInput: (inputId: PropertiesModifierInputId) => void;
+  keyDownModifierInput: (
+    inputId: PropertiesModifierInputId,
+    key: string
+  ) => "blur" | null;
 };
 
 export type PropertiesEngineViewProps = {

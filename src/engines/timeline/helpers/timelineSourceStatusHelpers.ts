@@ -15,7 +15,7 @@ export function buildTimelineSourceStatusViewModel(status: SourceSyncStatus): Ti
   const badge = status === "updated"
     ? { label: "update", color: "#7fb0de", background: "rgba(63, 96, 128, 0.34)" }
     : status === "new"
-      ? { label: "new", color: "#96cda0", background: "rgba(50, 90, 56, 0.34)" }
+      ? { label: "NEW", color: "#96cda0", background: "rgba(50, 90, 56, 0.34)" }
       : status === "deletePending"
         ? { label: "delete?", color: "#f2a3a9", background: "rgba(126, 44, 50, 0.42)" }
         : status === "missing"

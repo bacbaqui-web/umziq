@@ -18,7 +18,7 @@ import type {
   CanvasPendingMotionPathInteraction,
   ScaleHandleDirection,
 } from "@/engines/canvas";
-import type { PlaybackRange } from "@/engines/playback-render";
+import type { PlaybackRange, RendererMode } from "@/engines/playback-render";
 import type { RenderItem, StoredPsdSource } from "@/engines/project";
 
 export function useEditorProjectState(masterWidth: number, masterHeight: number) {
@@ -54,7 +54,17 @@ export function useEditorPlaybackState() {
   const [playbackRangeByCompId, setPlaybackRangeByCompId] = useState<Record<string, PlaybackRange>>({});
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  return { playbackRangeByCompId, setPlaybackRangeByCompId, currentFrame, setCurrentFrame, isPlaying, setIsPlaying };
+  const [rendererMode, setRendererMode] = useState<RendererMode>("full-render");
+  return {
+    playbackRangeByCompId,
+    setPlaybackRangeByCompId,
+    currentFrame,
+    setCurrentFrame,
+    isPlaying,
+    setIsPlaying,
+    rendererMode,
+    setRendererMode,
+  };
 }
 
 export function useEditorCanvasState(minWidth: number, minHeight: number) {

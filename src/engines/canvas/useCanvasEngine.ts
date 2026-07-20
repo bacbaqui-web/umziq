@@ -10,14 +10,20 @@ import type {
 } from "@/models";
 import type { TransformEditMode, TransformTargetSelection } from "@/engines/animation";
 import type { RenderItem } from "@/engines/project";
-import type { RenderFrame } from "@/engines/playback-render";
+import type {
+  EvaluatedScene,
+  PreviewScene,
+  RenderDrawableSourceResolver,
+  RenderFrame,
+} from "@/engines/playback-render";
 import { useCanvasGuideController } from "@/engines/canvas/controllers/useCanvasGuideController";
 import { useCanvasRenderController } from "@/engines/canvas/controllers/useCanvasRenderController";
 import { useCanvasSelectionController } from "@/engines/canvas/controllers/useCanvasSelectionController";
 import { useCanvasPointerController } from "@/engines/canvas/controllers/useCanvasPointerController";
-import { useCanvasTransformController } from "@/engines/canvas/controllers/useCanvasTransformController";
+import { useCanvasTransformComposer } from "@/engines/canvas/composers/useCanvasTransformComposer";
 import { useCanvasMotionPathController } from "@/engines/canvas/controllers/useCanvasMotionPathController";
 import { useCanvasGizmoController } from "@/engines/canvas/controllers/useCanvasGizmoController";
+import { usePreviewUpdatePipeline } from "@/engines/canvas/controllers/usePreviewUpdatePipeline";
 import type { CanvasInteractionStatePort } from "@/engines/canvas/models/canvasInteractionModel";
 import type { ScaleHandleDirection } from "@/engines/canvas/models/canvasViewModel";
 import type {
@@ -25,7 +31,20 @@ import type {
   CanvasViewportProjectReadPort,
   CanvasViewportStatePort,
 } from "@/engines/canvas/models/canvasEngineModel";
+import type { RuntimeMetricsResource } from "@/engines/canvas/models/runtimeMetricsModel";
+import type { DirtyStateResource } from "@/engines/canvas/models/dirtyStateModel";
+import type {
+  CompositionPreviewCacheRuntime,
+} from "@/engines/canvas/models/compositionCacheModel";
+import type {
+  PreviewSurfaceCacheRuntime,
+} from "@/engines/canvas/models/surfaceCacheModel";
+import type { ResolvedPreviewQuality } from "@/engines/canvas/models/previewQualityModel";
 import { useCanvasViewportEngine } from "@/engines/canvas/useCanvasViewportEngine";
+import {
+  resolveDraftOverlayRuntimeValuesForTarget,
+  type DraftTransformSnapshot,
+} from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
 
 export type UseCanvasEngineOptions = {
   minWorkspaceWidth: number;
@@ -37,8 +56,17 @@ export type UseCanvasEngineOptions = {
   panState: CanvasPanStatePort;
   render: {
     frame: RenderFrame | null;
+    previewScene?: PreviewScene | null;
+    evaluatedScene: EvaluatedScene | null;
     items: readonly RenderItem[];
     localFrameBySourceId: ReadonlyMap<string, number>;
+    resolveDrawableSource?: RenderDrawableSourceResolver;
+    pixelScale: number;
+    previewQuality: ResolvedPreviewQuality;
+    metrics?: RuntimeMetricsResource;
+    dirty?: DirtyStateResource;
+    compositionCache?: CompositionPreviewCacheRuntime;
+    surfaceCache?: PreviewSurfaceCacheRuntime;
   };
   selection: {
     target: TransformTargetSelection;
@@ -59,6 +87,8 @@ export type UseCanvasEngineOptions = {
     allCompositionsById: ReadonlyMap<string, Composition>;
     state: CanvasInteractionStatePort;
     seekFrame: (frame: number) => void;
+    draftTransformSnapshot: DraftTransformSnapshot | null;
+    setDraftTransformSnapshot: (snapshot: DraftTransformSnapshot | null) => void;
     drafts: {
       setPosition: (value: Position | null) => void;
       setScale: (value: Scale | null) => void;
@@ -137,9 +167,16 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     previewSize: viewport.readModel.previewSize,
     viewportScale: viewport.readModel.previewZoom,
     viewportOffset: viewport.readModel.previewViewportOffset,
+    draftTransformSnapshot: options.interaction.draftTransformSnapshot,
   });
   const pointer = useCanvasPointerController();
-  const transform = useCanvasTransformController({
+  const previewUpdatePipeline = usePreviewUpdatePipeline({
+    previewScene: options.render.previewScene,
+    evaluatedScene: options.render.evaluatedScene,
+    metrics: options.render.metrics,
+    dirty: options.render.dirty,
+  });
+  const transform = useCanvasTransformComposer({
     masterCompId: options.interaction.masterCompId,
     overlayRef,
     selectedMeta: options.project.selectedMeta,
@@ -154,14 +191,14 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     playheadFrame: options.selection.playheadFrame,
     resolvedPosition: options.interaction.resolvedPosition,
     resolvedOpacity: options.interaction.resolvedOpacity,
-    allLayersById: options.interaction.allLayersById,
-    allCompositionsById: options.interaction.allCompositionsById,
-    metaByCompId: options.selection.metaByCompId,
     drafts: options.interaction.drafts,
     state: options.interaction.state,
     history: options.interaction.history,
     commands: options.interaction.commands,
     pointer,
+    previewUpdates: previewUpdatePipeline.commands,
+    setDraftTransformSnapshot: options.interaction.setDraftTransformSnapshot,
+    metrics: options.render.metrics,
   });
   const motionPath = useCanvasMotionPathController({
     overlayRef,
@@ -176,6 +213,7 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     playheadFrame: options.selection.playheadFrame,
     metaByCompId: options.selection.metaByCompId,
     renderItems: options.render.items,
+    draftTransformSnapshot: options.interaction.draftTransformSnapshot,
     seekFrame: options.interaction.seekFrame,
     drafts: options.interaction.drafts,
     commands: options.interaction.commands,
@@ -191,6 +229,10 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     frameRate: 1,
     durationFrames: 1,
   };
+  const draftOverlayRuntime = resolveDraftOverlayRuntimeValuesForTarget(
+    options.selection.target,
+    options.interaction.draftTransformSnapshot
+  );
   const gizmo = useCanvasGizmoController({
     viewportScale: viewport.readModel.previewZoom,
     viewportOffset: viewport.readModel.previewViewportOffset,
@@ -198,9 +240,9 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     selectedMeta,
     selection,
     motionPath: motionPath.motionPath,
-    currentOpacity: options.interaction.resolvedOpacity,
-    currentRotation: options.interaction.resolvedRotation,
-    currentScale: options.interaction.resolvedScale,
+    currentOpacity: draftOverlayRuntime?.opacity ?? options.interaction.resolvedOpacity,
+    currentRotation: draftOverlayRuntime?.rotation ?? options.interaction.resolvedRotation,
+    currentScale: draftOverlayRuntime?.scale ?? options.interaction.resolvedScale,
     state: options.interaction.state,
     transform,
     motion: motionPath,
@@ -210,7 +252,19 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
       commitOpacity: options.interaction.commands.commitOpacityInput,
     },
   });
-  useCanvasRenderController({ canvasRef, renderFrame: options.render.frame });
+  useCanvasRenderController({
+    canvasRef,
+    renderFrame: options.render.frame,
+    previewScene: previewUpdatePipeline.previewScene,
+    isPreviewDraftActive: previewUpdatePipeline.isPreviewDraftActive,
+    renderItems: options.render.items,
+    resolveDrawableSource: options.render.resolveDrawableSource,
+    pixelScale: options.render.pixelScale,
+    previewQuality: options.render.previewQuality,
+    metrics: options.render.metrics,
+    compositionCache: options.render.compositionCache,
+    surfaceCache: options.render.surfaceCache,
+  });
 
   return {
     refs: {
@@ -226,5 +280,9 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     guideCommands: guide.commands,
     selection,
     interaction: gizmo,
+    draftTransformCommands: {
+      updateAnchor: transform.updateAnchorDraft,
+      reset: transform.resetDraftRuntime,
+    },
   };
 }

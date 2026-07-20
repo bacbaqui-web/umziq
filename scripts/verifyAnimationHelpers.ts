@@ -111,6 +111,7 @@ const disabledLayer: Layer = {
   opacity: 120,
   opacityKeyframes: [{ frame: 0, value: 0 }],
   enabledProperties: createPropertyTrackState(),
+  modifiers: [],
 };
 assert.equal(evaluateLayerOpacity(disabledLayer, 0), 100);
 assert.deepEqual(evaluateLayerPosition(disabledLayer, 5), { x: 1, y: 2 });
@@ -143,6 +144,7 @@ const animatedComposition: Composition = {
     rotation: true,
     opacity: true,
   }),
+  modifiers: [],
 };
 assert.deepEqual(evaluateCompositionPosition(animatedComposition, 5), { x: 50, y: 30 });
 assert.deepEqual(evaluateCompositionScale(animatedComposition, 5), { x: 150, y: 100 });

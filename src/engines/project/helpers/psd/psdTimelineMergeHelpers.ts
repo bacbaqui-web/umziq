@@ -47,7 +47,6 @@ export function updateDirectTimelineItem(
   if (item.kind === "subComp" && "children" in descriptor.entity) {
     return {
       ...item,
-      name: descriptor.nextName,
       visible: descriptor.nextVisible,
       sourceId: descriptor.entity.id,
       targetCompId: descriptor.entity.id,
@@ -55,7 +54,6 @@ export function updateDirectTimelineItem(
   }
   return {
     ...item,
-    name: descriptor.nextName,
     visible: descriptor.nextVisible,
     sourceId: descriptor.entity.id,
   };

@@ -6,6 +6,9 @@ import type {
   ScaleKeyframe,
 } from "@/models/animationModel";
 import type { Position, Scale } from "@/models/transformModel";
+import type { ModifierInstance } from "@/models/modifierModel";
+import type { PsdSourceIdentity } from "@/models/psdSourceIdentityModel";
+import type { PsdImportSettings } from "@/models/psdImportSettingsModel";
 
 export type CompType = "master" | "main" | "sub";
 export type SourceSyncStatus = "normal" | "updated" | "new" | "deletePending" | "missing";
@@ -15,6 +18,7 @@ export interface Layer {
   name: string;
   visible: boolean;
   sourcePath?: string;
+  sourceIdentity?: PsdSourceIdentity;
   sourceFingerprint?: string;
   sourceSyncStatus?: SourceSyncStatus;
   position: Position;
@@ -29,6 +33,7 @@ export interface Layer {
   opacity: number;
   opacityKeyframes: OpacityKeyframe[];
   enabledProperties: PropertyTrackState;
+  modifiers: ModifierInstance[];
 }
 
 export interface Composition {
@@ -37,6 +42,8 @@ export interface Composition {
   type: CompType;
   parentId?: string;
   sourcePath?: string;
+  sourceIdentity?: PsdSourceIdentity;
+  importSettings?: PsdImportSettings;
   sourceFingerprint?: string;
   sourceSyncStatus?: SourceSyncStatus;
   children?: Composition[];
@@ -53,6 +60,7 @@ export interface Composition {
   opacity: number;
   opacityKeyframes: OpacityKeyframe[];
   enabledProperties: PropertyTrackState;
+  modifiers: ModifierInstance[];
 }
 
 export interface CompositionMeta {

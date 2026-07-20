@@ -1,9 +1,13 @@
 import { useCallback, useMemo } from "react";
 import { usePsdPickerController } from "@/engines/psd-tree/controllers/usePsdPickerController";
+import { usePsdImportDialogController } from "@/engines/psd-tree/controllers/usePsdImportDialogController";
 import { useSourceActionController } from "@/engines/psd-tree/controllers/useSourceActionController";
 import { useTreeReorderController } from "@/engines/psd-tree/controllers/useTreeReorderController";
 import { useTreeSelectionController } from "@/engines/psd-tree/controllers/useTreeSelectionController";
-import { buildPsdTreeViewModel } from "@/engines/psd-tree/helpers/psdTreeViewModelHelpers";
+import {
+  buildPsdRefreshSummaryViewModel,
+  buildPsdTreeViewModel,
+} from "@/engines/psd-tree/helpers/psdTreeViewModelHelpers";
 import type {
   PsdTreeProjectCommandPort,
   PsdTreeProjectReadPort,
@@ -19,10 +23,12 @@ type UsePsdTreeEngineOptions = {
 
 export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions) {
   const state = usePsdTreeState();
+  const { setRefreshSummary } = state;
   const selectionController = useTreeSelectionController(selection);
-  const sourceActions = useSourceActionController(project);
+  const sourceActions = useSourceActionController({ ...project, state });
+  const importDialog = usePsdImportDialogController({ project, state });
   const picker = usePsdPickerController({
-    importPsdSources: project.importPsdSources,
+    preparePsdSources: importDialog.prepare,
     refreshWithSource: sourceActions.refreshWithSource,
     state,
   });
@@ -42,6 +48,12 @@ export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions
     () => buildPsdTreeViewModel(project.rootCompositions, project.selectedCompId),
     [project.rootCompositions, project.selectedCompId]
   );
+  const refreshSummary = useMemo(
+    () => state.refreshSummary
+      ? buildPsdRefreshSummaryViewModel(state.refreshSummary)
+      : null,
+    [state.refreshSummary]
+  );
 
   const requestRefresh = useCallback(
     async (compId: string) => {
@@ -50,12 +62,20 @@ export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions
     },
     [picker, sourceActions]
   );
+  const dismissRefreshSummary = useCallback(
+    () => setRefreshSummary(null),
+    [setRefreshSummary]
+  );
 
   const viewProps: PsdTreeViewProps = {
     nodes,
     fileInputRef: state.fileInputRef,
     draggedMainCompId: state.draggedMainCompId,
     dropTarget: state.dropTarget,
+    importPlan: state.importPlan,
+    importPreviewStatus: state.importPreviewStatus,
+    importPreviewError: state.importPreviewError,
+    refreshSummary,
     onImportClick: () => void picker.importFromPicker(),
     onFileInputChange: picker.handleFileInputChange,
     onSelectNode: selectionController.selectNode,
@@ -65,6 +85,10 @@ export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions
     onDragOverMain: reorder.dragOver,
     onDropMain: reorder.drop,
     onEndMainDrag: reorder.endDrag,
+    onCancelImport: importDialog.cancel,
+    onConfirmImport: () => void importDialog.confirm(),
+    onMoveImportNode: importDialog.moveNode,
+    onDismissRefreshSummary: dismissRefreshSummary,
   };
 
   return { viewProps };

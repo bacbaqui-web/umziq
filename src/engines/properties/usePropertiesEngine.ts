@@ -1,10 +1,10 @@
 import {
+  evaluateCompositionBasePosition,
   evaluateCompositionOpacity,
-  evaluateCompositionPosition,
   evaluateCompositionRotation,
   evaluateCompositionScale,
+  evaluateLayerBasePosition,
   evaluateLayerOpacity,
-  evaluateLayerPosition,
   evaluateLayerRotation,
   evaluateLayerScale,
   getTargetKeyframes,
@@ -17,6 +17,8 @@ import type {
   PropertiesPlaybackReadPort,
   PropertiesProjectReadPort,
   PropertiesSelectionReadPort,
+  PropertiesTransformDraftCommandPort,
+  PropertiesTransformDraftReadPort,
 } from "@/engines/properties/models/propertiesInternalModel";
 import type { PropertiesEngineViewProps } from "@/engines/properties/models/propertiesEngineModel";
 import { buildPropertiesDraftScope } from "@/engines/properties/helpers/propertiesViewModelHelpers";
@@ -25,6 +27,8 @@ import { usePropertiesPropertyViewController } from "@/engines/properties/contro
 import { usePropertiesNumericInputController } from "@/engines/properties/controllers/usePropertiesNumericInputController";
 import { usePropertiesTrackController } from "@/engines/properties/controllers/usePropertiesTrackController";
 import { usePropertiesKeyframeController } from "@/engines/properties/controllers/usePropertiesKeyframeController";
+import { usePropertiesModifierInputController } from "@/engines/properties/controllers/usePropertiesModifierInputController";
+import { buildPropertiesModifierViewModel } from "@/engines/properties/helpers/propertiesModifierHelpers";
 
 type UsePropertiesEngineOptions = {
   masterCompId: string;
@@ -33,6 +37,8 @@ type UsePropertiesEngineOptions = {
   project: PropertiesProjectReadPort;
   draftState: PropertiesDraftStatePort;
   animationCommands: PropertiesAnimationCommandPort;
+  transformDraftCommands: PropertiesTransformDraftCommandPort;
+  transformDraft: PropertiesTransformDraftReadPort;
   formatTime: (frame: number, frameRate: number) => string;
 };
 
@@ -53,12 +59,13 @@ export function usePropertiesEngine(options: UsePropertiesEngineOptions) {
     project: options.project,
     draftState: options.draftState,
     draft: draftController,
+    transformDraft: options.transformDraft,
     animation: {
-      evaluateLayerPosition,
+      evaluateLayerPosition: evaluateLayerBasePosition,
       evaluateLayerScale,
       evaluateLayerRotation,
       evaluateLayerOpacity,
-      evaluateCompositionPosition,
+      evaluateCompositionPosition: evaluateCompositionBasePosition,
       evaluateCompositionScale,
       evaluateCompositionRotation,
       evaluateCompositionOpacity,
@@ -69,11 +76,13 @@ export function usePropertiesEngine(options: UsePropertiesEngineOptions) {
   });
   const numericInputController = usePropertiesNumericInputController({
     editableProperties: propertyViewController.editableProperties,
+    anchorEditable: propertyViewController.anchorEditable,
     propertyState: options.selection.selectedPropertyState,
     scaleLinked: options.selection.selectedScaleLinked,
     values: propertyViewController.values,
     draft: draftController,
     animation: options.animationCommands,
+    transformDraft: options.transformDraftCommands,
   });
   const trackController = usePropertiesTrackController({
     propertyState: options.selection.selectedPropertyState,
@@ -81,13 +90,30 @@ export function usePropertiesEngine(options: UsePropertiesEngineOptions) {
     animation: options.animationCommands,
   });
   const keyframeController = usePropertiesKeyframeController(options.animationCommands);
+  const modifierViewModel = buildPropertiesModifierViewModel({
+    target: options.selection.selectedTransformTarget,
+    masterCompId: options.masterCompId,
+    draft: draftController,
+  });
+  const modifierInputController = usePropertiesModifierInputController({
+    target: options.selection.selectedTransformTarget,
+    masterCompId: options.masterCompId,
+    draft: draftController,
+    animation: options.animationCommands,
+  });
 
   const viewProps: PropertiesEngineViewProps = {
-    readModel: propertyViewController.readModel,
+    readModel: {
+      ...propertyViewController.readModel,
+      modifiers: modifierViewModel.modifiers,
+      modifierLibrary: modifierViewModel.library,
+    },
     commands: {
       ...numericInputController,
       ...trackController,
       ...keyframeController,
+      ...modifierInputController,
+      toggleModifier: options.animationCommands.toggleModifier,
     },
   };
 

@@ -9,7 +9,7 @@ import type { PsdTreeProjectCommandPort } from "@/engines/psd-tree/models/psdTre
 import type { PsdTreeState } from "@/engines/psd-tree/state/usePsdTreeState";
 
 type UsePsdPickerControllerOptions = {
-  importPsdSources: PsdTreeProjectCommandPort["importPsdSources"];
+  preparePsdSources: (sources: Parameters<PsdTreeProjectCommandPort["preparePsdImport"]>[0]) => Promise<void>;
   refreshWithSource: (
     compId: string,
     source: Parameters<PsdTreeProjectCommandPort["refreshMainComposition"]>[1]
@@ -21,7 +21,7 @@ type UsePsdPickerControllerOptions = {
 };
 
 export function usePsdPickerController({
-  importPsdSources,
+  preparePsdSources,
   refreshWithSource,
   state,
 }: UsePsdPickerControllerOptions) {
@@ -42,12 +42,12 @@ export function usePsdPickerController({
 
     try {
       const sources = await openPsdSourcesFromPicker(picker, true);
-      if (sources.length > 0) await importPsdSources(sources);
+      if (sources.length > 0) await preparePsdSources(sources);
     } catch (error) {
       if (isPsdPickerCancellation(error)) return;
       openFallback({ type: "import" });
     }
-  }, [importPsdSources, openFallback]);
+  }, [openFallback, preparePsdSources]);
 
   const refreshFromPicker = useCallback(
     async (mainCompId: string) => {
@@ -80,9 +80,9 @@ export function usePsdPickerController({
         return;
       }
 
-      void importPsdSources(sources);
+      void preparePsdSources(sources);
     },
-    [importPsdSources, refreshWithSource, state]
+    [preparePsdSources, refreshWithSource, state]
   );
 
   return {

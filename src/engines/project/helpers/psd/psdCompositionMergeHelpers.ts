@@ -10,7 +10,7 @@ import {
   type PsdRefreshCounts as RefreshCounts,
 } from "@/engines/project/models/psdRefreshResultModel";
 import {
-  countSourceEntitiesInComposition,
+  countNewSourcesInComposition,
   getSourceStatusAfterMissing,
   getSourceStatusAfterRefresh,
   markCompositionSubtreeStatus,
@@ -18,52 +18,52 @@ import {
   mergePsdRefreshCounts as mergeCounts,
 } from "@/engines/project/helpers/psd/psdSourceStatusHelpers";
 import {
-  buildChildPathById,
-  buildLayerPathById,
-  buildMergedEntityOrder,
+  buildPsdRefreshSourceMatches,
   collectCompositionIds,
+  type PsdRefreshSourceMatches,
 } from "@/engines/project/helpers/psd/psdSourceMatchingHelpers";
 import {
-  buildTimelineTemplateMap,
   patchNewTimelineItemSource,
   updateDirectTimelineItem,
 } from "@/engines/project/helpers/psd/psdTimelineMergeHelpers";
 import {
-  buildRenderTemplateMap,
   clonePsdDrawables as cloneDrawables,
   patchNewRenderItemSource,
   updateDirectRenderItem,
 } from "@/engines/project/helpers/psd/psdRenderMergeHelpers";
 
+type PsdRefreshMergeContext = PsdRefreshSourceMatches & {
+  refreshedTimelineBySourceId: Map<string, TimelineItem>;
+  refreshedRenderBySourceId: Map<string, RenderItem>;
+};
+
+function buildRefreshedSourceTemplateMaps(
+  composition: Composition,
+  currentState: ProjectDataState,
+  timelineBySourceId = new Map<string, TimelineItem>(),
+  renderBySourceId = new Map<string, RenderItem>()
+) {
+  (currentState.timelineItemsByCompId[composition.id] ?? []).forEach((item) => {
+    if (!timelineBySourceId.has(item.sourceId)) timelineBySourceId.set(item.sourceId, item);
+  });
+  (currentState.renderItemsByCompId[composition.id] ?? []).forEach((item) => {
+    if (!renderBySourceId.has(item.sourceId)) renderBySourceId.set(item.sourceId, item);
+  });
+  (composition.children ?? []).forEach((child) =>
+    buildRefreshedSourceTemplateMaps(child, currentState, timelineBySourceId, renderBySourceId)
+  );
+  return { timelineBySourceId, renderBySourceId };
+}
+
 function mergeCompositionNode(
   existingComp: Composition,
   refreshedComp: Composition,
-  currentState: ProjectDataState
+  currentState: ProjectDataState,
+  context: PsdRefreshMergeContext
 ): MergeNodeResult {
   const existingChildren = existingComp.children ?? [];
   const refreshedChildren = refreshedComp.children ?? [];
-  const existingChildrenByPath = new Map(
-    existingChildren
-      .filter((child): child is Composition & { sourcePath: string } => !!child.sourcePath)
-      .map((child) => [child.sourcePath, child])
-  );
-  const refreshedChildrenByPath = new Map(
-    refreshedChildren
-      .filter((child): child is Composition & { sourcePath: string } => !!child.sourcePath)
-      .map((child) => [child.sourcePath, child])
-  );
-  const existingLayersByPath = new Map(
-    existingComp.layers
-      .filter((layer): layer is Layer & { sourcePath: string } => !!layer.sourcePath)
-      .map((layer) => [layer.sourcePath, layer])
-  );
-  const refreshedLayersByPath = new Map(
-    refreshedComp.layers
-      .filter((layer): layer is Layer & { sourcePath: string } => !!layer.sourcePath)
-      .map((layer) => [layer.sourcePath, layer])
-  );
-
-  const childResultsByPath = new Map<string, MergeNodeResult>();
+  const childResultsById = new Map<string, MergeNodeResult>();
   const childCounts: RefreshCounts[] = [];
 
   existingChildren.forEach((existingChild) => {
@@ -73,11 +73,11 @@ function mergeCompositionNode(
         composition: existingChild,
         counts: INITIAL_REFRESH_COUNTS,
       };
-      childResultsByPath.set(existingChild.id, fallbackResult);
+      childResultsById.set(existingChild.id, fallbackResult);
       return;
     }
 
-    const refreshedChild = refreshedChildrenByPath.get(existingChild.sourcePath);
+    const refreshedChild = context.refreshedChildByExistingId.get(existingChild.id);
 
     if (!refreshedChild) {
       const nextStatus = getSourceStatusAfterMissing(existingChild.sourceSyncStatus);
@@ -100,9 +100,10 @@ function mergeCompositionNode(
       const counts = {
         ...INITIAL_REFRESH_COUNTS,
         deletePending: nextStatus === "deletePending" ? 1 : 0,
+        missing: nextStatus === "missing" ? 1 : 0,
       };
 
-      childResultsByPath.set(existingChild.sourcePath, {
+      childResultsById.set(existingChild.id, {
         comps: [keptChild],
         metaByCompId: keptMeta,
         timelineItemsByCompId: keptTimeline,
@@ -114,13 +115,13 @@ function mergeCompositionNode(
       return;
     }
 
-    const mergedChild = mergeCompositionNode(existingChild, refreshedChild, currentState);
-    childResultsByPath.set(existingChild.sourcePath, mergedChild);
+    const mergedChild = mergeCompositionNode(existingChild, refreshedChild, currentState, context);
+    childResultsById.set(existingChild.id, mergedChild);
     childCounts.push(mergedChild.counts);
   });
 
   const newChildren = refreshedChildren.filter(
-    (child) => !!child.sourcePath && !existingChildrenByPath.has(child.sourcePath)
+    (child) => !!child.sourcePath && !context.matchedRefreshedChildIds.has(child.id)
   );
 
   newChildren.forEach((child) => {
@@ -141,12 +142,13 @@ function mergeCompositionNode(
     const childRender = Object.fromEntries(
       childCompIds.map((compId) => [compId, currentState.renderItemsByCompId[compId] ?? []])
     );
+    const newSourceCounts = countNewSourcesInComposition(nextChild);
     const counts = {
       ...INITIAL_REFRESH_COUNTS,
-      added: countSourceEntitiesInComposition(nextChild),
+      ...newSourceCounts,
     };
 
-    childResultsByPath.set(child.sourcePath, {
+    childResultsById.set(child.id, {
       comps: [nextChild],
       metaByCompId: childMeta,
       timelineItemsByCompId: childTimeline,
@@ -157,117 +159,97 @@ function mergeCompositionNode(
     childCounts.push(counts);
   });
 
-  const mergedChildren = buildMergedEntityOrder(existingChildren, refreshedChildren)
-    .map((child) => {
-      if (child.sourcePath) {
-        return childResultsByPath.get(child.sourcePath)?.composition ?? child;
-      }
-
-      return childResultsByPath.get(child.id)?.composition ?? child;
-    })
+  const mergedChildren = [...newChildren, ...existingChildren]
+    .map((child) => childResultsById.get(child.id)?.composition ?? child)
     .filter((child): child is Composition => !!child);
 
   const layerCounts: RefreshCounts[] = [];
-  const mergedLayers: Layer[] = buildMergedEntityOrder(
-    existingComp.layers,
-    refreshedComp.layers
-  ).map<Layer>((candidateLayer) => {
-      const sourcePath = candidateLayer.sourcePath;
-
-      if (!sourcePath) {
-        return candidateLayer;
-      }
-
-      const existingLayer = existingLayersByPath.get(sourcePath);
-      const refreshedLayer = refreshedLayersByPath.get(sourcePath);
+  const existingLayersById = new Map(existingComp.layers.map((layer) => [layer.id, layer]));
+  const newLayers = refreshedComp.layers.filter(
+    (layer) => !!layer.sourcePath && !context.matchedRefreshedLayerIds.has(layer.id)
+  );
+  const mergedLayers: Layer[] = [...newLayers, ...existingComp.layers].map<Layer>(
+    (candidateLayer) => {
+      const existingLayer = existingLayersById.get(candidateLayer.id);
+      const refreshedLayer = existingLayer
+        ? context.refreshedLayerByExistingId.get(existingLayer.id)
+        : candidateLayer;
 
       if (existingLayer && refreshedLayer) {
+        const sourceChanged =
+          existingLayer.sourceFingerprint !== refreshedLayer.sourceFingerprint;
+        const sourceReturned =
+          existingLayer.sourceSyncStatus === "deletePending" ||
+          existingLayer.sourceSyncStatus === "missing";
         const nextStatus = getSourceStatusAfterRefresh(
           existingLayer.sourceSyncStatus,
-          existingLayer.sourceFingerprint !== refreshedLayer.sourceFingerprint
+          sourceChanged
         );
 
         layerCounts.push({
           ...INITIAL_REFRESH_COUNTS,
-          updated: nextStatus === "updated" ? 1 : 0,
+          updated: sourceChanged || sourceReturned ? 1 : 0,
         });
 
         return {
           ...existingLayer,
-          name: refreshedLayer.name,
           visible: refreshedLayer.visible,
-          sourcePath: refreshedLayer.sourcePath,
+          sourceIdentity: existingLayer.sourceIdentity ?? refreshedLayer.sourceIdentity,
           sourceFingerprint: refreshedLayer.sourceFingerprint,
           sourceSyncStatus: nextStatus,
         };
       }
 
-      if (!existingLayer && refreshedLayer) {
+      if (!existingLayer) {
         layerCounts.push({
           ...INITIAL_REFRESH_COUNTS,
-          added: 1,
+          newLayers: 1,
         });
 
         return {
-          ...refreshedLayer,
+          ...candidateLayer,
           sourceSyncStatus: "new",
         };
       }
 
-      if (existingLayer) {
-        const nextStatus = getSourceStatusAfterMissing(existingLayer.sourceSyncStatus);
+      const nextStatus = getSourceStatusAfterMissing(existingLayer.sourceSyncStatus);
 
-        layerCounts.push({
-          ...INITIAL_REFRESH_COUNTS,
-          deletePending: nextStatus === "deletePending" ? 1 : 0,
-        });
+      layerCounts.push({
+        ...INITIAL_REFRESH_COUNTS,
+        deletePending: nextStatus === "deletePending" ? 1 : 0,
+        missing: nextStatus === "missing" ? 1 : 0,
+      });
 
-        return {
-          ...existingLayer,
-          sourceSyncStatus: nextStatus,
-        };
-      }
-
-      return candidateLayer;
-    });
+      return {
+        ...existingLayer,
+        sourceSyncStatus: nextStatus,
+      };
+    }
+  );
 
   const refreshedMeta = currentState.metaByCompId[refreshedComp.id];
   const existingMeta = currentState.metaByCompId[existingComp.id];
+  const compSourceChanged =
+    existingComp.sourceFingerprint !== refreshedComp.sourceFingerprint;
+  const compSourceReturned =
+    existingComp.sourceSyncStatus === "deletePending" ||
+    existingComp.sourceSyncStatus === "missing";
   const compStatus = getSourceStatusAfterRefresh(
     existingComp.sourceSyncStatus,
-    existingComp.sourceFingerprint !== refreshedComp.sourceFingerprint
+    compSourceChanged
   );
   const mergedComp: Composition = {
     ...existingComp,
-    name: refreshedComp.name,
-    sourcePath: refreshedComp.sourcePath,
+    sourceIdentity: existingComp.sourceIdentity ?? refreshedComp.sourceIdentity,
+    importSettings: existingComp.importSettings ?? refreshedComp.importSettings,
     sourceFingerprint: refreshedComp.sourceFingerprint,
     sourceSyncStatus: compStatus,
     children: mergedChildren,
     layers: mergedLayers,
   };
 
-  const refreshedTimelineItems = currentState.timelineItemsByCompId[refreshedComp.id] ?? [];
-  const refreshedRenderItems = currentState.renderItemsByCompId[refreshedComp.id] ?? [];
   const existingTimelineItems = currentState.timelineItemsByCompId[existingComp.id] ?? [];
   const existingRenderItems = currentState.renderItemsByCompId[existingComp.id] ?? [];
-  const existingLayerPathsById = buildLayerPathById(existingComp.layers);
-  const existingChildPathsById = buildChildPathById(existingChildren);
-  const refreshedTimelineTemplates = buildTimelineTemplateMap(
-    refreshedTimelineItems,
-    refreshedComp.layers,
-    refreshedChildren
-  );
-  const refreshedRenderTemplates = buildRenderTemplateMap(
-    refreshedRenderItems,
-    refreshedComp.layers,
-    refreshedChildren
-  );
-  const childResultByPath = new Map(
-    mergedChildren
-      .filter((child): child is Composition & { sourcePath: string } => !!child.sourcePath)
-      .map((child) => [child.sourcePath, childResultsByPath.get(child.sourcePath)!])
-  );
   const descriptorByKey = new Map<string, DirectSourceDescriptor>();
 
   mergedLayers.forEach((layer) => {
@@ -275,10 +257,17 @@ function mergeCompositionNode(
       return;
     }
 
-    const key = `layer:${layer.sourcePath}`;
-    const refreshedTimelineItem = refreshedTimelineTemplates.get(key);
-    const refreshedRenderItem = refreshedRenderTemplates.get(key);
-    const existingLayer = existingLayersByPath.get(layer.sourcePath);
+    const key = `layer:${layer.id}`;
+    const existingLayer = existingLayersById.get(layer.id);
+    const refreshedLayer = existingLayer
+      ? context.refreshedLayerByExistingId.get(existingLayer.id)
+      : layer;
+    const refreshedTimelineItem = refreshedLayer
+      ? context.refreshedTimelineBySourceId.get(refreshedLayer.id)
+      : undefined;
+    const refreshedRenderItem = refreshedLayer
+      ? context.refreshedRenderBySourceId.get(refreshedLayer.id)
+      : undefined;
     const nextDrawables = refreshedRenderItem
       ? cloneDrawables(refreshedRenderItem.drawables, layer.id)
       : null;
@@ -288,9 +277,8 @@ function mergeCompositionNode(
       sourcePath: layer.sourcePath,
       entity: layer,
       sourceStatus: layer.sourceSyncStatus ?? "normal",
-      isNewSource: !existingLayer && !!refreshedLayersByPath.get(layer.sourcePath),
-      isMissingSource: !!existingLayer && !refreshedLayersByPath.get(layer.sourcePath),
-      nextName: refreshedTimelineItem?.name ?? layer.name,
+      isNewSource: !existingLayer,
+      isMissingSource: !!existingLayer && !refreshedLayer,
       nextVisible: refreshedTimelineItem?.visible ?? layer.visible,
       nextDrawables,
       newTimelineItemTemplate: refreshedTimelineItem
@@ -308,12 +296,19 @@ function mergeCompositionNode(
       return;
     }
 
-    const key = `subComp:${child.sourcePath}`;
-    const refreshedTimelineItem = refreshedTimelineTemplates.get(key);
-    const refreshedRenderItem = refreshedRenderTemplates.get(key);
-    const existingChild = existingChildrenByPath.get(child.sourcePath);
+    const key = `subComp:${child.id}`;
+    const existingChild = existingChildren.find((candidate) => candidate.id === child.id);
+    const refreshedChild = existingChild
+      ? context.refreshedChildByExistingId.get(existingChild.id)
+      : child;
+    const refreshedTimelineItem = refreshedChild
+      ? context.refreshedTimelineBySourceId.get(refreshedChild.id)
+      : undefined;
+    const refreshedRenderItem = refreshedChild
+      ? context.refreshedRenderBySourceId.get(refreshedChild.id)
+      : undefined;
     const childRenderItems =
-      childResultByPath.get(child.sourcePath)?.renderItemsByCompId[child.id] ?? [];
+      childResultsById.get(child.id)?.renderItemsByCompId[child.id] ?? [];
     const nextDrawables = cloneDrawables(flattenRenderDrawables(childRenderItems));
 
     descriptorByKey.set(key, {
@@ -321,9 +316,8 @@ function mergeCompositionNode(
       sourcePath: child.sourcePath,
       entity: child,
       sourceStatus: child.sourceSyncStatus ?? "normal",
-      isNewSource: !existingChild && !!refreshedChildrenByPath.get(child.sourcePath),
-      isMissingSource: !!existingChild && !refreshedChildrenByPath.get(child.sourcePath),
-      nextName: refreshedTimelineItem?.name ?? child.name,
+      isNewSource: !existingChild,
+      isMissingSource: !!existingChild && !refreshedChild,
       nextVisible: refreshedTimelineItem?.visible ?? true,
       nextDrawables,
       newTimelineItemTemplate: refreshedTimelineItem
@@ -336,44 +330,56 @@ function mergeCompositionNode(
     });
   });
 
+  const refreshedTimelineOrder = new Map(
+    (currentState.timelineItemsByCompId[refreshedComp.id] ?? []).map((item, index) => [
+      item.sourceId,
+      index,
+    ])
+  );
+  const newTimelineItems = Array.from(descriptorByKey.values())
+    .flatMap((descriptor) =>
+      descriptor.isNewSource && descriptor.newTimelineItemTemplate
+        ? [descriptor.newTimelineItemTemplate]
+        : []
+    )
+    .sort(
+      (a, b) =>
+        (refreshedTimelineOrder.get(a.sourceId) ?? Number.MAX_SAFE_INTEGER) -
+        (refreshedTimelineOrder.get(b.sourceId) ?? Number.MAX_SAFE_INTEGER)
+    );
   const mergedTimelineItems = [
+    ...newTimelineItems,
     ...existingTimelineItems.map((item) => {
-      const sourcePath =
-        item.kind === "layer"
-          ? existingLayerPathsById.get(item.sourceId)
-          : existingChildPathsById.get(item.sourceId);
-
-      if (!sourcePath) {
-        return item;
-      }
-
-      const descriptor = descriptorByKey.get(`${item.kind}:${sourcePath}`);
+      const descriptor = descriptorByKey.get(`${item.kind}:${item.sourceId}`);
 
       return descriptor ? updateDirectTimelineItem(item, descriptor) : item;
     }),
-    ...Array.from(descriptorByKey.values())
-      .filter((descriptor) => descriptor.isNewSource && descriptor.newTimelineItemTemplate)
-      .map((descriptor) => descriptor.newTimelineItemTemplate as TimelineItem),
   ];
 
+  const refreshedRenderOrder = new Map(
+    (currentState.renderItemsByCompId[refreshedComp.id] ?? []).map((item, index) => [
+      item.sourceId,
+      index,
+    ])
+  );
+  const newRenderItems = Array.from(descriptorByKey.values())
+    .flatMap((descriptor) =>
+      descriptor.isNewSource && descriptor.newRenderItemTemplate
+        ? [descriptor.newRenderItemTemplate]
+        : []
+    )
+    .sort(
+      (a, b) =>
+        (refreshedRenderOrder.get(a.sourceId) ?? Number.MAX_SAFE_INTEGER) -
+        (refreshedRenderOrder.get(b.sourceId) ?? Number.MAX_SAFE_INTEGER)
+    );
   const mergedRenderItems = [
+    ...newRenderItems,
     ...existingRenderItems.map((item) => {
-      const sourcePath =
-        item.kind === "layer"
-          ? existingLayerPathsById.get(item.sourceId)
-          : existingChildPathsById.get(item.sourceId);
-
-      if (!sourcePath) {
-        return item;
-      }
-
-      const descriptor = descriptorByKey.get(`${item.kind}:${sourcePath}`);
+      const descriptor = descriptorByKey.get(`${item.kind}:${item.sourceId}`);
 
       return descriptor ? updateDirectRenderItem(item, descriptor) : item;
     }),
-    ...Array.from(descriptorByKey.values())
-      .filter((descriptor) => descriptor.isNewSource && descriptor.newRenderItemTemplate)
-      .map((descriptor) => descriptor.newRenderItemTemplate as RenderItem),
   ];
 
   const mergedMeta: CompositionMeta = existingMeta
@@ -389,28 +395,19 @@ function mergeCompositionNode(
   const childMetaEntries = Object.assign(
     {},
     ...mergedChildren.map(
-      (child) =>
-        (child.sourcePath
-          ? childResultByPath.get(child.sourcePath)
-          : childResultsByPath.get(child.id))?.metaByCompId ?? {}
+      (child) => childResultsById.get(child.id)?.metaByCompId ?? {}
     )
   );
   const childTimelineEntries = Object.assign(
     {},
     ...mergedChildren.map(
-      (child) =>
-        (child.sourcePath
-          ? childResultByPath.get(child.sourcePath)
-          : childResultsByPath.get(child.id))?.timelineItemsByCompId ?? {}
+      (child) => childResultsById.get(child.id)?.timelineItemsByCompId ?? {}
     )
   );
   const childRenderEntries = Object.assign(
     {},
     ...mergedChildren.map(
-      (child) =>
-        (child.sourcePath
-          ? childResultByPath.get(child.sourcePath)
-          : childResultsByPath.get(child.id))?.renderItemsByCompId ?? {}
+      (child) => childResultsById.get(child.id)?.renderItemsByCompId ?? {}
     )
   );
 
@@ -434,7 +431,7 @@ function mergeCompositionNode(
       ...layerCounts,
       {
         ...INITIAL_REFRESH_COUNTS,
-        updated: compStatus === "updated" ? 1 : 0,
+        updated: compSourceChanged || compSourceReturned ? 1 : 0,
       }
     ),
   };
@@ -445,23 +442,33 @@ export function mergeRefreshedMainCompIntoProject(
   existingMainComp: Composition,
   refreshedDocument: ParsedPsdDocument
 ) {
+  const refreshState = {
+    comps: [refreshedDocument.composition],
+    metaByCompId: {
+      ...currentState.metaByCompId,
+      ...refreshedDocument.metaByCompId,
+    },
+    timelineItemsByCompId: {
+      ...currentState.timelineItemsByCompId,
+      ...refreshedDocument.timelineItemsByCompId,
+    },
+    renderItemsByCompId: {
+      ...currentState.renderItemsByCompId,
+      ...refreshedDocument.renderItemsByCompId,
+    },
+  };
+  const templateMaps = buildRefreshedSourceTemplateMaps(
+    refreshedDocument.composition,
+    refreshState
+  );
   const mergedMainComp = mergeCompositionNode(
     existingMainComp,
     refreshedDocument.composition,
+    refreshState,
     {
-      comps: [refreshedDocument.composition],
-      metaByCompId: {
-        ...currentState.metaByCompId,
-        ...refreshedDocument.metaByCompId,
-      },
-      timelineItemsByCompId: {
-        ...currentState.timelineItemsByCompId,
-        ...refreshedDocument.timelineItemsByCompId,
-      },
-      renderItemsByCompId: {
-        ...currentState.renderItemsByCompId,
-        ...refreshedDocument.renderItemsByCompId,
-      },
+      ...buildPsdRefreshSourceMatches(existingMainComp, refreshedDocument.composition),
+      refreshedTimelineBySourceId: templateMaps.timelineBySourceId,
+      refreshedRenderBySourceId: templateMaps.renderBySourceId,
     }
   );
 

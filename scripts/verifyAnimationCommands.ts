@@ -26,6 +26,7 @@ const layer: Layer = {
   opacity: 100,
   opacityKeyframes: [],
   enabledProperties: createPropertyTrackState(),
+  modifiers: [],
 };
 
 const child: Composition = {
@@ -45,6 +46,7 @@ const child: Composition = {
   opacity: 100,
   opacityKeyframes: [],
   enabledProperties: createPropertyTrackState(),
+  modifiers: [],
 };
 
 const root: Composition = { ...child, id: "root", name: "Root", type: "main", layers: [], children: [child] };

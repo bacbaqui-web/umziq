@@ -4,6 +4,7 @@ import {
   buildPropertiesInfoViewModel,
   buildPropertiesKeyframeViewModel,
   buildPropertiesPropertyRows,
+  buildPropertiesTransformOriginViewModel,
 } from "@/engines/properties/helpers/propertiesViewModelHelpers";
 import type {
   PropertiesNumericInputId,
@@ -17,6 +18,7 @@ import type {
   PropertiesPlaybackReadPort,
   PropertiesProjectReadPort,
   PropertiesSelectionReadPort,
+  PropertiesTransformDraftReadPort,
 } from "@/engines/properties/models/propertiesInternalModel";
 
 type Options = {
@@ -26,16 +28,18 @@ type Options = {
   project: PropertiesProjectReadPort;
   draftState: PropertiesDraftStatePort;
   draft: PropertiesDraftControllerPort;
+  transformDraft: PropertiesTransformDraftReadPort;
   animation: PropertiesAnimationReadPort;
   formatTime: (frame: number, frameRate: number) => string;
 };
 
 export function usePropertiesPropertyViewController(options: Options) {
   const target = options.selection.selectedTransformTarget;
+  const frameRate = options.project.selectedMeta?.frameRate ?? options.project.defaultFrameRate;
   const evaluatedPosition = target?.kind === "layer"
-    ? options.animation.evaluateLayerPosition(target.layer, options.playback.currentFrame)
+    ? options.animation.evaluateLayerPosition(target.layer, options.playback.localFrame, frameRate)
     : target?.kind === "composition"
-      ? options.animation.evaluateCompositionPosition(target.composition, options.playback.localFrame)
+      ? options.animation.evaluateCompositionPosition(target.composition, options.playback.localFrame, frameRate)
       : { x: 0, y: 0 };
   const evaluatedScale = target?.kind === "layer"
     ? options.animation.evaluateLayerScale(target.layer, options.playback.localFrame)
@@ -48,15 +52,21 @@ export function usePropertiesPropertyViewController(options: Options) {
       ? options.animation.evaluateCompositionRotation(target.composition, options.playback.localFrame)
       : 0;
   const evaluatedOpacity = target?.kind === "layer"
-    ? options.animation.evaluateLayerOpacity(target.layer, options.playback.currentFrame)
+    ? options.animation.evaluateLayerOpacity(target.layer, options.playback.localFrame)
     : target?.kind === "composition"
       ? options.animation.evaluateCompositionOpacity(target.composition, options.playback.localFrame)
       : 100;
+  const projectAnchor = target?.kind === "layer"
+    ? target.layer.anchor
+    : target?.kind === "composition"
+      ? target.composition.anchor
+      : options.selection.selectedPropertyTarget?.anchor ?? { x: 0, y: 0 };
   const values: PropertiesResolvedValues = {
     position: options.draftState.positionDraft ?? evaluatedPosition,
     scale: options.draftState.scaleDraft ?? evaluatedScale,
     rotation: options.draftState.rotationDraft ?? evaluatedRotation,
     opacity: options.draftState.opacityDraft ?? evaluatedOpacity,
+    anchor: options.transformDraft.anchor ?? projectAnchor,
   };
   const isMasterTarget = target?.kind === "composition"
     && target.composition.id === options.masterCompId;
@@ -67,15 +77,20 @@ export function usePropertiesPropertyViewController(options: Options) {
     rotation: hasTransformTarget,
     opacity: hasTransformTarget,
   };
-  const numericDrafts = Object.fromEntries(
-    ANIMATABLE_PROPERTIES.flatMap((property) => {
-      const inputIds: PropertiesNumericInputId[] = property === "position" || property === "scale"
+  const anchorEditable = hasTransformTarget && !isMasterTarget;
+  const numericInputIds: PropertiesNumericInputId[] = [
+    ...ANIMATABLE_PROPERTIES.flatMap((property) => (
+      property === "position" || property === "scale"
         ? [`${property}.x`, `${property}.y`] as PropertiesNumericInputId[]
-        : [`${property}.value`] as PropertiesNumericInputId[];
-      return inputIds.flatMap((inputId) => {
-        const value = options.draft.getNumericDraft(inputId);
-        return value === undefined ? [] : [[inputId, value]];
-      });
+        : [`${property}.value`] as PropertiesNumericInputId[]
+    )),
+    "anchor.x",
+    "anchor.y",
+  ];
+  const numericDrafts = Object.fromEntries(
+    numericInputIds.flatMap((inputId) => {
+      const value = options.draft.getNumericDraft(inputId);
+      return value === undefined ? [] : [[inputId, value]];
     })
   ) as Partial<Record<PropertiesNumericInputId, string>>;
   const keyframeTarget = options.selection.selectedPropertyTarget;
@@ -87,7 +102,6 @@ export function usePropertiesPropertyViewController(options: Options) {
       options.playback.localFrame
     )
   );
-  const frameRate = options.project.selectedMeta?.frameRate ?? options.project.defaultFrameRate;
   const readModel: PropertiesReadModel = {
     hasSelectedComposition: !!options.selection.selectedComposition,
     info: options.selection.selectedComposition
@@ -109,6 +123,11 @@ export function usePropertiesPropertyViewController(options: Options) {
       hasKeyframeAtCurrentFrame,
       selectedKeyframe: options.selection.selectedKeyframe,
     }),
+    transformOrigin: buildPropertiesTransformOriginViewModel({
+      values,
+      editable: anchorEditable,
+      numericDrafts,
+    }),
     keyframe: buildPropertiesKeyframeViewModel({
       selectedLayer: options.selection.selectedLayer,
       selectedTimelineComposition: options.selection.selectedTimelineComposition,
@@ -117,9 +136,11 @@ export function usePropertiesPropertyViewController(options: Options) {
       frameRate,
       formatTime: options.formatTime,
     }),
+    modifiers: [],
+    modifierLibrary: { visible: false, items: [] },
     importError: options.project.importError,
     importNotice: options.project.importNotice,
   };
 
-  return { readModel, values, editableProperties };
+  return { readModel, values, editableProperties, anchorEditable };
 }

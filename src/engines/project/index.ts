@@ -16,6 +16,16 @@ export type {
   StoredPsdSource,
 } from "@/engines/project/models/psdSourceRuntimeModel";
 export type {
+  PsdImportConfirmResult,
+  PsdImportPlan,
+  PsdImportPlanEntry,
+  PsdImportPlanNode,
+} from "@/engines/project/models/psdImportPlanModel";
+export type {
+  PsdRefreshCommandResult,
+  PsdRefreshSummary,
+} from "@/engines/project/models/psdRefreshResultModel";
+export type {
   RenderDrawable,
   RenderItem,
 } from "@/engines/project/models/runtimeRenderModel";

@@ -1,6 +1,9 @@
 export { useAnimationEngine } from "@/engines/animation/useAnimationEngine";
 export type { AnimationCommands, UseAnimationEngineOptions } from "@/engines/animation/useAnimationEngine";
-export type { AnimationTargetDescriptor } from "@/engines/animation/models/animationCommandModel";
+export type {
+  AnimationTargetDescriptor,
+  ApplyAnchorCommand,
+} from "@/engines/animation/models/animationCommandModel";
 export { ANIMATABLE_PROPERTIES } from "@/engines/animation/constants/animationConstants";
 export {
   getTransformEditMode,
@@ -30,10 +33,12 @@ export {
   updateTargetPropertyTrack,
 } from "@/engines/animation/helpers/propertyTrackHelpers";
 export {
+  evaluateCompositionBasePosition,
   evaluateCompositionOpacity,
   evaluateCompositionPosition,
   evaluateCompositionRotation,
   evaluateCompositionScale,
+  evaluateLayerBasePosition,
   evaluateLayerOpacity,
   evaluateLayerPosition,
   evaluateLayerRotation,
@@ -61,3 +66,20 @@ export {
   clampOpacity,
   normalizeRotationDegrees,
 } from "@/engines/animation/helpers/transformValueHelpers";
+export {
+  MODIFIER_DEFINITIONS,
+  createDefaultModifier,
+  findModifier,
+  getModifierDefinition,
+  normalizeModifierInstances,
+  normalizeModifierNumber,
+  normalizeTargetModifiers,
+} from "@/engines/animation/modifiers/modifierRegistry";
+export type {
+  ModifierDefinition,
+  ModifierNumberSettingDefinition,
+} from "@/engines/animation/modifiers/modifierRegistry";
+export {
+  applyPositionModifiers,
+  evaluateWiggleOffset,
+} from "@/engines/animation/helpers/modifierEvaluationHelpers";

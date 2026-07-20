@@ -123,6 +123,7 @@ export function buildMasterComposition(
     opacity: 100,
     opacityKeyframes: [],
     enabledProperties,
+    modifiers: [],
   };
 }
 

@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import {
   type AnimationCommands,
   useAnimationEngine,
 } from "@/engines/animation";
 import {
+  type CanvasTransformDraftCommands,
   PREVIEW_MIN_WORKSPACE_HEIGHT,
   PREVIEW_MIN_WORKSPACE_WIDTH,
   SHORTFORM_FRAME_HEIGHT,
   SHORTFORM_FRAME_WIDTH,
+  resolveDraftOverlayRuntimeValuesForTargetAtFrame,
   useCanvasComposition,
 } from "@/engines/canvas";
+import type { Position } from "@/models";
 import { formatCompactTime, usePlaybackEngine } from "@/engines/playback-render";
 import {
   DEFAULT_FRAME_RATE,
@@ -32,12 +35,15 @@ import { useEditorShellLayout } from "@/editor/useEditorShellLayout";
 import { useEditorState } from "@/editor/state/useEditorState";
 
 export function useEditorCompositionRoot(): EditorShellLayoutProps {
+  const canvasDraftCommandsRef = useRef<CanvasTransformDraftCommands | null>(null);
   const editorState = useEditorState({
     masterDefaultWidth: MASTER_DEFAULT_WIDTH,
     masterDefaultHeight: MASTER_DEFAULT_HEIGHT,
     previewMinWorkspaceWidth: PREVIEW_MIN_WORKSPACE_WIDTH,
     previewMinWorkspaceHeight: PREVIEW_MIN_WORKSPACE_HEIGHT,
+    resetPreviewTransformDraft: () => canvasDraftCommandsRef.current?.reset(),
   });
+  const setDraftTransformSnapshot = editorState.setDraftTransformSnapshot;
   const selectionModel = useProjectSelectionModel({
     masterCompId: MASTER_COMP_ID,
     masterWidth: MASTER_DEFAULT_WIDTH,
@@ -85,7 +91,9 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
     project: {
       rootCompositions: selectionModel.rootComps,
       selectedCompId: editorState.selectedCompId,
-      importPsdSources: projectEngine.handleImportPsdFiles,
+      preparePsdImport: projectEngine.preparePsdImport,
+      confirmPsdImport: projectEngine.confirmPsdImport,
+      cancelPsdImport: projectEngine.cancelPsdImport,
       refreshMainComposition: projectEngine.handleRefreshMainComp,
       removeMainComposition: projectEngine.handleDeleteMainComp,
       reorderMainCompositions: projectEngine.handleReorderMainComps,
@@ -100,6 +108,8 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
       setCurrentFrame: editorState.setCurrentFrame,
       isPlaying: editorState.isPlaying,
       setIsPlaying: editorState.setIsPlaying,
+      rendererMode: editorState.rendererMode,
+      setRendererMode: editorState.setRendererMode,
     },
     project: {
       selectedCompId: selectionModel.selectedComp.id,
@@ -114,6 +124,13 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
     },
   });
   const animationCommandsRef = useRef<AnimationCommands | null>(null);
+  const updateAnchorDraft = useCallback((anchor: Position) => {
+    return canvasDraftCommandsRef.current?.updateAnchor(anchor) ?? null;
+  }, []);
+  const resetTransformDraft = useCallback(() => {
+    canvasDraftCommandsRef.current?.reset();
+    setDraftTransformSnapshot(null);
+  }, [setDraftTransformSnapshot]);
   const movePropertyKeyframe = useCallback<AnimationCommands["movePropertyKeyframe"]>(
     (...args) => animationCommandsRef.current?.movePropertyKeyframe(...args),
     []
@@ -211,14 +228,29 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
       applyScale: (...args) => animationCommandsRef.current?.applyScale(...args),
       applyRotation: (...args) => animationCommandsRef.current?.applyRotation(...args),
       applyOpacity: (...args) => animationCommandsRef.current?.applyOpacity(...args),
+      applyAnchor: (...args) => animationCommandsRef.current?.applyAnchor(...args),
       setScaleLinked: (...args) => animationCommandsRef.current?.setScaleLinked(...args),
       setPropertyTrackEnabled: (...args) => animationCommandsRef.current?.setPropertyTrackEnabled(...args),
       savePositionKeyframe: () => animationCommandsRef.current?.savePositionKeyframe(),
       removeSelectedKeyframe: () => animationCommandsRef.current?.removeSelectedKeyframe(),
+      toggleModifier: (...args) => animationCommandsRef.current?.toggleModifier(...args),
+      updateModifierNumber: (...args) =>
+        animationCommandsRef.current?.updateModifierNumber(...args),
       beginHistory: () => animationCommandsRef.current?.history.begin(),
       markHistoryDirty: () => animationCommandsRef.current?.history.markDirty(),
       commitHistory: () => animationCommandsRef.current?.history.commit(),
       cancelHistory: () => animationCommandsRef.current?.history.cancel?.(),
+    },
+    transformDraftCommands: {
+      updateAnchor: updateAnchorDraft,
+      reset: resetTransformDraft,
+    },
+    transformDraft: {
+      anchor: resolveDraftOverlayRuntimeValuesForTargetAtFrame(
+        selectionModel.propertiesTransformTarget,
+        timelineEngine.selectedTransformLocalFrame,
+        editorState.draftTransformSnapshot
+      )?.anchor ?? null,
     },
     formatTime: formatCompactTime,
   });
@@ -280,6 +312,8 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
     selectedTimelineTargetItem: timelineEngine.selectedTimelineTargetItem,
     selectedTimelineItems: selectionModel.selectedTimelineItems,
     playheadFrame: timelineEngine.playheadFrame,
+    rendererMode: playbackEngine.rendererMode,
+    setRendererMode: playbackEngine.setRendererMode,
     selectedTransformLocalFrame: timelineEngine.selectedTransformLocalFrame,
     selectedPropertyState: selectionModel.selectedPropertyState,
     previewWorkspaceSize: editorState.previewWorkspaceSize,
@@ -300,6 +334,8 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
     setScaleDraft: editorState.setScaleDraft,
     setRotationDraft: editorState.setRotationDraft,
     setOpacityDraft: editorState.setOpacityDraft,
+    draftTransformSnapshot: editorState.draftTransformSnapshot,
+    setDraftTransformSnapshot: editorState.setDraftTransformSnapshot,
     setPreviewWorkspaceSize: editorState.setPreviewWorkspaceSize,
     setPreviewZoom: editorState.setPreviewZoom,
     setPreviewPan: editorState.setPreviewPan,
@@ -331,6 +367,26 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
       commitOpacityInput: animationEngine.commitPreviewOpacityInput,
     },
   });
+  useEffect(() => {
+    canvasDraftCommandsRef.current = canvasComposition.canvasEngine.draftTransformCommands;
+    return () => { canvasDraftCommandsRef.current = null; };
+  }, [canvasComposition.canvasEngine.draftTransformCommands]);
+  const transformDraftScope = [
+    selectionModel.selectedComp.id,
+    selectionModel.selectedTransformTarget?.kind ?? "none",
+    selectionModel.selectedTransformTarget?.kind === "layer"
+      ? selectionModel.selectedTransformTarget.layer.id
+      : selectionModel.selectedTransformTarget?.composition.id ?? "none",
+    timelineEngine.playheadFrame,
+    timelineEngine.selectedTransformLocalFrame,
+  ].join(":");
+  const resetTransformDraftForScopeChange = useEffectEvent(() => {
+    if (!editorState.draftTransformSnapshot) return;
+    resetTransformDraft();
+  });
+  useEffect(() => {
+    resetTransformDraftForScopeChange();
+  }, [transformDraftScope]);
   const { startPanelResize } = useEditorShellLayout({
     leftPanelWidth: editorState.leftPanelWidth,
     rightPanelWidth: editorState.rightPanelWidth,

@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
+import type { RendererMode } from "@/engines/playback-render/models/rendererModeModel";
 
 export type PlaybackRange = {
   startFrame: number;
@@ -9,6 +10,7 @@ export type PlaybackReadModel = {
   currentFrame: number;
   playheadFrame: number;
   isPlaying: boolean;
+  rendererMode: RendererMode;
   playbackRange: PlaybackRange;
 };
 
@@ -24,6 +26,7 @@ export type PlaybackCommands = {
   stepBackward: () => void;
   stepForward: () => void;
   reset: () => void;
+  setRendererMode: (mode: RendererMode) => void;
   setPlaybackRange: (startFrame: number, endFrame: number) => void;
   setPlaybackIn: (startFrame: number) => void;
   setPlaybackOut: (endFrame: number) => void;
@@ -45,6 +48,8 @@ export type PlaybackStatePort = {
   setCurrentFrame: Dispatch<SetStateAction<number>>;
   isPlaying: boolean;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
+  rendererMode: RendererMode;
+  setRendererMode: Dispatch<SetStateAction<RendererMode>>;
 };
 
 export type PlaybackSessionPort = {

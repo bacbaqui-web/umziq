@@ -41,9 +41,11 @@ export function createLayer(
   layer: PsdLayer,
   index: number,
   fallbackName: string,
-  sourcePath?: string
+  sourcePath?: string,
+  displayName?: string,
+  sourceIdentity?: Layer["sourceIdentity"]
 ): Layer {
-  const name = sanitizeName(layer.name, fallbackName);
+  const name = displayName ?? sanitizeName(layer.name, fallbackName);
   const anchorWidth = layer.canvas?.width ?? 0;
   const anchorHeight = layer.canvas?.height ?? 0;
   const center = {
@@ -56,6 +58,7 @@ export function createLayer(
     name,
     visible: !layer.hidden,
     sourcePath,
+    sourceIdentity,
     sourceFingerprint: buildLayerSourceFingerprint(layer),
     sourceSyncStatus: "normal",
     position: {
@@ -82,6 +85,7 @@ export function createLayer(
     opacity: normalizePsdOpacity(layer.opacity),
     opacityKeyframes: [],
     enabledProperties: buildPropertyTrackState(),
+    modifiers: [],
   };
 }
 

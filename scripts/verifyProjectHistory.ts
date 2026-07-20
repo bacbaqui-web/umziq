@@ -8,6 +8,12 @@ import type {
   ProjectHistoryRestorePort,
 } from "@/engines/project/history/projectHistorySnapshot";
 import type { CompositionHistoryState } from "@/engines/project/state/useProjectHistoryState";
+import {
+  addModifierToCompositions,
+  applyAnchorToCompositions,
+  removeModifierFromCompositions,
+  updateModifierNumberInCompositions,
+} from "@/engines/animation/actions/animationProjectMutations";
 
 function applyState<T>(current: T, action: SetStateAction<T>): T {
   return typeof action === "function"
@@ -94,6 +100,15 @@ const resetSetter = (key: string) => (value: unknown) => {
   resetValues[key] = value;
 };
 const restorePort: ProjectHistoryRestorePort = {
+  clearEditorDraftRuntime: () => {
+    resetValues.editorDraftRuntimeClearCount =
+      Number(resetValues.editorDraftRuntimeClearCount ?? 0) + 1;
+    resetValues.draftTransformSnapshot = null;
+    resetValues.propertiesInputDrafts = {};
+    resetValues.propertiesInputDraftScope = null;
+    resetValues.focusedPropertiesInputId = null;
+    resetValues.previewTransformDraftReset = true;
+  },
   setComps: (action) => { state.comps = applyState(state.comps, action); },
   setMasterEnabledProperties: (action) => {
     state.masterEnabledProperties = applyState(state.masterEnabledProperties, action);
@@ -176,10 +191,17 @@ assert.equal(selectedCompId, compId);
 assert.equal(state.renderItemsByCompId[compId]?.[0]?.drawables[0]?.canvas, drawableCanvas);
 assert.equal(resetValues.isPlaying, false);
 assert.equal(resetValues.positionDraft, null);
+assert.equal(resetValues.draftTransformSnapshot, null);
+assert.deepEqual(resetValues.propertiesInputDrafts, {});
+assert.equal(resetValues.propertiesInputDraftScope, null);
+assert.equal(resetValues.focusedPropertiesInputId, null);
+assert.equal(resetValues.previewTransformDraftReset, true);
+assert.equal(resetValues.editorDraftRuntimeClearCount, 1);
 
 history.redoCompositionHistory(compId);
 assert.equal(state.comps[0]?.position.x, 200);
 assert.equal(state.currentFrame, 24);
+assert.equal(resetValues.editorDraftRuntimeClearCount, 2);
 
 history.beginCompositionHistoryCapture(compId);
 state.comps = state.comps.map((composition) => ({
@@ -201,5 +223,61 @@ assert.equal(historyRef.current[compId]?.past.length, pastCount);
 
 history.clearCompositionHistory(compId);
 assert.equal(historyRef.current[compId], undefined);
+
+history.pushCompositionHistorySnapshot(compId);
+state.comps = addModifierToCompositions(
+  state.comps,
+  { kind: "composition", id: compId },
+  "wiggle"
+);
+assert.equal(state.comps[0]?.modifiers[0]?.type, "wiggle");
+history.undoCompositionHistory(compId);
+assert.deepEqual(state.comps[0]?.modifiers, []);
+history.redoCompositionHistory(compId);
+assert.equal(state.comps[0]?.modifiers[0]?.type, "wiggle");
+
+history.pushCompositionHistorySnapshot(compId);
+state.comps = updateModifierNumberInCompositions(
+  state.comps,
+  { kind: "composition", id: compId },
+  "wiggle",
+  "amount",
+  24
+);
+assert.equal(state.comps[0]?.modifiers[0]?.amount, 24);
+history.undoCompositionHistory(compId);
+assert.equal(state.comps[0]?.modifiers[0]?.amount, 0);
+history.redoCompositionHistory(compId);
+assert.equal(state.comps[0]?.modifiers[0]?.amount, 24);
+
+history.pushCompositionHistorySnapshot(compId);
+state.comps = removeModifierFromCompositions(
+  state.comps,
+  { kind: "composition", id: compId },
+  "wiggle"
+);
+assert.deepEqual(state.comps[0]?.modifiers, []);
+history.undoCompositionHistory(compId);
+assert.equal(state.comps[0]?.modifiers[0]?.amount, 24);
+
+const anchorPastCount = historyRef.current[compId]?.past.length ?? 0;
+history.beginCompositionHistoryCapture(compId);
+state.comps = applyAnchorToCompositions(
+  state.comps,
+  { kind: "composition", id: compId },
+  { x: 25, y: 30 },
+  { x: 4, y: 5 }
+);
+history.markCompositionHistoryCaptureDirty(compId);
+history.commitCompositionHistoryCapture(compId);
+assert.equal(historyRef.current[compId]?.past.length, anchorPastCount + 1);
+assert.deepEqual(state.comps[0]?.anchor, { x: 25, y: 30 });
+assert.deepEqual(state.comps[0]?.transformOffset, { x: 4, y: 5 });
+history.undoCompositionHistory(compId);
+assert.deepEqual(state.comps[0]?.anchor, { x: 50, y: 50 });
+assert.deepEqual(state.comps[0]?.transformOffset, { x: 0, y: 0 });
+history.redoCompositionHistory(compId);
+assert.deepEqual(state.comps[0]?.anchor, { x: 25, y: 30 });
+assert.deepEqual(state.comps[0]?.transformOffset, { x: 4, y: 5 });
 
 console.log("Project history undo/redo verification passed");

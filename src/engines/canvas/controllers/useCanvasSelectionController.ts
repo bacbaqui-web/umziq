@@ -7,6 +7,10 @@ import {
   buildCanvasSelectionReadModel,
   buildLayerSelectionOverlay,
 } from "@/engines/canvas/helpers/canvasSelectionHelpers";
+import {
+  resolveDraftOverlayForTarget,
+  type DraftTransformSnapshot,
+} from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
 
 export function useCanvasSelectionController({
   selectedTransformTarget,
@@ -19,6 +23,7 @@ export function useCanvasSelectionController({
   previewSize,
   viewportScale,
   viewportOffset,
+  draftTransformSnapshot,
 }: {
   selectedTransformTarget: TransformTargetSelection;
   selectedTimelineItems: readonly TimelineItem[];
@@ -30,6 +35,7 @@ export function useCanvasSelectionController({
   previewSize: { width: number; height: number };
   viewportScale: number;
   viewportOffset: { x: number; y: number };
+  draftTransformSnapshot: DraftTransformSnapshot | null;
 }) {
   const overlay = useMemo(
     () =>
@@ -38,7 +44,8 @@ export function useCanvasSelectionController({
             selectedTransformTarget.layer,
             renderItems,
             selectedTimelineItems,
-            playheadFrame
+            playheadFrame,
+            selectedMeta?.frameRate
           )
         : selectedTransformTarget?.kind === "composition"
           ? buildCompositionSelectionOverlay(
@@ -54,18 +61,27 @@ export function useCanvasSelectionController({
       renderItems,
       selectedTimelineItems,
       selectedTransformTarget,
+      selectedMeta?.frameRate,
     ]
+  );
+  const runtimeOverlay = useMemo(
+    () =>
+      resolveDraftOverlayForTarget(
+        selectedTransformTarget,
+        draftTransformSnapshot
+      ) ?? overlay,
+    [draftTransformSnapshot, overlay, selectedTransformTarget]
   );
 
   return useMemo(
     () =>
       buildCanvasSelectionReadModel({
-        overlay,
+        overlay: runtimeOverlay,
         selectedMeta,
         previewSize,
         viewportScale,
         viewportOffset,
       }),
-    [overlay, previewSize, selectedMeta, viewportOffset, viewportScale]
+    [previewSize, runtimeOverlay, selectedMeta, viewportOffset, viewportScale]
   );
 }

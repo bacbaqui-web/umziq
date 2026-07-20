@@ -16,31 +16,30 @@ export default function PropertiesKeyframeSection({
 
   return (
     <>
-      <div style={{ fontWeight: 700, marginTop: 14, marginBottom: 8 }}>
+      <div className="ui-section-title" style={{ marginTop: 14 }}>
         Keyframe Actions
       </div>
       {viewModel.showPositionSave && (
         <div
+          className="ui-card"
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 8,
             padding: "8px 10px",
-            borderRadius: 7,
-            border: "1px solid #313131",
-            background: "#202020",
+            borderRadius: 8,
+            boxShadow: "none",
           }}
         >
           <div style={{ fontSize: 12, color: "#aab7c4" }}>
             수동 저장은 위치 키프레임만 지원합니다.
           </div>
           <button
+            className="ui-button ui-button--primary"
             onClick={commands.savePositionKeyframe}
             disabled={!viewModel.canSavePosition}
             style={{
-              padding: "8px 10px",
-              borderRadius: 6,
               border: "1px solid #35556d",
               background: viewModel.canSavePosition ? "#1e3344" : "#262a2e",
               color: viewModel.canSavePosition ? "#fff" : "#79838d",
@@ -56,14 +55,10 @@ export default function PropertiesKeyframeSection({
       </div>
       {viewModel.canDeleteSelected && (
         <button
+          className="ui-button ui-button--danger"
           onClick={commands.deleteSelectedKeyframe}
           style={{
             marginTop: 8,
-            padding: "8px 10px",
-            borderRadius: 6,
-            border: "1px solid #6a3b3b",
-            background: "#3a2222",
-            color: "#fff",
           }}
         >
           선택된 키프레임 삭제

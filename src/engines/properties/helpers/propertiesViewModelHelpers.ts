@@ -13,6 +13,7 @@ import type {
   PropertiesNumericInputId,
   PropertiesPropertyRowViewModel,
   PropertiesResolvedValues,
+  PropertiesTransformOriginViewModel,
   PropertiesVisualTokens,
 } from "@/engines/properties/models/propertiesEngineModel";
 import {
@@ -91,8 +92,41 @@ export function getPropertiesInputCurrentValue(
   const { property, axis } = getPropertiesNumericInputDescriptor(inputId);
   if (property === "position" && axis !== "value") return values.position[axis];
   if (property === "scale" && axis !== "value") return values.scale[axis];
+  if (property === "anchor" && axis !== "value") return values.anchor[axis];
   if (property === "rotation") return values.rotation;
   return values.opacity;
+}
+
+export function buildPropertiesTransformOriginViewModel(options: {
+  values: PropertiesResolvedValues;
+  editable: boolean;
+  numericDrafts: Partial<Record<PropertiesNumericInputId, string>>;
+}): PropertiesTransformOriginViewModel {
+  const inputs = (["anchor.x", "anchor.y"] as const).map((inputId) => {
+    const { axis } = getPropertiesNumericInputDescriptor(inputId);
+    return {
+      id: inputId,
+      axisLabel: axis.toUpperCase(),
+      value: options.numericDrafts[inputId]
+        ?? formatPropertiesNumericValue(
+          "anchor",
+          getPropertiesInputCurrentValue(inputId, options.values)
+        ),
+      readOnly: !options.editable,
+      width: 42,
+      title: options.editable
+        ? undefined
+        : "현재 선택 대상의 기준은 편집할 수 없습니다.",
+    };
+  });
+
+  return {
+    label: "기준",
+    visible: true,
+    editable: options.editable,
+    inputs,
+    tokens: getPropertiesVisualTokens("position"),
+  };
 }
 
 export function buildPropertiesPropertyRows(options: {

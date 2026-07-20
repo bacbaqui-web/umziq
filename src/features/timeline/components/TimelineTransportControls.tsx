@@ -25,6 +25,7 @@ function TransportButton({
 }: TransportButtonProps) {
   return (
     <button
+      className="ui-button ui-button--icon"
       type="button"
       aria-label={label}
       title={label}
@@ -32,15 +33,9 @@ function TransportButton({
       style={{
         width: 28,
         height: 28,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 6,
         border: `1px solid ${accentBorder}`,
         background: accentBackground,
         color: "#d8e0ea",
-        padding: 0,
-        cursor: "pointer",
       }}
     >
       {children}

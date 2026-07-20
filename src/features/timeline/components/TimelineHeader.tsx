@@ -62,8 +62,8 @@ function HeaderActionButton({ label, disabled, onClick, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}
-      style={{ width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: disabled ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.04)", color: disabled ? "#6e7782" : "#d8e0ea", padding: 0, cursor: disabled ? "not-allowed" : "pointer", flex: "0 0 auto" }}>
+    <button className="ui-button ui-button--icon" type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}
+      style={{ width: 28, height: 28, minHeight: 28, background: disabled ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.04)", color: disabled ? "#6e7782" : "#d8e0ea", flex: "0 0 auto" }}>
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">{children}</svg>
     </button>
   );

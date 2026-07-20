@@ -17,7 +17,8 @@ export function buildLayerSelectionOverlay(
   layer: Layer,
   renderItems: readonly RenderItem[],
   timelineItems: readonly TimelineItem[],
-  currentFrame: number
+  currentFrame: number,
+  frameRate = 30
 ): PreviewOverlay {
   const timelineItem = timelineItems.find(
     (item) => item.kind === "layer" && item.sourceId === layer.id
@@ -38,7 +39,7 @@ export function buildLayerSelectionOverlay(
   if (!drawable || !canvas) return null;
 
   const localFrame = currentFrame - timelineItem.startFrame;
-  const position = evaluateLayerPosition(layer, localFrame);
+  const position = evaluateLayerPosition(layer, localFrame, frameRate);
   const scale = evaluateLayerScale(layer, localFrame);
   const rotation = evaluateLayerRotation(layer, localFrame);
   const geometry = getTransformGeometry(
@@ -83,7 +84,7 @@ export function buildCompositionSelectionOverlay(
   const localFrame = localFrameBySourceId.get(composition.id);
   if (!meta || localFrame === undefined) return null;
 
-  const position = evaluateCompositionPosition(composition, localFrame);
+  const position = evaluateCompositionPosition(composition, localFrame, meta.frameRate);
   const scale = evaluateCompositionScale(composition, localFrame);
   const rotation = evaluateCompositionRotation(composition, localFrame);
   const geometry = getTransformGeometry(

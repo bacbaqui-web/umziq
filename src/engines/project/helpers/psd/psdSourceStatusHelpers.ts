@@ -2,8 +2,10 @@ import type { Composition, SourceSyncStatus } from "@/models";
 import type { PsdRefreshCounts } from "@/engines/project/models/psdRefreshResultModel";
 
 export const INITIAL_PSD_REFRESH_COUNTS: PsdRefreshCounts = {
+  newGroups: 0,
+  newLayers: 0,
   updated: 0,
-  added: 0,
+  missing: 0,
   deletePending: 0,
 };
 
@@ -12,8 +14,10 @@ export function mergePsdRefreshCounts(
 ): PsdRefreshCounts {
   return counts.reduce(
     (total, current) => ({
+      newGroups: total.newGroups + current.newGroups,
+      newLayers: total.newLayers + current.newLayers,
       updated: total.updated + current.updated,
-      added: total.added + current.added,
+      missing: total.missing + current.missing,
       deletePending: total.deletePending + current.deletePending,
     }),
     INITIAL_PSD_REFRESH_COUNTS
@@ -34,15 +38,35 @@ export function markCompositionSubtreeStatus(
   };
 }
 
-export function countSourceEntitiesInComposition(composition: Composition): number {
-  return (
-    1 +
-    composition.layers.length +
-    (composition.children?.reduce(
-      (total, child) => total + countSourceEntitiesInComposition(child),
-      0
-    ) ?? 0)
+export function countNewSourcesInComposition(
+  composition: Composition
+): Pick<PsdRefreshCounts, "newGroups" | "newLayers"> {
+  return (composition.children ?? []).reduce(
+    (counts, child) => {
+      const childCounts = countNewSourcesInComposition(child);
+      return {
+        newGroups: counts.newGroups + childCounts.newGroups,
+        newLayers: counts.newLayers + childCounts.newLayers,
+      };
+    },
+    {
+      newGroups: 1,
+      newLayers: composition.layers.length,
+    }
   );
+}
+
+export function createPsdRefreshSummary(
+  compositionId: string,
+  compositionName: string,
+  counts: PsdRefreshCounts
+) {
+  return {
+    compositionId,
+    compositionName,
+    ...counts,
+    problematic: counts.missing + counts.deletePending,
+  };
 }
 
 export function getSourceStatusAfterRefresh(

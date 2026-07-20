@@ -1,7 +1,7 @@
 import { useCallback, useMemo, type RefObject } from "react";
 import {
-  evaluateCompositionPosition,
-  evaluateLayerPosition,
+  evaluateCompositionBasePosition,
+  evaluateLayerBasePosition,
   type TransformTargetSelection,
 } from "@/engines/animation";
 import type { CompositionMeta, Position, Scale, TimelineItem } from "@/models";
@@ -14,6 +14,10 @@ import {
   buildCompositionMotionPath,
   buildLayerMotionPath,
 } from "@/engines/canvas/helpers/canvasMotionPathHelpers";
+import {
+  isDraftTransformSnapshotForTargetAtFrame,
+  type DraftTransformSnapshot,
+} from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
 import {
   calculatePreviewPositionDragUpdate,
   formatPositionDeltaReadout,
@@ -33,6 +37,7 @@ export type UseCanvasMotionPathControllerOptions = {
   playheadFrame: number;
   metaByCompId: Readonly<Record<string, CompositionMeta>>;
   renderItems: readonly RenderItem[];
+  draftTransformSnapshot: DraftTransformSnapshot | null;
   seekFrame: (frame: number) => void;
   drafts: {
     setPosition: (value: Position | null) => void;
@@ -70,6 +75,38 @@ export type UseCanvasMotionPathControllerOptions = {
 export function useCanvasMotionPathController(
   options: UseCanvasMotionPathControllerOptions
 ) {
+  const motionPathDraftSnapshot = useMemo<DraftTransformSnapshot | null>(() => {
+    const target = options.selectedTarget;
+    const item = options.selectedTimelineTargetItem;
+    if (!target || !item) return null;
+
+    const targetId = target.kind === "layer" ? target.layer.id : target.composition.id;
+    const expectedItemKind = target.kind === "layer" ? "layer" : "subComp";
+    if (item.kind !== expectedItemKind || item.sourceId !== targetId) return null;
+
+    const localFrame = options.playheadFrame - item.startFrame;
+    if (localFrame < 0 || localFrame >= item.durationFrames) return null;
+
+    const snapshot = options.draftTransformSnapshot;
+    if (!isDraftTransformSnapshotForTargetAtFrame(target, localFrame, snapshot)) {
+      return null;
+    }
+    const changed = snapshot.draft.changed;
+    if (
+      !snapshot.draft.active ||
+      (!changed.position && !changed.anchor && !changed.transformOffset)
+    ) {
+      return null;
+    }
+
+    return snapshot;
+  }, [
+    options.draftTransformSnapshot,
+    options.playheadFrame,
+    options.selectedTarget,
+    options.selectedTimelineTargetItem,
+  ]);
+
   const motionPath = useMemo(
     () =>
       options.selectedTarget?.kind === "layer" && options.selectedMeta
@@ -78,7 +115,9 @@ export function useCanvasMotionPathController(
             [...options.renderItems],
             [...options.selectedTimelineItems],
             options.selectedMeta.durationFrames,
-            options.playheadFrame
+            options.playheadFrame,
+            options.selectedMeta.frameRate,
+            motionPathDraftSnapshot
           )
         : options.selectedTarget?.kind === "composition" && options.selectedMeta
           ? buildCompositionMotionPath(
@@ -86,12 +125,14 @@ export function useCanvasMotionPathController(
               [...options.selectedTimelineItems],
               { ...options.metaByCompId },
               options.selectedMeta.durationFrames,
-              options.playheadFrame
+              options.playheadFrame,
+              motionPathDraftSnapshot
             )
           : [],
     [
       options.metaByCompId,
       options.playheadFrame,
+      motionPathDraftSnapshot,
       options.renderItems,
       options.selectedMeta,
       options.selectedTarget,
@@ -142,10 +183,13 @@ export function useCanvasMotionPathController(
       const startPosition =
         target.kind === "layer"
           ? target.layer.positionKeyframes.find((keyframe) => keyframe.frame === localFrame)
-              ?.value ?? evaluateLayerPosition(target.layer, localFrame)
+              ?.value ?? evaluateLayerBasePosition(target.layer, localFrame)
           : target.composition.positionKeyframes.find(
                 (keyframe) => keyframe.frame === localFrame
-              )?.value ?? evaluateCompositionPosition(target.composition, localFrame);
+              )?.value ?? evaluateCompositionBasePosition(
+                target.composition,
+                localFrame
+              );
       const targetId = target.kind === "layer" ? target.layer.id : target.composition.id;
       const drag = createMotionPathKeyframeDragState(
         {

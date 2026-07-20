@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import type { Composition, CompositionMeta, Layer, TimelineItem } from "@/models";
 import type { RenderItem } from "@/engines/project";
+import { createDefaultModifier, evaluateLayerPosition } from "@/engines/animation";
 import {
   measureCanvasWorkspace,
   observeCanvasWorkspace,
@@ -8,6 +9,13 @@ import {
 import {
   getTransformGeometry,
 } from "@/engines/canvas/helpers/canvasCoordinateHelpers";
+import {
+  isDraftTransformSnapshotForTargetAtFrame,
+  resolveDraftAnchorTransformCommand,
+  resolveDraftAnchorTransformCommandFromLocalAnchor,
+  resolveDraftOverlayRuntimeValuesForTargetAtFrame,
+  resolveDraftTransformSnapshot,
+} from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
 import {
   buildCanvasGuideViewModel,
   buildPreviewGuideGeometry,
@@ -160,6 +168,7 @@ const layer: Layer = {
   opacity: 100,
   opacityKeyframes: [],
   enabledProperties: { ...disabledProperties },
+  modifiers: [],
 };
 const layerTimeline: TimelineItem = {
   id: "item-layer",
@@ -197,6 +206,90 @@ assert.deepEqual(layerOverlay.corners, {
   sw: { x: 70, y: 50 },
 });
 assert.deepEqual({ x: layerOverlay.anchorX, y: layerOverlay.anchorY }, { x: 110, y: 45 });
+const layerDraftSnapshot = resolveDraftTransformSnapshot({
+  target: { kind: "layer", layer },
+  localFrame: 0,
+  frameRate: meta.frameRate,
+  selectedMeta: meta,
+  overlay: layerOverlay,
+  patch: {},
+});
+assert.ok(layerDraftSnapshot);
+const localAnchorCommand = resolveDraftAnchorTransformCommandFromLocalAnchor(
+  layerDraftSnapshot,
+  { x: 100, y: -20 }
+);
+assert.deepEqual(localAnchorCommand, {
+  target: { kind: "layer", id: layer.id },
+  anchor: { x: 40, y: 0 },
+  transformOffset: { x: 30, y: 0 },
+});
+assert.deepEqual(
+  resolveDraftAnchorTransformCommand(layerDraftSnapshot, { x: 150, y: 40 }),
+  localAnchorCommand
+);
+const anchorDraftSnapshot = resolveDraftTransformSnapshot({
+  target: { kind: "layer", layer },
+  localFrame: 0,
+  frameRate: meta.frameRate,
+  selectedMeta: meta,
+  overlay: layerOverlay,
+  patch: {
+    anchor: localAnchorCommand.anchor,
+    transformOffset: localAnchorCommand.transformOffset,
+  },
+});
+assert.ok(anchorDraftSnapshot);
+assert.equal(
+  isDraftTransformSnapshotForTargetAtFrame(
+    { kind: "layer", layer },
+    0,
+    anchorDraftSnapshot
+  ),
+  true
+);
+assert.deepEqual(
+  resolveDraftOverlayRuntimeValuesForTargetAtFrame(
+    { kind: "layer", layer },
+    0,
+    anchorDraftSnapshot
+  )?.anchor,
+  { x: 40, y: 0 }
+);
+assert.equal(
+  resolveDraftOverlayRuntimeValuesForTargetAtFrame(
+    { kind: "layer", layer },
+    1,
+    anchorDraftSnapshot
+  ),
+  null
+);
+assert.equal(
+  resolveDraftOverlayRuntimeValuesForTargetAtFrame(
+    { kind: "layer", layer: { ...layer, id: "other-layer" } },
+    0,
+    anchorDraftSnapshot
+  ),
+  null
+);
+
+const wiggleLayer = {
+  ...layer,
+  modifiers: [{ ...createDefaultModifier("wiggle", layer.id), frequency: 2, amount: 10 }],
+};
+const wiggleOverlay = buildLayerSelectionOverlay(
+  wiggleLayer,
+  renderItems,
+  [layerTimeline],
+  15,
+  meta.frameRate
+);
+assert.ok(wiggleOverlay);
+const wigglePosition = evaluateLayerPosition(wiggleLayer, 5, meta.frameRate);
+assert.deepEqual(
+  { x: wiggleOverlay.centerX, y: wiggleOverlay.centerY },
+  wigglePosition
+);
 
 const rotatedGeometry = getTransformGeometry(
   40,
@@ -228,6 +321,7 @@ const composition: Composition = {
   opacity: 100,
   opacityKeyframes: [],
   enabledProperties: { ...disabledProperties },
+  modifiers: [],
 };
 const compositionOverlay = buildCompositionSelectionOverlay(
   composition,

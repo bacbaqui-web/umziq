@@ -1,6 +1,11 @@
 import type { RefObject } from "react";
 import type { Composition, SourceSyncStatus } from "@/models";
-import type { PsdImportSource } from "@/engines/project";
+import type {
+  PsdImportConfirmResult,
+  PsdImportPlan,
+  PsdImportSource,
+  PsdRefreshCommandResult,
+} from "@/engines/project";
 
 export type PsdTreeDropPosition = "before" | "after";
 
@@ -27,17 +32,30 @@ export type PsdTreeNodeViewModel = {
   children: PsdTreeNodeViewModel[];
 };
 
+export type PsdRefreshSummaryViewModel = {
+  compositionName: string;
+  hasChanges: boolean;
+  problematic: number;
+  items: Array<{
+    label: string;
+    value: number;
+    problem: boolean;
+  }>;
+};
+
 export type PsdTreeProjectReadPort = {
   rootCompositions: readonly Composition[];
   selectedCompId: string | null;
 };
 
 export type PsdTreeProjectCommandPort = {
-  importPsdSources: (sources: PsdImportSource[]) => void | Promise<void>;
+  preparePsdImport: (sources: PsdImportSource[]) => Promise<PsdImportPlan>;
+  confirmPsdImport: (plan: PsdImportPlan) => Promise<PsdImportConfirmResult>;
+  cancelPsdImport: (plan: PsdImportPlan) => void;
   refreshMainComposition: (
     compId: string,
     source?: PsdImportSource | null
-  ) => Promise<"completed" | "needsSource">;
+  ) => Promise<PsdRefreshCommandResult>;
   removeMainComposition: (compId: string) => void;
   reorderMainCompositions: (
     draggedId: string,
@@ -55,6 +73,10 @@ export type PsdTreeViewProps = {
   fileInputRef: RefObject<HTMLInputElement | null>;
   draggedMainCompId: string | null;
   dropTarget: PsdTreeDropTarget;
+  importPlan: PsdImportPlan | null;
+  importPreviewStatus: "idle" | "analyzing" | "review" | "importing";
+  importPreviewError: string | null;
+  refreshSummary: PsdRefreshSummaryViewModel | null;
   onImportClick: () => void;
   onFileInputChange: (files: FileList | readonly File[]) => void;
   onSelectNode: (nodeId: string) => void;
@@ -69,9 +91,18 @@ export type PsdTreeViewProps = {
   ) => boolean;
   onDropMain: (targetId: string) => void;
   onEndMainDrag: () => void;
+  onCancelImport: () => void;
+  onConfirmImport: () => void;
+  onMoveImportNode: (
+    token: string,
+    draggedId: string,
+    targetId: string | null,
+    position: "before" | "inside" | "after"
+  ) => void;
+  onDismissRefreshSummary: () => void;
 };
 
-export type PsdTreeNodeProps = Omit<PsdTreeViewProps, "nodes" | "fileInputRef" | "onImportClick" | "onFileInputChange"> & {
+export type PsdTreeNodeProps = Omit<PsdTreeViewProps, "nodes" | "fileInputRef" | "onImportClick" | "onFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onDismissRefreshSummary"> & {
   node: PsdTreeNodeViewModel;
   isFirstRoot: boolean;
 };

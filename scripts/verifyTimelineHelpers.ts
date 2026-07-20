@@ -47,6 +47,7 @@ assert.equal(parseTimelineDurationParts("2", "15", 30), 75);
 assert.equal(parseTimelineDurationParts("invalid", "0", 30), null);
 assert.equal(resolveTimelinePxPerFrame(100, 500, 2), 5);
 assert.equal(resolveTimelineSourceStatus(item, layers, compositions), "updated");
+assert.equal(buildTimelineSourceStatusViewModel("new").badge?.label, "NEW");
 assert.deepEqual(buildTimelineSourceStatusViewModel("deletePending"), {
   status: "deletePending",
   isDeletePending: true,

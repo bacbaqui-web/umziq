@@ -1,3 +1,11 @@
+import PreviewQualityControl from "@/features/preview/components/PreviewQualityControl";
+import PreviewRendererModeControl from "@/features/preview/components/PreviewRendererModeControl";
+import type {
+  PreviewQualityControlCommands,
+  PreviewQualityControlViewModel,
+  RendererMode,
+} from "@/engines/canvas";
+
 type PreviewWorkspaceControlsProps = {
   previewZoomPercent: number;
   showShortformFrameOverlay: boolean;
@@ -7,17 +15,11 @@ type PreviewWorkspaceControlsProps = {
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
   centerPreviewView: () => void;
+  rendererMode: RendererMode;
+  setRendererMode: (mode: RendererMode) => void;
+  previewQuality: PreviewQualityControlViewModel;
+  previewQualityCommands: PreviewQualityControlCommands;
 };
-
-const overlayButtonStyle = {
-  padding: "4px 8px",
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.04)",
-  color: "#eef3f8",
-  fontSize: 11,
-  cursor: "pointer",
-} as const;
 
 const controlsContainerStyle = {
   position: "absolute",
@@ -27,11 +29,6 @@ const controlsContainerStyle = {
   alignItems: "center",
   gap: 6,
   padding: "6px 8px",
-  borderRadius: 999,
-  background: "rgba(14, 18, 24, 0.84)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.2)",
-  backdropFilter: "blur(10px)",
 } as const;
 
 export default function PreviewWorkspaceControls({
@@ -43,20 +40,25 @@ export default function PreviewWorkspaceControls({
   resetPreviewView,
   setOneToOnePreviewView,
   centerPreviewView,
+  rendererMode,
+  setRendererMode,
+  previewQuality,
+  previewQualityCommands,
 }: PreviewWorkspaceControlsProps) {
   return (
     <>
       <div
+        className="preview-toolbar"
         style={{
           ...controlsContainerStyle,
           left: 12,
         }}
       >
         <button
+          className="ui-button"
           type="button"
           onClick={toggleShortformFrame}
           style={{
-            ...overlayButtonStyle,
             border: `1px solid ${
               showShortformFrameOverlay
                 ? "rgba(118, 197, 255, 0.28)"
@@ -70,10 +72,10 @@ export default function PreviewWorkspaceControls({
           프레임
         </button>
         <button
+          className="ui-button"
           type="button"
           onClick={toggleSafeZone}
           style={{
-            ...overlayButtonStyle,
             border: `1px solid ${
               showSafeZoneGuides
                 ? "rgba(255, 116, 116, 0.34)"
@@ -86,21 +88,32 @@ export default function PreviewWorkspaceControls({
         >
           세이프존
         </button>
+        <span className="preview-toolbar__divider" aria-hidden="true" />
+        <PreviewQualityControl
+          viewModel={previewQuality}
+          commands={previewQualityCommands}
+        />
+        <span className="preview-toolbar__divider" aria-hidden="true" />
+        <PreviewRendererModeControl
+          rendererMode={rendererMode}
+          setRendererMode={setRendererMode}
+        />
       </div>
 
       <div
+        className="preview-toolbar"
         style={{
           ...controlsContainerStyle,
           right: 12,
         }}
       >
-        <button type="button" onClick={resetPreviewView} style={overlayButtonStyle}>
+        <button className="ui-button" type="button" onClick={resetPreviewView}>
           맞춤
         </button>
-        <button type="button" onClick={setOneToOnePreviewView} style={overlayButtonStyle}>
+        <button className="ui-button" type="button" onClick={setOneToOnePreviewView}>
           100%
         </button>
-        <button type="button" onClick={centerPreviewView} style={overlayButtonStyle}>
+        <button className="ui-button" type="button" onClick={centerPreviewView}>
           리셋
         </button>
         <div

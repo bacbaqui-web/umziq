@@ -8,12 +8,13 @@ export default function TimelinePanel(props: TimelinePanelProps) {
 
   return (
     <div
+      className="editor-panel-scroll"
       style={{
         height: "100%",
         minHeight: 0,
         display: "flex",
         flexDirection: "column",
-        padding: 8,
+        padding: 10,
         overflow: "hidden",
       }}
     >

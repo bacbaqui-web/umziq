@@ -3,9 +3,11 @@ import type {
   Composition,
   CompositionMeta,
   Layer,
+  PsdImportSettings,
   TimelineItem,
 } from "@/models";
 import type { RenderItem } from "@/engines/project/models/runtimeRenderModel";
+import type { PsdImportPlanNode } from "@/engines/project/models/psdImportPlanModel";
 import {
   createBaseComposition,
   createMeta,
@@ -21,6 +23,12 @@ import {
   hashString,
   toCompId,
 } from "@/engines/project/import/psdImportHelpers";
+import {
+  buildPsdSourceKey,
+  countPsdLayerIds,
+  createPsdSourceIdentity,
+} from "@/engines/project/import/psdSourceIdentityHelpers";
+import { normalizePsdImportSettings } from "@/engines/project/import/psdImportSettingsHelpers";
 
 export interface ParsedPsdDocument {
   composition: Composition;
@@ -139,16 +147,25 @@ function collectCompositionContents(
   parentSourcePath: string | undefined,
   fileName: string,
   width: number,
-  height: number
+  height: number,
+  parentLegacyTreeKey: string,
+  layerIdCounts: ReadonlyMap<number, number>,
+  importSettings: PsdImportSettings
 ) {
   const containers = createGroupContainers();
   let layerIndex = 0;
   let childCompIndex = 0;
 
   sourceLayers.forEach((layer, index) => {
+    if (importSettings.hiddenLayerMode === "omit" && layer.hidden) return;
     const fallbackName = isGroupLayer(layer) ? `Group ${childCompIndex + 1}` : `Layer ${index + 1}`;
     const sourceName = sanitizeName(layer.name, fallbackName);
     const sourcePath = joinPsdSourcePath(parentSourcePath, sourceName);
+    const legacyTreeKey = `${parentLegacyTreeKey}/${index}`;
+    const sourceIdentity = createPsdSourceIdentity(
+      fileName,
+      buildPsdSourceKey(layer, legacyTreeKey, layerIdCounts)
+    );
 
     if (isGroupLayer(layer)) {
       childCompIndex += 1;
@@ -159,7 +176,11 @@ function collectCompositionContents(
         sourcePath,
         fileName,
         width,
-        height
+        height,
+        sourceIdentity,
+        legacyTreeKey,
+        layerIdCounts,
+        importSettings
       );
 
       registerParsedChild(containers, parsedChild);
@@ -167,8 +188,114 @@ function collectCompositionContents(
       return;
     }
 
-    const nextLayer = createLayer(ownerCompId, layer, layerIndex, `Layer ${index + 1}`, sourcePath);
+    const nextLayer = createLayer(
+      ownerCompId,
+      layer,
+      layerIndex,
+      `Layer ${index + 1}`,
+      sourcePath,
+      undefined,
+      sourceIdentity
+    );
     appendLayerEntries(containers, ownerCompId, nextLayer, layerIndex, layer, `Layer ${index + 1}`);
+    layerIndex += 1;
+  });
+
+  return containers;
+}
+
+type PlannedCompositionSource = {
+  nodes: PsdImportPlanNode[];
+  sourceNodeByKey: Map<string, PsdLayer>;
+};
+
+function collectPlannedCompositionContents(
+  ownerCompId: string,
+  source: PlannedCompositionSource,
+  parentSourcePath: string | undefined,
+  fileName: string,
+  width: number,
+  height: number,
+  importSettings: PsdImportSettings
+) {
+  const containers = createGroupContainers();
+  let layerIndex = 0;
+  let childCompIndex = 0;
+
+  source.nodes.forEach((planNode, index) => {
+    const psdLayer = source.sourceNodeByKey.get(planNode.sourceKey);
+    if (!psdLayer) throw new Error(`PSD source node not found: ${planNode.sourceKey}`);
+    if (importSettings.hiddenLayerMode === "omit" && psdLayer.hidden) return;
+    const sourcePath = joinPsdSourcePath(parentSourcePath, planNode.displayName);
+
+    if (planNode.kind === "group") {
+      childCompIndex += 1;
+      const compId = `${ownerCompId}-sub-${childCompIndex}`;
+      const childContainers = collectPlannedCompositionContents(
+        compId,
+        { nodes: planNode.children, sourceNodeByKey: source.sourceNodeByKey },
+        sourcePath,
+        fileName,
+        width,
+        height,
+        importSettings
+      );
+      const composition = createBaseComposition({
+        id: compId,
+        name: planNode.displayName,
+        type: "sub",
+        parentId: ownerCompId,
+        sourcePath,
+        sourceIdentity: createPsdSourceIdentity(fileName, planNode.sourceKey),
+        sourceFingerprint: buildCompositionSourceFingerprint(childContainers),
+        sourceSyncStatus: "normal",
+        children: childContainers.children,
+        layers: childContainers.layers,
+        width,
+        height,
+      });
+      childContainers.metaByCompId[compId] = createMeta(
+        fileName,
+        width,
+        height,
+        childContainers.children.length + childContainers.layers.length
+      );
+      childContainers.timelineItemsByCompId[compId] = childContainers.timelineItems;
+      childContainers.renderItemsByCompId[compId] = childContainers.renderItems;
+      const parsedChild: ParsedPsdDocument = {
+        composition,
+        metaByCompId: childContainers.metaByCompId,
+        timelineItemsByCompId: childContainers.timelineItemsByCompId,
+        renderItemsByCompId: childContainers.renderItemsByCompId,
+      };
+      registerParsedChild(containers, parsedChild);
+      appendSubCompositionEntries(
+        containers,
+        ownerCompId,
+        parsedChild,
+        childCompIndex,
+        !!psdLayer.hidden
+      );
+      return;
+    }
+
+    const nextLayer = createLayer(
+      ownerCompId,
+      psdLayer,
+      layerIndex,
+      `Layer ${index + 1}`,
+      sourcePath,
+      planNode.displayName,
+      createPsdSourceIdentity(fileName, planNode.sourceKey)
+    );
+    appendLayerEntries(
+      containers,
+      ownerCompId,
+      nextLayer,
+      layerIndex,
+      psdLayer,
+      planNode.displayName
+    );
     layerIndex += 1;
   });
 
@@ -182,7 +309,11 @@ function parseNestedComposition(
   sourcePath: string,
   fileName: string,
   width: number,
-  height: number
+  height: number,
+  sourceIdentity: NonNullable<Composition["sourceIdentity"]>,
+  legacyTreeKey: string,
+  layerIdCounts: ReadonlyMap<number, number>,
+  importSettings: PsdImportSettings
 ): ParsedPsdDocument {
   const compId = `${parentId}-sub-${index}`;
   const orderedChildren = normalizeStackingOrder(group.children ?? []);
@@ -192,7 +323,10 @@ function parseNestedComposition(
     sourcePath,
     fileName,
     width,
-    height
+    height,
+    legacyTreeKey,
+    layerIdCounts,
+    importSettings
   );
   const sourceFingerprint = buildCompositionSourceFingerprint(containers);
 
@@ -202,6 +336,7 @@ function parseNestedComposition(
     type: "sub",
     parentId,
     sourcePath,
+    sourceIdentity,
     sourceFingerprint,
     sourceSyncStatus: "normal",
     children: containers.children,
@@ -225,25 +360,44 @@ function parseNestedComposition(
 export function parsePsdToComposition(
   psd: Psd,
   fileName: string,
-  fileIndex: number
+  fileIndex: number,
+  plannedSource?: PlannedCompositionSource,
+  settings?: unknown
 ): ParsedPsdDocument {
+  const importSettings = normalizePsdImportSettings(settings, fileName);
   const mainId = toCompId(fileName.replace(/\.psd$/i, ""), fileIndex);
   const orderedLayers = normalizeStackingOrder(psd.children ?? []);
-  const containers = collectCompositionContents(
-    mainId,
-    orderedLayers,
-    undefined,
-    fileName,
-    psd.width,
-    psd.height
-  );
+  const layerIdCounts = countPsdLayerIds(psd.children ?? []);
+  const containers = plannedSource
+    ? collectPlannedCompositionContents(
+        mainId,
+        plannedSource,
+        undefined,
+        fileName,
+        psd.width,
+        psd.height,
+        importSettings
+      )
+    : collectCompositionContents(
+        mainId,
+        orderedLayers,
+        undefined,
+        fileName,
+        psd.width,
+        psd.height,
+        "root",
+        layerIdCounts,
+        importSettings
+      );
   const sourceFingerprint = buildCompositionSourceFingerprint(containers);
 
   const composition = createBaseComposition({
     id: mainId,
-    name: fileName,
+    name: importSettings.compositionName,
     type: "main",
     sourcePath: fileName,
+    sourceIdentity: createPsdSourceIdentity(fileName, "document"),
+    importSettings,
     sourceFingerprint,
     sourceSyncStatus: "normal",
     children: containers.children,
@@ -256,7 +410,7 @@ export function parsePsdToComposition(
     fileName,
     psd.width,
     psd.height,
-    orderedLayers.length
+    containers.children.length + containers.layers.length
   );
   containers.timelineItemsByCompId[mainId] = containers.timelineItems;
   containers.renderItemsByCompId[mainId] = containers.renderItems;

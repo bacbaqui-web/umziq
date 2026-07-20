@@ -17,6 +17,9 @@ import {
   resolveTimelineSelection,
 } from "@/engines/project/helpers/psd/psdImportProjectHelpers";
 import { findCompositionById } from "@/engines/project/helpers/projectModelHelpers";
+import { normalizePsdImportSettings } from "@/engines/project/import/psdImportSettingsHelpers";
+import type { PsdRefreshCommandResult } from "@/engines/project/models/psdRefreshResultModel";
+import { createPsdRefreshSummary } from "@/engines/project/helpers/psd/psdSourceStatusHelpers";
 
 type UsePsdRefreshControllerOptions = {
   masterCompId: string;
@@ -83,7 +86,7 @@ export function usePsdRefreshController({
     async (
       compId: string,
       overrideSource?: PsdImportSource | null
-    ): Promise<"completed" | "needsSource"> => {
+    ): Promise<PsdRefreshCommandResult> => {
       const existingMainComp = comps.find(
         (comp) => comp.id === compId && comp.type === "main"
       );
@@ -92,16 +95,24 @@ export function usePsdRefreshController({
       if (!existingMainComp) {
         setImportError("새로고침할 PSD 소스를 찾을 수 없습니다.");
         setImportNotice(null);
-        return "completed";
+        return { status: "completed", summary: null };
       }
       if (!sourceToRead) {
         setImportError(null);
         setImportNotice(`${existingMainComp.name} PSD를 다시 선택해 주세요.`);
-        return "needsSource";
+        return { status: "needsSource", summary: null };
       }
 
       try {
-        const refreshedDocument = await loadPsd(sourceToRead.file, nextImportIndex);
+        const importSettings = normalizePsdImportSettings(
+          existingMainComp.importSettings,
+          existingMainComp.name
+        );
+        const refreshedDocument = await loadPsd(
+          sourceToRead.file,
+          nextImportIndex,
+          importSettings
+        );
         const mergedProject = mergeRefreshedMainCompIntoProject(
           { comps, metaByCompId, timelineItemsByCompId, renderItemsByCompId },
           existingMainComp,
@@ -126,17 +137,6 @@ export function usePsdRefreshController({
           lastSelectedItemByCompId,
           masterCompId
         );
-        const noticeParts: string[] = [];
-        if (mergedProject.counts.updated > 0) {
-          noticeParts.push(`updated ${mergedProject.counts.updated}`);
-        }
-        if (mergedProject.counts.added > 0) {
-          noticeParts.push(`new ${mergedProject.counts.added}`);
-        }
-        if (mergedProject.counts.deletePending > 0) {
-          noticeParts.push(`delete? ${mergedProject.counts.deletePending}`);
-        }
-
         clearAllCompositionHistories();
         projectCommands.replaceProjectRecords({
           comps: mergedProject.comps,
@@ -152,17 +152,20 @@ export function usePsdRefreshController({
           fileHandle: sourceToRead.fileHandle,
         });
         setImportError(null);
-        setImportNotice(
-          noticeParts.length > 0
-            ? `${existingMainComp.name} 새로고침: ${noticeParts.join(", ")}`
-            : `${existingMainComp.name} 변경 사항이 없습니다.`
-        );
-        return "completed";
+        setImportNotice(null);
+        return {
+          status: "completed",
+          summary: createPsdRefreshSummary(
+            existingMainComp.id,
+            existingMainComp.name,
+            mergedProject.counts
+          ),
+        };
       } catch (error) {
         console.error("PSD REFRESH ERROR:", sourceToRead.file.name, error);
         setImportError(`PSD 새로고침 실패: ${sourceToRead.file.name}`);
         setImportNotice(null);
-        return "completed";
+        return { status: "completed", summary: null };
       }
     },
     [

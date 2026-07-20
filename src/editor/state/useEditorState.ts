@@ -13,6 +13,7 @@ type UseEditorStateOptions = {
   masterDefaultHeight: number;
   previewMinWorkspaceWidth: number;
   previewMinWorkspaceHeight: number;
+  resetPreviewTransformDraft: () => void;
 };
 
 export function useEditorState({
@@ -20,6 +21,7 @@ export function useEditorState({
   masterDefaultHeight,
   previewMinWorkspaceWidth,
   previewMinWorkspaceHeight,
+  resetPreviewTransformDraft,
 }: UseEditorStateOptions) {
   const projectState = useEditorProjectState(masterDefaultWidth, masterDefaultHeight);
   const editorSessionState = useEditorSessionState();
@@ -56,6 +58,13 @@ export function useEditorState({
       currentFrame: playbackState.currentFrame,
     },
     restorePort: {
+      clearEditorDraftRuntime: () => {
+        editorSessionState.setDraftTransformSnapshot(null);
+        editorSessionState.setPropertiesInputDrafts({});
+        editorSessionState.setPropertiesInputDraftScope(null);
+        editorSessionState.setFocusedPropertiesInputId(null);
+        resetPreviewTransformDraft();
+      },
       setComps: projectState.setComps,
       setMasterEnabledProperties: projectState.setMasterEnabledProperties,
       setMasterScale: projectState.setMasterScale,

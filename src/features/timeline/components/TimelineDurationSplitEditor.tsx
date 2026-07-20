@@ -136,6 +136,7 @@ export default function TimelineDurationSplitEditor({
           }}
         >
           <input
+            className="ui-input ui-input--compact"
             ref={secondsInputRef}
             value={secondsInput}
             onChange={(event) => setSecondsInput(event.target.value)}
@@ -154,7 +155,6 @@ export default function TimelineDurationSplitEditor({
               minWidth: TIMELINE_DURATION_EDITOR_INPUT_WIDTH,
               padding: "0 2px",
               height: 16,
-              borderRadius: 3,
               border: inputBorder,
               background: inputBackground,
               color: valueColor,
@@ -170,6 +170,7 @@ export default function TimelineDurationSplitEditor({
           />
           <span style={{ color: unitColor, fontSize: 9, lineHeight: 1 }}>s</span>
           <input
+            className="ui-input ui-input--compact"
             value={framesInput}
             onChange={(event) => setFramesInput(event.target.value)}
             onKeyDown={handleKeyDown}
@@ -187,7 +188,6 @@ export default function TimelineDurationSplitEditor({
               minWidth: TIMELINE_DURATION_EDITOR_INPUT_WIDTH,
               padding: "0 2px",
               height: 16,
-              borderRadius: 3,
               border: inputBorder,
               background: inputBackground,
               color: valueColor,

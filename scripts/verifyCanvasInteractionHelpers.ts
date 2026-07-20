@@ -164,6 +164,13 @@ const gizmo = buildPreviewOverlayViewModel({
 });
 assert.equal(gizmo.previewScaleHandles.length, 3);
 assert.equal(gizmo.previewMotionPath.length, 2);
+assert.deepEqual(
+  gizmo.previewMotionPath.map((point) => point.point),
+  [
+    { x: 100, y: 100 },
+    { x: 200, y: 200 },
+  ]
+);
 assert.equal(gizmo.motionPathPolyline, "100,100 200,200");
 assert.ok(gizmo.previewRotationHandle);
 assert.ok(gizmo.previewOpacityHandle);
