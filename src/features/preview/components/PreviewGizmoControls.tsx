@@ -1,6 +1,4 @@
-import type {
-  ComponentProps,
-} from "react";
+import type { ComponentProps } from "react";
 import PreviewAnchorControl from "@/features/preview/components/PreviewAnchorControl";
 import PreviewGizmoHandles from "@/features/preview/components/PreviewGizmoHandles";
 import PreviewGizmoReadouts from "@/features/preview/components/PreviewGizmoReadouts";
@@ -19,8 +17,8 @@ export default function PreviewGizmoControls({
   return (
     <>
       <PreviewGizmoHandles {...handlesProps} />
-      <PreviewGizmoReadouts {...readoutsProps} />
       <PreviewAnchorControl {...anchorProps} />
+      <PreviewGizmoReadouts {...readoutsProps} />
     </>
   );
 }

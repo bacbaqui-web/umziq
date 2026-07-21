@@ -321,6 +321,7 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
     previewPan: editorState.previewPan,
     showShortformFrameOverlay: editorState.showShortformFrameOverlay,
     showSafeZoneGuides: editorState.showSafeZoneGuides,
+    showSelectionGlow: editorState.showSelectionGlow,
     resolvedPositionDraft: propertiesEngine.resolvedValues.position,
     resolvedScaleDraft: propertiesEngine.resolvedValues.scale,
     resolvedRotationDraft: propertiesEngine.resolvedValues.rotation,
@@ -341,6 +342,7 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
     setPreviewPan: editorState.setPreviewPan,
     setShowShortformFrameOverlay: editorState.setShowShortformFrameOverlay,
     setShowSafeZoneGuides: editorState.setShowSafeZoneGuides,
+    setShowSelectionGlow: editorState.setShowSelectionGlow,
     isPreviewPanning: editorState.isPreviewPanning,
     isPreviewPanModifierActive: editorState.isPreviewPanModifierActive,
     setIsPreviewPanning: editorState.setIsPreviewPanning,
@@ -354,6 +356,7 @@ export function useEditorCompositionRoot(): EditorShellLayoutProps {
       cancel: animationEngine.history.cancel ?? (() => {}),
     },
     applySelectionForComposition: editorState.applySelectionForComposition,
+    enterComposition: projectEngine.enterComposition,
     animation: {
       applyPosition: animationEngine.applyPositionValue,
       applyScale: animationEngine.applyScaleValue,

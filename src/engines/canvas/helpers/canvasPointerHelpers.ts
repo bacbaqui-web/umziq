@@ -37,6 +37,7 @@ export type PreviewScaleDragState = {
   overlay: NonNullable<PreviewOverlay>;
   handle: ScaleHandleDirection;
   initialScale: Scale;
+  startPointer: Position;
 };
 
 export type PreviewRotationDragState = {

@@ -10,6 +10,7 @@ import type {
   UseCanvasTransformControllerOptions,
 } from "@/engines/canvas/models/canvasTransformControllerModel";
 import type { ScaleHandleDirection } from "@/engines/canvas/models/canvasViewModel";
+import { resolvePreviewPointer } from "@/engines/canvas/helpers/canvasPointerHelpers";
 import type { Scale } from "@/models";
 
 export function useCanvasScaleDragController(
@@ -18,8 +19,10 @@ export function useCanvasScaleDragController(
   draftRuntime: CanvasTransformDraftRuntimePort
 ) {
   return useCallback(
-    (handle: ScaleHandleDirection) => {
+    (handle: ScaleHandleDirection, clientX: number, clientY: number) => {
       if (!options.selectedOverlay) return;
+      const startContext = getPointerContext(clientX, clientY);
+      if (!startContext) return;
       const drag = {
         overlay: options.selectedOverlay,
         handle,
@@ -27,10 +30,12 @@ export function useCanvasScaleDragController(
           x: options.selectedOverlay.scaleX,
           y: options.selectedOverlay.scaleY,
         },
+        startPointer: resolvePreviewPointer(startContext),
       };
       const mode = getTransformEditMode(options.selectedPropertyState.scale);
       let latestScale: Scale | null = null;
       options.history.begin();
+      options.state.setIsDraggingScale(true);
       options.state.setScaleHandleReadout({
         handle,
         text: formatScaleHandleReadout(handle, drag.initialScale),
@@ -53,6 +58,7 @@ export function useCanvasScaleDragController(
             options.history.markDirty();
           }
           options.drafts.setScale(null);
+          options.state.setIsDraggingScale(false);
           options.state.setScaleHandleReadout(null);
           draftRuntime.reset();
           options.history.commit();
@@ -60,6 +66,7 @@ export function useCanvasScaleDragController(
         },
         onCancel: () => {
           options.drafts.setScale(null);
+          options.state.setIsDraggingScale(false);
           options.state.setScaleHandleReadout(null);
           draftRuntime.reset();
           options.history.cancel();

@@ -12,6 +12,8 @@ type PreviewWorkspaceControlsProps = {
   toggleShortformFrame: () => void;
   showSafeZoneGuides: boolean;
   toggleSafeZone: () => void;
+  showSelectionGlow: boolean;
+  toggleSelectionGlow: () => void;
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
   centerPreviewView: () => void;
@@ -37,6 +39,8 @@ export default function PreviewWorkspaceControls({
   toggleShortformFrame,
   showSafeZoneGuides,
   toggleSafeZone,
+  showSelectionGlow,
+  toggleSelectionGlow,
   resetPreviewView,
   setOneToOnePreviewView,
   centerPreviewView,
@@ -87,6 +91,24 @@ export default function PreviewWorkspaceControls({
           }}
         >
           세이프존
+        </button>
+        <button
+          className="ui-button"
+          type="button"
+          aria-pressed={showSelectionGlow}
+          onClick={toggleSelectionGlow}
+          style={{
+            border: `1px solid ${
+              showSelectionGlow
+                ? "rgba(255, 202, 112, 0.34)"
+                : "rgba(255,255,255,0.1)"
+            }`,
+            background: showSelectionGlow
+              ? "rgba(255, 202, 112, 0.12)"
+              : "rgba(255,255,255,0.04)",
+          }}
+        >
+          선택 강조
         </button>
         <span className="preview-toolbar__divider" aria-hidden="true" />
         <PreviewQualityControl

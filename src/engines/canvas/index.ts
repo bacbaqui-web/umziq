@@ -178,6 +178,13 @@ export type {
   PreviewOverlayCorners,
   ScaleHandleDirection,
 } from "@/engines/canvas/models/canvasViewModel";
+export type { CanvasSelectionGlowViewModel } from "@/engines/canvas/models/canvasSelectionGlowModel";
+export type { CanvasDirectSelectionHoverViewModel } from "@/engines/canvas/models/canvasDirectSelectionModel";
+export { resolveCanvasPreviewCursor } from "@/engines/canvas/helpers/canvasDirectSelectionHitHelpers";
+export {
+  CANVAS_SELECTION_GLOW_POINTER_EVENTS,
+  CANVAS_SELECTION_OVERLAY_LAYER_ORDER,
+} from "@/engines/canvas/constants/canvasSelectionGlowConstants";
 export type {
   CanvasGuideCommands,
   CanvasGuideViewModel,
@@ -251,6 +258,8 @@ export {
   formatRotationHandleValue,
   formatScaleHandleReadout,
   getCanvasTransformEditModes,
+  isCanvasTransformDragActive,
+  shouldRunCanvasDirectSelectionHover,
 } from "@/engines/canvas/helpers/canvasInteractionHelpers";
 export {
   buildCanvasMotionPathPointViewModels,

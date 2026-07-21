@@ -1,45 +1,58 @@
-# 최근 작업 보고 — Editor 누적 작업 체크포인트 커밋
+# 최근 작업 보고 — Task 9.9.10 Gizmo Readout 최상위 표시
 
-## 작업 결과
+## 작업 상태
 
-현재 작업 트리에 누적된 Editor 기능, Runtime, Canvas, Preview, PSD Workflow, 문서와 검증 자료를 하나의 체크포인트 커밋으로 정리한다.
+- Sprint: Canvas Visual Layer Selection
+- 최근 Task: Task 9.9.10
+- 결과: 완료 / 감독관 검토 완료
+- Sprint 상태: 구현 완료 / QA 대기
+- 수정 후 Edge QA: 미실행
 
-## 포함 범위
+## 원인
 
-- Preview Runtime 최적화와 Dual Renderer
-- Editor Draft Runtime 및 Transform Origin
-- Canvas Engine 책임 분리
-- Motion Path Draft Geometry 통합
-- Dirty Bounds/Clip 및 four-corner AABB 회귀 수정
-- Properties Transform UI와 Renderer Mode UI
-- PSD Import/Refresh Workflow
-- Modifier 관련 구현
-- 관련 verification scripts
-- 프로젝트 운영 및 영구 문서
-- 다음 Sprint 계획 `Canvas Visual Layer Selection`
-- 회귀 재현용 `drag_test.psd`, `layer_test.psd`
+`PreviewGizmoControls`의 기존 DOM paint 순서는 다음과 같았다.
 
-## 삭제/교체 문서
+`Handles → Readouts → Anchor`
 
-기존 루트 문서 체계의 다음 파일은 번호 기반 문서 체계로 교체되어 삭제 상태를 포함한다.
+동일한 stacking context에서 뒤에 렌더된 Anchor가 W Scale 조절 중 나타나는 현재 수치 창 위에 그려졌다.
 
-- `README.md`
-- `recent_task.md`
-- `refactor_plan.md`
-- `src_map.md`
+## 수정 내용
 
-현재 문서 기준은 `00_rule.md`, `20_src_map.md`, `40~47`, `97`, `98`, `99`다.
+공통 paint 순서를 다음과 같이 변경했다.
 
-## 검증 상태
+`Handles → Anchor → Readouts`
 
-가장 최근 Motion Path Anchor Draft 수정 기준:
+따라서 Readouts가 마지막에 렌더되어 다음 UI가 모든 Gizmo visual보다 앞에 표시된다.
 
-- Targeted Canvas Preview Integration verification: 통과
-- 변경 파일 ESLint: 통과
-- `npm run build`: 통과
+- Position drag readout
+- Scale X/Y/XY readout
+- Rotation readout
+- Opacity readout
+- 직접 숫자 입력창
+
+W만을 위한 예외 처리는 추가하지 않았다.
+
+## 유지된 내용
+
+- 수치 창 위치와 시각 스타일
+- 표시 값 계산
+- pointer event와 입력 처리
+- Handle, Anchor와 Connection Hit Layer interaction
+- Draft/Commit/Runtime/History 계약
+- Drag cursor shield
+
+## 감독관 검토
+
+- Handles가 Readouts보다 먼저 렌더됨: 확인
+- Anchor가 Readouts보다 먼저 렌더됨: 확인
+- 모든 Transform readout이 공통 계층 사용: 확인
+- 별도 z-index 예외나 기능 변경 없음: 확인
+
+## 정적 검증
+
+- `npm run lint`: 통과
+- `npm test`: 38개 verification 통과
+- `npm run build`: 통과, 307 modules
 - `git diff --check`: 통과
-- 브라우저 QA: 이번 커밋 요청에서는 실행하지 않음
 
-## 비고
-
-이번 작업은 새 제품 구현이 아니라 현재까지의 누적 변경을 보존하는 Git 체크포인트 작업이다.
+위 결과는 정적 검증이며 수정 후 실제 Edge QA 통과를 의미하지 않는다.

@@ -95,6 +95,10 @@ export default function PreviewMotionPathLayer({
                 event.stopPropagation();
                 onClickMotionPathDot(point.frame, point.isKeyframe);
               }}
+              onDoubleClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
             />
           )}
           {point.isDragging && motionPathDragReadout && (

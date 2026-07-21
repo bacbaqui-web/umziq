@@ -10,9 +10,9 @@ import type { Position, Scale } from "@/models";
 import type { PropertyTrackState } from "@/models";
 import { getTransformEditMode } from "@/engines/animation";
 import {
-  getOpacityRadiusRange,
   getScaleHandleDescriptors,
 } from "@/engines/canvas/helpers/canvasGizmoGeometryHelpers";
+import { worldPointToCanvasPoint } from "@/engines/canvas/helpers/canvasViewportHelpers";
 import {
   resolvePreviewPointer,
   type PreviewPointerContext,
@@ -47,6 +47,27 @@ export function getCanvasTransformEditModes(state: PropertyTrackState) {
     rotation: getTransformEditMode(state.rotation),
     opacity: getTransformEditMode(state.opacity),
   };
+}
+
+export function isCanvasTransformDragActive(state: {
+  isDraggingAnchor: boolean;
+  isDraggingPosition: boolean;
+  isDraggingScale: boolean;
+  isDraggingOpacity: boolean;
+  isDraggingRotation: boolean;
+}) {
+  return state.isDraggingAnchor || state.isDraggingPosition ||
+    state.isDraggingScale || state.isDraggingOpacity || state.isDraggingRotation;
+}
+
+export function shouldRunCanvasDirectSelectionHover(options: {
+  isPreviewPanning: boolean;
+  isPreviewPanModifierActive: boolean;
+  isTransformDragging: boolean;
+  isExcludedTarget: boolean;
+}) {
+  return !options.isPreviewPanning && !options.isPreviewPanModifierActive &&
+    !options.isTransformDragging && !options.isExcludedTarget;
 }
 
 export function calculatePreviewPositionDragUpdate(
@@ -97,30 +118,34 @@ export function calculateScaleDragUpdate(
     x: pointer.x - overlay.anchorX,
     y: pointer.y - overlay.anchorY,
   };
-  const getSignedScaleFactor = (distance: number) => {
-    const normalizedDistance = distance / axisLength;
-
-    if (Math.abs(normalizedDistance) < 0.0001) {
-      return 0;
-    }
-
-    return Math.sign(normalizedDistance) * Math.pow(Math.abs(normalizedDistance), 0.85);
+  const startPointerVector = {
+    x: dragState.startPointer.x - overlay.anchorX,
+    y: dragState.startPointer.y - overlay.anchorY,
   };
+  const startDistance = projectOntoAxis(startPointerVector, axis);
+
+  if (Math.abs(startDistance) < 0.0001) return null;
+
+  const currentDistance = projectOntoAxis(pointerVector, axis);
+  const relativeFactor = currentDistance / startDistance;
+
+  if (Math.abs(relativeFactor - 1) < 0.0001) {
+    return {
+      nextScale: { ...initialScale },
+      readout: formatScaleHandleReadout(handle, initialScale),
+    };
+  }
 
   let nextScale = { ...initialScale };
 
   if (handle === "x") {
-    const signedDistance = projectOntoAxis(pointerVector, axis);
-    nextScale.x = initialScale.x * getSignedScaleFactor(signedDistance);
+    nextScale.x = initialScale.x * relativeFactor;
   } else if (handle === "y") {
-    const signedDistance = projectOntoAxis(pointerVector, axis);
-    nextScale.y = initialScale.y * getSignedScaleFactor(signedDistance);
+    nextScale.y = initialScale.y * relativeFactor;
   } else {
-    const signedDistance = projectOntoAxis(pointerVector, axis);
-    const unifiedFactor = getSignedScaleFactor(signedDistance);
     nextScale = {
-      x: initialScale.x * unifiedFactor,
-      y: initialScale.y * unifiedFactor,
+      x: initialScale.x * relativeFactor,
+      y: initialScale.y * relativeFactor,
     };
   }
 
@@ -148,11 +173,23 @@ export function calculateOpacityDragUpdate(
   overlay: NonNullable<PreviewOverlay>,
   snapToTenPercent: boolean
 ) {
-  const pointer = resolvePreviewPointer(context);
-  const { minRadius, maxRadius } = getOpacityRadiusRange();
-  const pointerRadius = Math.hypot(pointer.x - overlay.anchorX, pointer.y - overlay.anchorY);
-  const normalizedOpacity = (pointerRadius - minRadius) / Math.max(1, maxRadius - minRadius);
-  let nextOpacity = Math.min(100, Math.max(0, normalizedOpacity * 100));
+  const anchor = worldPointToCanvasPoint(
+    {
+      meta: context.selectedMeta,
+      previewSize: context.previewSize,
+      viewportScale: context.previewZoom,
+      viewportOffset: context.previewViewportOffset,
+    },
+    { x: overlay.anchorX, y: overlay.anchorY }
+  );
+  const pointerRadius = Math.hypot(
+    context.clientX - context.overlayBounds.left - anchor.x,
+    context.clientY - context.overlayBounds.top - anchor.y
+  );
+  let nextOpacity = Math.min(
+    100,
+    Math.max(0, ((pointerRadius - 25) / 25) * 100)
+  );
 
   if (snapToTenPercent) {
     nextOpacity = Math.round(nextOpacity / 10) * 10;

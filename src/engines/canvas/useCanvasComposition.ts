@@ -52,6 +52,7 @@ export type UseCanvasCompositionOptions = {
   previewPan: Position;
   showShortformFrameOverlay: boolean;
   showSafeZoneGuides: boolean;
+  showSelectionGlow: boolean;
   resolvedPositionDraft: Position;
   resolvedScaleDraft: Scale;
   resolvedRotationDraft: number;
@@ -72,6 +73,7 @@ export type UseCanvasCompositionOptions = {
   setPreviewPan: Dispatch<SetStateAction<Position>>;
   setShowShortformFrameOverlay: Dispatch<SetStateAction<boolean>>;
   setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
+  setShowSelectionGlow: Dispatch<SetStateAction<boolean>>;
   isPreviewPanning: boolean;
   isPreviewPanModifierActive: boolean;
   setIsPreviewPanning: Dispatch<SetStateAction<boolean>>;
@@ -79,6 +81,7 @@ export type UseCanvasCompositionOptions = {
   interactionState: CanvasInteractionStatePort;
   history: { push: () => void; begin: () => void; markDirty: () => void; commit: () => void; cancel: () => void };
   applySelectionForComposition: (compId: string, selection: TimelineSelection) => void;
+  enterComposition: (compId: string) => void;
   animation: {
     applyPosition: (value: Position, mode: TransformEditMode) => void;
     applyScale: (value: Scale, mode: TransformEditMode) => void;
@@ -161,6 +164,8 @@ export function useCanvasComposition(options: UseCanvasCompositionOptions) {
       setShowShortformFrameOverlay: options.setShowShortformFrameOverlay,
       showSafeZoneGuides: options.showSafeZoneGuides,
       setShowSafeZoneGuides: options.setShowSafeZoneGuides,
+      showSelectionGlow: options.showSelectionGlow,
+      setShowSelectionGlow: options.setShowSelectionGlow,
     },
     panState: {
       setIsPreviewPanning: options.setIsPreviewPanning,
@@ -208,6 +213,7 @@ export function useCanvasComposition(options: UseCanvasCompositionOptions) {
         upsertPositionKeyframe: options.animation.upsertPropertyKeyframe,
         selectPositionKeyframe: options.animation.selectPropertyKeyframe,
         applySelection: options.applySelectionForComposition,
+        enterComposition: options.enterComposition,
         commitScaleInput: options.animation.commitScaleInput,
         commitRotationInput: options.animation.commitRotationInput,
         commitOpacityInput: options.animation.commitOpacityInput,
@@ -236,6 +242,8 @@ export function useCanvasComposition(options: UseCanvasCompositionOptions) {
     guide: canvasEngine.guide,
     toggleShortformFrame: canvasEngine.guideCommands.toggleShortformFrame,
     toggleSafeZone: canvasEngine.guideCommands.toggleSafeZone,
+    showSelectionGlow: options.showSelectionGlow,
+    toggleSelectionGlow: () => options.setShowSelectionGlow((current) => !current),
     resetPreviewView: canvasEngine.viewportCommands.resetViewport,
     setOneToOnePreviewView: canvasEngine.viewportCommands.setActualSize,
     centerPreviewView: canvasEngine.viewportCommands.centerViewport,
@@ -244,6 +252,8 @@ export function useCanvasComposition(options: UseCanvasCompositionOptions) {
     isPreviewPanning: options.isPreviewPanning,
     isPreviewPanModifierActive: options.isPreviewPanModifierActive,
     interactionViewModel: canvasEngine.interaction.viewModel,
+    selectionGlow: canvasEngine.interaction.glow,
+    directSelectionHover: canvasEngine.interaction.hover,
     interactionCommands: canvasEngine.interaction.commands,
   };
 

@@ -5,6 +5,7 @@ import type {
 import type { CanvasDirectInputState, ScaleHandleDirection } from "@/engines/canvas";
 import type {
   HoveredGizmoHandle,
+  PreviewEndpointHandle,
   PreviewLineHandle,
   PreviewPoint,
   PreviewScaleHandle,
@@ -22,17 +23,10 @@ export type PreviewGizmoLayerProps = {
     width: number;
     height: number;
   };
-  previewCorners: {
-    nw: PreviewPoint;
-    ne: PreviewPoint;
-    se: PreviewPoint;
-    sw: PreviewPoint;
-  } | null;
-  polygonPoints: string;
   previewAnchor: PreviewPoint | null;
   previewMoveHandle: PreviewLineHandle | null;
-  previewRotationHandle: PreviewLineHandle | null;
-  previewOpacityHandle: PreviewLineHandle | null;
+  previewRotationHandle: PreviewEndpointHandle | null;
+  previewOpacityHandle: PreviewEndpointHandle | null;
   previewScaleHandles: PreviewScaleHandle[];
   hoveredHandle: HoveredGizmoHandle;
   isDraggingAnchor: boolean;
@@ -50,7 +44,6 @@ export type PreviewGizmoLayerProps = {
   directInput: CanvasDirectInputState;
   anchorOpacity: number;
   isAnchorHovered: boolean;
-  onTargetMouseDown: (event: ReactMouseEvent<SVGPolygonElement>) => void;
   onPressMove: (clientX: number, clientY: number) => void;
   onPressRotation: (clientX: number, clientY: number) => void;
   onPressOpacity: (clientX: number, clientY: number) => void;
@@ -70,6 +63,6 @@ export type PreviewGizmoLayerProps = {
 export type ActivePreviewGizmoLayerProps = PreviewGizmoLayerProps & {
   previewAnchor: PreviewPoint;
   previewMoveHandle: PreviewLineHandle;
-  previewRotationHandle: PreviewLineHandle;
-  previewOpacityHandle: PreviewLineHandle;
+  previewRotationHandle: PreviewEndpointHandle;
+  previewOpacityHandle: PreviewEndpointHandle;
 };

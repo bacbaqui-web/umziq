@@ -10,6 +10,8 @@ import {
   formatRotationHandleValue,
   formatScaleHandleReadout,
   getCanvasTransformEditModes,
+  isCanvasTransformDragActive,
+  shouldRunCanvasDirectSelectionHover,
 } from "@/engines/canvas/helpers/canvasInteractionHelpers";
 import {
   createPreviewPositionDragState,
@@ -21,6 +23,7 @@ import {
   buildPreviewOverlayViewModel,
 } from "@/engines/canvas/helpers/canvasGizmoHelpers";
 import {
+  getScaleHandleDescriptors,
   getOpacityHandleCursor,
   getRotationHandleCursor,
   getScaleHandleCursor,
@@ -87,32 +90,104 @@ assert.deepEqual(positionUpdate.nextPosition, { x: 64, y: 40 });
 assert.equal(positionUpdate.readout, "ΔX +14 / ΔY -20");
 
 const xScale = calculateScaleDragUpdate(
-  context(90, 500),
-  { overlay, handle: "x", initialScale: { x: 100, y: 80 } },
+  context(450, 500),
+  {
+    overlay,
+    handle: "x",
+    initialScale: { x: 100, y: 80 },
+    startPointer: { x: 450, y: 500 },
+  },
   false
 );
 assert.ok(xScale);
 assert.ok(Math.abs(xScale.nextScale.x - 100) < 1e-9);
 assert.equal(xScale.nextScale.y, 80);
 const yScale = calculateScaleDragUpdate(
-  context(500, 90),
-  { overlay, handle: "y", initialScale: { x: 80, y: 100 } },
+  context(500, 450),
+  {
+    overlay,
+    handle: "y",
+    initialScale: { x: 80, y: 100 },
+    startPointer: { x: 500, y: 450 },
+  },
   true
 );
 assert.ok(yScale);
 assert.deepEqual(yScale.nextScale, { x: 80, y: 100 });
 const xyScale = calculateScaleDragUpdate(
-  context(500 + 540 / Math.sqrt(2), 500 + 540 / Math.sqrt(2)),
-  { overlay, handle: "xy", initialScale: { x: 100, y: 50 } },
+  context(500 + 50 / Math.sqrt(2), 500 + 50 / Math.sqrt(2)),
+  {
+    overlay,
+    handle: "xy",
+    initialScale: { x: 100, y: 50 },
+    startPointer: {
+      x: 500 + 50 / Math.sqrt(2),
+      y: 500 + 50 / Math.sqrt(2),
+    },
+  },
   false
 );
 assert.ok(xyScale);
 assert.ok(Math.abs(xyScale.nextScale.x - 100) < 1e-9);
 assert.ok(Math.abs(xyScale.nextScale.y - 50) < 1e-9);
 
-assert.equal(calculateOpacityDragUpdate(context(640, 500), overlay, false).nextOpacity, 0);
-assert.equal(calculateOpacityDragUpdate(context(1000, 1000), overlay, false).nextOpacity, 100);
-assert.equal(calculateOpacityDragUpdate(context(342, 500), overlay, true).nextOpacity, 0);
+const doubledXScale = calculateScaleDragUpdate(
+  context(400, 500),
+  {
+    overlay,
+    handle: "x",
+    initialScale: { x: 100, y: 80 },
+    startPointer: { x: 450, y: 500 },
+  },
+  false
+);
+assert.deepEqual(doubledXScale?.nextScale, { x: 200, y: 80 });
+const halvedYScale = calculateScaleDragUpdate(
+  context(500, 475),
+  {
+    overlay,
+    handle: "y",
+    initialScale: { x: 80, y: 100 },
+    startPointer: { x: 500, y: 450 },
+  },
+  false
+);
+assert.deepEqual(halvedYScale?.nextScale, { x: 80, y: 50 });
+const doubledLinkedScale = calculateScaleDragUpdate(
+  context(500 + 100 / Math.sqrt(2), 500 + 100 / Math.sqrt(2)),
+  {
+    overlay,
+    handle: "xy",
+    initialScale: { x: 100, y: 50 },
+    startPointer: {
+      x: 500 + 50 / Math.sqrt(2),
+      y: 500 + 50 / Math.sqrt(2),
+    },
+  },
+  false
+);
+assert.ok(doubledLinkedScale);
+assert.ok(Math.abs(doubledLinkedScale.nextScale.x - 200) < 1e-9);
+assert.ok(Math.abs(doubledLinkedScale.nextScale.y - 100) < 1e-9);
+const negativeXScale = calculateScaleDragUpdate(
+  context(400, 500),
+  {
+    overlay,
+    handle: "x",
+    initialScale: { x: -100, y: 80 },
+    startPointer: { x: 450, y: 500 },
+  },
+  false
+);
+assert.deepEqual(negativeXScale?.nextScale, { x: -200, y: 80 });
+
+assert.equal(calculateOpacityDragUpdate(context(500, 500), overlay, false).nextOpacity, 0);
+assert.equal(calculateOpacityDragUpdate(context(525, 500), overlay, false).nextOpacity, 0);
+const opacityDrag50 = calculateOpacityDragUpdate(context(537.5, 500), overlay, false);
+assert.equal(opacityDrag50.nextOpacity, 50);
+assert.equal(calculateOpacityDragUpdate(context(550, 500), overlay, false).nextOpacity, 100);
+assert.equal(calculateOpacityDragUpdate(context(560, 500), overlay, false).nextOpacity, 100);
+assert.equal(calculateOpacityDragUpdate(context(538.8, 500), overlay, true).nextOpacity, 60);
 
 const rotationDrag = createPreviewRotationDragState(context(600, 500), overlay);
 const rotationUpdate = calculateRotationDragUpdate(
@@ -160,9 +235,21 @@ const gizmo = buildPreviewOverlayViewModel({
     { frame: 0, x: 100, y: 100, isKeyframe: true, isCurrent: true },
     { frame: 1, x: 200, y: 200, isKeyframe: false, isCurrent: false },
   ],
-  currentOpacity: 50,
+  currentOpacity: opacityDrag50.nextOpacity,
 });
 assert.equal(gizmo.previewScaleHandles.length, 3);
+assert.deepEqual(
+  gizmo.previewScaleHandles.map(({ key, label, directionAngle }) => ({
+    key,
+    label,
+    directionAngle,
+  })),
+  [
+    { key: "x", label: "W (가로 크기)", directionAngle: -180 },
+    { key: "y", label: "H (세로 크기)", directionAngle: -90 },
+    { key: "xy", label: "WH (비율/전체 크기)", directionAngle: 45 },
+  ]
+);
 assert.equal(gizmo.previewMotionPath.length, 2);
 assert.deepEqual(
   gizmo.previewMotionPath.map((point) => point.point),
@@ -175,6 +262,222 @@ assert.equal(gizmo.motionPathPolyline, "100,100 200,200");
 assert.ok(gizmo.previewRotationHandle);
 assert.ok(gizmo.previewOpacityHandle);
 assert.ok(gizmo.previewMoveHandle);
+assert.deepEqual(gizmo.previewMoveHandle.point, gizmo.previewAnchor);
+assert.equal(gizmo.protectedControlPoints[0], gizmo.protectedControlPoints[1]);
+const outerHandlePoints = [
+  ...gizmo.previewScaleHandles.map((handle) => handle.point),
+  gizmo.previewRotationHandle.point,
+];
+for (const point of outerHandlePoints) {
+  assert.ok(Math.abs(Math.hypot(point.x - 500, point.y - 500) - 50) < 1e-9);
+}
+for (const handle of [
+  ...gizmo.previewScaleHandles,
+  gizmo.previewRotationHandle,
+  gizmo.previewOpacityHandle,
+]) {
+  assert.ok(
+    Math.abs(
+      Math.hypot(handle.lineStart.x - 500, handle.lineStart.y - 500) - 20
+    ) < 1e-9
+  );
+}
+assert.deepEqual(gizmo.previewScaleHandles[0].point, { x: 450, y: 500 });
+assert.deepEqual(gizmo.previewScaleHandles[1].point, { x: 500, y: 450 });
+assert.ok(gizmo.previewScaleHandles[2].point.x > 500);
+assert.ok(gizmo.previewScaleHandles[2].point.y > 500);
+assert.ok(gizmo.previewRotationHandle.point.x > 500);
+assert.ok(gizmo.previewRotationHandle.point.y < 500);
+assert.ok(gizmo.previewOpacityHandle.point.x < 500);
+assert.ok(gizmo.previewOpacityHandle.point.y > 500);
+assert.ok(
+  Math.abs(
+    Math.hypot(
+      gizmo.previewOpacityHandle.point.x - 500,
+      gizmo.previewOpacityHandle.point.y - 500
+    ) - 37.5
+  ) < 1e-9
+);
+for (const handle of [gizmo.previewRotationHandle, gizmo.previewOpacityHandle]) {
+  assert.ok(
+    Math.abs(
+      Math.hypot(
+        handle.point.x - handle.lineEnd.x,
+        handle.point.y - handle.lineEnd.y
+      ) - 5
+    ) < 1e-9
+  );
+}
+assert.ok(
+  Math.abs(
+    Math.hypot(
+      gizmo.previewRotationHandle.lineEnd.x - 500,
+      gizmo.previewRotationHandle.lineEnd.y - 500
+    ) - 45
+  ) < 1e-9
+);
+assert.ok(
+  Math.abs(
+    Math.hypot(
+      gizmo.previewOpacityHandle.lineEnd.x - 500,
+      gizmo.previewOpacityHandle.lineEnd.y - 500
+    ) - 32.5
+  ) < 1e-9
+);
+const buildOpacityGizmo = (currentOpacity: number) =>
+  buildPreviewOverlayViewModel({
+    viewportScale: 1,
+    viewportOffset: { x: 0, y: 0 },
+    previewSize: { width: 1000, height: 1000 },
+    selectedMeta: meta,
+    selection,
+    motionPath: [],
+    currentOpacity,
+  });
+for (const [opacity, centerRadius, lineEndRadius] of [
+  [-20, 25, 20],
+  [0, 25, 20],
+  [50, 37.5, 32.5],
+  [100, 50, 45],
+  [120, 50, 45],
+] as const) {
+  const opacityGizmo = buildOpacityGizmo(opacity);
+  assert.ok(opacityGizmo.previewOpacityHandle);
+  assert.ok(
+    Math.abs(
+      Math.hypot(
+        opacityGizmo.previewOpacityHandle.point.x - 500,
+        opacityGizmo.previewOpacityHandle.point.y - 500
+      ) - centerRadius
+    ) < 1e-9
+  );
+  assert.ok(
+    Math.abs(
+      Math.hypot(
+        opacityGizmo.previewOpacityHandle.lineEnd.x - 500,
+        opacityGizmo.previewOpacityHandle.lineEnd.y - 500
+      ) - lineEndRadius
+    ) < 1e-9
+  );
+}
+assert.deepEqual(gizmo.previewScaleHandles[0].arrowWingPoints, {
+  first: { x: 458, y: 495 },
+  second: { x: 458, y: 505 },
+});
+
+const rotatePoint = (x: number, y: number, degrees: number) => {
+  const radians = (degrees * Math.PI) / 180;
+  return {
+    x: 500 + x * Math.cos(radians) - y * Math.sin(radians),
+    y: 500 + x * Math.sin(radians) + y * Math.cos(radians),
+  };
+};
+const rotatedCorners = {
+  nw: rotatePoint(-200, -200, 30),
+  ne: rotatePoint(200, -200, 30),
+  se: rotatePoint(200, 200, 30),
+  sw: rotatePoint(-200, 200, 30),
+};
+const rotatedOverlay = { ...overlay, corners: rotatedCorners };
+const rotatedGizmo = buildPreviewOverlayViewModel({
+  viewportScale: 1,
+  viewportOffset: { x: 0, y: 0 },
+  previewSize: { width: 1000, height: 1000 },
+  selectedMeta: meta,
+  selection: {
+    ...selection,
+    overlay: rotatedOverlay,
+    previewCorners: rotatedCorners,
+  },
+  motionPath: [],
+  currentOpacity: 100,
+});
+assert.deepEqual(
+  rotatedGizmo.previewScaleHandles.map(({ directionAngle }) =>
+    Math.round(directionAngle)
+  ),
+  [-150, -60, 75]
+);
+for (const point of [
+  ...rotatedGizmo.previewScaleHandles.map((handle) => handle.point),
+  rotatedGizmo.previewRotationHandle?.point,
+  rotatedGizmo.previewOpacityHandle?.point,
+]) {
+  assert.ok(point);
+  assert.ok(Math.abs(Math.hypot(point.x - 500, point.y - 500) - 50) < 1e-9);
+}
+for (const handle of [
+  ...rotatedGizmo.previewScaleHandles,
+  rotatedGizmo.previewRotationHandle,
+  rotatedGizmo.previewOpacityHandle,
+]) {
+  assert.ok(handle);
+  assert.ok(
+    Math.abs(
+      Math.hypot(handle.lineStart.x - 500, handle.lineStart.y - 500) - 20
+    ) < 1e-9
+  );
+}
+assert.deepEqual(rotatedGizmo.previewMoveHandle?.point, rotatedGizmo.previewAnchor);
+assert.equal(
+  rotatedGizmo.protectedControlPoints[0],
+  rotatedGizmo.protectedControlPoints[1]
+);
+for (const handle of rotatedGizmo.previewScaleHandles) {
+  const wingSpan = Math.hypot(
+    handle.arrowWingPoints.first.x - handle.arrowWingPoints.second.x,
+    handle.arrowWingPoints.first.y - handle.arrowWingPoints.second.y
+  );
+  assert.ok(Math.abs(wingSpan - 10) < 1e-9);
+  const wingMidpoint = {
+    x: (handle.arrowWingPoints.first.x + handle.arrowWingPoints.second.x) / 2,
+    y: (handle.arrowWingPoints.first.y + handle.arrowWingPoints.second.y) / 2,
+  };
+  assert.ok(
+    Math.abs(
+      Math.hypot(
+        handle.point.x - wingMidpoint.x,
+        handle.point.y - wingMidpoint.y
+      ) - 8
+    ) < 1e-9
+  );
+}
+for (const handle of [
+  rotatedGizmo.previewRotationHandle,
+  rotatedGizmo.previewOpacityHandle,
+]) {
+  assert.ok(handle);
+  assert.ok(
+    Math.abs(
+      Math.hypot(
+        handle.point.x - handle.lineEnd.x,
+        handle.point.y - handle.lineEnd.y
+      ) - 5
+    ) < 1e-9
+  );
+  assert.ok(
+    Math.abs(
+      Math.hypot(handle.lineEnd.x - 500, handle.lineEnd.y - 500) - 45
+    ) < 1e-9
+  );
+}
+const rotatedWidthDescriptor = getScaleHandleDescriptors(rotatedOverlay)[0];
+const rotatedWidthScale = calculateScaleDragUpdate(
+  context(rotatedWidthDescriptor.x, rotatedWidthDescriptor.y),
+  {
+    overlay: rotatedOverlay,
+    handle: "x",
+    initialScale: { x: 100, y: 80 },
+    startPointer: {
+      x: rotatedWidthDescriptor.x,
+      y: rotatedWidthDescriptor.y,
+    },
+  },
+  false
+);
+assert.ok(rotatedWidthScale);
+assert.ok(Math.abs(rotatedWidthScale.nextScale.x - 100) < 1e-9);
+assert.equal(rotatedWidthScale.nextScale.y, 80);
 
 const unlockedPoints = buildCanvasMotionPathPointViewModels({
   previewMotionPath: gizmo.previewMotionPath,
@@ -211,5 +514,36 @@ assert.equal(getScaleHandleCursor("y"), "ns-resize");
 assert.equal(getScaleHandleCursor("xy"), "nwse-resize");
 assert.match(getRotationHandleCursor(), /crosshair$/);
 assert.match(getOpacityHandleCursor(), /pointer$/);
+
+const idleTransformDrag = {
+  isDraggingAnchor: false,
+  isDraggingPosition: false,
+  isDraggingScale: false,
+  isDraggingOpacity: false,
+  isDraggingRotation: false,
+};
+assert.equal(isCanvasTransformDragActive(idleTransformDrag), false);
+for (const key of Object.keys(idleTransformDrag) as Array<keyof typeof idleTransformDrag>) {
+  assert.equal(isCanvasTransformDragActive({ ...idleTransformDrag, [key]: true }), true, key);
+}
+let scaleDragProviderGets = 0;
+if (shouldRunCanvasDirectSelectionHover({
+  isPreviewPanning: false,
+  isPreviewPanModifierActive: false,
+  isTransformDragging: isCanvasTransformDragActive({
+    ...idleTransformDrag,
+    isDraggingScale: true,
+  }),
+  isExcludedTarget: false,
+})) {
+  scaleDragProviderGets += 1;
+}
+assert.equal(scaleDragProviderGets, 0);
+assert.equal(shouldRunCanvasDirectSelectionHover({
+  isPreviewPanning: false,
+  isPreviewPanModifierActive: false,
+  isTransformDragging: false,
+  isExcludedTarget: false,
+}), true);
 
 console.log("Canvas interaction helper verification passed");

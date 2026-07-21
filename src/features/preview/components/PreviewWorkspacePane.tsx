@@ -1,12 +1,19 @@
-import type { RefObject, WheelEvent, MouseEvent } from "react";
+import { useEffect, type RefObject, type WheelEvent, type MouseEvent } from "react";
 import PreviewInteractionOverlay from "@/features/preview/components/PreviewInteractionOverlay";
 import PreviewViewportLayers from "@/features/preview/components/PreviewViewportLayers";
 import PreviewWorkspaceControls from "@/features/preview/components/PreviewWorkspaceControls";
 import type { Composition, CompositionMeta, Position } from "@/models";
+import { resolveCanvasPreviewCursor } from "@/engines/canvas";
+import {
+  isCanvasTransformDragActive,
+  shouldRunCanvasDirectSelectionHover,
+} from "@/engines/canvas";
 import type {
   CanvasGuideViewModel,
+  CanvasDirectSelectionHoverViewModel,
   CanvasGizmoViewModel,
   CanvasInteractionCommands,
+  CanvasSelectionGlowViewModel,
   PreviewQualityControlCommands,
   PreviewQualityControlViewModel,
   RendererMode,
@@ -36,6 +43,8 @@ type PreviewWorkspacePaneProps = {
   guide: CanvasGuideViewModel;
   toggleShortformFrame: () => void;
   toggleSafeZone: () => void;
+  showSelectionGlow: boolean;
+  toggleSelectionGlow: () => void;
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
   centerPreviewView: () => void;
@@ -44,6 +53,8 @@ type PreviewWorkspacePaneProps = {
   isPreviewPanning: boolean;
   isPreviewPanModifierActive: boolean;
   interactionViewModel: CanvasGizmoViewModel;
+  selectionGlow: CanvasSelectionGlowViewModel;
+  directSelectionHover: CanvasDirectSelectionHoverViewModel;
   interactionCommands: CanvasInteractionCommands;
 };
 
@@ -68,6 +79,8 @@ export default function PreviewWorkspacePane({
   guide,
   toggleShortformFrame,
   toggleSafeZone,
+  showSelectionGlow,
+  toggleSelectionGlow,
   resetPreviewView,
   setOneToOnePreviewView,
   centerPreviewView,
@@ -76,8 +89,15 @@ export default function PreviewWorkspacePane({
   isPreviewPanning,
   isPreviewPanModifierActive,
   interactionViewModel,
+  selectionGlow,
+  directSelectionHover,
   interactionCommands,
 }: PreviewWorkspacePaneProps) {
+  const isTransformDragging = isCanvasTransformDragActive(interactionViewModel);
+  useEffect(() => {
+    if (isTransformDragging) directSelectionHover.leaveTarget();
+  }, [directSelectionHover, isTransformDragging]);
+
   return (
     <div
       style={{
@@ -110,15 +130,65 @@ export default function PreviewWorkspacePane({
               backgroundSize: "20px 20px",
               backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
               overflow: "hidden",
-              cursor: isPreviewPanning
-                ? "grabbing"
-                : isPreviewPanModifierActive
-                  ? "grab"
-                  : "default",
+              cursor: resolveCanvasPreviewCursor({
+                isPreviewPanning,
+                isPreviewPanModifierActive,
+                isDraggingPosition: interactionViewModel.isDraggingPosition,
+                isAlphaHit: directSelectionHover.isAlphaHit,
+              }),
             }}
             ref={previewViewportRef}
             onWheel={handlePreviewViewportWheel}
-            onMouseDownCapture={handlePreviewViewportMouseDownCapture}
+            onMouseDownCapture={(event) => {
+              directSelectionHover.leaveTarget();
+              handlePreviewViewportMouseDownCapture(event);
+            }}
+            onMouseMove={(event) => {
+              const target = event.target;
+              const isExcludedTarget = Boolean(
+                target instanceof Element && target.closest(
+                  ".preview-toolbar,button,input,select,textarea,[contenteditable='true']"
+                )
+              );
+              if (!shouldRunCanvasDirectSelectionHover({
+                isPreviewPanning,
+                isPreviewPanModifierActive,
+                isTransformDragging,
+                isExcludedTarget,
+              })) {
+                directSelectionHover.leaveTarget();
+                return;
+              }
+              directSelectionHover.moveTarget(event.clientX, event.clientY);
+            }}
+            onMouseLeave={directSelectionHover.leaveTarget}
+            onMouseDown={(event) => {
+              if (event.button !== 0 || event.detail >= 2) return;
+              const target = event.target;
+              if (
+                target instanceof Element &&
+                target.closest(
+                  ".preview-toolbar,button,input,select,textarea,[contenteditable='true']"
+                )
+              ) return;
+              interactionCommands.pressTarget(event.clientX, event.clientY);
+            }}
+            onDoubleClick={(event) => {
+              if (
+                event.button !== 0 ||
+                isPreviewPanning ||
+                isPreviewPanModifierActive ||
+                isTransformDragging
+              ) return;
+              const target = event.target;
+              if (
+                target instanceof Element &&
+                target.closest(
+                  ".preview-toolbar,button,input,select,textarea,[contenteditable='true']"
+                )
+              ) return;
+              directSelectionHover.doubleClickTarget(event.clientX, event.clientY);
+            }}
           >
             <PreviewWorkspaceControls
               previewZoomPercent={previewZoomPercent}
@@ -126,6 +196,8 @@ export default function PreviewWorkspacePane({
               toggleShortformFrame={toggleShortformFrame}
               showSafeZoneGuides={guide.showSafeZoneGuides}
               toggleSafeZone={toggleSafeZone}
+              showSelectionGlow={showSelectionGlow}
+              toggleSelectionGlow={toggleSelectionGlow}
               resetPreviewView={resetPreviewView}
               setOneToOnePreviewView={setOneToOnePreviewView}
               centerPreviewView={centerPreviewView}
@@ -147,6 +219,7 @@ export default function PreviewWorkspacePane({
               previewViewportWidth={previewViewportWidth}
               previewViewportHeight={previewViewportHeight}
               viewModel={interactionViewModel}
+              selectionGlow={selectionGlow}
               commands={interactionCommands}
             />
           </div>

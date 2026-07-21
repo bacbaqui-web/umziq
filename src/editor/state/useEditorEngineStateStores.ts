@@ -73,8 +73,10 @@ export function useEditorCanvasState(minWidth: number, minHeight: number) {
   const [previewWorkspaceSize, setPreviewWorkspaceSize] = useState({ width: minWidth, height: minHeight });
   const [showShortformFrameOverlay, setShowShortformFrameOverlay] = useState(true);
   const [showSafeZoneGuides, setShowSafeZoneGuides] = useState(false);
+  const [showSelectionGlow, setShowSelectionGlow] = useState(true);
   const [isDraggingAnchor, setIsDraggingAnchor] = useState(false);
   const [isDraggingPosition, setIsDraggingPosition] = useState(false);
+  const [isDraggingScale, setIsDraggingScale] = useState(false);
   const [isDraggingOpacity, setIsDraggingOpacity] = useState(false);
   const [isDraggingRotation, setIsDraggingRotation] = useState(false);
   const [isDraggingMotionPathKeyframe, setIsDraggingMotionPathKeyframe] = useState(false);
@@ -96,7 +98,9 @@ export function useEditorCanvasState(minWidth: number, minHeight: number) {
   return {
     previewZoom, setPreviewZoom, previewPan, setPreviewPan, previewWorkspaceSize, setPreviewWorkspaceSize,
     showShortformFrameOverlay, setShowShortformFrameOverlay, showSafeZoneGuides, setShowSafeZoneGuides,
+    showSelectionGlow, setShowSelectionGlow,
     isDraggingAnchor, setIsDraggingAnchor, isDraggingPosition, setIsDraggingPosition,
+    isDraggingScale, setIsDraggingScale,
     isDraggingOpacity, setIsDraggingOpacity, isDraggingRotation, setIsDraggingRotation,
     isDraggingMotionPathKeyframe, setIsDraggingMotionPathKeyframe,
     isPreviewPanning, setIsPreviewPanning, isPreviewPanModifierActive, setIsPreviewPanModifierActive,

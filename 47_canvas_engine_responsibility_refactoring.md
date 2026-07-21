@@ -81,9 +81,9 @@ resetDraftRuntime
 ### 동작별 transaction
 
 - `useCanvasPositionDragController.ts`: Position local frame/base 평가와 begin/move/commit/cancel
-- `useCanvasScaleDragController.ts`: handle/Shift snap/Scale draft/readout transaction
+- `useCanvasScaleDragController.ts`: PointerDown world 위치를 현재 Scale의 100% baseline으로 캡처하고 이후 같은 local axis 투영 거리의 상대 배율, handle/Shift snap/Scale draft/readout transaction 처리. 첫 move가 PointerDown과 같은 좌표면 값이 변하지 않고 baseline 거리의 2배/절반은 시작 Scale의 2배/절반이 된다.
 - `useCanvasRotationDragController.ts`: pointer angle/Shift snap/Rotation draft/readout transaction
-- `useCanvasOpacityDragController.ts`: radial opacity/Shift snap/Opacity draft/readout transaction
+- `useCanvasOpacityDragController.ts`: screen-space Anchor 거리 25~50px를 0~100%로 선형 매핑하고 최종 값에 Shift snap을 적용하는 Opacity draft/readout transaction. PointerMove Draft가 같은 계산의 25~50px hollow handle 위치와 connection line 끝에 즉시 반영된다.
 - `useCanvasAnchorTransformController.ts`: Canvas Anchor drag와 Properties live Anchor draft의 clamp/transformOffset 보정/command
 - `useCanvasArrowNudgeController.ts`: editable DOM target을 제외한 전역 Arrow key와 `history.push` 즉시 Position command
 

@@ -33,11 +33,16 @@ export type UseCanvasGizmoControllerOptions = {
   state: CanvasInteractionStatePort;
   transform: {
     startPositionDrag: (clientX: number, clientY: number) => void;
-    startScaleDrag: (handle: ScaleHandleDirection) => void;
+    startScaleDrag: (
+      handle: ScaleHandleDirection,
+      clientX: number,
+      clientY: number
+    ) => void;
     startRotationDrag: (clientX: number, clientY: number) => void;
     startOpacityDrag: () => void;
     startAnchorDrag: () => void;
   };
+  pressTarget: (clientX: number, clientY: number) => void;
   motion: {
     selectPoint: (frame: number, isKeyframe: boolean) => void;
     startKeyframeDrag: (frame: number, clientX: number, clientY: number) => void;
@@ -65,7 +70,13 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
           event.clientY - pending.startClientY
         ) < DRAG_START_THRESHOLD
       ) return;
-      if (pending.kind === "scale") options.transform.startScaleDrag(pending.handle);
+      if (pending.kind === "scale") {
+        options.transform.startScaleDrag(
+          pending.handle,
+          pending.startClientX,
+          pending.startClientY
+        );
+      }
       else if (pending.kind === "rotation") {
         options.transform.startRotationDrag(event.clientX, event.clientY);
       } else if (pending.kind === "opacity") options.transform.startOpacityDrag();
@@ -141,6 +152,7 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
     state.hoveredHandle !== null ||
     state.isDraggingAnchor ||
     state.isDraggingPosition ||
+    state.isDraggingScale ||
     state.isDraggingOpacity ||
     state.isDraggingRotation ||
     state.pendingHandleInteraction !== null ||
@@ -181,6 +193,7 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
     hoveredMotionFrame: state.hoveredMotionFrame,
     isDraggingAnchor: state.isDraggingAnchor,
     isDraggingPosition: state.isDraggingPosition,
+    isDraggingScale: state.isDraggingScale,
     isDraggingOpacity: state.isDraggingOpacity,
     isDraggingRotation: state.isDraggingRotation,
     positionReadout: state.positionHandleReadout,
@@ -189,7 +202,7 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
     scaleReadout: state.scaleHandleReadout,
     activeScaleHandle,
     directInput: state.directInput,
-    anchorOpacity: state.isDraggingAnchor ? 1 : state.isAnchorHovered ? 0.96 : 0.005,
+    anchorOpacity: state.isDraggingAnchor ? 1 : state.isAnchorHovered ? 0.96 : 0.82,
     isAnchorHovered: state.isAnchorHovered,
     motionPathInteractionLocked,
     draggingMotionPathFrame: state.draggingMotionPathFrame,
@@ -218,7 +231,7 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
       state.setPendingHandleInteraction({ kind: "opacity", startClientX: clientX, startClientY: clientY }),
     pressScale: (handle, clientX, clientY) =>
       state.setPendingHandleInteraction({ kind: "scale", handle, startClientX: clientX, startClientY: clientY }),
-    pressTarget: options.transform.startPositionDrag,
+    pressTarget: options.pressTarget,
     pressAnchor: options.transform.startAnchorDrag,
     hoverHandle: state.setHoveredHandle,
     hoverAnchor: state.setIsAnchorHovered,

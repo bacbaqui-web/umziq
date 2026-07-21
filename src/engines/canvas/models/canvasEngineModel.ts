@@ -16,6 +16,8 @@ export type CanvasViewportStatePort = {
   setShowShortformFrameOverlay: Dispatch<SetStateAction<boolean>>;
   showSafeZoneGuides: boolean;
   setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
+  showSelectionGlow: boolean;
+  setShowSelectionGlow: Dispatch<SetStateAction<boolean>>;
 };
 
 export type CanvasViewportCoreStatePort = Pick<

@@ -1,10 +1,11 @@
 import type { ScaleHandleDirection } from "@/engines/canvas";
 import {
-  GIZMO_HANDLE_SIZE,
   type HoveredGizmoHandle,
   type PreviewLineHandle,
   type PreviewScaleHandle,
 } from "@/features/preview/types/previewGizmoTypes";
+
+const RADIAL_ENDPOINT_SIZE = 10;
 
 type PreviewGizmoHandlesProps = {
   cursors: {
@@ -50,10 +51,10 @@ function createCircularHandleStyle({
     position: "absolute" as const,
     left: point.x,
     top: point.y,
-    width: GIZMO_HANDLE_SIZE,
-    height: GIZMO_HANDLE_SIZE,
-    marginLeft: -(GIZMO_HANDLE_SIZE / 2),
-    marginTop: -(GIZMO_HANDLE_SIZE / 2),
+    width: RADIAL_ENDPOINT_SIZE,
+    height: RADIAL_ENDPOINT_SIZE,
+    marginLeft: -(RADIAL_ENDPOINT_SIZE / 2),
+    marginTop: -(RADIAL_ENDPOINT_SIZE / 2),
     padding: 0,
     borderRadius: 999,
     border,
@@ -64,6 +65,65 @@ function createCircularHandleStyle({
     opacity,
     boxShadow,
     transition: "opacity 140ms ease, box-shadow 120ms ease",
+  };
+}
+
+function createPositionRingStyle({
+  point,
+  cursor,
+  active,
+}: {
+  point: PreviewLineHandle["point"];
+  cursor: string;
+  active: boolean;
+}) {
+  const size = 40;
+  return {
+    position: "absolute" as const,
+    left: point.x,
+    top: point.y,
+    width: size,
+    height: size,
+    marginLeft: -(size / 2),
+    marginTop: -(size / 2),
+    padding: 0,
+    borderRadius: 999,
+    border: `2px solid rgba(118, 197, 255, ${active ? "0.98" : "0.68"})`,
+    background: "rgba(118, 197, 255, 0.035)",
+    boxSizing: "border-box" as const,
+    pointerEvents: "auto" as const,
+    cursor,
+    boxShadow: active
+      ? "0 0 0 3px rgba(118, 197, 255, 0.16)"
+      : "0 0 0 1px rgba(8, 10, 14, 0.28)",
+    transition: "border-color 140ms ease, box-shadow 120ms ease, background 140ms ease",
+  };
+}
+
+function createScaleArrowStyle({
+  point,
+  cursor,
+}: {
+  point: PreviewLineHandle["point"];
+  cursor: string;
+}) {
+  const size = 18;
+  return {
+    position: "absolute" as const,
+    left: point.x,
+    top: point.y,
+    width: size,
+    height: size,
+    marginLeft: -(size / 2),
+    marginTop: -(size / 2),
+    padding: 0,
+    border: 0,
+    borderRadius: 999,
+    background: "transparent",
+    boxSizing: "border-box" as const,
+    pointerEvents: "auto" as const,
+    cursor,
+    opacity: 1,
   };
 }
 
@@ -102,16 +162,11 @@ export default function PreviewGizmoHandles({
         onMouseEnter={() => onHoverHandle("move")}
         onMouseLeave={() => onHoverHandle(null)}
         title="이동"
-        style={createCircularHandleStyle({
+        aria-label="위치 이동"
+        style={createPositionRingStyle({
           point: previewMoveHandle.point,
-          border: "1px solid rgba(118, 197, 255, 0.95)",
-          background: "rgba(118, 197, 255, 0.88)",
           cursor: isDraggingPosition ? "grabbing" : cursors.move,
-          opacity: hoveredHandle === "move" || isDraggingPosition ? 0.98 : 0.56,
-          boxShadow:
-            hoveredHandle === "move" || isDraggingPosition
-              ? "0 0 0 1px rgba(118, 197, 255, 0.24)"
-              : "0 0 0 1px rgba(8, 10, 14, 0.24)",
+          active: hoveredHandle === "move" || isDraggingPosition,
         })}
       />
 
@@ -132,8 +187,8 @@ export default function PreviewGizmoHandles({
         title="회전"
         style={createCircularHandleStyle({
           point: previewRotationHandle.point,
-          border: "1px solid rgba(255, 186, 112, 0.92)",
-          background: "rgba(255, 186, 112, 0.9)",
+          border: "2px solid rgba(255, 186, 112, 0.92)",
+          background: "rgba(17, 21, 27, 0.68)",
           cursor: isDraggingRotation ? "grabbing" : cursors.rotation,
           opacity: hoveredHandle === "rotation" || isDraggingRotation ? 0.96 : 0.56,
           boxShadow: isDraggingRotation
@@ -161,16 +216,10 @@ export default function PreviewGizmoHandles({
             onOpenScaleInput(handle.key, handle.point.x, handle.point.y);
           }}
           title={handle.label}
-          style={createCircularHandleStyle({
+          aria-label={handle.label}
+          style={createScaleArrowStyle({
             point: handle.point,
-            border: `1px solid ${handle.borderColor}`,
-            background: handle.borderColor.replace("0.98", "0.88"),
             cursor: cursors.scale[handle.key],
-            opacity: hoveredHandle === handle.key ? 0.96 : 0.56,
-            boxShadow:
-              hoveredHandle === handle.key
-                ? "0 0 0 1px rgba(8, 10, 14, 0.62)"
-                : "0 0 0 1px rgba(8, 10, 14, 0.24)",
           })}
         />
       ))}
@@ -192,8 +241,8 @@ export default function PreviewGizmoHandles({
         title="불투명도"
         style={createCircularHandleStyle({
           point: previewOpacityHandle.point,
-          border: "1px solid rgba(255, 255, 255, 0.95)",
-          background: "rgba(255, 255, 255, 0.92)",
+          border: "2px solid rgba(255, 255, 255, 0.95)",
+          background: "rgba(17, 21, 27, 0.68)",
           cursor: cursors.opacity,
           opacity: hoveredHandle === "opacity" || isDraggingOpacity ? 0.96 : 0.56,
           boxShadow:

@@ -4,10 +4,10 @@ import type { PreviewMotionPathPoint, ScaleHandleDirection } from "@/engines/can
 export type PreviewOverlayViewModel = {
   previewCorners: { nw: { x: number; y: number }; ne: { x: number; y: number }; se: { x: number; y: number }; sw: { x: number; y: number } } | null;
   previewAnchor: { x: number; y: number } | null;
-  previewRotationHandle: { point: { x: number; y: number }; lineStart: { x: number; y: number } } | null;
-  previewOpacityHandle: { point: { x: number; y: number }; lineStart: { x: number; y: number } } | null;
+  previewRotationHandle: { point: { x: number; y: number }; lineStart: { x: number; y: number }; lineEnd: { x: number; y: number } } | null;
+  previewOpacityHandle: { point: { x: number; y: number }; lineStart: { x: number; y: number }; lineEnd: { x: number; y: number } } | null;
   previewMoveHandle: { point: { x: number; y: number }; lineStart: { x: number; y: number } } | null;
-  previewScaleHandles: Array<{ key: ScaleHandleDirection; point: { x: number; y: number }; lineStart: { x: number; y: number }; borderColor: string; label: string }>;
+  previewScaleHandles: Array<{ key: ScaleHandleDirection; point: { x: number; y: number }; lineStart: { x: number; y: number }; arrowWingPoints: { first: { x: number; y: number }; second: { x: number; y: number } }; directionAngle: number; borderColor: string; label: string }>;
   previewMotionPath: Array<PreviewMotionPathPoint & { point: { x: number; y: number } }>;
   protectedControlPoints: Array<{ x: number; y: number }>;
   polygonPoints: string;
@@ -69,6 +69,8 @@ export type CanvasInteractionStatePort = {
   setIsDraggingAnchor: Dispatch<SetStateAction<boolean>>;
   isDraggingPosition: boolean;
   setIsDraggingPosition: Dispatch<SetStateAction<boolean>>;
+  isDraggingScale: boolean;
+  setIsDraggingScale: Dispatch<SetStateAction<boolean>>;
   isDraggingOpacity: boolean;
   setIsDraggingOpacity: Dispatch<SetStateAction<boolean>>;
   isDraggingRotation: boolean;
@@ -121,6 +123,7 @@ export type CanvasGizmoViewModel = PreviewOverlayViewModel & {
   hoveredMotionFrame: number | null;
   isDraggingAnchor: boolean;
   isDraggingPosition: boolean;
+  isDraggingScale: boolean;
   isDraggingOpacity: boolean;
   isDraggingRotation: boolean;
   positionReadout: string | null;

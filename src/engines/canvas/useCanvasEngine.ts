@@ -7,6 +7,7 @@ import type {
   PropertyTrackState,
   Scale,
   TimelineItem,
+  TimelineSelection,
 } from "@/models";
 import type { TransformEditMode, TransformTargetSelection } from "@/engines/animation";
 import type { RenderItem } from "@/engines/project";
@@ -23,6 +24,7 @@ import { useCanvasPointerController } from "@/engines/canvas/controllers/useCanv
 import { useCanvasTransformComposer } from "@/engines/canvas/composers/useCanvasTransformComposer";
 import { useCanvasMotionPathController } from "@/engines/canvas/controllers/useCanvasMotionPathController";
 import { useCanvasGizmoController } from "@/engines/canvas/controllers/useCanvasGizmoController";
+import { useCanvasDirectSelectionController } from "@/engines/canvas/controllers/useCanvasDirectSelectionController";
 import { usePreviewUpdatePipeline } from "@/engines/canvas/controllers/usePreviewUpdatePipeline";
 import type { CanvasInteractionStatePort } from "@/engines/canvas/models/canvasInteractionModel";
 import type { ScaleHandleDirection } from "@/engines/canvas/models/canvasViewModel";
@@ -125,8 +127,9 @@ export type UseCanvasEngineOptions = {
       ) => void;
       applySelection: (
         compId: string,
-        selection: { sourceId: string; kind: "layer" | "subComp" }
+        selection: TimelineSelection
       ) => void;
+      enterComposition: (compId: string) => void;
       commitScaleInput: (handle: ScaleHandleDirection, value: number) => void;
       commitRotationInput: (value: number) => void;
       commitOpacityInput: (value: number) => void;
@@ -221,6 +224,28 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     state: options.interaction.state,
     pointer,
   });
+  const directSelection = useCanvasDirectSelectionController({
+    overlayRef,
+    selectedCompId: options.project.selectedCompId,
+    evaluatedScene: options.render.evaluatedScene,
+    renderItems: options.render.items,
+    timelineItems: options.selection.timelineItems,
+    layersById: options.interaction.allLayersById,
+    compositionsById: options.interaction.allCompositionsById,
+    metaByCompId: options.selection.metaByCompId,
+    viewportScale: viewport.readModel.previewZoom,
+    viewportOffset: viewport.readModel.previewViewportOffset,
+    viewportSize: {
+      width: viewport.readModel.previewViewportWidth,
+      height: viewport.readModel.previewViewportHeight,
+    },
+    selectedTimelineItem: options.interaction.selectedTimelineTargetItem,
+    draftTransformSnapshot: options.interaction.draftTransformSnapshot,
+    isGlowEnabled: options.state.showSelectionGlow,
+    applySelection: options.interaction.commands.applySelection,
+    enterComposition: options.interaction.commands.enterComposition,
+    startPositionDrag: transform.startPositionDrag,
+  });
   const selectedMeta = options.project.selectedMeta ?? {
     width: 1,
     height: 1,
@@ -245,6 +270,7 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     currentScale: draftOverlayRuntime?.scale ?? options.interaction.resolvedScale,
     state: options.interaction.state,
     transform,
+    pressTarget: directSelection.pressTarget,
     motion: motionPath,
     directInput: {
       commitScale: options.interaction.commands.commitScaleInput,
@@ -279,7 +305,7 @@ export function useCanvasEngine(options: UseCanvasEngineOptions) {
     guide: guide.viewModel,
     guideCommands: guide.commands,
     selection,
-    interaction: gizmo,
+    interaction: { ...gizmo, glow: directSelection.glow, hover: directSelection.hover },
     draftTransformCommands: {
       updateAnchor: transform.updateAnchorDraft,
       reset: transform.resetDraftRuntime,

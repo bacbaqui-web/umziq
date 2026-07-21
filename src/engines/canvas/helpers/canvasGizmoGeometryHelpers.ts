@@ -63,7 +63,7 @@ export function getScaleHandleDescriptors(
       lineStartY: overlay.anchorY,
       borderColor: "rgba(255, 104, 104, 0.98)",
       background: "rgba(40, 16, 16, 0.94)",
-      label: "X 스케일",
+      label: "W (가로 크기)",
       shape: "square",
     },
     {
@@ -74,7 +74,7 @@ export function getScaleHandleDescriptors(
       lineStartY: overlay.anchorY,
       borderColor: "rgba(116, 231, 140, 0.98)",
       background: "rgba(14, 28, 18, 0.94)",
-      label: "Y 스케일",
+      label: "H (세로 크기)",
       shape: "square",
     },
     {
@@ -85,7 +85,7 @@ export function getScaleHandleDescriptors(
       lineStartY: overlay.anchorY,
       borderColor: "rgba(255, 225, 115, 0.98)",
       background: "rgba(33, 28, 12, 0.94)",
-      label: "XY 스케일",
+      label: "WH (비율/전체 크기)",
       shape: "diamond",
     },
   ];

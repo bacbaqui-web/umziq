@@ -1,12 +1,11 @@
 import PreviewGizmoBackdrop from "@/features/preview/components/PreviewGizmoBackdrop";
+import PreviewGizmoConnectionHitLayer from "@/features/preview/components/PreviewGizmoConnectionHitLayer";
 import PreviewGizmoControls from "@/features/preview/components/PreviewGizmoControls";
 import type { ActivePreviewGizmoLayerProps } from "@/features/preview/types/previewGizmoLayerTypes";
 
 export default function PreviewGizmoActiveLayer({
   cursors,
   viewportSize,
-  previewCorners,
-  polygonPoints,
   previewAnchor,
   previewMoveHandle,
   previewRotationHandle,
@@ -25,7 +24,6 @@ export default function PreviewGizmoActiveLayer({
   directInput,
   anchorOpacity,
   isAnchorHovered,
-  onTargetMouseDown,
   onPressMove,
   onPressRotation,
   onPressOpacity,
@@ -90,18 +88,26 @@ export default function PreviewGizmoActiveLayer({
     <>
       <PreviewGizmoBackdrop
         viewportSize={viewportSize}
-        previewCorners={previewCorners}
-        polygonPoints={polygonPoints}
-        previewAnchor={previewAnchor}
-        previewMoveHandle={previewMoveHandle}
         previewRotationHandle={previewRotationHandle}
         previewOpacityHandle={previewOpacityHandle}
         previewScaleHandles={previewScaleHandles}
         hoveredHandle={hoveredHandle}
-        isDraggingPosition={isDraggingPosition}
         isDraggingOpacity={isDraggingOpacity}
         isDraggingRotation={isDraggingRotation}
-        onTargetMouseDown={onTargetMouseDown}
+      />
+      <PreviewGizmoConnectionHitLayer
+        viewportSize={viewportSize}
+        cursors={cursors}
+        previewRotationHandle={previewRotationHandle}
+        previewOpacityHandle={previewOpacityHandle}
+        previewScaleHandles={previewScaleHandles}
+        onPressRotation={onPressRotation}
+        onPressOpacity={onPressOpacity}
+        onPressScale={onPressScale}
+        onHoverHandle={onHoverHandle}
+        onOpenRotationInput={onOpenRotationInput}
+        onOpenOpacityInput={onOpenOpacityInput}
+        onOpenScaleInput={onOpenScaleInput}
       />
       <PreviewGizmoControls
         handlesProps={handlesProps}

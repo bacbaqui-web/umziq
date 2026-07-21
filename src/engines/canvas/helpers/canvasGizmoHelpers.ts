@@ -6,13 +6,12 @@ import type { CanvasSelectionReadModel } from "@/engines/canvas/models/canvasEng
 import type { CanvasMotionPathPointViewModel, PreviewOverlayViewModel } from "@/engines/canvas/models/canvasInteractionModel";
 import { worldPointToCanvasPoint } from "@/engines/canvas/helpers/canvasViewportHelpers";
 
-const GIZMO_AXIS_RADIUS = 62;
-const GIZMO_DIAGONAL_RADIUS = 82;
-const GIZMO_MOVE_RADIUS = 54;
-const GIZMO_ROTATION_INNER_RADIUS = 18;
-const GIZMO_ROTATION_OUTER_RADIUS = 94;
-const OPACITY_MIN_SCREEN_RADIUS = 26;
-const OPACITY_MAX_SCREEN_RADIUS = 86;
+const GIZMO_RADIAL_RADIUS = 50;
+const GIZMO_HOLLOW_ENDPOINT_RADIUS = 5;
+const GIZMO_POSITION_RING_RADIUS = 20;
+const GIZMO_OPACITY_MIN_RADIUS = 25;
+const SCALE_ARROW_HEAD_LENGTH = 8;
+const SCALE_ARROW_HEAD_HALF_WIDTH = 5;
 
 function normalizeVector(x: number, y: number) {
   const length = Math.hypot(x, y) || 1;
@@ -65,63 +64,89 @@ export function buildPreviewOverlayViewModel({
         previewCorners.sw.y - previewCorners.nw.y
       )
     : { x: 0, y: 1 };
-  const leftAxis = {
-    x: -localXAxis.x,
-    y: -localXAxis.y,
+  const radialDirections = {
+    width: { x: -localXAxis.x, y: -localXAxis.y },
+    height: { x: -localYAxis.x, y: -localYAxis.y },
+    linkedScale: normalizeVector(
+      localXAxis.x + localYAxis.x,
+      localXAxis.y + localYAxis.y
+    ),
+    rotation: normalizeVector(
+      localXAxis.x - localYAxis.x,
+      localXAxis.y - localYAxis.y
+    ),
+    opacity: normalizeVector(
+      -localXAxis.x + localYAxis.x,
+      -localXAxis.y + localYAxis.y
+    ),
   };
-  const upAxis = {
-    x: -localYAxis.x,
-    y: -localYAxis.y,
+  const getDirectionAngle = (direction: { x: number; y: number }) =>
+    (Math.atan2(direction.y, direction.x) * 180) / Math.PI;
+  const createHollowEndpointHandle = (
+    anchor: { x: number; y: number },
+    direction: { x: number; y: number },
+    centerRadius: number
+  ) => {
+    const point = {
+      x: anchor.x + direction.x * centerRadius,
+      y: anchor.y + direction.y * centerRadius,
+    };
+    return {
+      point,
+      lineStart: {
+        x: anchor.x + direction.x * GIZMO_POSITION_RING_RADIUS,
+        y: anchor.y + direction.y * GIZMO_POSITION_RING_RADIUS,
+      },
+      lineEnd: {
+        x: point.x - direction.x * GIZMO_HOLLOW_ENDPOINT_RADIUS,
+        y: point.y - direction.y * GIZMO_HOLLOW_ENDPOINT_RADIUS,
+      },
+    };
   };
-  const diagonalAxis = normalizeVector(localXAxis.x + localYAxis.x, localXAxis.y + localYAxis.y);
-  const rotationAxis = normalizeVector(
-    localXAxis.x - localYAxis.x,
-    localXAxis.y - localYAxis.y
-  );
-  const opacityAxis = normalizeVector(
-    -localXAxis.x + localYAxis.x,
-    -localXAxis.y + localYAxis.y
-  );
-  const opacityRadius =
-    OPACITY_MIN_SCREEN_RADIUS +
-    ((OPACITY_MAX_SCREEN_RADIUS - OPACITY_MIN_SCREEN_RADIUS) *
-      Math.min(100, Math.max(0, currentOpacity))) /
-      100;
+  const getArrowWingPoints = (
+    tip: { x: number; y: number },
+    direction: { x: number; y: number }
+  ) => {
+    const baseCenter = {
+      x: tip.x - direction.x * SCALE_ARROW_HEAD_LENGTH,
+      y: tip.y - direction.y * SCALE_ARROW_HEAD_LENGTH,
+    };
+    const perpendicular = { x: -direction.y, y: direction.x };
+    return {
+      first: {
+        x: baseCenter.x + perpendicular.x * SCALE_ARROW_HEAD_HALF_WIDTH,
+        y: baseCenter.y + perpendicular.y * SCALE_ARROW_HEAD_HALF_WIDTH,
+      },
+      second: {
+        x: baseCenter.x - perpendicular.x * SCALE_ARROW_HEAD_HALF_WIDTH,
+        y: baseCenter.y - perpendicular.y * SCALE_ARROW_HEAD_HALF_WIDTH,
+      },
+    };
+  };
   const previewAnchor = selection.previewAnchor;
   const previewRotationHandle = previewAnchor
-    ? {
-        point: {
-          x: previewAnchor.x + rotationAxis.x * GIZMO_ROTATION_OUTER_RADIUS,
-          y: previewAnchor.y + rotationAxis.y * GIZMO_ROTATION_OUTER_RADIUS,
-        },
-        lineStart: {
-          x: previewAnchor.x + rotationAxis.x * GIZMO_ROTATION_INNER_RADIUS,
-          y: previewAnchor.y + rotationAxis.y * GIZMO_ROTATION_INNER_RADIUS,
-        },
-      }
+    ? createHollowEndpointHandle(
+        previewAnchor,
+        radialDirections.rotation,
+        GIZMO_RADIAL_RADIUS
+      )
     : null;
+  const opacityCenterRadius =
+    GIZMO_OPACITY_MIN_RADIUS +
+    ((GIZMO_RADIAL_RADIUS - GIZMO_OPACITY_MIN_RADIUS) *
+      Math.min(100, Math.max(0, currentOpacity))) /
+      100;
   const previewOpacityHandle = previewAnchor
-    ? {
-        point: {
-          x: previewAnchor.x + opacityAxis.x * opacityRadius,
-          y: previewAnchor.y + opacityAxis.y * opacityRadius,
-        },
-        lineStart: {
-          x: previewAnchor.x + opacityAxis.x * Math.min(opacityRadius - 14, 18),
-          y: previewAnchor.y + opacityAxis.y * Math.min(opacityRadius - 14, 18),
-        },
-      }
+    ? createHollowEndpointHandle(
+        previewAnchor,
+        radialDirections.opacity,
+        opacityCenterRadius
+      )
     : null;
   const previewMoveHandle = previewAnchor
     ? {
-        point: {
-          x: previewAnchor.x + localXAxis.x * GIZMO_MOVE_RADIUS,
-          y: previewAnchor.y + localXAxis.y * GIZMO_MOVE_RADIUS,
-        },
-        lineStart: {
-          x: previewAnchor.x + localXAxis.x * 14,
-          y: previewAnchor.y + localXAxis.y * 14,
-        },
+        point: previewAnchor,
+        lineStart: previewAnchor,
       }
     : null;
   const previewScaleHandles = previewAnchor
@@ -129,32 +154,65 @@ export function buildPreviewOverlayViewModel({
         {
           key: "x" as const,
           point: {
-            x: previewAnchor.x + leftAxis.x * GIZMO_AXIS_RADIUS,
-            y: previewAnchor.y + leftAxis.y * GIZMO_AXIS_RADIUS,
+            x: previewAnchor.x + radialDirections.width.x * GIZMO_RADIAL_RADIUS,
+            y: previewAnchor.y + radialDirections.width.y * GIZMO_RADIAL_RADIUS,
           },
-          lineStart: previewAnchor,
+          lineStart: {
+            x: previewAnchor.x + radialDirections.width.x * GIZMO_POSITION_RING_RADIUS,
+            y: previewAnchor.y + radialDirections.width.y * GIZMO_POSITION_RING_RADIUS,
+          },
+          arrowWingPoints: getArrowWingPoints(
+            {
+              x: previewAnchor.x + radialDirections.width.x * GIZMO_RADIAL_RADIUS,
+              y: previewAnchor.y + radialDirections.width.y * GIZMO_RADIAL_RADIUS,
+            },
+            radialDirections.width
+          ),
+          directionAngle: getDirectionAngle(radialDirections.width),
           borderColor: "rgba(255, 104, 104, 0.98)",
-          label: "X 스케일",
+          label: "W (가로 크기)",
         },
         {
           key: "y" as const,
           point: {
-            x: previewAnchor.x + upAxis.x * GIZMO_AXIS_RADIUS,
-            y: previewAnchor.y + upAxis.y * GIZMO_AXIS_RADIUS,
+            x: previewAnchor.x + radialDirections.height.x * GIZMO_RADIAL_RADIUS,
+            y: previewAnchor.y + radialDirections.height.y * GIZMO_RADIAL_RADIUS,
           },
-          lineStart: previewAnchor,
+          lineStart: {
+            x: previewAnchor.x + radialDirections.height.x * GIZMO_POSITION_RING_RADIUS,
+            y: previewAnchor.y + radialDirections.height.y * GIZMO_POSITION_RING_RADIUS,
+          },
+          arrowWingPoints: getArrowWingPoints(
+            {
+              x: previewAnchor.x + radialDirections.height.x * GIZMO_RADIAL_RADIUS,
+              y: previewAnchor.y + radialDirections.height.y * GIZMO_RADIAL_RADIUS,
+            },
+            radialDirections.height
+          ),
+          directionAngle: getDirectionAngle(radialDirections.height),
           borderColor: "rgba(116, 231, 140, 0.98)",
-          label: "Y 스케일",
+          label: "H (세로 크기)",
         },
         {
           key: "xy" as const,
           point: {
-            x: previewAnchor.x + diagonalAxis.x * GIZMO_DIAGONAL_RADIUS,
-            y: previewAnchor.y + diagonalAxis.y * GIZMO_DIAGONAL_RADIUS,
+            x: previewAnchor.x + radialDirections.linkedScale.x * GIZMO_RADIAL_RADIUS,
+            y: previewAnchor.y + radialDirections.linkedScale.y * GIZMO_RADIAL_RADIUS,
           },
-          lineStart: previewAnchor,
+          lineStart: {
+            x: previewAnchor.x + radialDirections.linkedScale.x * GIZMO_POSITION_RING_RADIUS,
+            y: previewAnchor.y + radialDirections.linkedScale.y * GIZMO_POSITION_RING_RADIUS,
+          },
+          arrowWingPoints: getArrowWingPoints(
+            {
+              x: previewAnchor.x + radialDirections.linkedScale.x * GIZMO_RADIAL_RADIUS,
+              y: previewAnchor.y + radialDirections.linkedScale.y * GIZMO_RADIAL_RADIUS,
+            },
+            radialDirections.linkedScale
+          ),
+          directionAngle: getDirectionAngle(radialDirections.linkedScale),
           borderColor: "rgba(255, 225, 115, 0.98)",
-          label: "XY 스케일",
+          label: "WH (비율/전체 크기)",
         },
       ]
     : [];

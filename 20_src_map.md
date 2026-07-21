@@ -1,7 +1,7 @@
 # Shortform Editor source map
 
-> 점검 기준: 2026-07-19, 현재 작업 폴더의 소스 코드 기준
-> 리팩토링 상태: Canvas Engine Responsibility Refactoring 완료 / Task 7 Composer 교정 및 QA 통과
+> 점검 기준: 2026-07-21, 현재 작업 폴더의 소스 코드 기준
+> 현재 상태: Canvas Visual Layer Selection Task 5~9.2 구현 및 자동 검증 기록 완료 / 브라우저 QA 미실행
 > 목적: 다음 작업자가 파일 책임, 상태 소유권, Engine 연결 경계를 빠르게 파악하기 위한 지도다.
 
 ## 추천 읽기 순서
@@ -30,6 +30,7 @@ Sprint가 진행 중이지 않고 완료된 기능을 조사하는 경우에는 
 | `45_editor_draft_runtime_integration.md` | Editor Draft Runtime 통합 구조와 검증 결과 |
 | `46_transform_origin_editing.md` | Properties/Canvas Transform Origin 편집 구조와 QA 결과 |
 | `47_canvas_engine_responsibility_refactoring.md` | Canvas Transform Input과 Preview Canvas Render 책임 분리 구조 |
+| `48_canvas_visual_layer_selection.md` | Evaluated Scene 기반 alpha-aware Canvas 직접 선택과 Editor-only outer glow 구조 |
 | `97_next_sprint.md` | 다음 Sprint 인수인계와 계획 초안 |
 | `98_sprint_plan.md` | 현재 진행 중인 Sprint 하나의 계획과 진행 상황 |
 | `99_recent_task.md` | 바로 직전 Task 한 건의 보고 |
@@ -72,6 +73,7 @@ PSD를 불러와 Photoshop group을 Composition으로, pixel layer를 Layer/draw
 - position/scale/rotation/opacity 정적 값과 keyframe 편집
 - Layer/Sub Composition별 Properties 수식 라이브러리와 결정적 `부들부들` position Modifier
 - Canvas gizmo, anchor, motion path/keyframe drag
+- Canvas 실제 불투명 pixel 기반 Layer/Sub Composition 직접 선택과 선택 silhouette outer glow
 - Playback, scrub, range, duration 편집
 - Timeline item move/resize/reorder/duplicate/split/rename/delete
 - Composition 단위 Undo/Redo와 drag 1회당 history 1회
@@ -191,7 +193,7 @@ Playback currentFrame
 | 파일 | 책임 |
 |---|---|
 | `state/useEditorState.ts` | Shell state hook과 공개 Project Commands/History를 조립하고 History restore의 raw/semantic/Preview draft 폐기 port를 Root에 제공 |
-| `state/useEditorEngineStateStores.ts` | Project record/master/runtime, Playback, Canvas, Timeline React state 생성 |
+| `state/useEditorEngineStateStores.ts` | Project record/master/runtime, Playback, Canvas, Timeline React state와 기본 ON인 `showSelectionGlow` Editor UI state 생성 |
 | `state/useEditorSessionState.ts` | selection, 마지막 선택, keyframe, transform/property draft, import feedback |
 | `state/useEditorShellLayoutState.ts` | panel 폭/높이와 resize session |
 
@@ -408,7 +410,15 @@ Stress Test는 `scripts/verifyPreviewStressTest.ts`가 담당한다. 이 script�
 
 Performance QA는 `scripts/verifyPreviewPerformanceQa.ts`가 담당한다. Sprint Baseline API로 시작 기준을 runtime에 저장한 뒤 현재 Runtime Metrics와 비교한다. 400 frame 기준 Preview Scene Generation은 400 → 1, Composition Cache Miss는 400 → 15, Surface Create는 400 → 15, `drawImage`는 2000 → 87로 감소하고 `drawImageSkipped`는 1895회 기록된다. 이 결과는 Sprint 99 완료 문서 `44_preview_runtime_optimization.md`에 영구 기록한다.
 
-Canvas selection, gizmo, motion path는 아직 `RenderFrame`이나 `Evaluated Scene`을 소비하지 않고 `canvasSelectionHelpers`, `canvasMotionPathHelpers`, Position drag controller에서 Animation evaluation helper를 다시 호출한다. 후속 Task에서 이 영역을 Evaluated Scene 소비로 교체할 수 있도록 `useRenderEngine`은 `evaluatedScene`도 반환한다.
+Canvas visual direct selection은 `useRenderEngine.evaluatedScene`의 top-level drawable/composition node만 candidate 원본으로 사용한다. Full/Fast Renderer 결과인 `RenderFrame`/`PreviewScene`은 selection identity나 alpha 의미에 관여하지 않는다. Candidate는 active Timeline item과 runtime Render item을 source/kind/target/render identity로 exact join하며 중복 Timeline/Render, split scene identity, reorder mismatch는 blocked로 남겨 alpha readback, fallthrough, clear와 drag를 수행하지 않는다. Hit는 scene node 배열의 역순으로 평가해 실제 painter order를 유지한다.
+
+Source Alpha는 source-local pixel plane이고 viewport 위치는 별도 Projection이다. Layer는 원본 drawable canvas와 opacity를, Sub Composition은 ordered child source alpha와 evaluated child transform/opacity/visibility/order를 합성한다. 정적 PSD는 stable frame visual key를 사용하므로 local frame 숫자만 바뀌어도 rebuild하지 않는다. Source canvas/fingerprint/revision, 명시적 frame visual key, logical size, opacity/visibility 또는 SubComp child visual/transform/order가 바뀔 때만 fingerprint가 달라진다. Position/Scale/Rotation/Anchor/Transform Offset과 zoom/pan은 Projection만 바꾸며 같은 alpha entry를 재사용한다.
+
+Pointer 우선순위는 viewport capture의 middle/Space pan, Handle/Anchor/MotionPath의 전용 cursor와 propagation 차단, Preview toolbar/form control 제외 뒤에 viewport body direct selection이 온다. Selection rectangle polygon/fill/stroke와 두 diagonal 및 quad 전체를 가로채던 hit layer는 없다. Viewport body가 Layer/SubComp 공용 Alpha hit를 수행하며 alpha-ready pixel 위 hover만 `pointer`, 투명/none/blocked/unavailable은 `default`를 사용한다. Position/Scale/Rotation/Anchor/Opacity 중 하나라도 Transform Drag 중이면 stale hover를 즉시 clear하고 hover `moveTarget`과 provider get/build/readback을 실행하지 않는다. Scale은 명시적 drag state를 가지며 Motion Path interaction도 같은 lock을 따른다. 실제 Position drag 중에는 `grabbing`이고 middle/Space pan의 `grab`/`grabbing`과 Handle/Anchor 전용 cursor가 alpha hover cursor보다 우선한다. 선택된 exact item의 visible-alpha hit만 기존 Position drag를 시작하고, 다른 item hit는 selection만 변경한다. 성공적으로 모든 candidate를 통과한 빈 영역은 selection을 clear한다. Alpha unavailable 또는 ambiguous blocked candidate는 현재 selection을 보존한다.
+
+Viewport body 더블클릭은 같은 candidate/identity/공용 Alpha hit를 다시 사용한다. 두 번째 `mousedown`은 `event.detail >= 2`에서 기존 Position press를 시작하지 않고, ready hit가 immediate Sub Composition일 때만 Project Engine의 기존 `enterComposition()`을 호출한다. 일반 Layer, 투명 pixel, 빈 공간, blocked/unavailable candidate에서는 진입하지 않는다. Handle/Anchor/Motion Path와 Pan/Transform drag 우선순위는 더블클릭에서도 유지한다.
+
+선택 glow는 direct selection과 같은 ready candidate, provider entry, visual fingerprint, alpha threshold와 Projection을 사용한다. 기본 ON인 plain Editor UI state `showSelectionGlow`를 Preview toolbar의 `선택 강조` 버튼(`aria-pressed`)이 전환한다. OFF 전환은 provider의 selected retain entry와 renderer의 selected source scratch를 해제하고 target backing을 1×1로 축소하며, 선택 대상 provider get/retain/draw를 수행하지 않는다. Direct selection hit/hover는 그대로 동작한다. ON 전환은 기존 exact-selected candidate와 공용 Source Alpha lifecycle을 다시 실행해 자연스럽게 rebuild/redraw한다. 선택된 fingerprint 하나에 대해서만 source scratch canvas를 유지하며 full interaction viewport 크기의 DPR backing canvas에 blur한 mask를 투영한 뒤 같은 mask를 `destination-out`으로 빼 내부를 제거한다. Hover hit는 같은 provider의 제한된 cache를 쓰되 ready hit를 retain하지 않고 transparent miss만 release하므로 selected glow retain entry를 축출하지 않는다. Overlay 순서는 Preview Canvas → Glow → Motion Path → Gizmo Handle/Anchor/Pivot/connection/readout이며 Glow는 pointer event를 받지 않는다. Selection rectangle polygon과 diagonal은 표시하지 않는다. 자세한 구조와 안전 차단 정책은 `48_canvas_visual_layer_selection.md`에 기록한다.
 
 ### Renderer Runtime Verification
 
@@ -535,6 +545,7 @@ useCanvasComposition
       ├─ useCanvasViewportEngine
       ├─ Guide/Selection/Render Controller
       ├─ Pointer/Motion Controller
+      ├─ Direct Selection/Source Alpha/Glow Controller
       ├─ Transform Composer
       │   └─ Position/Scale/Rotation/Opacity/Anchor/Arrow/Draft Controller
       └─ Gizmo Controller
@@ -555,14 +566,15 @@ useCanvasComposition
 | `controllers/useCanvasPanController.ts` | pan pointer/keyboard modifier lifecycle |
 | `controllers/useCanvasGuideController.ts` | shortform/safe-zone guide read/command |
 | `controllers/useCanvasSelectionController.ts` | selected Layer/Composition overlay read model과 Draft Snapshot 기반 selection overlay 전환 |
+| `controllers/useCanvasDirectSelectionController.ts` | Evaluated Scene top-level candidate, 공용 Source Alpha Provider, direct-selection single/double-click pointer intent와 enable/release 가능한 selected-only glow lifecycle을 조립하고 source 교체/unmount cleanup 수행 |
 | `controllers/useCanvasRenderController.ts` | Render Frame 또는 Preview Scene pipeline 결과와 active Preview scale을 Canvas Adapter에 전달하고 중첩 surface pool을 frame/unmount 단위로 정리 |
 | `controllers/useCanvasPointerController.ts` | global pointer session/listener와 frame 단위 최신 pointer sample 전달 조립 |
 | `composers/useCanvasTransformComposer.ts` | 공통 pointer context를 만들고 Transform Controller 7개를 조립해 기존 7개 command를 구성하는 Transform Input Composer |
 | `controllers/useCanvasTransformDraftController.ts` | transform patch를 `DraftTransformSnapshot`과 Preview Scene draft에 같은 순서로 반영하고 둘을 함께 reset하는 동기화 경계 |
 | `controllers/useCanvasPositionDragController.ts` | Position 시작 frame/base 평가와 begin/move/commit/cancel transaction |
-| `controllers/useCanvasScaleDragController.ts` | Scale handle, Shift snap, draft/readout과 begin/move/commit/cancel transaction |
+| `controllers/useCanvasScaleDragController.ts` | Scale PointerDown world 위치를 현재 값의 100% baseline으로 캡처하고 이후 축 투영 거리의 상대 배율, Shift snap, draft/readout과 begin/move/commit/cancel transaction 처리 |
 | `controllers/useCanvasRotationDragController.ts` | pointer angle, Shift snap, rotation draft/readout과 begin/move/commit/cancel transaction |
-| `controllers/useCanvasOpacityDragController.ts` | radial opacity 계산, Shift snap, draft/readout과 begin/move/commit/cancel transaction |
+| `controllers/useCanvasOpacityDragController.ts` | screen-space Anchor 거리 25~50px를 0~100%로 선형 매핑하는 radial Opacity, Shift snap, draft/readout과 begin/move/commit/cancel transaction |
 | `controllers/useCanvasAnchorTransformController.ts` | Canvas Anchor drag와 Properties Anchor live draft가 공유하는 clamp/transformOffset 보정/command transaction |
 | `controllers/useCanvasArrowNudgeController.ts` | editable target을 제외한 전역 Arrow key의 `history.push` 기반 즉시 Position command |
 | `controllers/useCanvasMotionPathController.ts` | 선택 target/item/local frame과 기존 `DraftTransformSnapshot` scope를 검증해 Snapshot 자체를 공통 motion path geometry 입력으로 전달하고 point/keyframe drag interaction을 처리 |
@@ -614,9 +626,15 @@ useCanvasRenderController
 - `helpers/previewDraftBaseSceneHelpers.ts`: `full-render` mode 첫 drag update까지 Preview draft base 생성을 미루고 resolver당 1회 결과를 재사용하는 Runtime helper
 - `helpers/draftTransformRuntimeHelpers.ts`: Project/evaluate transform과 draft patch를 병합해 Canvas Draft Transform Snapshot, Preview Scene patch, overlay-facing runtime 값, Selection overlay geometry, 공통 local-anchor clamp/보정 command를 만드는 Runtime helper
 - `helpers/canvasSelectionHelpers.ts`: Layer/Sub Composition selection overlay
+- `helpers/canvasDirectSelectionCandidateHelpers.ts`: Evaluated Scene top-level Layer/SubComp와 active Timeline/Render identity를 exact join하고 ambiguous duplicate/split/reorder를 blocked candidate로 만드는 순수 helper. scoped Draft Snapshot은 spatial Projection과 opacity에만 적용
+- `helpers/canvasDirectSelectionGeometryHelpers.ts`: source↔viewport affine matrix, signed inverse, transformed quad/bounds와 negative scale을 포함한 point-in-quad 계산
+- `helpers/canvasDirectSelectionHitHelpers.ts`: reverse painter order의 Bounds → Quad → 공용 Alpha entry → source-local sample 흐름, selection/hover cache mode, drag/select/clear/preserve intent, immediate Sub Composition 진입 대상과 viewport cursor 우선순위 계산
+- `helpers/canvasSelectionAlphaFingerprintHelpers.ts`: source canvas token, source/revision/frame visual key, opacity/visibility/logical size와 SubComp ordered child visual/transform을 포함하는 결정적 fingerprint
+- `helpers/selectionSourceAlphaProvider.ts`: 최대 2개 ready entry, failure memo, retain/release/clear/dispose를 소유하는 Canvas Editor-only Source Alpha Provider
+- `helpers/canvasSelectionGlowHelpers.ts`: exact selected ready candidate 조회, 같은 provider entry 선택, threshold mask와 DPR-aware outer-glow draw plan 계산
 - `helpers/canvasPointerHelpers.ts`: pointer session 초기 상태와 좌표
 - `helpers/canvasPointerFrameHelpers.ts`: 같은 animation frame의 pointer sample을 최신 값 하나로 병합하고 commit 전에 마지막 sample을 flush하는 scheduler
-- `helpers/canvasInteractionHelpers.ts`: drag delta, snap, clamp, readout
+- `helpers/canvasInteractionHelpers.ts`: drag delta, snap, clamp, readout과 공통 Transform Drag active/viewport hover gate
 - `helpers/canvasMotionPathHelpers.ts`: Project Position/keyframe과 기존 scoped `DraftTransformSnapshot | null`을 직접 받아 Commit 의미와 같은 base/keyframe 입력을 기존 Animation Evaluation/Modifier/transform geometry로 재평가한 공통 motion path point geometry
 - `helpers/previewMemoryHelpers.ts`: source pixel size 기반 품질별 RGBA bytes 추정, stable source dedupe와 B/KB/MB/GB formatter
 - `helpers/previewCacheKeyHelpers.ts`: stable source identity/fingerprint/quality/logical size 기반 결정적 cache key
@@ -636,11 +654,14 @@ useCanvasRenderController
 - `helpers/previewRenderFrameHelpers.ts`: 현재 Render Frame이 사용하는 drawable source ID 수집
 - `helpers/previewQualityControlHelpers.ts`: 품질별 예상 memory와 실제 active 품질을 Preview control Plain Data ViewModel로 변환
 - `factories/previewBitmapFactory.ts`: 원본 canvas를 변경하지 않고 별도 Preview runtime resource를 생성하며 실패를 결과로 반환
-- `helpers/canvasGizmoGeometryHelpers.ts`, `canvasGizmoHelpers.ts`: handle/path/overlay ViewModel. Motion Path는 upstream에서 완성된 하나의 `PreviewMotionPathPoint[]`를 viewport point와 polyline으로 투영
+- `helpers/canvasGizmoGeometryHelpers.ts`, `canvasGizmoHelpers.ts`: Anchor 중심 radial handle/path/overlay ViewModel. W=`x`, H=`y`, WH=`xy` 기존 Scale command에 매핑하고 Scale/Rotation은 50px, Opacity는 현재 Draft-aware 값에 따라 25~50px screen-space 반지름에 배치하며 Motion Path는 upstream에서 완성된 하나의 `PreviewMotionPathPoint[]`를 viewport point와 polyline으로 투영
 - `models/canvasEngineModel.ts`: viewport/guide/selection/read port
-- `models/canvasInteractionModel.ts`: pointer/gizmo/motion session/command
+- `models/canvasInteractionModel.ts`: pointer/gizmo/motion session/command와 명시적 Scale drag 상태 port
 - `models/canvasTransformControllerModel.ts`: Transform Input이 주입받는 History/Animation/Preview/Draft port와 기존 공개 options/command 타입
 - `models/canvasViewModel.ts`: overlay/handle/motion point view type
+- `models/canvasDirectSelectionModel.ts`: ready/blocked candidate, 공용 source↔viewport Projection, hit result/pointer intent와 controller-local hover ViewModel 계약
+- `models/canvasSelectionAlphaModel.ts`: Layer/SubComp Source Alpha descriptor, `alphaBytes`/sample entry, unavailable reason, provider와 browser adapter 계약
+- `models/canvasSelectionGlowModel.ts`: selected glow canvas attach ViewModel, draw input/result와 renderer adapter 계약
 - `models/previewQualityModel.ts`: Preview quality preference/resolved Plain Data 계약
 - `models/previewMemoryModel.ts`: Canvas-only memory estimator 입력과 source/project 결과 계약
 - `models/previewBitmapFactoryModel.ts`: bitmap factory 입력, adapter와 성공/실패 결과 계약
@@ -651,20 +672,26 @@ useCanvasRenderController
 - `models/previewRuntimeModel.ts`: Canvas-owned bitmap과 Preview resource runtime-only 계약
 - `state/previewCacheRuntimeStore.ts`: generation, hit/miss, commit, tracked bytes, active 보호 LRU, source retain/delete, budget과 cleanup을 소유하는 Canvas runtime cache
 - `adapters/canvasWorkspaceAdapter.ts`: ResizeObserver adapter
+- `adapters/canvasSelectionAlphaBrowserAdapter.ts`: Layer source canvas 또는 ordered SubComp child 합성을 source-local alpha plane 한 장으로 readback하고 임시 surface를 즉시 폐기하는 browser 경계
+- `adapters/canvasSelectionGlowBrowserAdapter.ts`: 선택된 fingerprint 하나의 source scratch만 생성/재사용하고 full interaction viewport canvas에 blur mask → `destination-out` interior 제거 순서로 그리는 browser 경계
 - `adapters/previewBitmapBrowserAdapter.ts`: `createImageBitmap` resize와 별도 offscreen/HTML canvas copy fallback, bitmap dispose
 - `adapters/previewEnvironmentAdapter.ts`: browser device memory 값을 한 경계에서 읽어 순수 quality policy 입력으로 변환
 - `constants/canvasConstants.ts`: workspace/zoom/shortform/gizmo 상수
+- `constants/canvasSelectionAlphaConstants.ts`: Hit와 Glow가 함께 쓰는 단일 alpha threshold와 static PSD frame visual key
+- `constants/canvasSelectionGlowConstants.ts`: screen-space blur/color, `pointer-events:none`, Glow → MotionPath → Gizmo overlay 순서 계약
 - `constants/previewQualityConstants.ts`: resolved quality 순서와 단일 pixel scale table
 - `constants/previewAutomaticQualityConstants.ts`: device memory tier별 budget과 미지원 fallback budget
 
 ### Preview View
 
-- `features/preview/components/PreviewWorkspacePane.tsx`: canvas/overlay/control 배치와 Renderer Mode props 투영
+- `features/preview/components/PreviewWorkspacePane.tsx`: canvas/overlay/control 배치, viewport body Alpha hover/press, 공통 Transform Drag hover lock과 pan/Position cursor 우선순위, Renderer Mode/Selection Glow props 투영
 - `PreviewViewportLayers.tsx`, `PreviewGuideLayers.tsx`: Canvas와 guide layer 렌더
-- `PreviewInteractionOverlay.tsx`, `PreviewOverlay.tsx`: interaction overlay 배치
-- `PreviewGizmoLayer.tsx`, `PreviewGizmoActiveLayer.tsx`, `PreviewGizmoBackdrop.tsx`, `PreviewGizmoHandles.tsx`, `PreviewGizmoControls.tsx`, `PreviewGizmoReadouts.tsx`: gizmo 표시와 DOM intent 전달
+- `PreviewInteractionOverlay.tsx`, `PreviewOverlay.tsx`: Preview Canvas 위에 full-viewport Editor-only Glow canvas를 두고 그 위에 Motion Path와 Gizmo control을 배치. Glow는 `pointer-events:none`
+- `PreviewGizmoLayer.tsx`, `PreviewGizmoActiveLayer.tsx`, `PreviewGizmoBackdrop.tsx`, `PreviewGizmoHandles.tsx`, `PreviewGizmoControls.tsx`, `PreviewGizmoReadouts.tsx`: Anchor 중심의 파란 Position ring, ring 바깥 경계에서 시작해 shaft와 두 wing을 handle당 단일 SVG path로 그리는 line-only W/H/WH 화살표, 같은 경계에서 시작하는 hollow Rotation/Opacity connection/endpoint, 중앙 Anchor 점과 readout 표시 및 DOM intent 전달. Controls의 공통 paint 순서는 Handles → Anchor → Readouts로 고정해 Position/Scale/Rotation/Opacity readout과 direct numeric input이 모든 gizmo visual보다 앞에 표시된다.
+- `PreviewGizmoConnectionHitLayer.tsx`: visible Backdrop과 분리된 투명 12px `pointer-events:stroke` hit line으로 W/H/WH shaft와 Rotation/Opacity connection을 endpoint와 같은 hover/cursor/pending drag/double-click input command에 연결. butt cap으로 Position ring 안쪽을 침범하지 않고 zero-length Opacity line은 렌더하지 않음
+- `PreviewOverlay.tsx`: 기존 다섯 Transform handle drag flag 중 하나가 active인 동안 `document.body` portal의 투명 fixed cursor shield를 최상위 hit surface로 렌더한다. shield의 `cursor:none`과 `pointer-events:auto`가 실제 브라우저 cursor를 숨기며 mousemove/mouseup은 기존 window pointer tracker로 bubble된다. drag 종료/cancel/unmount에는 조건부 portal이 즉시 unmount되고 pending press/hover에는 생성되지 않는다.
 - `PreviewAnchorControl.tsx`, `PreviewMotionPathLayer.tsx`: anchor/motion path 표시와 event 전달
-- `PreviewWorkspaceControls.tsx`: zoom/guide, Preview 품질과 Renderer Mode control을 독립 배치
+- `PreviewWorkspaceControls.tsx`: zoom/guide, Preview 품질, Renderer Mode와 `선택 강조` toggle을 독립 배치. toggle은 `aria-pressed`와 active/inactive styling을 사용하며 기존 toolbar/form exclusion에 포함
 - `PreviewRendererModeControl.tsx`: Playback Renderer Mode를 `작업용`(`fast-render`) / `완성본`(`full-render`) radio와 항상 보이는 설명으로 표시하고 주입된 setter만 호출
 - `PreviewQualityControl.tsx`: 다섯 품질, 예상 memory, build 진행/오류 상태와 keyboard 접근 가능한 selector 표시
 - `features/preview/types/*`: View 전용 gizmo props/type
@@ -797,6 +824,7 @@ Timeline item mutation은 Project Commands, keyframe mutation은 Animation Comma
 | `45_editor_draft_runtime_integration.md` | Editor Draft Runtime의 소유권, Preview 동기화와 취소/Commit 경계 |
 | `46_transform_origin_editing.md` | Properties와 Canvas가 공유하는 Anchor/Transform Origin Draft Runtime과 QA 결과 |
 | `47_canvas_engine_responsibility_refactoring.md` | Canvas Transform Input과 Playback Render Preview Canvas 책임 분리 결과 |
+| `48_canvas_visual_layer_selection.md` | Evaluated Scene candidate, 공용 Source Alpha Mask, direct-selection intent와 Editor-only outer glow 구조 |
 | `98_sprint_plan.md` | 현재 Sprint 하나의 목표, Task 진행률, 완료 조건과 운영 순서 |
 | `99_recent_task.md` | 바로 직전 Task 한 건만 기록하는 작업 보고 |
 
@@ -832,21 +860,27 @@ Timeline item mutation은 Project Commands, keyframe mutation은 Animation Comma
 | `verifyPsdPipeline.ts` | PSD identity/settings, Preview Plan 직렬화와 runtime 분리, 신규 Layer/Group 맨 위 삽입, Timeline/Render 동기화, NEW 유지/승인 후 반복 Refresh 회귀 |
 | `verifyProjectHistory.ts` | snapshot 보존, undo/redo, drag transaction/reset |
 | `verifyCanvasHelpers.ts` | viewport/coordinate/guide/selection/workspace |
-| `verifyCanvasInteractionHelpers.ts` | transform/motion/gizmo interaction 계산과 upstream Motion Path geometry의 무치환 viewport/polyline 투영 fixture |
+| `verifyCanvasInteractionHelpers.ts` | transform/motion/gizmo interaction 계산, 모든 Transform Drag flag의 공통 hover lock과 provider 접근 차단, upstream Motion Path geometry의 무치환 viewport/polyline 투영 fixture |
+| `verifyCanvasSelectionAlpha.ts` | Layer/SubComp alpha 합성, fingerprint invalidation/static frame 규칙, bounded provider retain/release/failure/dispose와 browser readback 의미 |
+| `verifyCanvasDirectSelection.ts` | exact/ambiguous/split candidate, reverse painter order, transparent fallthrough/safe-block, Draft Projection, signed inverse, selection intent, hover cache 보존/제한과 cursor 우선순위 |
+| `verifyCanvasDirectSelectionUi.ts` | selection polygon/diagonal/quad hit layer 제거, viewport body direct-selection/hover 연결, `선택 강조` toolbar/default/state/reset/form exclusion source contract |
+| `verifyCanvasSelectionGlow.ts` | Hit/Glow 공용 provider entry/fingerprint/threshold/Projection, OFF release와 provider 접근 차단, ON rebuild, selected scratch reuse/교체, target backing 1×1 clear, outer-only 합성, DPR와 overlay 순서 |
 | `verifyPropertiesHelpers.ts` | numeric draft/parse/clamp/view model |
 | `verifyModifierSystem.ts` | Modifier 기본값/정규화/중복 방지/mutation/결정적 평가 |
 | `verifyTimelineHelpers.ts` | breadcrumb/layout/duration/source ViewModel |
 | `verifyTimelineInteractionHelpers.ts` | move/resize/snap/order/keyframe/auto-scroll/split |
 
-현재 자동 검증 상태:
+Canvas Visual Layer Selection Task 9.2 종료 시점의 자동 검증 실행 기록:
 
-- `npm run build`: 성공, 269 modules. 기존 500 kB chunk 경고만 존재
-- `npm run lint`: 성공
-- `npm test`: 24개 검증 스크립트 성공
-- `npm run qa`: lint + test + build 성공
+- 전체 ESLint 성공
+- `npm test`: 38개 검증 스크립트 성공
+- `npm run build`: 성공, 306 modules. 기존 500 kB chunk 경고만 존재
 - `git diff --check`: 성공
-- PSD binary import/replace와 Project History undo/redo 회귀: 성공
-- 인앱 브라우저 대상이 없어 실제 pointer/keyboard 클릭 smoke는 미실행
+- Engine Import Boundary와 기존 Preview/Dirty/Node/Composition/Surface Cache, History/Animation/Project 회귀 스크립트 성공
+- `npm run qa`는 실행하지 않음
+- 브라우저 pointer/keyboard/visual QA와 실제 조작은 실행하지 않음
+
+이 결과는 정적 검증 통과 기록이며 브라우저 QA 통과를 뜻하지 않는다.
 
 ## 16. 알려진 한계
 

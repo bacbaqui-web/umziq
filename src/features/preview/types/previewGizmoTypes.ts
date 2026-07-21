@@ -11,8 +11,17 @@ export type PreviewLineHandle = {
   lineStart: PreviewPoint;
 };
 
+export type PreviewEndpointHandle = PreviewLineHandle & {
+  lineEnd: PreviewPoint;
+};
+
 export type PreviewScaleHandle = PreviewLineHandle & {
   key: ScaleHandleDirection;
+  arrowWingPoints: {
+    first: PreviewPoint;
+    second: PreviewPoint;
+  };
+  directionAngle: number;
   borderColor: string;
   label: string;
 };
