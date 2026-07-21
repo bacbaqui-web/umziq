@@ -19,7 +19,9 @@ import {
   resolvePreviewPointer,
 } from "@/engines/canvas/helpers/canvasPointerHelpers";
 import {
+  buildCanvasMotionPathProjectionViewModel,
   buildCanvasMotionPathPointViewModels,
+  buildPreviewGizmoGeometryViewModel,
   buildPreviewOverlayViewModel,
 } from "@/engines/canvas/helpers/canvasGizmoHelpers";
 import {
@@ -237,6 +239,24 @@ const gizmo = buildPreviewOverlayViewModel({
   ],
   currentOpacity: opacityDrag50.nextOpacity,
 });
+const splitGizmoGeometry = buildPreviewGizmoGeometryViewModel({
+  selection,
+  currentOpacity: opacityDrag50.nextOpacity,
+});
+const splitMotionPathProjection = buildCanvasMotionPathProjectionViewModel({
+  viewportScale: 1,
+  viewportOffset: { x: 0, y: 0 },
+  previewSize: { width: 1000, height: 1000 },
+  selectedMeta: meta,
+  motionPath: [
+    { frame: 0, x: 100, y: 100, isKeyframe: true, isCurrent: true },
+    { frame: 1, x: 200, y: 200, isKeyframe: false, isCurrent: false },
+  ],
+});
+assert.deepEqual(
+  { ...splitGizmoGeometry, ...splitMotionPathProjection },
+  gizmo
+);
 assert.equal(gizmo.previewScaleHandles.length, 3);
 assert.deepEqual(
   gizmo.previewScaleHandles.map(({ key, label, directionAngle }) => ({
@@ -490,6 +510,24 @@ const unlockedPoints = buildCanvasMotionPathPointViewModels({
 assert.equal(unlockedPoints[0].isDragging, true);
 assert.equal(unlockedPoints[1].isInteractive, true);
 assert.equal(unlockedPoints[1].isHovered, true);
+assert.deepEqual(
+  unlockedPoints.map(({ frame, point, isCurrent, isKeyframe }) => ({
+    frame,
+    point,
+    isCurrent,
+    isKeyframe,
+  })),
+  gizmo.previewMotionPath.map(({ frame, point, isCurrent, isKeyframe }) => ({
+    frame,
+    point,
+    isCurrent,
+    isKeyframe,
+  }))
+);
+assert.equal(
+  gizmo.motionPathPolyline,
+  unlockedPoints.map(({ point }) => `${point.x},${point.y}`).join(" ")
+);
 const protectedPoints = buildCanvasMotionPathPointViewModels({
   previewMotionPath: gizmo.previewMotionPath,
   protectedControlPoints: [{ x: 100, y: 100 }],

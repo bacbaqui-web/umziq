@@ -46,10 +46,11 @@ export function useCanvasScaleDragController(
           if (!context) return;
           const result = calculateScaleDragUpdate(context, drag, sample.shiftKey);
           if (!result) return;
+          const snapshot = draftRuntime.updateTransform({ scale: result.nextScale });
+          if (!snapshot) return;
           latestScale = result.nextScale;
           options.drafts.setScale(result.nextScale);
           options.state.setScaleHandleReadout({ handle, text: result.readout });
-          draftRuntime.updateTransform({ scale: result.nextScale });
         },
         onCommit: () => {
           if (latestScale) {

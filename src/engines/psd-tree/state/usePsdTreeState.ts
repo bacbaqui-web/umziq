@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type {
   PsdTreeDropTarget,
   PsdTreePickerMode,
@@ -17,7 +17,7 @@ export function usePsdTreeState() {
   const [importPreviewError, setImportPreviewError] = useState<string | null>(null);
   const [refreshSummary, setRefreshSummary] = useState<PsdRefreshSummary | null>(null);
 
-  return {
+  return useMemo(() => ({
     fileInputRef,
     draggedMainCompId,
     setDraggedMainCompId,
@@ -33,7 +33,7 @@ export function usePsdTreeState() {
     setImportPreviewError,
     refreshSummary,
     setRefreshSummary,
-  };
+  }), [draggedMainCompId, dropTarget, importPlan, importPreviewError, importPreviewStatus, pendingPickerMode, refreshSummary]);
 }
 
 export type PsdTreeState = ReturnType<typeof usePsdTreeState>;

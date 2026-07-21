@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Composition, Layer } from "@/models";
 import {
   buildTimelineBreadcrumbPath,
@@ -17,17 +17,17 @@ type Options = {
 export function useTimelineNavigationController(options: Options) {
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement | null>(null);
-  const breadcrumbPath = buildTimelineBreadcrumbPath(
+  const breadcrumbPath = useMemo(() => buildTimelineBreadcrumbPath(
     options.selectedComposition,
     options.selectedTimelineTarget,
     options.allLayersById,
     options.allCompositionsById
-  );
-  const switcher = buildTimelineCompositionSwitcherViewModel(
+  ), [options]);
+  const switcher = useMemo(() => buildTimelineCompositionSwitcherViewModel(
     options.selectedComposition,
     options.allCompositionsById,
     isSwitcherOpen
-  );
+  ), [isSwitcherOpen, options]);
 
   useEffect(() => {
     if (!isSwitcherOpen) return;

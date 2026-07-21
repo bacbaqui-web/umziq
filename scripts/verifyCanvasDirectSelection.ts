@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import type { Composition, Layer, TimelineItem } from "@/models";
 import type { RenderItem } from "@/engines/project";
 import type { EvaluatedScene } from "@/engines/playback-render";
-import { buildCanvasDirectSelectionCandidates } from "@/engines/canvas/helpers/canvasDirectSelectionCandidateHelpers";
+import {
+  applyCanvasDirectSelectionDraft,
+  buildCanvasDirectSelectionCandidates,
+  buildCanvasDirectSelectionStaticCandidates,
+  buildCanvasDirectSelectionViewportCandidates,
+} from "@/engines/canvas/helpers/canvasDirectSelectionCandidateHelpers";
 import {
   applyCanvasSelectionMatrix,
   buildCanvasSelectionProjection,
@@ -79,6 +84,31 @@ assert.equal(exact[0]?.status, "ready");
 assert.equal(exact[0]?.timelineItem?.id, "timeline-a");
 assert.equal(exact[0]?.drawable?.id, "drawable-a");
 assert.deepEqual(exact[0]?.target, { kind: "layer", id: "layer-a" });
+const zeroOpacityCandidates = buildCandidates({
+  evaluatedScene: {
+    ...scene,
+    nodes: scene.nodes.map((node) => ({ ...node, opacity: 0 })),
+  },
+});
+assert.deepEqual(zeroOpacityCandidates, []);
+assert.equal(
+  buildCandidates({
+    evaluatedScene: {
+      ...scene,
+      nodes: scene.nodes.map((node) => ({ ...node, opacity: 1 })),
+    },
+  }).length,
+  1
+);
+assert.deepEqual(
+  buildCandidates({
+    evaluatedScene: {
+      ...scene,
+      nodes: scene.nodes.map((node) => ({ ...node, visible: false })),
+    },
+  }),
+  []
+);
 
 const duplicate = { ...timelineItem, id: "timeline-duplicate" };
 const ambiguous = buildCandidates({ timelineItems: [timelineItem, duplicate] });
@@ -164,6 +194,135 @@ const spatialDraftCandidate = buildCandidates({
   );
   assert.deepEqual(changed.descriptor, spatialDraftCandidate.descriptor);
 });
+
+const secondCanvas = { width: 10, height: 10 } as HTMLCanvasElement;
+const secondDrawable = {
+  ...drawable,
+  id: "drawable-b",
+  sourceLayerId: "layer-b",
+  canvas: secondCanvas,
+};
+const secondRenderItem: RenderItem = {
+  ...renderItem,
+  id: "render-b",
+  sourceId: "layer-b",
+  drawables: [secondDrawable],
+};
+const secondTimelineItem: TimelineItem = {
+  ...timelineItem,
+  id: "timeline-b",
+  sourceId: "layer-b",
+};
+const secondLayer = {
+  id: "layer-b",
+  sourceFingerprint: "pixels-b",
+} as unknown as Layer;
+const multiScene: EvaluatedScene = {
+  ...scene,
+  nodes: [
+    scene.nodes[0],
+    {
+      ...scene.nodes[0],
+      renderItemId: "render-b",
+      drawableId: "drawable-b",
+      sourceId: "layer-b",
+      layerId: "layer-b",
+      order: 1,
+    },
+  ],
+};
+let staticJoinBuilds = 0;
+staticJoinBuilds += 1;
+const staticDraftCandidates = buildCanvasDirectSelectionStaticCandidates({
+  evaluatedScene: multiScene,
+  renderItems: [renderItem, secondRenderItem],
+  timelineItems: [timelineItem, secondTimelineItem],
+  layersById: new Map([[layer.id, layer], [secondLayer.id, secondLayer]]),
+  compositionsById: new Map(),
+});
+const viewportDraftCandidates = buildCanvasDirectSelectionViewportCandidates({
+  staticCandidates: staticDraftCandidates,
+  viewportScale: 1,
+  viewportOffset: { x: 0, y: 0 },
+});
+const selectedBaseCandidate = viewportDraftCandidates[0];
+const unselectedBaseCandidate = viewportDraftCandidates[1];
+assert.ok(selectedBaseCandidate);
+assert.ok(unselectedBaseCandidate);
+const selectedProjectionReferences = new Set();
+const selectedDescriptorReferences = new Set();
+let unselectedCandidateRebuilds = 0;
+for (let index = 1; index <= 100; index += 1) {
+  const projected = applyCanvasDirectSelectionDraft({
+    staticCandidates: staticDraftCandidates,
+    viewportCandidates: viewportDraftCandidates,
+    viewportScale: 1,
+    viewportOffset: { x: 0, y: 0 },
+    selectedTimelineItem: timelineItem,
+    draftTransformSnapshot: {
+      ...spatialDraftBase,
+      position: { x: 50 + index, y: 50 },
+    },
+  });
+  const selectedCandidate = projected.find(
+    (candidate) => candidate.sourceId === "layer-a"
+  );
+  const unselectedCandidate = projected.find(
+    (candidate) => candidate.sourceId === "layer-b"
+  );
+  assert.ok(selectedCandidate);
+  assert.ok(unselectedCandidate);
+  const projectedCenter = applyCanvasSelectionMatrix(
+    selectedCandidate.projection.sourceToViewport,
+    { x: 5, y: 5 }
+  );
+  assert.ok(Math.abs(projectedCenter.x - (50 + index)) < 1e-9);
+  assert.ok(Math.abs(projectedCenter.y - 50) < 1e-9);
+  selectedProjectionReferences.add(selectedCandidate.projection);
+  if (unselectedCandidate !== unselectedBaseCandidate) {
+    unselectedCandidateRebuilds += 1;
+  }
+  if (selectedCandidate.status === "ready" && selectedBaseCandidate.status === "ready") {
+    assert.equal(selectedCandidate.descriptor, selectedBaseCandidate.descriptor);
+    selectedDescriptorReferences.add(selectedCandidate.descriptor);
+  }
+}
+assert.equal(staticJoinBuilds, 1);
+assert.equal(selectedProjectionReferences.size, 100);
+assert.equal(selectedDescriptorReferences.size, 1);
+assert.equal(unselectedCandidateRebuilds, 0);
+
+const zeroOpacityDraftCandidates = applyCanvasDirectSelectionDraft({
+  staticCandidates: staticDraftCandidates,
+  viewportCandidates: viewportDraftCandidates,
+  viewportScale: 1,
+  viewportOffset: { x: 0, y: 0 },
+  selectedTimelineItem: timelineItem,
+  draftTransformSnapshot: { ...spatialDraftBase, opacity: 0 },
+});
+assert.deepEqual(
+  zeroOpacityDraftCandidates.map((candidate) => candidate.sourceId),
+  ["layer-b"]
+);
+const restoredOpacityDraftCandidates = applyCanvasDirectSelectionDraft({
+  staticCandidates: staticDraftCandidates,
+  viewportCandidates: viewportDraftCandidates,
+  viewportScale: 1,
+  viewportOffset: { x: 0, y: 0 },
+  selectedTimelineItem: timelineItem,
+  draftTransformSnapshot: { ...spatialDraftBase, opacity: 1 },
+});
+const restoredOpacityCandidate = restoredOpacityDraftCandidates.find(
+  (candidate) => candidate.sourceId === "layer-a"
+);
+assert.equal(restoredOpacityCandidate?.status, "ready");
+if (restoredOpacityCandidate?.status === "ready") {
+  assert.equal(restoredOpacityCandidate.descriptor.opacity, 1);
+}
+assert.equal(
+  restoredOpacityDraftCandidates.find((candidate) => candidate.sourceId === "layer-b"),
+  unselectedBaseCandidate
+);
 
 const nextLocalFrameScene: EvaluatedScene = {
   ...scene,
@@ -298,6 +457,18 @@ function fakeProvider(alphaBySource: Record<string, number | "unavailable">) {
   };
   return { provider, calls };
 }
+
+const zeroOpacityHitProvider = fakeProvider({});
+const zeroOpacityHit = hitCanvasDirectSelection({
+  point: { x: 50, y: 50 },
+  candidates: zeroOpacityCandidates,
+  provider: zeroOpacityHitProvider.provider,
+  compositionSize: scene.size,
+  viewportScale: 1,
+  viewportOffset: { x: 0, y: 0 },
+});
+assert.equal(zeroOpacityHit.status, "none");
+assert.deepEqual(zeroOpacityHitProvider.calls, ["retain:"]);
 
 const bottom = ready("bottom", "bottom");
 const top = ready("top", "top");

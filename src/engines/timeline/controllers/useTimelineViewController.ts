@@ -38,6 +38,7 @@ function resolveRowTarget(
 }
 
 export function useTimelineViewController(options: Options) {
+  return useMemo(() => {
   const displayedRows: TimelineRow[] = buildTimelineRows({
     items: options.project.selectedTimelineItems,
     selection: options.selection.selectedTimelineTarget,
@@ -128,4 +129,6 @@ export function useTimelineViewController(options: Options) {
     selectedTransformLocalFrame,
     draggingKeyframeDisplayFrame,
   };
+  }, [options]);
 }
+import { useMemo } from "react";

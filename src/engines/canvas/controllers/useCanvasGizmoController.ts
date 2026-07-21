@@ -8,8 +8,9 @@ import type {
   CanvasInteractionStatePort,
 } from "@/engines/canvas/models/canvasInteractionModel";
 import {
+  buildCanvasMotionPathProjectionViewModel,
   buildCanvasMotionPathPointViewModels,
-  buildPreviewOverlayViewModel,
+  buildPreviewGizmoGeometryViewModel,
 } from "@/engines/canvas/helpers/canvasGizmoHelpers";
 import {
   getMoveHandleCursor,
@@ -19,6 +20,16 @@ import {
 } from "@/engines/canvas/helpers/canvasGizmoGeometryHelpers";
 
 const DRAG_START_THRESHOLD = 4;
+const CANVAS_GIZMO_CURSORS = {
+  move: getMoveHandleCursor(),
+  rotation: getRotationHandleCursor(),
+  opacity: getOpacityHandleCursor(),
+  scale: {
+    x: getScaleHandleCursor("x"),
+    y: getScaleHandleCursor("y"),
+    xy: getScaleHandleCursor("xy"),
+  },
+};
 
 export type UseCanvasGizmoControllerOptions = {
   viewportScale: number;
@@ -125,29 +136,39 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
     return () => window.clearTimeout(timeoutId);
   }, [state, state.suppressedMotionPathClickFrame]);
 
-  const base = useMemo(
+  const gizmoGeometry = useMemo(
     () =>
-      buildPreviewOverlayViewModel({
+      buildPreviewGizmoGeometryViewModel({
+        selection: options.selection,
+        currentOpacity: options.currentOpacity,
+      }),
+    [options.currentOpacity, options.selection]
+  );
+  const motionPathProjection = useMemo(
+    () =>
+      buildCanvasMotionPathProjectionViewModel({
         viewportScale: options.viewportScale,
         viewportOffset: options.viewportOffset,
         previewSize: options.previewSize,
         selectedMeta: options.selectedMeta,
-        selection: options.selection,
         motionPath: options.motionPath,
-        currentOpacity: options.currentOpacity,
       }),
     [
-      options.currentOpacity,
       options.motionPath,
       options.previewSize,
       options.selectedMeta,
-      options.selection,
       options.viewportOffset,
       options.viewportScale,
     ]
   );
-  const currentMotionFrame =
-    base.previewMotionPath.find((point) => point.isCurrent)?.frame ?? null;
+  const base = useMemo(
+    () => ({ ...gizmoGeometry, ...motionPathProjection }),
+    [gizmoGeometry, motionPathProjection]
+  );
+  const currentMotionFrame = useMemo(
+    () => options.motionPath.find((point) => point.isCurrent)?.frame ?? null,
+    [options.motionPath]
+  );
   const motionPathInteractionLocked =
     state.hoveredHandle !== null ||
     state.isDraggingAnchor ||
@@ -157,11 +178,32 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
     state.isDraggingRotation ||
     state.pendingHandleInteraction !== null ||
     state.directInput !== null;
-  const activeScaleHandle = state.scaleHandleReadout
-    ? base.previewScaleHandles.find(
-        (handle) => handle.key === state.scaleHandleReadout?.handle
-      ) ?? null
-    : null;
+  const activeScaleHandle = useMemo(
+    () => state.scaleHandleReadout
+      ? gizmoGeometry.previewScaleHandles.find(
+          (handle) => handle.key === state.scaleHandleReadout?.handle
+        ) ?? null
+      : null,
+    [gizmoGeometry.previewScaleHandles, state.scaleHandleReadout]
+  );
+  const motionPathPoints = useMemo(
+    () => buildCanvasMotionPathPointViewModels({
+      previewMotionPath: motionPathProjection.previewMotionPath,
+      protectedControlPoints: gizmoGeometry.protectedControlPoints,
+      currentMotionFrame,
+      hoveredMotionFrame: state.hoveredMotionFrame,
+      draggingMotionPathFrame: state.draggingMotionPathFrame,
+      interactionLocked: motionPathInteractionLocked,
+    }),
+    [
+      currentMotionFrame,
+      gizmoGeometry.protectedControlPoints,
+      motionPathInteractionLocked,
+      motionPathProjection.previewMotionPath,
+      state.draggingMotionPathFrame,
+      state.hoveredMotionFrame,
+    ]
+  );
   const viewModel: CanvasGizmoViewModel = {
     ...base,
     isVisible: Boolean(
@@ -170,24 +212,8 @@ export function useCanvasGizmoController(options: UseCanvasGizmoControllerOption
         base.previewRotationHandle &&
         base.previewOpacityHandle
     ),
-    cursors: {
-      move: getMoveHandleCursor(),
-      rotation: getRotationHandleCursor(),
-      opacity: getOpacityHandleCursor(),
-      scale: {
-        x: getScaleHandleCursor("x"),
-        y: getScaleHandleCursor("y"),
-        xy: getScaleHandleCursor("xy"),
-      },
-    },
-    motionPathPoints: buildCanvasMotionPathPointViewModels({
-      previewMotionPath: base.previewMotionPath,
-      protectedControlPoints: base.protectedControlPoints,
-      currentMotionFrame,
-      hoveredMotionFrame: state.hoveredMotionFrame,
-      draggingMotionPathFrame: state.draggingMotionPathFrame,
-      interactionLocked: motionPathInteractionLocked,
-    }),
+    cursors: CANVAS_GIZMO_CURSORS,
+    motionPathPoints,
     currentMotionFrame,
     hoveredHandle: state.hoveredHandle,
     hoveredMotionFrame: state.hoveredMotionFrame,

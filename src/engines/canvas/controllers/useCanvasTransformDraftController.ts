@@ -1,14 +1,17 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type { UseCanvasTransformControllerOptions } from "@/engines/canvas/models/canvasTransformControllerModel";
 import {
+  areDraftTransformSnapshotsSemanticallyEqual,
   resolveDraftTransformSnapshot,
   toPreviewSceneTransformPatch,
+  type DraftTransformSnapshot,
 } from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
 import type { PreviewSceneTransformPatch } from "@/engines/playback-render";
 
 export function useCanvasTransformDraftController(
   options: UseCanvasTransformControllerOptions
 ) {
+  const previousAcceptedSnapshotRef = useRef<DraftTransformSnapshot | null>(null);
   const updateTransform = useCallback(
     (
       patch: PreviewSceneTransformPatch,
@@ -23,6 +26,11 @@ export function useCanvasTransformDraftController(
         patch,
       });
       if (!snapshot) return null;
+      if (areDraftTransformSnapshotsSemanticallyEqual(
+        previousAcceptedSnapshotRef.current,
+        snapshot
+      )) return null;
+      previousAcceptedSnapshotRef.current = snapshot;
       options.setDraftTransformSnapshot(snapshot);
       options.previewUpdates.updateTransform(
         snapshot.target,
@@ -34,6 +42,7 @@ export function useCanvasTransformDraftController(
   );
 
   const reset = useCallback(() => {
+    previousAcceptedSnapshotRef.current = null;
     options.setDraftTransformSnapshot(null);
     options.previewUpdates.reset();
   }, [options]);

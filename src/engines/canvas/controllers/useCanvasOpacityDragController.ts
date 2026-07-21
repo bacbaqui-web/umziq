@@ -25,10 +25,11 @@ export function useCanvasOpacityDragController(
         const context = getPointerContext(sample.clientX, sample.clientY);
         if (!context) return;
         const result = calculateOpacityDragUpdate(context, overlay, sample.shiftKey);
+        const snapshot = draftRuntime.updateTransform({ opacity: result.nextOpacity });
+        if (!snapshot) return;
         latestOpacity = result.nextOpacity;
         options.drafts.setOpacity(result.nextOpacity);
         options.state.setOpacityHandleReadout(result.readout);
-        draftRuntime.updateTransform({ opacity: result.nextOpacity });
       },
       onCommit: () => {
         if (latestOpacity !== null) {

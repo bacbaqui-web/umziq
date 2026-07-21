@@ -236,6 +236,7 @@ export {
   buildLayerSelectionOverlay,
 } from "@/engines/canvas/helpers/canvasSelectionHelpers";
 export {
+  areDraftTransformSnapshotsSemanticallyEqual,
   isDraftTransformSnapshotForTargetAtFrame,
   resolveDraftAnchorTransformCommand,
   resolveDraftAnchorTransformCommandFromLocalAnchor,

@@ -11,8 +11,9 @@ import type {
   CanvasPointerController,
 } from "@/engines/canvas/models/canvasInteractionModel";
 import {
-  buildCompositionMotionPath,
-  buildLayerMotionPath,
+  buildCompositionMotionPathGeometry,
+  buildLayerMotionPathGeometry,
+  markCanvasMotionPathCurrentFrame,
 } from "@/engines/canvas/helpers/canvasMotionPathHelpers";
 import {
   isDraftTransformSnapshotForTargetAtFrame,
@@ -107,37 +108,41 @@ export function useCanvasMotionPathController(
     options.selectedTimelineTargetItem,
   ]);
 
-  const motionPath = useMemo(
+  const motionPathGeometry = useMemo(
     () =>
       options.selectedTarget?.kind === "layer" && options.selectedMeta
-        ? buildLayerMotionPath(
+        ? buildLayerMotionPathGeometry(
             options.selectedTarget.layer,
-            [...options.renderItems],
-            [...options.selectedTimelineItems],
+            options.renderItems,
+            options.selectedTimelineItems,
             options.selectedMeta.durationFrames,
-            options.playheadFrame,
             options.selectedMeta.frameRate,
             motionPathDraftSnapshot
           )
         : options.selectedTarget?.kind === "composition" && options.selectedMeta
-          ? buildCompositionMotionPath(
+          ? buildCompositionMotionPathGeometry(
               options.selectedTarget.composition,
-              [...options.selectedTimelineItems],
-              { ...options.metaByCompId },
+              options.selectedTimelineItems,
+              options.metaByCompId,
               options.selectedMeta.durationFrames,
-              options.playheadFrame,
               motionPathDraftSnapshot
             )
           : [],
     [
       options.metaByCompId,
-      options.playheadFrame,
       motionPathDraftSnapshot,
       options.renderItems,
       options.selectedMeta,
       options.selectedTarget,
       options.selectedTimelineItems,
     ]
+  );
+  const motionPath = useMemo(
+    () => markCanvasMotionPathCurrentFrame(
+      motionPathGeometry,
+      options.playheadFrame
+    ),
+    [motionPathGeometry, options.playheadFrame]
   );
 
   const selectPoint = useCallback(

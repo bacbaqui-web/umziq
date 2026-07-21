@@ -1,3 +1,4 @@
+import { memo } from "react";
 import PsdTreeNode from "@/features/psdtree/components/PsdTreeNode";
 import PsdImportPreviewDialog from "@/features/psdtree/components/PsdImportPreviewDialog";
 import PsdRefreshSummaryCard from "@/features/psdtree/components/PsdRefreshSummaryCard";
@@ -46,7 +47,7 @@ function ImportPsdIcon() {
   );
 }
 
-export default function PsdTree({
+function PsdTree({
   nodes,
   fileInputRef,
   draggedMainCompId,
@@ -179,3 +180,5 @@ export default function PsdTree({
     </div>
   );
 }
+
+export default memo(PsdTree);

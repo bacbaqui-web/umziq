@@ -52,13 +52,14 @@ export function useCanvasPositionDragController(
           const nextContext = getPointerContext(sample.clientX, sample.clientY);
           if (!nextContext) return;
           const result = calculatePreviewPositionDragUpdate(nextContext, drag);
-          latestPosition = result.nextPosition;
-          options.drafts.setPosition(result.nextPosition);
-          options.state.setPositionHandleReadout(result.readout);
-          draftRuntime.updateTransform(
+          const snapshot = draftRuntime.updateTransform(
             { position: result.nextPosition },
             localFrame
           );
+          if (!snapshot) return;
+          latestPosition = result.nextPosition;
+          options.drafts.setPosition(result.nextPosition);
+          options.state.setPositionHandleReadout(result.readout);
         },
         onCommit: () => {
           if (latestPosition) {

@@ -17,6 +17,11 @@ import {
 
 export { buildLocalFrameBySourceId } from "@/engines/animation";
 
+export type CanvasMotionPathGeometryPoint = Omit<
+  PreviewMotionPathPoint,
+  "isCurrent"
+>;
+
 function resolveMotionPathPositionInputs(
   target: Layer | Composition,
   draftTransformSnapshot: DraftTransformSnapshot | null
@@ -58,15 +63,14 @@ export function buildRulerFrames(durationFrames: number, frameRate: number) {
   }));
 }
 
-export function buildLayerMotionPath(
+export function buildLayerMotionPathGeometry(
   layer: Layer,
-  renderItems: RenderItem[],
-  timelineItems: TimelineItem[],
+  renderItems: readonly RenderItem[],
+  timelineItems: readonly TimelineItem[],
   durationFrames: number,
-  currentFrame: number,
   frameRate = 30,
   draftTransformSnapshot: DraftTransformSnapshot | null = null
-): PreviewMotionPathPoint[] {
+): CanvasMotionPathGeometryPoint[] {
   const timelineItem = timelineItems.find(
     (item) => item.kind === "layer" && item.sourceId === layer.id
   );
@@ -115,19 +119,17 @@ export function buildLayerMotionPath(
       x: geometry.anchorWorld.x,
       y: geometry.anchorWorld.y,
       isKeyframe: sample.isKeyframe,
-      isCurrent: sample.frame === currentFrame,
     };
   });
 }
 
-export function buildCompositionMotionPath(
+export function buildCompositionMotionPathGeometry(
   composition: Composition,
-  timelineItems: TimelineItem[],
-  metaByCompId: Record<string, CompositionMeta>,
+  timelineItems: readonly TimelineItem[],
+  metaByCompId: Readonly<Record<string, CompositionMeta>>,
   durationFrames: number,
-  currentFrame: number,
   draftTransformSnapshot: DraftTransformSnapshot | null = null
-): PreviewMotionPathPoint[] {
+): CanvasMotionPathGeometryPoint[] {
   const timelineItem = timelineItems.find(
     (item) => item.kind === "subComp" && item.sourceId === composition.id
   );
@@ -174,9 +176,60 @@ export function buildCompositionMotionPath(
       x: geometry.anchorWorld.x,
       y: geometry.anchorWorld.y,
       isKeyframe: sample.isKeyframe,
-      isCurrent: sample.frame === currentFrame,
     };
   });
+}
+
+export function markCanvasMotionPathCurrentFrame(
+  geometry: readonly CanvasMotionPathGeometryPoint[],
+  currentFrame: number
+): PreviewMotionPathPoint[] {
+  return geometry.map((point) => ({
+    ...point,
+    isCurrent: point.frame === currentFrame,
+  }));
+}
+
+export function buildLayerMotionPath(
+  layer: Layer,
+  renderItems: readonly RenderItem[],
+  timelineItems: readonly TimelineItem[],
+  durationFrames: number,
+  currentFrame: number,
+  frameRate = 30,
+  draftTransformSnapshot: DraftTransformSnapshot | null = null
+): PreviewMotionPathPoint[] {
+  return markCanvasMotionPathCurrentFrame(
+    buildLayerMotionPathGeometry(
+      layer,
+      renderItems,
+      timelineItems,
+      durationFrames,
+      frameRate,
+      draftTransformSnapshot
+    ),
+    currentFrame
+  );
+}
+
+export function buildCompositionMotionPath(
+  composition: Composition,
+  timelineItems: readonly TimelineItem[],
+  metaByCompId: Readonly<Record<string, CompositionMeta>>,
+  durationFrames: number,
+  currentFrame: number,
+  draftTransformSnapshot: DraftTransformSnapshot | null = null
+): PreviewMotionPathPoint[] {
+  return markCanvasMotionPathCurrentFrame(
+    buildCompositionMotionPathGeometry(
+      composition,
+      timelineItems,
+      metaByCompId,
+      durationFrames,
+      draftTransformSnapshot
+    ),
+    currentFrame
+  );
 }
 
 export function clampFrame(frame: number, durationFrames: number) {

@@ -109,7 +109,8 @@ export function createCanvasSelectionAlphaBrowserAdapter(
 ): SelectionAlphaBrowserAdapter {
   const buildSurface = (
     descriptor: SelectionSourceAlphaDescriptor,
-    temporaryCanvases: HTMLCanvasElement[]
+    temporaryCanvases: HTMLCanvasElement[],
+    isRoot = false
   ): { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D } | null => {
     const width = toPixelDimension(descriptor.logicalSize.width);
     const height = toPixelDimension(descriptor.logicalSize.height);
@@ -127,7 +128,7 @@ export function createCanvasSelectionAlphaBrowserAdapter(
 
     if (descriptor.kind === "layer") {
       context.save();
-      context.globalAlpha = normalizeOpacity(descriptor.opacity);
+      context.globalAlpha = isRoot ? 1 : normalizeOpacity(descriptor.opacity);
       context.drawImage(
         descriptor.sourceCanvas,
         0,
@@ -166,7 +167,7 @@ export function createCanvasSelectionAlphaBrowserAdapter(
       }
       context.restore();
     });
-    applySurfaceOpacity(context, width, height, descriptor.opacity);
+    if (!isRoot) applySurfaceOpacity(context, width, height, descriptor.opacity);
     return { canvas, context };
   };
 
@@ -184,7 +185,7 @@ export function createCanvasSelectionAlphaBrowserAdapter(
 
       const temporaryCanvases: HTMLCanvasElement[] = [];
       try {
-        const surface = buildSurface(descriptor, temporaryCanvases);
+        const surface = buildSurface(descriptor, temporaryCanvases, true);
         if (!surface) {
           return {
             status: "unavailable",

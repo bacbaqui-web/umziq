@@ -1,25 +1,78 @@
-import type { Composition, CompositionMeta, Layer, TimelineItem } from "@/models";
+import type {
+  Composition,
+  CompositionMeta,
+  Layer,
+  TimelineItem,
+  TimelineSelection,
+} from "@/models";
 import type { RenderDrawable, RenderItem } from "@/engines/project";
 import type {
   EvaluatedScene,
   EvaluatedSceneNode,
+  EvaluatedSceneSize,
   EvaluatedSceneTransform,
 } from "@/engines/playback-render";
+import { STATIC_PSD_SELECTION_FRAME_VISUAL_KEY } from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
 import { buildCanvasSelectionProjection } from "@/engines/canvas/helpers/canvasDirectSelectionGeometryHelpers";
 import type { DraftTransformSnapshot } from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
-import type { CanvasSelectionCandidate } from "@/engines/canvas/models/canvasDirectSelectionModel";
+import type {
+  CanvasSelectionCandidate,
+  CanvasSelectionProjection,
+} from "@/engines/canvas/models/canvasDirectSelectionModel";
 import type { SelectionSourceAlphaDescriptor } from "@/engines/canvas/models/canvasSelectionAlphaModel";
-import { STATIC_PSD_SELECTION_FRAME_VISUAL_KEY } from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
 
-type CandidateOptions = {
+type StaticCandidateOptions = {
   evaluatedScene: EvaluatedScene | null;
   renderItems: readonly RenderItem[];
   timelineItems: readonly TimelineItem[];
   layersById: ReadonlyMap<string, Layer>;
   compositionsById: ReadonlyMap<string, Composition>;
+};
+
+type CandidateOptions = StaticCandidateOptions & {
   metaByCompId: Readonly<Record<string, CompositionMeta>>;
   viewportScale: number;
   viewportOffset: { x: number; y: number };
+  selectedTimelineItem: TimelineItem | null;
+  draftTransformSnapshot: DraftTransformSnapshot | null;
+};
+
+type StaticCandidateBase = {
+  readonly sceneNodeIndex: number;
+  readonly renderItemId: string;
+  readonly sourceId: string;
+  readonly drawable: RenderDrawable | null;
+  readonly target: { readonly kind: "layer" | "composition"; readonly id: string };
+  readonly timelineItem: TimelineItem | null;
+  readonly sourceSize: EvaluatedSceneSize;
+  readonly sourceTransform: EvaluatedSceneTransform;
+  readonly sourceOpacity: number;
+  readonly localFrame: number;
+};
+
+type StaticReadyCandidate = StaticCandidateBase & {
+  readonly status: "ready";
+  readonly selection: NonNullable<TimelineSelection>;
+  readonly descriptor: SelectionSourceAlphaDescriptor;
+};
+
+type StaticBlockedCandidate = StaticCandidateBase & {
+  readonly status: "blocked";
+  readonly reason: "ambiguous-identity" | "missing-drawable";
+};
+
+export type CanvasDirectSelectionStaticCandidate =
+  | StaticReadyCandidate
+  | StaticBlockedCandidate;
+
+type ProjectionOptions = {
+  staticCandidates: readonly CanvasDirectSelectionStaticCandidate[];
+  viewportScale: number;
+  viewportOffset: { x: number; y: number };
+};
+
+type DraftProjectionOptions = ProjectionOptions & {
+  viewportCandidates: readonly CanvasSelectionCandidate[];
   selectedTimelineItem: TimelineItem | null;
   draftTransformSnapshot: DraftTransformSnapshot | null;
 };
@@ -50,9 +103,83 @@ function hasSelectableSceneGeometry(node: EvaluatedSceneNode) {
     node.transform.scale.x !== 0 && node.transform.scale.y !== 0;
 }
 
-function findDrawable(renderItem: RenderItem, node: EvaluatedSceneNode) {
+function buildIdentityKey(
+  kind: "layer" | "subComp",
+  sourceId: string,
+  targetCompId?: string
+) {
+  return kind === "layer"
+    ? `layer:${sourceId}`
+    : `subComp:${sourceId}:${targetCompId ?? ""}`;
+}
+
+function buildNodeIdentityKey(node: EvaluatedSceneNode) {
+  return buildIdentityKey(
+    node.type === "drawable" ? "layer" : "subComp",
+    node.sourceId,
+    node.type === "composition" ? node.targetCompId : undefined
+  );
+}
+
+function appendIndexValue<T>(index: Map<string, T[]>, key: string, value: T) {
+  const values = index.get(key);
+  if (values) values.push(value);
+  else index.set(key, [value]);
+}
+
+function buildTimelineIndex(
+  items: readonly TimelineItem[],
+  scene: EvaluatedScene
+) {
+  const index = new Map<string, TimelineItem[]>();
+  items.forEach((item) => {
+    if (!isActive(item, scene)) return;
+    appendIndexValue(
+      index,
+      buildIdentityKey(item.kind, item.sourceId, item.targetCompId),
+      item
+    );
+  });
+  return index;
+}
+
+function buildRenderIndex(items: readonly RenderItem[]) {
+  const index = new Map<string, RenderItem[]>();
+  items.forEach((item) => {
+    if (!item.visible) return;
+    appendIndexValue(
+      index,
+      buildIdentityKey(item.kind, item.sourceId, item.targetCompId),
+      item
+    );
+  });
+  return index;
+}
+
+function buildSceneIdentityCount(scene: EvaluatedScene) {
+  const counts = new Map<string, number>();
+  scene.nodes.forEach((node) => {
+    if (!hasSelectableSceneGeometry(node)) return;
+    const key = buildNodeIdentityKey(node);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+  return counts;
+}
+
+function buildDrawableIndex(renderItem: RenderItem) {
+  const index = new Map<string, RenderDrawable[]>();
+  renderItem.drawables.forEach((drawable) => {
+    appendIndexValue(index, drawable.id, drawable);
+  });
+  return index;
+}
+
+function findDrawable(
+  drawableIndex: ReadonlyMap<string, readonly RenderDrawable[]>,
+  node: EvaluatedSceneNode
+) {
   if (node.type !== "drawable") return null;
-  const matches = renderItem.drawables.filter((drawable) => drawable.id === node.drawableId);
+  const matches = drawableIndex.get(node.drawableId) ?? [];
   return matches.length === 1 ? matches[0] : null;
 }
 
@@ -79,13 +206,13 @@ function descriptorForDrawable(
 
 function buildDescriptor(
   node: EvaluatedSceneNode,
-  renderItem: RenderItem,
+  drawableIndex: ReadonlyMap<string, readonly RenderDrawable[]>,
   layersById: ReadonlyMap<string, Layer>,
   compositionsById: ReadonlyMap<string, Composition>,
   opacity: number
 ): SelectionSourceAlphaDescriptor | null {
   if (node.type === "drawable") {
-    const drawable = findDrawable(renderItem, node);
+    const drawable = findDrawable(drawableIndex, node);
     return drawable
       ? descriptorForDrawable(node, drawable, layersById, opacity)
       : null;
@@ -93,7 +220,7 @@ function buildDescriptor(
   const orderedChildren = node.children.map((child) => {
     const source = buildDescriptor(
       child,
-      renderItem,
+      drawableIndex,
       layersById,
       compositionsById,
       child.opacity
@@ -116,95 +243,127 @@ function buildDescriptor(
   };
 }
 
-function resolveEffectiveTransform(
-  node: EvaluatedSceneNode,
-  item: TimelineItem,
-  selectedTimelineItem: TimelineItem | null,
-  snapshot: DraftTransformSnapshot | null
-): { transform: EvaluatedSceneTransform; opacity: number } {
-  const exactItem = selectedTimelineItem?.id === item.id &&
-    selectedTimelineItem.sourceId === item.sourceId &&
-    selectedTimelineItem.kind === item.kind;
-  const targetMatches = node.type === "drawable"
-    ? snapshot?.target.kind === "layer" && snapshot.target.id === (node.layerId ?? node.sourceId)
-    : snapshot?.target.kind === "composition" && snapshot.target.id === node.targetCompId;
-  if (!exactItem || !snapshot || !targetMatches || snapshot.localFrame !== node.localFrame) {
-    return { transform: node.transform, opacity: node.opacity };
+function buildCandidateProjection(
+  candidate: CanvasDirectSelectionStaticCandidate,
+  transform: EvaluatedSceneTransform,
+  opacity: number,
+  options: ProjectionOptions,
+  reusedProjection?: CanvasSelectionProjection
+): CanvasSelectionCandidate | null {
+  if (!Number.isFinite(opacity) || opacity <= 0) return null;
+  const projection = reusedProjection ?? buildCanvasSelectionProjection({
+    size: candidate.sourceSize,
+    transform,
+    viewportScale: options.viewportScale,
+    viewportOffset: options.viewportOffset,
+  });
+  if (!projection) return null;
+  const base = {
+    sceneNodeIndex: candidate.sceneNodeIndex,
+    renderItemId: candidate.renderItemId,
+    sourceId: candidate.sourceId,
+    drawable: candidate.drawable,
+    target: candidate.target,
+    timelineItem: candidate.timelineItem,
+    projection,
+  };
+  if (candidate.status === "blocked") {
+    return { ...base, status: candidate.status, reason: candidate.reason };
   }
   return {
-    transform: {
-      position: snapshot.position,
-      transformOffset: snapshot.transformOffset,
-      anchor: snapshot.anchor,
-      scale: snapshot.scale,
-      rotation: snapshot.rotation,
-    },
-    opacity: snapshot.opacity,
+    ...base,
+    status: candidate.status,
+    selection: candidate.selection,
+    descriptor: opacity === candidate.sourceOpacity
+      ? candidate.descriptor
+      : { ...candidate.descriptor, opacity },
   };
 }
 
-export function buildCanvasDirectSelectionCandidates(
-  options: CandidateOptions
-): CanvasSelectionCandidate[] {
+function isSameTransform(
+  left: EvaluatedSceneTransform,
+  right: EvaluatedSceneTransform
+) {
+  return left.position.x === right.position.x &&
+    left.position.y === right.position.y &&
+    left.transformOffset.x === right.transformOffset.x &&
+    left.transformOffset.y === right.transformOffset.y &&
+    left.anchor.x === right.anchor.x &&
+    left.anchor.y === right.anchor.y &&
+    left.scale.x === right.scale.x &&
+    left.scale.y === right.scale.y &&
+    left.rotation === right.rotation;
+}
+
+function matchesScopedDraft(
+  candidate: CanvasDirectSelectionStaticCandidate,
+  selectedTimelineItem: TimelineItem | null,
+  snapshot: DraftTransformSnapshot | null
+) {
+  const item = candidate.timelineItem;
+  if (!item || !selectedTimelineItem || !snapshot) return false;
+  const exactItem = selectedTimelineItem.id === item.id &&
+    selectedTimelineItem.sourceId === item.sourceId &&
+    selectedTimelineItem.kind === item.kind;
+  const targetMatches = snapshot.target.kind === candidate.target.kind &&
+    snapshot.target.id === candidate.target.id;
+  return exactItem && targetMatches && snapshot.localFrame === candidate.localFrame;
+}
+
+export function buildCanvasDirectSelectionStaticCandidates(
+  options: StaticCandidateOptions
+): CanvasDirectSelectionStaticCandidate[] {
   const scene = options.evaluatedScene;
   if (!scene) return [];
-  const candidates: CanvasSelectionCandidate[] = [];
+  const timelineIndex = buildTimelineIndex(options.timelineItems, scene);
+  const renderIndex = buildRenderIndex(options.renderItems);
+  const sceneIdentityCount = buildSceneIdentityCount(scene);
+  const drawableIndices = new WeakMap<RenderItem, Map<string, RenderDrawable[]>>();
+  const candidates: CanvasDirectSelectionStaticCandidate[] = [];
+
   scene.nodes.forEach((node, sceneNodeIndex) => {
     if (!hasSelectableSceneGeometry(node)) return;
-    const size = node.type === "drawable" ? node.logicalSize : node.size;
-    if (size.width <= 0 || size.height <= 0) return;
-    const kind = node.type === "drawable" ? "layer" : "subComp";
-    const timelineMatches = options.timelineItems.filter((item) =>
-      isActive(item, scene) && item.kind === kind && item.sourceId === node.sourceId &&
-      (node.type === "drawable" || item.targetCompId === node.targetCompId)
-    );
+    const identityKey = buildNodeIdentityKey(node);
+    const timelineMatches = timelineIndex.get(identityKey) ?? [];
     if (timelineMatches.length === 0) return;
-    const renderMatches = options.renderItems.filter((item) =>
-      item.visible && item.kind === kind && item.sourceId === node.sourceId &&
-      (node.type === "drawable" || item.targetCompId === node.targetCompId)
-    );
-    const sceneIdentityMatches = scene.nodes.filter((other) =>
-      hasSelectableSceneGeometry(other) && other.type === node.type &&
-      other.sourceId === node.sourceId &&
-      (node.type === "drawable" ||
-        (other.type === "composition" && other.targetCompId === node.targetCompId))
-    );
+    const renderMatches = renderIndex.get(identityKey) ?? [];
     const exactItem = timelineMatches.length === 1 ? timelineMatches[0] : null;
-    const exactRender = renderMatches.length === 1 && renderMatches[0].id === node.renderItemId
+    const exactRender = renderMatches.length === 1 &&
+      renderMatches[0]?.id === node.renderItemId
       ? renderMatches[0]
       : null;
-    const effective = exactItem
-      ? resolveEffectiveTransform(
-          node, exactItem, options.selectedTimelineItem, options.draftTransformSnapshot
-        )
-      : { transform: node.transform, opacity: node.opacity };
-    if (!Number.isFinite(effective.opacity) || effective.opacity <= 0) return;
-    const projection = buildCanvasSelectionProjection({
-      size,
-      transform: effective.transform,
-      viewportScale: options.viewportScale,
-      viewportOffset: options.viewportOffset,
-    });
-    if (!projection) return;
-    const drawable = exactRender ? findDrawable(exactRender, node) : null;
+    const drawableIndex = exactRender
+      ? drawableIndices.get(exactRender) ?? buildDrawableIndex(exactRender)
+      : new Map<string, RenderDrawable[]>();
+    if (exactRender && !drawableIndices.has(exactRender)) {
+      drawableIndices.set(exactRender, drawableIndex);
+    }
+    const drawable = exactRender ? findDrawable(drawableIndex, node) : null;
     const target = node.type === "drawable"
       ? { kind: "layer" as const, id: node.layerId ?? node.sourceId }
       : { kind: "composition" as const, id: node.targetCompId };
-    const base = {
+    const base: StaticCandidateBase = {
       sceneNodeIndex,
       renderItemId: node.renderItemId,
       sourceId: node.sourceId,
       drawable,
       target,
       timelineItem: exactItem,
-      projection,
+      sourceSize: node.type === "drawable" ? node.logicalSize : node.size,
+      sourceTransform: node.transform,
+      sourceOpacity: node.opacity,
+      localFrame: node.localFrame,
     };
-    if (!exactItem || !exactRender || sceneIdentityMatches.length !== 1) {
+    if (!exactItem || !exactRender || sceneIdentityCount.get(identityKey) !== 1) {
       candidates.push({ ...base, status: "blocked", reason: "ambiguous-identity" });
       return;
     }
     const descriptor = buildDescriptor(
-      node, exactRender, options.layersById, options.compositionsById, effective.opacity
+      node,
+      drawableIndex,
+      options.layersById,
+      options.compositionsById,
+      node.opacity
     );
     if (!descriptor) {
       candidates.push({ ...base, status: "blocked", reason: "missing-drawable" });
@@ -213,9 +372,80 @@ export function buildCanvasDirectSelectionCandidates(
     candidates.push({
       ...base,
       status: "ready",
-      selection: { itemId: exactItem.id, sourceId: exactItem.sourceId, kind: exactItem.kind },
+      selection: {
+        itemId: exactItem.id,
+        sourceId: exactItem.sourceId,
+        kind: exactItem.kind,
+      },
       descriptor,
     });
   });
   return candidates;
+}
+
+export function buildCanvasDirectSelectionViewportCandidates(
+  options: ProjectionOptions
+): CanvasSelectionCandidate[] {
+  return options.staticCandidates.flatMap((candidate) => {
+    const projected = buildCandidateProjection(
+      candidate,
+      candidate.sourceTransform,
+      candidate.sourceOpacity,
+      options
+    );
+    return projected ? [projected] : [];
+  });
+}
+
+export function applyCanvasDirectSelectionDraft(
+  options: DraftProjectionOptions
+): CanvasSelectionCandidate[] {
+  const snapshot = options.draftTransformSnapshot;
+  const selectedItem = options.selectedTimelineItem;
+  if (!snapshot || !selectedItem) return options.viewportCandidates.slice();
+  const viewportBySceneIndex = new Map(
+    options.viewportCandidates.map((candidate) => [candidate.sceneNodeIndex, candidate])
+  );
+  return options.staticCandidates.flatMap((candidate) => {
+    const viewportCandidate = viewportBySceneIndex.get(candidate.sceneNodeIndex);
+    if (!matchesScopedDraft(candidate, selectedItem, snapshot)) {
+      return viewportCandidate ? [viewportCandidate] : [];
+    }
+    const transform: EvaluatedSceneTransform = {
+      position: snapshot.position,
+      transformOffset: snapshot.transformOffset,
+      anchor: snapshot.anchor,
+      scale: snapshot.scale,
+      rotation: snapshot.rotation,
+    };
+    const projected = buildCandidateProjection(
+      candidate,
+      transform,
+      snapshot.opacity,
+      options,
+      viewportCandidate && isSameTransform(transform, candidate.sourceTransform)
+        ? viewportCandidate.projection
+        : undefined
+    );
+    return projected ? [projected] : [];
+  });
+}
+
+export function buildCanvasDirectSelectionCandidates(
+  options: CandidateOptions
+): CanvasSelectionCandidate[] {
+  const staticCandidates = buildCanvasDirectSelectionStaticCandidates(options);
+  const viewportCandidates = buildCanvasDirectSelectionViewportCandidates({
+    staticCandidates,
+    viewportScale: options.viewportScale,
+    viewportOffset: options.viewportOffset,
+  });
+  return applyCanvasDirectSelectionDraft({
+    staticCandidates,
+    viewportCandidates,
+    viewportScale: options.viewportScale,
+    viewportOffset: options.viewportOffset,
+    selectedTimelineItem: options.selectedTimelineItem,
+    draftTransformSnapshot: options.draftTransformSnapshot,
+  });
 }

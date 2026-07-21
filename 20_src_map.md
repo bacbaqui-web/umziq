@@ -1,7 +1,7 @@
 # Shortform Editor source map
 
 > 점검 기준: 2026-07-21, 현재 작업 폴더의 소스 코드 기준
-> 현재 상태: Canvas Visual Layer Selection Task 5~9.2 구현 및 자동 검증 기록 완료 / 브라우저 QA 미실행
+> 현재 상태: Transform Drag Runtime Continuity Task 1~8 완료 / 전체 정적 검증 완료 / 사용자 승인 범위 Edge 대상 QA 완료
 > 목적: 다음 작업자가 파일 책임, 상태 소유권, Engine 연결 경계를 빠르게 파악하기 위한 지도다.
 
 ## 추천 읽기 순서
@@ -31,6 +31,7 @@ Sprint가 진행 중이지 않고 완료된 기능을 조사하는 경우에는 
 | `46_transform_origin_editing.md` | Properties/Canvas Transform Origin 편집 구조와 QA 결과 |
 | `47_canvas_engine_responsibility_refactoring.md` | Canvas Transform Input과 Preview Canvas Render 책임 분리 구조 |
 | `48_canvas_visual_layer_selection.md` | Evaluated Scene 기반 alpha-aware Canvas 직접 선택과 Editor-only outer glow 구조 |
+| `49_transform_drag_runtime_continuity_optimization.md` | Transform Draft의 Selection/Renderer/Motion/Direct Selection/Alpha/Panel memo 연속성 최적화와 호출 수·중간 QA 결과 |
 | `97_next_sprint.md` | 다음 Sprint 인수인계와 계획 초안 |
 | `98_sprint_plan.md` | 현재 진행 중인 Sprint 하나의 계획과 진행 상황 |
 | `99_recent_task.md` | 바로 직전 Task 한 건의 보고 |
@@ -218,7 +219,7 @@ State store는 값을 저장할 뿐 mutation 정책, geometry, rendering, Timeli
 | `useProjectCommands.ts` | 내부 Command Controller를 공개 hook으로 감싼다 |
 | `models/projectCommandModel.ts` | Project record bundle과 Command Port 계약 |
 | `controllers/useProjectCommandController.ts` | composition/meta/timeline/render record 교체·갱신 command |
-| `useProjectHistory.ts` | History state와 Controller를 하나의 공개 hook으로 조립 |
+| `useProjectHistory.ts` | History state와 Controller를 하나의 공개 hook으로 조립하고 최신 Controller를 가리키는 stable command façade 제공 |
 | `state/useProjectHistoryState.ts` | composition별 past/future/pending capture ref |
 | `controllers/useProjectHistoryController.ts` | push/undo/redo/begin/dirty/commit/cancel/reset |
 | `history/projectHistorySnapshot.ts` | snapshot clone/capture/restore, runtime canvas 참조 보존, restore 시 Editor Draft Runtime 폐기 호출 |
@@ -227,7 +228,7 @@ State store는 값을 저장할 뿐 mutation 정책, geometry, rendering, Timeli
 
 | 파일 | 책임 |
 |---|---|
-| `useProjectSelectionModel.ts` | master virtual comp, ID map, 현재 selection/meta/items, Properties target 파생 |
+| `useProjectSelectionModel.ts` | hook-local memoized deriver로 master virtual comp, ID map, 현재 selection/meta/items, Properties target를 실제 입력별 안정 reference로 파생 |
 | `helpers/projectModelHelpers.ts` | tree 탐색/map/selection 복원/master model/reorder 동기화 |
 | `helpers/compositionTreeHelpers.ts` | composition tree 불변 갱신과 timeline 순서 기반 reorder |
 | `constants/projectConstants.ts` | master ID/1080×1920, 30fps, 기본 duration, history limit |
@@ -518,7 +519,7 @@ Preview Runtime Optimization Sprint는 종료됐으며 결과는 `44_preview_run
 
 | 파일/폴더 | 책임 |
 |---|---|
-| `usePsdTreeEngine.ts` | picker/import dialog/source/selection/reorder Controller와 ViewModel 조립 |
+| `usePsdTreeEngine.ts` | picker/import dialog/source/selection/reorder Controller와 ViewModel을 조립하고 Draft-only root render에서 안정 ViewProps 유지 |
 | `controllers/usePsdPickerController.ts` | import 파일 선택 뒤 Prepare, refresh picker intent |
 | `controllers/usePsdImportDialogController.ts` | Plan session의 Prepare 완료, Confirm/Cancel, node 이동 intent와 분석 중 Cancel 경합 정리 |
 | `controllers/useSourceActionController.ts` | refresh/delete action과 성공 summary 1회 session 반영 |
@@ -530,7 +531,7 @@ Preview Runtime Optimization Sprint는 종료됐으며 결과는 `44_preview_run
 | `helpers/psdTreeViewModelHelpers.ts` | Project tree → node ViewModel |
 | `helpers/psdImportPlanTreeHelpers.ts` | Preview node 불변 reorder/reparent, 순환 방지, 부모별 중복 이름 재계산 |
 | `models/psdTreeModel.ts` | read/command/selection port와 ViewProps |
-| `features/psdtree/components/PsdTree.tsx`, `PsdTreeNode.tsx` | 편집기 tree와 Group NEW 배지를 렌더하고 실제 선택 intent 전달 |
+| `features/psdtree/components/PsdTree.tsx`, `PsdTreeNode.tsx` | memo 경계 안에서 편집기 tree와 Group NEW 배지를 렌더하고 실제 선택 intent 전달 |
 | `features/psdtree/components/PsdImportPreviewDialog.tsx`, `PsdImportPreviewNode.tsx` | PSD 정보/전체 Preview Tree/빨간 중복 이름/drag/drop/Confirm/Cancel 렌더 |
 | `features/psdtree/components/PsdRefreshSummaryCard.tsx` | Refresh 여섯 개 결과/무변경 표시와 수동·8초 자동 닫기 비모달 카드 |
 
@@ -566,19 +567,19 @@ useCanvasComposition
 | `controllers/useCanvasPanController.ts` | pan pointer/keyboard modifier lifecycle |
 | `controllers/useCanvasGuideController.ts` | shortform/safe-zone guide read/command |
 | `controllers/useCanvasSelectionController.ts` | selected Layer/Composition overlay read model과 Draft Snapshot 기반 selection overlay 전환 |
-| `controllers/useCanvasDirectSelectionController.ts` | Evaluated Scene top-level candidate, 공용 Source Alpha Provider, direct-selection single/double-click pointer intent와 enable/release 가능한 selected-only glow lifecycle을 조립하고 source 교체/unmount cleanup 수행 |
+| `controllers/useCanvasDirectSelectionController.ts` | static identity/descriptor, viewport projection, scoped selected Draft overlay의 독립 memo 경계와 공용 Source Alpha Provider, direct-selection single/double-click pointer intent, enable/release 가능한 selected-only glow lifecycle 및 source 교체/unmount cleanup 조립 |
 | `controllers/useCanvasRenderController.ts` | Render Frame 또는 Preview Scene pipeline 결과와 active Preview scale을 Canvas Adapter에 전달하고 중첩 surface pool을 frame/unmount 단위로 정리 |
 | `controllers/useCanvasPointerController.ts` | global pointer session/listener와 frame 단위 최신 pointer sample 전달 조립 |
 | `composers/useCanvasTransformComposer.ts` | 공통 pointer context를 만들고 Transform Controller 7개를 조립해 기존 7개 command를 구성하는 Transform Input Composer |
-| `controllers/useCanvasTransformDraftController.ts` | transform patch를 `DraftTransformSnapshot`과 Preview Scene draft에 같은 순서로 반영하고 둘을 함께 reset하는 동기화 경계 |
+| `controllers/useCanvasTransformDraftController.ts` | 직전 accepted semantic snapshot과 같은 transform patch를 공통 차단하고 변경된 `DraftTransformSnapshot`과 Preview Scene draft만 같은 순서로 반영·reset하는 동기화 경계 |
 | `controllers/useCanvasPositionDragController.ts` | Position 시작 frame/base 평가와 begin/move/commit/cancel transaction |
 | `controllers/useCanvasScaleDragController.ts` | Scale PointerDown world 위치를 현재 값의 100% baseline으로 캡처하고 이후 축 투영 거리의 상대 배율, Shift snap, draft/readout과 begin/move/commit/cancel transaction 처리 |
 | `controllers/useCanvasRotationDragController.ts` | pointer angle, Shift snap, rotation draft/readout과 begin/move/commit/cancel transaction |
 | `controllers/useCanvasOpacityDragController.ts` | screen-space Anchor 거리 25~50px를 0~100%로 선형 매핑하는 radial Opacity, Shift snap, draft/readout과 begin/move/commit/cancel transaction |
 | `controllers/useCanvasAnchorTransformController.ts` | Canvas Anchor drag와 Properties Anchor live draft가 공유하는 clamp/transformOffset 보정/command transaction |
 | `controllers/useCanvasArrowNudgeController.ts` | editable target을 제외한 전역 Arrow key의 `history.push` 기반 즉시 Position command |
-| `controllers/useCanvasMotionPathController.ts` | 선택 target/item/local frame과 기존 `DraftTransformSnapshot` scope를 검증해 Snapshot 자체를 공통 motion path geometry 입력으로 전달하고 point/keyframe drag interaction을 처리 |
-| `controllers/useCanvasGizmoController.ts` | Selection과 Motion Path를 결합한 geometry/readout/hover/cursor ViewModel과 command 조립 |
+| `controllers/useCanvasMotionPathController.ts` | 선택 target/item/local frame과 Position/Anchor/TransformOffset `DraftTransformSnapshot` scope를 검증하고 duration geometry sampling과 current-frame 표식을 독립 memo 경계로 유지하며 point/keyframe drag interaction 처리 |
+| `controllers/useCanvasGizmoController.ts` | radial handle geometry, Motion Path viewport projection/polyline, hover·hit point ViewModel과 readout/cursor를 독립 memo 경계로 조립 |
 | `controllers/buildPreviewCacheGeneration.ts` | 제한된 동시성으로 Factory 요청, Cache hit/commit, generation progress와 stale 결과 조립 |
 | `controllers/usePreviewUpdatePipeline.ts` | `fast-render` scene 또는 `full-render` mode의 lazy Evaluated Scene drag seed에서 transform/opacity draft를 갱신하며 Dirty State/Metrics와 Node Cache를 연결하는 Canvas Runtime pipeline |
 | `state/compositionPreviewCacheStore.ts` | Preview Runtime 전용 Composition 합성 결과 cache와 begin/end frame, hit/store/dispose API |
@@ -624,12 +625,12 @@ useCanvasRenderController
 - `helpers/canvasCoordinateHelpers.ts`: world/canvas transform와 anchor 보정
 - `helpers/canvasGuideHelpers.ts`: 9:16/safe-zone guide
 - `helpers/previewDraftBaseSceneHelpers.ts`: `full-render` mode 첫 drag update까지 Preview draft base 생성을 미루고 resolver당 1회 결과를 재사용하는 Runtime helper
-- `helpers/draftTransformRuntimeHelpers.ts`: Project/evaluate transform과 draft patch를 병합해 Canvas Draft Transform Snapshot, Preview Scene patch, overlay-facing runtime 값, Selection overlay geometry, 공통 local-anchor clamp/보정 command를 만드는 Runtime helper
+- `helpers/draftTransformRuntimeHelpers.ts`: Project/evaluate transform과 draft patch를 병합해 Canvas Draft Transform Snapshot, semantic equality, Preview Scene patch, overlay-facing runtime 값, Selection overlay geometry, 공통 local-anchor clamp/보정 command를 만드는 Runtime helper
 - `helpers/canvasSelectionHelpers.ts`: Layer/Sub Composition selection overlay
-- `helpers/canvasDirectSelectionCandidateHelpers.ts`: Evaluated Scene top-level Layer/SubComp와 active Timeline/Render identity를 exact join하고 ambiguous duplicate/split/reorder를 blocked candidate로 만드는 순수 helper. scoped Draft Snapshot은 spatial Projection과 opacity에만 적용
+- `helpers/canvasDirectSelectionCandidateHelpers.ts`: 사전 구축한 Timeline/Render/Scene/drawable index로 Evaluated Scene top-level Layer/SubComp identity와 static descriptor를 exact join하고 ambiguous duplicate/split/reorder를 blocked 처리한 뒤, viewport projection과 scoped selected Draft spatial Projection/root opacity만 단계적으로 적용하는 순수 helper
 - `helpers/canvasDirectSelectionGeometryHelpers.ts`: source↔viewport affine matrix, signed inverse, transformed quad/bounds와 negative scale을 포함한 point-in-quad 계산
 - `helpers/canvasDirectSelectionHitHelpers.ts`: reverse painter order의 Bounds → Quad → 공용 Alpha entry → source-local sample 흐름, selection/hover cache mode, drag/select/clear/preserve intent, immediate Sub Composition 진입 대상과 viewport cursor 우선순위 계산
-- `helpers/canvasSelectionAlphaFingerprintHelpers.ts`: source canvas token, source/revision/frame visual key, opacity/visibility/logical size와 SubComp ordered child visual/transform을 포함하는 결정적 fingerprint
+- `helpers/canvasSelectionAlphaFingerprintHelpers.ts`: source canvas token, source/revision/frame visual key, visibility/logical size와 SubComp ordered child visual/transform을 포함하되 top-level positive opacity만 동일 shape로 분류하는 결정적 fingerprint
 - `helpers/selectionSourceAlphaProvider.ts`: 최대 2개 ready entry, failure memo, retain/release/clear/dispose를 소유하는 Canvas Editor-only Source Alpha Provider
 - `helpers/canvasSelectionGlowHelpers.ts`: exact selected ready candidate 조회, 같은 provider entry 선택, threshold mask와 DPR-aware outer-glow draw plan 계산
 - `helpers/canvasPointerHelpers.ts`: pointer session 초기 상태와 좌표
@@ -654,7 +655,7 @@ useCanvasRenderController
 - `helpers/previewRenderFrameHelpers.ts`: 현재 Render Frame이 사용하는 drawable source ID 수집
 - `helpers/previewQualityControlHelpers.ts`: 품질별 예상 memory와 실제 active 품질을 Preview control Plain Data ViewModel로 변환
 - `factories/previewBitmapFactory.ts`: 원본 canvas를 변경하지 않고 별도 Preview runtime resource를 생성하며 실패를 결과로 반환
-- `helpers/canvasGizmoGeometryHelpers.ts`, `canvasGizmoHelpers.ts`: Anchor 중심 radial handle/path/overlay ViewModel. W=`x`, H=`y`, WH=`xy` 기존 Scale command에 매핑하고 Scale/Rotation은 50px, Opacity는 현재 Draft-aware 값에 따라 25~50px screen-space 반지름에 배치하며 Motion Path는 upstream에서 완성된 하나의 `PreviewMotionPathPoint[]`를 viewport point와 polyline으로 투영
+- `helpers/canvasGizmoGeometryHelpers.ts`, `canvasGizmoHelpers.ts`: Anchor 중심 radial handle geometry와 Motion Path viewport point/polyline, hover·hit point ViewModel의 분리된 순수 계산. W=`x`, H=`y`, WH=`xy` 기존 Scale command에 매핑하고 Scale/Rotation은 50px, Opacity는 현재 Draft-aware 값에 따라 25~50px screen-space 반지름에 배치
 - `models/canvasEngineModel.ts`: viewport/guide/selection/read port
 - `models/canvasInteractionModel.ts`: pointer/gizmo/motion session/command와 명시적 Scale drag 상태 port
 - `models/canvasTransformControllerModel.ts`: Transform Input이 주입받는 History/Animation/Preview/Draft port와 기존 공개 options/command 타입
@@ -672,7 +673,7 @@ useCanvasRenderController
 - `models/previewRuntimeModel.ts`: Canvas-owned bitmap과 Preview resource runtime-only 계약
 - `state/previewCacheRuntimeStore.ts`: generation, hit/miss, commit, tracked bytes, active 보호 LRU, source retain/delete, budget과 cleanup을 소유하는 Canvas runtime cache
 - `adapters/canvasWorkspaceAdapter.ts`: ResizeObserver adapter
-- `adapters/canvasSelectionAlphaBrowserAdapter.ts`: Layer source canvas 또는 ordered SubComp child 합성을 source-local alpha plane 한 장으로 readback하고 임시 surface를 즉시 폐기하는 browser 경계
+- `adapters/canvasSelectionAlphaBrowserAdapter.ts`: Layer source canvas 또는 ordered SubComp child 합성을 source-local alpha plane 한 장으로 readback하고, top-level positive opacity를 shape-neutral하게 유지하며 임시 surface를 즉시 폐기하는 browser 경계
 - `adapters/canvasSelectionGlowBrowserAdapter.ts`: 선택된 fingerprint 하나의 source scratch만 생성/재사용하고 full interaction viewport canvas에 blur mask → `destination-out` interior 제거 순서로 그리는 browser 경계
 - `adapters/previewBitmapBrowserAdapter.ts`: `createImageBitmap` resize와 별도 offscreen/HTML canvas copy fallback, bitmap dispose
 - `adapters/previewEnvironmentAdapter.ts`: browser device memory 값을 한 경계에서 읽어 순수 quality policy 입력으로 변환
@@ -748,6 +749,8 @@ useTimelineEngine
   └─ Pointer Controller
 ```
 
+`useTimelineEngine`은 Controller input, read model, command/interaction과 최종 ViewProps를 실제 Timeline 입력별로 메모해 Draft-only root render가 Timeline Panel까지 전파되지 않게 한다.
+
 ### Controller
 
 | 파일 | 책임 |
@@ -779,7 +782,7 @@ useTimelineEngine
 
 ### Timeline View
 
-- `features/timeline/components/TimelinePanel.tsx`: Header/Ruler/Rows 배치와 scroll ref
+- `features/timeline/components/TimelinePanel.tsx`: memo 경계 안의 Header/Ruler/Rows 배치와 scroll ref
 - `TimelineHeader.tsx`, `TimelineTransportControls.tsx`: header/transport View
 - `TimelineSelectionBreadcrumb.tsx`, `TimelineCompositionSwitcher.tsx`: navigation View
 - `TimelineRuler.tsx`, `TimelineDurationSplitEditor.tsx`: ruler/duration View와 DOM event 전달
@@ -825,6 +828,7 @@ Timeline item mutation은 Project Commands, keyframe mutation은 Animation Comma
 | `46_transform_origin_editing.md` | Properties와 Canvas가 공유하는 Anchor/Transform Origin Draft Runtime과 QA 결과 |
 | `47_canvas_engine_responsibility_refactoring.md` | Canvas Transform Input과 Playback Render Preview Canvas 책임 분리 결과 |
 | `48_canvas_visual_layer_selection.md` | Evaluated Scene candidate, 공용 Source Alpha Mask, direct-selection intent와 Editor-only outer glow 구조 |
+| `49_transform_drag_runtime_continuity_optimization.md` | Project Selection identity, semantic Draft no-op, positive Alpha shape, Candidate/Motion/Gizmo/Panel memo 경계와 호출 수 결과 |
 | `98_sprint_plan.md` | 현재 Sprint 하나의 목표, Task 진행률, 완료 조건과 운영 순서 |
 | `99_recent_task.md` | 바로 직전 Task 한 건만 기록하는 작업 보고 |
 
@@ -851,6 +855,10 @@ Timeline item mutation은 Project Commands, keyframe mutation은 Animation Comma
 | `verifyPreviewAutomaticQuality.ts` | device tier/fallback/override budget, 전 품질 선택, 경계/초대형/결정성과 Cache memory 분리 |
 | `verifyCanvasPreviewIntegration.ts` | source dedupe, build/cache hit, generation 교체, atomic resolver, logical geometry, 원본 fallback과 static/animated Position Draft Motion Path의 Commit 결과 동등성 fixture |
 | `verifyCanvasDragPerformance.ts` | Transform-only SourceSet/generation 안정성, accurate 평시 drag seed 0회/첫 update 1회/후속 update 재사용/다음 drag 최신 scene seed, Preview node 실시간 갱신, Accurate Frame 불변, Cache 무변경, pointer 병합/최종 commit, 품질별 backing buffer와 완전 frame draw 구조 지표 |
+| `verifyCanvasTransformDragIntegration.ts` | Layer 전체 Transform handle 및 대표 SubComp drag의 100 raw/10 RAF accepted 동일 fixture에서 root/useRenderEngine/Canvas memo dependency identity를 재현하고 Animation/Full/Fast/Draft/Motion Path/Direct Selection static·viewport·Draft 단계/Alpha/Glow/Project/History Before·After·Difference를 비교하며, Handle별 100 semantic Motion Path build와 viewport-only projection 경계도 계측 |
+| `verifyCanvasTransformSemanticNoop.ts` | Position/Anchor/Scale W·H·WH/Rotation/Opacity별 동일 semantic·snap/clamp 결과 100 accepted의 Draft/Readout/Snapshot/Preview 1회, 100개 변경값 전부 반영, final pending flush, commit/history 1회와 cancel 복원 검증 |
+| `verifyProjectSelectionModelIdentity.ts` | 동일 입력/Draft-only render reference 안정성, selection/timeline/meta/master transform/project refresh별 필요한 identity invalidation과 최신 값·fallback 회귀 |
+| `verifyDraftPanelRenderIsolation.ts` | PSD Tree/Timeline의 memo export와 안정 `viewProps` 경계를 정적으로 확인하고, 100 Draft-only root frame에서 두 패널 0회·Preview/Properties 100회 및 실제 입력 변경 시 invalidation되는 shallow render-count fixture |
 | `verifyPreviewQualityControl.ts` | 다섯 품질/예상 memory ViewModel, active 품질, 진행/오류 상태, 접근성과 command-only View 경계 |
 | `verifyPreviewSourceLifecycle.ts` | Import/Refresh/Delete 단일 SourceSet lifecycle, fingerprint 부분 재생성, cache reuse, atomic resolver와 tracked memory 회수 |
 | `verifyPreviewSprintStress.ts` | 1,000개 대용량 source 추정, 전 품질 반복, Import/Refresh/Delete 반복, generation 경합과 unmount memory 누수 Sprint QA |
@@ -860,27 +868,29 @@ Timeline item mutation은 Project Commands, keyframe mutation은 Animation Comma
 | `verifyPsdPipeline.ts` | PSD identity/settings, Preview Plan 직렬화와 runtime 분리, 신규 Layer/Group 맨 위 삽입, Timeline/Render 동기화, NEW 유지/승인 후 반복 Refresh 회귀 |
 | `verifyProjectHistory.ts` | snapshot 보존, undo/redo, drag transaction/reset |
 | `verifyCanvasHelpers.ts` | viewport/coordinate/guide/selection/workspace |
-| `verifyCanvasInteractionHelpers.ts` | transform/motion/gizmo interaction 계산, 모든 Transform Drag flag의 공통 hover lock과 provider 접근 차단, upstream Motion Path geometry의 무치환 viewport/polyline 투영 fixture |
-| `verifyCanvasSelectionAlpha.ts` | Layer/SubComp alpha 합성, fingerprint invalidation/static frame 규칙, bounded provider retain/release/failure/dispose와 browser readback 의미 |
-| `verifyCanvasDirectSelection.ts` | exact/ambiguous/split candidate, reverse painter order, transparent fallthrough/safe-block, Draft Projection, signed inverse, selection intent, hover cache 보존/제한과 cursor 우선순위 |
+| `verifyCanvasInteractionHelpers.ts` | transform/motion/gizmo interaction 계산, 모든 Transform Drag flag의 공통 hover lock과 provider 접근 차단, radial geometry와 Motion Path viewport/polyline/point ViewModel 분리 결과 및 공통 geometry 일치 fixture |
+| `verifyCanvasSelectionAlpha.ts` | Layer/SubComp alpha 합성, positive root opacity shape/readback 재사용과 0/child fingerprint invalidation, static frame 규칙, bounded provider retain/release/failure/dispose와 browser readback 의미 |
+| `verifyCanvasDirectSelection.ts` | exact/ambiguous/split candidate, reverse painter order, transparent fallthrough/safe-block, Map 기반 static join과 100 Draft selected-only Projection/descriptor reuse, opacity 0/positive 복구, signed inverse, selection intent, hover cache 보존/제한과 cursor 우선순위 |
 | `verifyCanvasDirectSelectionUi.ts` | selection polygon/diagonal/quad hit layer 제거, viewport body direct-selection/hover 연결, `선택 강조` toolbar/default/state/reset/form exclusion source contract |
-| `verifyCanvasSelectionGlow.ts` | Hit/Glow 공용 provider entry/fingerprint/threshold/Projection, OFF release와 provider 접근 차단, ON rebuild, selected scratch reuse/교체, target backing 1×1 clear, outer-only 합성, DPR와 overlay 순서 |
+| `verifyCanvasSelectionGlow.ts` | Hit/Glow 공용 provider entry/fingerprint/threshold/Projection, positive root opacity의 entry/scratch 재사용, OFF release와 provider 접근 차단, ON rebuild, selected scratch reuse/교체, target backing 1×1 clear, outer-only 합성, DPR와 overlay 순서 |
 | `verifyPropertiesHelpers.ts` | numeric draft/parse/clamp/view model |
 | `verifyModifierSystem.ts` | Modifier 기본값/정규화/중복 방지/mutation/결정적 평가 |
 | `verifyTimelineHelpers.ts` | breadcrumb/layout/duration/source ViewModel |
 | `verifyTimelineInteractionHelpers.ts` | move/resize/snap/order/keyframe/auto-scroll/split |
 
-Canvas Visual Layer Selection Task 9.2 종료 시점의 자동 검증 실행 기록:
+Transform Drag Runtime Continuity Sprint 마감 검증 기록:
 
 - 전체 ESLint 성공
-- `npm test`: 38개 검증 스크립트 성공
-- `npm run build`: 성공, 306 modules. 기존 500 kB chunk 경고만 존재
+- `npm test`: 42개 검증 스크립트 성공
+- `npm run build`: 성공, 307 modules. 기존 500 kB chunk 경고만 존재
 - `git diff --check`: 성공
 - Engine Import Boundary와 기존 Preview/Dirty/Node/Composition/Surface Cache, History/Animation/Project 회귀 스크립트 성공
-- `npm run qa`는 실행하지 않음
-- 브라우저 pointer/keyboard/visual QA와 실제 조작은 실행하지 않음
+- Task 7 대상 Edge 중간 QA에서 최초 memo import TDZ를 발견·수정하고 PSD import, 대표 Transform/Properties/History/Timeline/Tree smoke를 재확인
+- Sprint 마감 Edge 대상 QA에서 Position·Anchor Draft/Commit, Undo/Redo, Renderer Mode 전환, Glow OFF/ON과 Console 오류 부재를 확인
+- Scale/Rotation/Opacity의 작은 radial hit target은 좌표 자동화 한계 때문에 실제 Edge 통과로 과장하지 않으며, Handle별 계약은 통합 fixture와 42개 verification 결과로 기록
+- 실제 FPS/frame time/GPU profiler, 전 Handle 장시간 수동 체감과 Preview/Export pixel 비교는 별도 성능 QA 범위
 
-이 결과는 정적 검증 통과 기록이며 브라우저 QA 통과를 뜻하지 않는다.
+정적 검증과 대상 Edge QA는 실제 profiler 수치나 포괄 수동 성능 QA를 뜻하지 않는다.
 
 ## 16. 알려진 한계
 

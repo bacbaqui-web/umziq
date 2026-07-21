@@ -185,6 +185,42 @@ assert.equal(rendererEvents.filter((event) => event === "scratch-build").length,
 assert.equal(rendererEvents.filter((event) => event === "scratch-reuse").length, 1);
 assert.equal(rendererEvents.filter((event) => event === "draw").length, 2);
 
+for (let opacity = 100; opacity >= 1; opacity -= 1) {
+  const positiveOpacityCandidate = {
+    ...candidate,
+    descriptor: { ...descriptor, opacity },
+  };
+  const positiveOpacityHit = hitCanvasDirectSelection({
+    point: { x: 1.5, y: 0.5 },
+    candidates: [positiveOpacityCandidate],
+    provider,
+    compositionSize: { width: 2, height: 1 },
+    viewportScale: 1,
+    viewportOffset: { x: 0, y: 0 },
+  });
+  assert.equal(positiveOpacityHit.status, "hit");
+  const positiveOpacityGlow = resolveSelectedCanvasGlowSource(
+    [positiveOpacityCandidate],
+    timelineItem,
+    provider
+  );
+  assert.ok(positiveOpacityGlow);
+  assert.equal(positiveOpacityGlow.entry, glowSource.entry);
+  assert.deepEqual(
+    buildCanvasSelectionGlowMaskRgba(positiveOpacityGlow.entry),
+    thresholdMask
+  );
+  renderer.draw(target, {
+    entry: positiveOpacityGlow.entry,
+    projection,
+    viewportSize: { width: 200, height: 100 },
+    devicePixelRatio: 2,
+  });
+}
+assert.equal(providerBuilds, 1);
+assert.equal(scratchCreates, 1);
+assert.equal(rendererEvents.filter((event) => event === "scratch-build").length, 1);
+
 const tokenByCanvas = new WeakMap<HTMLCanvasElement, number>();
 let nextToken = 1;
 const fingerprint = (nextDescriptor: SelectionLayerAlphaDescriptor | SelectionSubCompositionAlphaDescriptor) =>
@@ -201,7 +237,7 @@ const visualFingerprints = [
   fingerprint({ ...descriptor, sourceCanvas: secondCanvas }),
   fingerprint({ ...descriptor, sourceRevision: "revision-b" }),
   fingerprint({ ...descriptor, frameVisualKey: "frame-dependent-2" }),
-  fingerprint({ ...descriptor, opacity: 50 }),
+  fingerprint({ ...descriptor, opacity: 0 }),
 ];
 const childTransform = { ...transform, position: { x: 4, y: 4 } };
 const subComp: SelectionSubCompositionAlphaDescriptor = {
@@ -273,6 +309,7 @@ const blocked: CanvasBlockedSelectionCandidate = {
 assert.equal(resolveSelectedCanvasGlowCandidate([candidate, candidate], timelineItem), null);
 assert.equal(resolveSelectedCanvasGlowCandidate([blocked], timelineItem), null);
 assert.equal(resolveSelectedCanvasGlowCandidate([candidate], null), null);
+assert.equal(resolveSelectedCanvasGlowSource([], timelineItem, provider), null);
 const unavailableProvider: SelectionSourceAlphaProvider = {
   get: () => ({
     status: "unavailable",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampPlaybackFrame, type PlaybackCommands, type PlaybackReadModel } from "@/engines/playback-render";
 import type { CompositionMeta } from "@/models";
 import {
@@ -61,7 +61,7 @@ export function useTimelinePlaybackUIController(options: Options) {
   const rangeRight = range.endFrame * pxPerFrame;
   const rangeWidth = Math.max((range.endFrame - range.startFrame) * pxPerFrame, 6);
   const scrubFrame = Math.round(playheadLeft / pxPerFrame);
-  const activeReadout = activeResizeHandle
+  const activeReadout = useMemo(() => activeResizeHandle
     ? {
         mode: "resize" as const,
         frame: activeResizeHandle === "start" ? range.startFrame : range.endFrame,
@@ -71,8 +71,8 @@ export function useTimelinePlaybackUIController(options: Options) {
       ? { mode: "scrub" as const, frame: scrubFrame, left: playheadLeft }
       : options.hoveredFrame !== null && hoveredPlayheadLeft !== null && isHoveringRuler
         ? { mode: "hover" as const, frame: options.hoveredFrame, left: hoveredPlayheadLeft }
-        : null;
-  const indicator = activeReadout
+        : null, [activeResizeHandle, hoveredPlayheadLeft, isHoveringRuler, options.hoveredFrame, options.isScrubbing, playheadLeft, range.endFrame, range.startFrame, rangeLeft, rangeRight, scrubFrame]);
+  const indicator = useMemo(() => activeReadout
     ? {
         left: activeReadout.left,
         width: activeReadout.mode === "hover" ? 1 : 2,
@@ -94,8 +94,8 @@ export function useTimelinePlaybackUIController(options: Options) {
         background: "rgba(223, 82, 70, 0.95)",
         zIndex: 8,
         boxShadow: "0 0 0 1px rgba(223, 82, 70, 0.18)",
-      };
-  const ruler: TimelineRulerViewModel = {
+      }, [activeReadout, playheadLeft]);
+  const ruler: TimelineRulerViewModel = useMemo(() => ({
     contentWidth,
     pxPerFrame,
     frames: options.selectedMeta
@@ -127,7 +127,22 @@ export function useTimelinePlaybackUIController(options: Options) {
       options.selectedMeta?.frameRate ?? 1,
       "timeline"
     ),
-  };
+  }), [
+    activeReadout,
+    activeResizeHandle,
+    contentWidth,
+    durationFrames,
+    hoveredPlayheadLeft,
+    indicator,
+    options,
+    playheadLeft,
+    pxPerFrame,
+    range.endFrame,
+    range.startFrame,
+    rangeLeft,
+    rangeRight,
+    rangeWidth,
+  ]);
 
   useLayoutEffect(() => {
     const target = rulerRef.current;
@@ -252,6 +267,23 @@ export function useTimelinePlaybackUIController(options: Options) {
     if (parsed !== null) options.duration.updateDuration(parsed);
   }, [options.duration, options.selectedMeta?.frameRate]);
 
+  const commands = useMemo(() => ({
+    reset: options.playbackCommands.reset,
+    play: options.playbackCommands.play,
+    pause: options.playbackCommands.pause,
+    togglePlayback: options.playbackCommands.togglePlayback,
+    stepBackward: options.playbackCommands.stepBackward,
+    stepForward: options.playbackCommands.stepForward,
+    setHoveredFrameFromPointer,
+    leaveRuler,
+    beginScrub,
+    beginRangeResize,
+    moveRangeResize,
+    endRangeResize,
+    commitRangeDuration,
+    commitTimelineDuration,
+  }), [beginRangeResize, beginScrub, commitRangeDuration, commitTimelineDuration, endRangeResize, leaveRuler, moveRangeResize, options.playbackCommands, setHoveredFrameFromPointer]);
+
   return {
     rulerRef,
     ruler,
@@ -260,21 +292,6 @@ export function useTimelinePlaybackUIController(options: Options) {
     contentWidth,
     playheadLeft,
     hoveredPlayheadLeft,
-    commands: {
-      reset: options.playbackCommands.reset,
-      play: options.playbackCommands.play,
-      pause: options.playbackCommands.pause,
-      togglePlayback: options.playbackCommands.togglePlayback,
-      stepBackward: options.playbackCommands.stepBackward,
-      stepForward: options.playbackCommands.stepForward,
-      setHoveredFrameFromPointer,
-      leaveRuler,
-      beginScrub,
-      beginRangeResize,
-      moveRangeResize,
-      endRangeResize,
-      commitRangeDuration,
-      commitTimelineDuration,
-    },
+    commands,
   };
 }

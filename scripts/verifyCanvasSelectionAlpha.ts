@@ -71,8 +71,17 @@ assert.notEqual(
 );
 assert.notEqual(
   baseFingerprint,
+  fingerprint({ ...baseLayer, sourceFingerprint: "psd-pixels-b" })
+);
+assert.notEqual(
+  baseFingerprint,
+  fingerprint({ ...baseLayer, logicalSize: { width: 3, height: 2 } })
+);
+assert.equal(
+  baseFingerprint,
   fingerprint({ ...baseLayer, opacity: 99 })
 );
+assert.notEqual(baseFingerprint, fingerprint({ ...baseLayer, opacity: 0 }));
 assert.notEqual(
   baseFingerprint,
   fingerprint({ ...baseLayer, visible: false })
@@ -93,12 +102,26 @@ const subComp: SelectionSubCompositionAlphaDescriptor = {
   ],
 };
 const subCompFingerprint = fingerprint(subComp);
+assert.equal(subCompFingerprint, fingerprint({ ...subComp, opacity: 1 }));
+assert.notEqual(subCompFingerprint, fingerprint({ ...subComp, opacity: 0 }));
 assert.notEqual(
   subCompFingerprint,
   fingerprint({
     ...subComp,
     orderedChildren: [...subComp.orderedChildren].reverse(),
   })
+);
+assert.notEqual(
+  subCompFingerprint,
+  fingerprint({ ...subComp, sourceRevision: "psd-refresh-2" })
+);
+assert.notEqual(
+  subCompFingerprint,
+  fingerprint({ ...subComp, frameVisualKey: "frame-2" })
+);
+assert.notEqual(
+  subCompFingerprint,
+  fingerprint({ ...subComp, logicalSize: { width: 11, height: 10 } })
 );
 assert.notEqual(
   subCompFingerprint,
@@ -180,7 +203,7 @@ if (first.status === "ready" && duplicate.status === "ready") {
     if (transient.status === "ready") {
       provider.release(transient.entry.visualFingerprint);
       provider.get({ ...baseLayer, opacity: 55 });
-      assert.equal(buildCount, 4);
+      assert.equal(buildCount, 3);
     }
   }
 }
@@ -213,10 +236,10 @@ const boundedProvider = createSelectionSourceAlphaProvider({
 boundedProvider.get({ ...baseLayer, opacity: 100 });
 boundedProvider.get({ ...baseLayer, opacity: 90 });
 boundedProvider.get({ ...baseLayer, opacity: 80 });
-assert.equal(boundedBuildCount, 3);
-assert.ok(boundedEvents.some((event) => event.type === "release"));
+assert.equal(boundedBuildCount, 1);
+assert.equal(boundedEvents.filter((event) => event.type === "reuse").length, 2);
 boundedProvider.get({ ...baseLayer, opacity: 100 });
-assert.equal(boundedBuildCount, 4, "the oldest third entry must have been evicted");
+assert.equal(boundedBuildCount, 1);
 boundedProvider.dispose();
 
 let failureBuildCount = 0;
@@ -365,8 +388,42 @@ readbackCount = 0;
 const layerRaster = rasterAdapter.build(halfOpacityLayer, "layer-raster");
 assert.equal(layerRaster.status, "ready");
 if (layerRaster.status === "ready") {
-  assert.equal(layerRaster.entry.alphaBytes[0], 100);
-  assert.equal(layerRaster.entry.sample(0, 0), 100);
+  assert.equal(layerRaster.entry.alphaBytes[0], 200);
+  assert.equal(layerRaster.entry.sample(0, 0), 200);
+}
+assert.equal(readbackCount, 1);
+
+readbackCount = 0;
+const rootOpacityProvider = createSelectionSourceAlphaProvider({
+  adapter: rasterAdapter,
+});
+const opaqueRoot = rootOpacityProvider.get({ ...halfOpacityLayer, opacity: 100 });
+assert.equal(opaqueRoot.status, "ready");
+for (let opacity = 99; opacity >= 1; opacity -= 1) {
+  const positiveRoot = rootOpacityProvider.get({ ...halfOpacityLayer, opacity });
+  assert.equal(positiveRoot.status, "ready");
+  if (opaqueRoot.status === "ready" && positiveRoot.status === "ready") {
+    assert.equal(opaqueRoot.entry, positiveRoot.entry);
+    assert.equal(positiveRoot.entry.sample(0, 0) > SELECTION_ALPHA_THRESHOLD, true);
+  }
+}
+if (opaqueRoot.status === "ready") {
+  assert.equal(opaqueRoot.entry.sample(0, 0) > SELECTION_ALPHA_THRESHOLD, true);
+}
+assert.equal(readbackCount, 1);
+assert.equal(
+  rootOpacityProvider.get({ ...halfOpacityLayer, opacity: 0 }).status,
+  "unavailable"
+);
+assert.equal(
+  rootOpacityProvider.get({ ...halfOpacityLayer, visible: false }).status,
+  "unavailable"
+);
+assert.equal(readbackCount, 1);
+const restoredRoot = rootOpacityProvider.get({ ...halfOpacityLayer, opacity: 1 });
+assert.equal(restoredRoot.status, "ready");
+if (opaqueRoot.status === "ready" && restoredRoot.status === "ready") {
+  assert.equal(restoredRoot.entry, opaqueRoot.entry);
 }
 assert.equal(readbackCount, 1);
 
@@ -399,6 +456,20 @@ if (compositionRaster.status === "ready") {
   assert.equal(compositionRaster.entry.alphaBytes[0], 128);
 }
 assert.equal(readbackCount, 1, "only the final root surface may be read back");
+
+readbackCount = 0;
+const rootCompositionProvider = createSelectionSourceAlphaProvider({
+  adapter: rasterAdapter,
+});
+const fullComposition = rootCompositionProvider.get(rootComposition);
+const dimComposition = rootCompositionProvider.get({ ...rootComposition, opacity: 1 });
+assert.equal(fullComposition.status, "ready");
+assert.equal(dimComposition.status, "ready");
+if (fullComposition.status === "ready" && dimComposition.status === "ready") {
+  assert.equal(fullComposition.entry, dimComposition.entry);
+  assert.equal(fullComposition.entry.alphaBytes[0], 128);
+}
+assert.equal(readbackCount, 1);
 
 readbackCount = 0;
 const taintedRaster = rasterAdapter.build(

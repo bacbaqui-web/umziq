@@ -76,10 +76,11 @@ export function useCanvasAnchorTransformController(
         if (!context) return;
         const pointer = resolvePreviewPointer(context);
         const command = resolveDraftAnchorTransformCommand(baseSnapshot, pointer);
-        draftRuntime.updateTransform({
+        const snapshot = draftRuntime.updateTransform({
           anchor: command.anchor,
           transformOffset: command.transformOffset,
         });
+        if (!snapshot) return;
         latestAnchorCommand = command;
       },
       onCommit: () => {

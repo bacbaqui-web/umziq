@@ -1,7 +1,10 @@
 export { useProjectPsdEngine } from "@/engines/project/useProjectPsdEngine";
 export { useProjectCommands, type ProjectCommands } from "@/engines/project/useProjectCommands";
 export { useProjectHistory, type ProjectHistory } from "@/engines/project/useProjectHistory";
-export { useProjectSelectionModel } from "@/engines/project/useProjectSelectionModel";
+export {
+  createProjectSelectionModelDeriver,
+  useProjectSelectionModel,
+} from "@/engines/project/useProjectSelectionModel";
 export { reorderCompositionState } from "@/engines/project/helpers/compositionTreeHelpers";
 export {
   DEFAULT_DURATION_FRAMES,

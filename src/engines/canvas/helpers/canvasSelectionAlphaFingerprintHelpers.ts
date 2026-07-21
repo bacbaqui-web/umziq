@@ -17,6 +17,12 @@ function normalizeOpacity(value: number) {
   return normalizeNumber(Math.min(100, Math.max(0, value)));
 }
 
+function buildOpacitySignature(value: number, isRoot: boolean) {
+  const opacity = normalizeOpacity(value);
+  if (!isRoot || opacity === null || opacity <= 0) return opacity;
+  return "positive-root-opacity";
+}
+
 function buildTransformSignature(
   transform: SelectionSubCompositionAlphaChild["transform"]
 ) {
@@ -35,7 +41,8 @@ function buildTransformSignature(
 
 function buildDescriptorSignature(
   descriptor: SelectionSourceAlphaDescriptor,
-  getCanvasToken: SelectionAlphaCanvasTokenResolver
+  getCanvasToken: SelectionAlphaCanvasTokenResolver,
+  isRoot: boolean
 ): unknown[] {
   const common = [
     descriptor.sourceFingerprint,
@@ -43,7 +50,7 @@ function buildDescriptorSignature(
     descriptor.frameVisualKey,
     normalizeNumber(descriptor.logicalSize.width),
     normalizeNumber(descriptor.logicalSize.height),
-    normalizeOpacity(descriptor.opacity),
+    buildOpacitySignature(descriptor.opacity, isRoot),
     descriptor.visible,
   ];
 
@@ -61,7 +68,7 @@ function buildDescriptorSignature(
     "subcomp-alpha-v1",
     ...common,
     descriptor.orderedChildren.map((child) => [
-      buildDescriptorSignature(child.source, getCanvasToken),
+      buildDescriptorSignature(child.source, getCanvasToken, false),
       buildTransformSignature(child.transform),
     ]),
   ];
@@ -71,5 +78,5 @@ export function buildSelectionSourceAlphaFingerprint(
   descriptor: SelectionSourceAlphaDescriptor,
   getCanvasToken: SelectionAlphaCanvasTokenResolver
 ) {
-  return JSON.stringify(buildDescriptorSignature(descriptor, getCanvasToken));
+  return JSON.stringify(buildDescriptorSignature(descriptor, getCanvasToken, true));
 }

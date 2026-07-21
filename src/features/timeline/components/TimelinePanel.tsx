@@ -1,9 +1,10 @@
+import { memo } from "react";
 import TimelineHeader from "@/features/timeline/components/TimelineHeader";
 import TimelineRuler from "@/features/timeline/components/TimelineRuler";
 import TimelineTrackRows from "@/features/timeline/components/TimelineTrackRows";
 import type { TimelineEngineViewProps as TimelinePanelProps } from "@/engines/timeline";
 
-export default function TimelinePanel(props: TimelinePanelProps) {
+function TimelinePanel(props: TimelinePanelProps) {
   const { readModel, commands, interactions, rulerRef, switcherRef, scrollContainerRef } = props;
 
   return (
@@ -55,3 +56,5 @@ export default function TimelinePanel(props: TimelinePanelProps) {
     </div>
   );
 }
+
+export default memo(TimelinePanel);

@@ -34,12 +34,13 @@ export function useCanvasRotationDragController(
           if (!nextContext) return;
           const result = calculateRotationDragUpdate(nextContext, drag, sample.shiftKey);
           if (!result) return;
+          const snapshot = draftRuntime.updateTransform({
+            rotation: result.nextRotation,
+          });
+          if (!snapshot) return;
           latestRotation = result.nextRotation;
           options.drafts.setRotation(result.nextRotation);
           options.state.setRotationHandleReadout(result.readout);
-          draftRuntime.updateTransform({
-            rotation: result.nextRotation,
-          });
         },
         onCommit: () => {
           if (latestRotation !== null) {

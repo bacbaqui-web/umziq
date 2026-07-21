@@ -21,7 +21,12 @@ function normalizeVector(x: number, y: number) {
   };
 }
 
-type BuildPreviewOverlayViewModelOptions = {
+type BuildPreviewGizmoGeometryViewModelOptions = {
+  selection: CanvasSelectionReadModel;
+  currentOpacity: number;
+};
+
+type BuildCanvasMotionPathProjectionOptions = {
   viewportScale: number;
   viewportOffset: {
     x: number;
@@ -32,25 +37,23 @@ type BuildPreviewOverlayViewModelOptions = {
     height: number;
   };
   selectedMeta: CompositionMeta;
-  selection: CanvasSelectionReadModel;
-  motionPath: PreviewMotionPathPoint[];
-  currentOpacity: number;
+  motionPath: readonly PreviewMotionPathPoint[];
 };
 
-export function buildPreviewOverlayViewModel({
-  viewportScale,
-  viewportOffset,
-  previewSize,
-  selectedMeta,
+export type PreviewGizmoGeometryViewModel = Omit<
+  PreviewOverlayViewModel,
+  "previewMotionPath" | "motionPathPolyline"
+>;
+
+export type CanvasMotionPathProjectionViewModel = Pick<
+  PreviewOverlayViewModel,
+  "previewMotionPath" | "motionPathPolyline"
+>;
+
+export function buildPreviewGizmoGeometryViewModel({
   selection,
-  motionPath,
   currentOpacity,
-}: BuildPreviewOverlayViewModelOptions): PreviewOverlayViewModel {
-  const toViewportPoint = (x: number, y: number) =>
-    worldPointToCanvasPoint(
-      { meta: selectedMeta, previewSize, viewportScale, viewportOffset },
-      { x, y }
-    );
+}: BuildPreviewGizmoGeometryViewModelOptions): PreviewGizmoGeometryViewModel {
   const previewCorners = selection.previewCorners;
   const localXAxis = previewCorners
     ? normalizeVector(
@@ -216,10 +219,6 @@ export function buildPreviewOverlayViewModel({
         },
       ]
     : [];
-  const previewMotionPath = motionPath.map((point) => ({
-    ...point,
-    point: toViewportPoint(point.x, point.y),
-  }));
   const protectedControlPoints = previewAnchor
     ? [
         previewAnchor,
@@ -230,9 +229,6 @@ export function buildPreviewOverlayViewModel({
       ]
     : [];
   const polygonPoints = selection.polygonPoints;
-  const motionPathPolyline = previewMotionPath
-    .map(({ point }) => `${point.x},${point.y}`)
-    .join(" ");
 
   return {
     previewCorners,
@@ -241,10 +237,40 @@ export function buildPreviewOverlayViewModel({
     previewOpacityHandle,
     previewMoveHandle,
     previewScaleHandles,
-    previewMotionPath,
     protectedControlPoints,
     polygonPoints,
-    motionPathPolyline,
+  };
+}
+
+export function buildCanvasMotionPathProjectionViewModel({
+  viewportScale,
+  viewportOffset,
+  previewSize,
+  selectedMeta,
+  motionPath,
+}: BuildCanvasMotionPathProjectionOptions): CanvasMotionPathProjectionViewModel {
+  const previewMotionPath = motionPath.map((point) => ({
+    ...point,
+    point: worldPointToCanvasPoint(
+      { meta: selectedMeta, previewSize, viewportScale, viewportOffset },
+      { x: point.x, y: point.y }
+    ),
+  }));
+  return {
+    previewMotionPath,
+    motionPathPolyline: previewMotionPath
+      .map(({ point }) => `${point.x},${point.y}`)
+      .join(" "),
+  };
+}
+
+export function buildPreviewOverlayViewModel(
+  options: BuildPreviewGizmoGeometryViewModelOptions &
+    BuildCanvasMotionPathProjectionOptions
+): PreviewOverlayViewModel {
+  return {
+    ...buildPreviewGizmoGeometryViewModel(options),
+    ...buildCanvasMotionPathProjectionViewModel(options),
   };
 }
 

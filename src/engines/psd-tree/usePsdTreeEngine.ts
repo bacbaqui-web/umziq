@@ -24,14 +24,40 @@ type UsePsdTreeEngineOptions = {
 export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions) {
   const state = usePsdTreeState();
   const { setRefreshSummary } = state;
-  const selectionController = useTreeSelectionController(selection);
-  const sourceActions = useSourceActionController({ ...project, state });
-  const importDialog = usePsdImportDialogController({ project, state });
+  const selectionPort = useMemo(
+    () => ({ selectComposition: selection.selectComposition }),
+    [selection.selectComposition]
+  );
+  const projectPort = useMemo(
+    () => ({
+      preparePsdImport: project.preparePsdImport,
+      confirmPsdImport: project.confirmPsdImport,
+      cancelPsdImport: project.cancelPsdImport,
+      refreshMainComposition: project.refreshMainComposition,
+      removeMainComposition: project.removeMainComposition,
+      reorderMainCompositions: project.reorderMainCompositions,
+    }),
+    [
+      project.cancelPsdImport,
+      project.confirmPsdImport,
+      project.preparePsdImport,
+      project.refreshMainComposition,
+      project.removeMainComposition,
+      project.reorderMainCompositions,
+    ]
+  );
+  const selectionController = useTreeSelectionController(selectionPort);
+  const sourceActions = useSourceActionController({ ...projectPort, state });
+  const importDialog = usePsdImportDialogController({ project: projectPort, state });
   const picker = usePsdPickerController({
     preparePsdSources: importDialog.prepare,
     refreshWithSource: sourceActions.refreshWithSource,
     state,
   });
+  const { selectNode } = selectionController;
+  const { requestRefresh: requestSourceRefresh, removeMain } = sourceActions;
+  const { cancel: cancelImport, confirm: confirmImport, moveNode: moveImportNode } = importDialog;
+  const { importFromPicker, refreshFromPicker, handleFileInputChange } = picker;
   const mainCompositionIds = useMemo(
     () =>
       project.rootCompositions
@@ -41,7 +67,7 @@ export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions
   );
   const reorder = useTreeReorderController({
     mainCompositionIds,
-    reorderMainCompositions: project.reorderMainCompositions,
+    reorderMainCompositions: projectPort.reorderMainCompositions,
     state,
   });
   const nodes = useMemo(
@@ -57,17 +83,20 @@ export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions
 
   const requestRefresh = useCallback(
     async (compId: string) => {
-      const result = await sourceActions.requestRefresh(compId);
-      if (result === "needsSource") await picker.refreshFromPicker(compId);
+      const result = await requestSourceRefresh(compId);
+      if (result === "needsSource") await refreshFromPicker(compId);
     },
-    [picker, sourceActions]
+    [refreshFromPicker, requestSourceRefresh]
   );
   const dismissRefreshSummary = useCallback(
     () => setRefreshSummary(null),
     [setRefreshSummary]
   );
 
-  const viewProps: PsdTreeViewProps = {
+  const onImportClick = useCallback(() => void importFromPicker(), [importFromPicker]);
+  const onRefreshMainComp = useCallback((compId: string) => void requestRefresh(compId), [requestRefresh]);
+  const onConfirmImport = useCallback(() => void confirmImport(), [confirmImport]);
+  const viewProps: PsdTreeViewProps = useMemo(() => ({
     nodes,
     fileInputRef: state.fileInputRef,
     draggedMainCompId: state.draggedMainCompId,
@@ -76,20 +105,42 @@ export function usePsdTreeEngine({ project, selection }: UsePsdTreeEngineOptions
     importPreviewStatus: state.importPreviewStatus,
     importPreviewError: state.importPreviewError,
     refreshSummary,
-    onImportClick: () => void picker.importFromPicker(),
-    onFileInputChange: picker.handleFileInputChange,
-    onSelectNode: selectionController.selectNode,
-    onRefreshMainComp: (compId) => void requestRefresh(compId),
-    onDeleteMainComp: sourceActions.removeMain,
+    onImportClick,
+    onFileInputChange: handleFileInputChange,
+    onSelectNode: selectNode,
+    onRefreshMainComp,
+    onDeleteMainComp: removeMain,
     onBeginMainDrag: reorder.beginDrag,
     onDragOverMain: reorder.dragOver,
     onDropMain: reorder.drop,
     onEndMainDrag: reorder.endDrag,
-    onCancelImport: importDialog.cancel,
-    onConfirmImport: () => void importDialog.confirm(),
-    onMoveImportNode: importDialog.moveNode,
+    onCancelImport: cancelImport,
+    onConfirmImport,
+    onMoveImportNode: moveImportNode,
     onDismissRefreshSummary: dismissRefreshSummary,
-  };
+  }), [
+    dismissRefreshSummary,
+    cancelImport,
+    handleFileInputChange,
+    moveImportNode,
+    nodes,
+    onConfirmImport,
+    onImportClick,
+    onRefreshMainComp,
+    refreshSummary,
+    reorder.beginDrag,
+    reorder.dragOver,
+    reorder.drop,
+    reorder.endDrag,
+    removeMain,
+    selectNode,
+    state.draggedMainCompId,
+    state.dropTarget,
+    state.fileInputRef,
+    state.importPlan,
+    state.importPreviewError,
+    state.importPreviewStatus,
+  ]);
 
   return { viewProps };
 }

@@ -10,7 +10,11 @@ import type { RenderItem } from "@/engines/project";
 import type { EvaluatedScene } from "@/engines/playback-render";
 import { createCanvasSelectionAlphaBrowserAdapter } from "@/engines/canvas/adapters/canvasSelectionAlphaBrowserAdapter";
 import { createCanvasSelectionGlowRenderer } from "@/engines/canvas/adapters/canvasSelectionGlowBrowserAdapter";
-import { buildCanvasDirectSelectionCandidates } from "@/engines/canvas/helpers/canvasDirectSelectionCandidateHelpers";
+import {
+  applyCanvasDirectSelectionDraft,
+  buildCanvasDirectSelectionStaticCandidates,
+  buildCanvasDirectSelectionViewportCandidates,
+} from "@/engines/canvas/helpers/canvasDirectSelectionCandidateHelpers";
 import {
   hitCanvasDirectSelection,
   resolveCanvasDirectSelectionCompositionEntry,
@@ -107,30 +111,46 @@ export function useCanvasDirectSelectionController(
     previousAlphaSourceSnapshotRef.current = alphaSourceSnapshot;
   });
 
-  const candidates = useMemo(
-    () => buildCanvasDirectSelectionCandidates({
+  const staticCandidates = useMemo(
+    () => buildCanvasDirectSelectionStaticCandidates({
       evaluatedScene: options.evaluatedScene,
       renderItems: options.renderItems,
       timelineItems: options.timelineItems,
       layersById: options.layersById,
       compositionsById: options.compositionsById,
-      metaByCompId: options.metaByCompId,
+    }),
+    [
+      options.compositionsById,
+      options.evaluatedScene,
+      options.layersById,
+      options.renderItems,
+      options.timelineItems,
+    ]
+  );
+  const viewportCandidates = useMemo(
+    () => buildCanvasDirectSelectionViewportCandidates({
+      staticCandidates,
+      viewportScale: options.viewportScale,
+      viewportOffset: options.viewportOffset,
+    }),
+    [staticCandidates, options.viewportOffset, options.viewportScale]
+  );
+  const candidates = useMemo(
+    () => applyCanvasDirectSelectionDraft({
+      staticCandidates,
+      viewportCandidates,
       viewportScale: options.viewportScale,
       viewportOffset: options.viewportOffset,
       selectedTimelineItem: options.selectedTimelineItem,
       draftTransformSnapshot: options.draftTransformSnapshot,
     }),
     [
-      options.compositionsById,
       options.draftTransformSnapshot,
-      options.evaluatedScene,
-      options.layersById,
-      options.metaByCompId,
-      options.renderItems,
       options.selectedTimelineItem,
-      options.timelineItems,
       options.viewportOffset,
       options.viewportScale,
+      staticCandidates,
+      viewportCandidates,
     ]
   );
   const selectedGlowCandidate = useMemo(

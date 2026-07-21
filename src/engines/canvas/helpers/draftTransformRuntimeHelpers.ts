@@ -64,6 +64,39 @@ export type DraftOverlayRuntimeValues = Pick<
   | "draft"
 >;
 
+function arePositionsEqual(left: Position, right: Position) {
+  return left.x === right.x && left.y === right.y;
+}
+
+export function areDraftTransformSnapshotsSemanticallyEqual(
+  left: DraftTransformSnapshot | null,
+  right: DraftTransformSnapshot
+) {
+  if (!left) return false;
+  const leftChanged = left.draft.changed;
+  const rightChanged = right.draft.changed;
+  return left.target.kind === right.target.kind
+    && left.target.id === right.target.id
+    && left.localFrame === right.localFrame
+    && left.sourceWidth === right.sourceWidth
+    && left.sourceHeight === right.sourceHeight
+    && left.canvasWidth === right.canvasWidth
+    && left.canvasHeight === right.canvasHeight
+    && arePositionsEqual(left.position, right.position)
+    && arePositionsEqual(left.scale, right.scale)
+    && left.rotation === right.rotation
+    && left.opacity === right.opacity
+    && arePositionsEqual(left.anchor, right.anchor)
+    && arePositionsEqual(left.transformOffset, right.transformOffset)
+    && left.draft.active === right.draft.active
+    && leftChanged.position === rightChanged.position
+    && leftChanged.scale === rightChanged.scale
+    && leftChanged.rotation === rightChanged.rotation
+    && leftChanged.opacity === rightChanged.opacity
+    && leftChanged.anchor === rightChanged.anchor
+    && leftChanged.transformOffset === rightChanged.transformOffset;
+}
+
 type ResolveDraftTransformSnapshotOptions = {
   target: TransformTargetSelection;
   localFrame: number;
