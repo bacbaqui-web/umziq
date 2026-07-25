@@ -9,22 +9,24 @@ type Props = {
   commands: TimelineCommands;
   interactions: TimelineInteractionCommands;
   switcherRef: RefObject<HTMLDivElement | null>;
+  switcherTriggerRef: RefObject<HTMLButtonElement | null>;
 };
 
-export default function TimelineHeader({ viewModel, commands, interactions, switcherRef }: Props) {
+export default function TimelineHeader({ viewModel, commands, interactions, switcherRef, switcherTriggerRef }: Props) {
   if (!viewModel.visible) return null;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, minWidth: 0 }}>
       <div ref={switcherRef} style={{ position: "relative", minWidth: 0, flex: 1 }}>
         <TimelineSelectionBreadcrumb
-          path={viewModel.breadcrumbPath}
+          segments={viewModel.breadcrumbSegments}
+          selectionLabel={viewModel.selectionLabel}
           isOpen={viewModel.switcher.isOpen}
-          onClick={commands.toggleCompositionSwitcher}
+          triggerRef={switcherTriggerRef}
+          onSelectComposition={commands.selectComposition}
+          onToggle={commands.toggleCompositionSwitcher}
         />
         {viewModel.switcher.isOpen && (
           <TimelineCompositionSwitcher
-            parentName={viewModel.switcher.parentName}
-            parentIsCurrent={viewModel.switcher.parentIsCurrent}
             items={viewModel.switcher.items}
             onSelectComposition={commands.selectComposition}
           />

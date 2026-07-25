@@ -1,5 +1,6 @@
 import { resolveCanvasPointerToComposition } from "@/engines/canvas/helpers/canvasViewportHelpers";
-import type { CompositionMeta, Position, Scale } from "@/models";
+import type { Position, Scale } from "@/models";
+import type { CanvasSceneSize } from "@/engines/canvas/models/canvasEngineModel";
 import type {
   PreviewOverlay,
   ScaleHandleDirection,
@@ -7,7 +8,7 @@ import type {
 
 export type PreviewPointerContext = {
   overlayBounds: DOMRect;
-  selectedMeta: CompositionMeta;
+  selectedMeta: CanvasSceneSize;
   previewSize: {
     width: number;
     height: number;

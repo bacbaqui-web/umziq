@@ -1,5 +1,6 @@
 import type {
   AnimatableProperty,
+  LayerDocumentType,
   ModifierNumberField,
   ModifierType,
   Position,
@@ -52,12 +53,49 @@ export type PropertiesPropertyRowViewModel = {
   enabled: boolean;
   visible: boolean;
   editable: boolean;
+  trackEditable: boolean;
   trackBadge: "On" | "Off";
   hasKeyframeAtCurrentFrame: boolean;
   isSelectedKeyframe: boolean;
   scaleLinked: boolean | null;
   inputs: PropertiesNumericInputViewModel[];
   tokens: PropertiesVisualTokens;
+};
+
+export type PropertiesSourceHeaderViewModel = {
+  itemId: string;
+  sourceId: string;
+  sourceName: string;
+  itemAlias: string | null;
+  displayName: string;
+  type: LayerDocumentType;
+  typeLabel: string;
+  entityKind: "layer" | "composition";
+  availabilityLabel: string;
+};
+
+export type PropertiesSourceDetailFieldViewModel = {
+  label: string;
+  value: string;
+};
+
+export type PropertiesSourceDetailViewModel = {
+  title: string;
+  description: string;
+  fields: PropertiesSourceDetailFieldViewModel[];
+};
+
+export type PropertiesCapabilityStatus =
+  | "editable"
+  | "read-only"
+  | "unsupported";
+
+export type PropertiesCapabilityViewModel = {
+  key: "transform" | "animation" | "content";
+  label: string;
+  status: PropertiesCapabilityStatus;
+  statusLabel: string;
+  description: string;
 };
 
 export type PropertiesTransformOriginViewModel = {
@@ -119,6 +157,11 @@ export type PropertiesReadModel = {
   hasSelectedComposition: boolean;
   info: PropertiesInfoViewModel | null;
   targetName: string | null;
+  targetEntityKind: "layer" | "composition" | null;
+  sourceHeader: PropertiesSourceHeaderViewModel | null;
+  sourceDetail: PropertiesSourceDetailViewModel | null;
+  capabilities: PropertiesCapabilityViewModel[];
+  transformSectionVisible: boolean;
   currentTimeText: string;
   currentValues: PropertiesResolvedValues;
   rows: PropertiesPropertyRowViewModel[];

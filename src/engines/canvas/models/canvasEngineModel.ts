@@ -1,9 +1,13 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
-import type { CompositionMeta, Position } from "@/models";
+import type { Position } from "@/models";
 import type { PreviewGuideGeometry } from "@/engines/canvas/helpers/canvasGuideHelpers";
 import type { PreviewOverlay } from "@/engines/canvas/models/canvasViewModel";
 
 export type CanvasSize = { width: number; height: number };
+export type CanvasSceneSize = {
+  readonly width: number;
+  readonly height: number;
+};
 
 export type CanvasViewportStatePort = {
   previewZoom: number;
@@ -84,5 +88,5 @@ export type CanvasDomRefs = {
 
 export type CanvasViewportProjectReadPort = {
   selectedCompId: string;
-  selectedMeta: CompositionMeta | null;
+  selectedMeta: CanvasSceneSize | null;
 };

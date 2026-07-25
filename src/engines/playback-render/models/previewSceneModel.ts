@@ -1,15 +1,24 @@
 import type {
+  EditorPlaceholderDescriptor,
+} from "@/engines/playback-render/models/editorPlaceholderModel";
+import type {
   EvaluatedSceneSize,
   EvaluatedSceneTransform,
 } from "@/engines/playback-render/models/evaluatedSceneModel";
+import type { LayerDocumentType } from "@/models";
 
-export type PreviewNodeKind = "layer" | "composition";
+export type PreviewNodeKind = "layer" | "composition" | "placeholder";
 
 export type BasePreviewNode = {
   readonly id: string;
   readonly kind: PreviewNodeKind;
-  readonly sourceId: string;
-  readonly renderItemId: string;
+  readonly layerDocumentId?: string;
+  readonly itemId: string;
+  readonly sourceId: string | null;
+  readonly sourceResourceCacheKey?: string | null;
+  readonly layerResultCacheKey?: string;
+  readonly sourceType: LayerDocumentType;
+  readonly renderItemId: string | null;
   readonly parentId: string | null;
   readonly children: PreviewNode[];
   readonly transform: EvaluatedSceneTransform;
@@ -23,6 +32,7 @@ export type BasePreviewNode = {
 
 export type LayerPreviewNode = BasePreviewNode & {
   readonly kind: "layer";
+  readonly renderItemId: string;
   readonly drawableId: string;
   readonly layerId?: string;
   readonly children: [];
@@ -30,11 +40,23 @@ export type LayerPreviewNode = BasePreviewNode & {
 
 export type CompositionPreviewNode = BasePreviewNode & {
   readonly kind: "composition";
+  readonly renderItemId: string;
   readonly targetCompId: string;
   readonly children: PreviewNode[];
 };
 
-export type PreviewNode = LayerPreviewNode | CompositionPreviewNode;
+export type PlaceholderPreviewNode = BasePreviewNode & {
+  readonly kind: "placeholder";
+  readonly sourceType: "drawing" | "text" | "audio";
+  readonly renderItemId: null;
+  readonly placeholder: EditorPlaceholderDescriptor;
+  readonly children: [];
+};
+
+export type PreviewNode =
+  | LayerPreviewNode
+  | CompositionPreviewNode
+  | PlaceholderPreviewNode;
 
 export type PreviewScene = {
   readonly compositionId: string;

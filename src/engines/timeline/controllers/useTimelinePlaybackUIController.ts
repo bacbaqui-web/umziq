@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { clampPlaybackFrame, type PlaybackCommands, type PlaybackReadModel } from "@/engines/playback-render";
-import type { CompositionMeta } from "@/models";
+import { clampPlaybackFrame } from "@/engines/playback-render";
 import {
+  buildTimelineDurationViewModel,
   buildTimelineRulerFrames,
   parseTimelineDurationParts,
   resolveTimelinePxPerFrame,
 } from "@/engines/timeline/helpers/timelineLayoutHelpers";
-import { buildTimelineDurationViewModel } from "@/engines/timeline/helpers/timelineViewModelHelpers";
 import type { TimelineRulerViewModel } from "@/engines/timeline/models/timelineViewModel";
 
 type RangeHandle = "start" | "end";
@@ -17,11 +16,40 @@ type RangeDrag = {
   initialEndFrame: number;
 };
 
+export type TimelinePlaybackUiReadPort = {
+  currentFrame: number;
+  playheadFrame: number;
+  isPlaying: boolean;
+  playbackRange: {
+    startFrame: number;
+    endFrame: number;
+  };
+};
+
+export type TimelinePlaybackUiCommandPort = {
+  reset: () => void;
+  play: () => void;
+  pause: () => void;
+  togglePlayback: () => void;
+  stepBackward: () => void;
+  stepForward: () => void;
+  seek: (frame: number) => void;
+  setPlaybackRange: (
+    startFrame: number,
+    endFrame: number
+  ) => void;
+};
+
+export type TimelinePlaybackUiMetadata = {
+  durationFrames: number;
+  frameRate: number;
+};
+
 type Options = {
   defaultPxPerFrame: number;
-  selectedMeta: CompositionMeta | null;
-  playback: PlaybackReadModel;
-  playbackCommands: PlaybackCommands;
+  selectedMeta: TimelinePlaybackUiMetadata | null;
+  playback: TimelinePlaybackUiReadPort;
+  playbackCommands: TimelinePlaybackUiCommandPort;
   hoveredFrame: number | null;
   isScrubbing: boolean;
   setHoveredFrame: (frame: number | null) => void;

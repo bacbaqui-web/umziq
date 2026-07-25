@@ -4,6 +4,9 @@ import type {
   RotationKeyframe,
   ScaleKeyframe,
 } from "@/models";
+export {
+  upsertKeyframeValue,
+} from "@/models/keyframeTrackMutation";
 
 export type SupportedKeyframe =
   | PositionKeyframe
@@ -27,25 +30,6 @@ export function hasKeyframeAtFrame(
 
 export function sortKeyframesByFrame<T extends SupportedKeyframe>(keyframes: readonly T[]) {
   return [...keyframes].sort((a, b) => a.frame - b.frame);
-}
-
-export function upsertKeyframeValue<T extends SupportedKeyframe>(
-  keyframes: readonly T[],
-  frame: number,
-  value: T["value"]
-) {
-  const nextKeyframes = [...keyframes];
-  const existingIndex = nextKeyframes.findIndex((keyframe) => keyframe.frame === frame);
-  const nextKeyframe = { frame, value } as T;
-
-  if (existingIndex >= 0) {
-    nextKeyframes[existingIndex] = nextKeyframe;
-  } else {
-    nextKeyframes.push(nextKeyframe);
-  }
-
-  nextKeyframes.sort((a, b) => a.frame - b.frame);
-  return nextKeyframes;
 }
 
 export function moveKeyframeValue<T extends SupportedKeyframe>(

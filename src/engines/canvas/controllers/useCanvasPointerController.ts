@@ -19,6 +19,10 @@ export function useCanvasPointerController(): CanvasPointerController {
     (session) => schedulerRef.current.start(session),
     []
   );
+  const cancel = useCallback(
+    () => finish("cancel"),
+    [finish]
+  );
 
   useEffect(() => {
     const scheduler = schedulerRef.current;
@@ -48,5 +52,5 @@ export function useCanvasPointerController(): CanvasPointerController {
     };
   }, [finish]);
 
-  return { start, cancel: () => finish("cancel") };
+  return { start, cancel };
 }

@@ -20,3 +20,22 @@ export type RenderDrawableSourceRequest = {
 export type RenderDrawableSourceResolver = (
   request: RenderDrawableSourceRequest
 ) => RenderDrawableSource | null | undefined;
+
+/**
+ * Runtime node-native visual lookup. The Source cache key identifies static
+ * source pixels; the Layer result key is carried separately for frame/Draft
+ * output caches and must not be used as the Source resource identity.
+ */
+export type RenderNodeVisualRequest = {
+  readonly layerDocumentId: string;
+  readonly sourceId: string;
+  readonly sourceResourceCacheKey: string;
+  readonly layerResultCacheKey: string;
+  readonly renderItemId: string;
+  readonly drawableId: string;
+  readonly logicalSize: RenderSize;
+};
+
+export type RenderNodeVisualResolver = (
+  request: RenderNodeVisualRequest
+) => RenderDrawableSource | null | undefined;

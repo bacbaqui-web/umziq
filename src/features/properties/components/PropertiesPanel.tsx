@@ -3,6 +3,9 @@ import PropertiesModifierLibrarySection from "@/features/properties/sections/Pro
 import PropertiesModifierSection from "@/features/properties/sections/PropertiesModifierSection";
 import PropertiesTransformSection from "@/features/properties/sections/PropertiesTransformSection";
 import type { PropertiesPanelProps } from "@/features/properties/types/propertiesPanelTypes";
+import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
+import PropertiesSourceDetails from "@/features/properties/components/PropertiesSourceDetails";
+import PropertiesSourceHeader from "@/features/properties/components/PropertiesSourceHeader";
 
 export default function PropertiesPanel({ readModel, commands }: PropertiesPanelProps) {
   return (
@@ -11,47 +14,68 @@ export default function PropertiesPanel({ readModel, commands }: PropertiesPanel
         <div style={{ fontSize: 13, lineHeight: 1.6 }}>
           {readModel.targetName && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div
-                className="ui-card"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "7px 8px",
-                  borderRadius: 8,
-                  boxShadow: "none",
-                }}
-              >
+              {readModel.sourceHeader ? (
+                <PropertiesSourceHeader
+                  source={readModel.sourceHeader}
+                  currentTimeText={readModel.currentTimeText}
+                />
+              ) : (
                 <div
+                  className="ui-card"
                   style={{
-                    minWidth: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    color: "#f3f7fb",
-                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "7px 8px",
+                    borderRadius: 8,
+                    boxShadow: "none",
                   }}
                 >
-                  {readModel.targetName}
+                  <div
+                    style={{
+                      minWidth: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      color: "#f3f7fb",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {readModel.targetEntityKind && (
+                      <LayerCompositionIcon kind={readModel.targetEntityKind} size={14} />
+                    )}
+                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {readModel.targetName}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      flex: "0 0 auto",
+                      fontSize: 12,
+                      color: "#9db0c3",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {readModel.currentTimeText}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    flex: "0 0 auto",
-                    fontSize: 12,
-                    color: "#9db0c3",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {readModel.currentTimeText}
-                </div>
-              </div>
+              )}
 
-              <PropertiesTransformSection
-                rows={readModel.rows}
-                transformOrigin={readModel.transformOrigin}
-                commands={commands}
+              <PropertiesSourceDetails
+                detail={readModel.sourceDetail}
+                capabilities={readModel.capabilities}
               />
+              {readModel.transformSectionVisible && (
+                <PropertiesTransformSection
+                  rows={readModel.rows}
+                  transformOrigin={readModel.transformOrigin}
+                  commands={commands}
+                />
+              )}
               <PropertiesModifierSection modifiers={readModel.modifiers} commands={commands} />
               <PropertiesModifierLibrarySection
                 viewModel={readModel.modifierLibrary}
@@ -69,7 +93,7 @@ export default function PropertiesPanel({ readModel, commands }: PropertiesPanel
           )}
         </div>
       ) : (
-        <div style={{ color: "#aaa" }}>선택된 컴포지션이 없습니다.</div>
+        <div style={{ color: "#aaa" }}>선택된 그룹이 없습니다.</div>
       )}
     </div>
   );

@@ -1,17 +1,25 @@
-import type { TimelineRow } from "@/engines/timeline/models/timelineViewModel";
+type TimelineLayoutRow = {
+  readonly type: "item" | "property";
+  readonly item: { readonly id: string };
+};
 
 export type TimelineTrackRowLayout = {
   gridRowByDisplayedIndex: Map<number, number>;
   totalTrackGridRows: number;
 };
 
-export function isTimelineGroupEndRow(rows: TimelineRow[], index: number) {
+export function isTimelineGroupEndRow(
+  rows: readonly TimelineLayoutRow[],
+  index: number
+) {
   const current = rows[index];
   const next = rows[index + 1];
   return !next || next.type === "item" || next.item.id !== current.item.id;
 }
 
-export function buildTimelineTrackRowLayout(rows: TimelineRow[]): TimelineTrackRowLayout {
+export function buildTimelineTrackRowLayout(
+  rows: readonly TimelineLayoutRow[]
+): TimelineTrackRowLayout {
   const gridRowByDisplayedIndex = new Map<number, number>();
   let nextGridRow = 2;
   rows.forEach((_, index) => {
@@ -46,6 +54,22 @@ export function splitTimelineDuration(durationFrames: number, frameRate: number)
   return { seconds: Math.floor(safeDuration / safeRate), frames: safeDuration % safeRate };
 }
 
+export function buildTimelineDurationViewModel(
+  valueFrames: number,
+  frameRate: number,
+  accent: "range" | "timeline"
+): TimelineDurationViewModel {
+  return {
+    valueFrames: Math.max(valueFrames, 1),
+    frameRate,
+    ...splitTimelineDuration(valueFrames, frameRate),
+    accent,
+    title: accent === "range"
+      ? "클릭해서 playback range 길이 편집"
+      : "클릭해서 전체 타임라인 길이 편집",
+  };
+}
+
 export function parseTimelineDurationParts(seconds: string, frames: string, frameRate: number) {
   const nextSeconds = Number(seconds.trim());
   const nextFrames = Number(frames.trim());
@@ -66,3 +90,6 @@ export function resolveTimelinePxPerFrame(
     0.001
   );
 }
+import type {
+  TimelineDurationViewModel,
+} from "@/engines/timeline/models/timelineViewModel";

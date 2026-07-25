@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import type {
   PreviewScene,
-  RenderDrawableSourceResolver,
+  RenderNodeVisualResolver,
   RenderFrame,
 } from "@/engines/playback-render";
 import { createRuntimeMetricRecordPort } from "@/engines/canvas/helpers/runtimeMetricsHelpers";
@@ -13,7 +13,6 @@ import type {
   PreviewSurfaceCacheRuntime,
 } from "@/engines/canvas/models/surfaceCacheModel";
 import type { ResolvedPreviewQuality } from "@/engines/canvas/models/previewQualityModel";
-import type { RenderItem } from "@/engines/project";
 import {
   createReusableRenderSurfaceFactory,
   renderFrameToCanvas,
@@ -37,8 +36,7 @@ export function useCanvasRenderController({
   renderFrame,
   previewScene,
   isPreviewDraftActive = false,
-  renderItems,
-  resolveDrawableSource,
+  resolveNodeVisual,
   pixelScale,
   previewQuality,
   metrics,
@@ -49,8 +47,7 @@ export function useCanvasRenderController({
   renderFrame: RenderFrame | null;
   previewScene?: PreviewScene | null;
   isPreviewDraftActive?: boolean;
-  renderItems: readonly RenderItem[];
-  resolveDrawableSource?: RenderDrawableSourceResolver;
+  resolveNodeVisual?: RenderNodeVisualResolver;
   pixelScale: number;
   previewQuality: ResolvedPreviewQuality;
   metrics?: RuntimeMetricsResource;
@@ -93,8 +90,7 @@ export function useCanvasRenderController({
         renderPreviewSceneToCanvas({
           canvas,
           previewScene,
-          renderItems,
-          resolveDrawableSource,
+          resolveNodeVisual,
           pixelScale,
           runtimeMetrics: metricRecordPort,
           compositionCache: activeCompositionCache,
@@ -133,8 +129,7 @@ export function useCanvasRenderController({
     previewScene,
     isPreviewDraftActive,
     renderFrame,
-    renderItems,
-    resolveDrawableSource,
+    resolveNodeVisual,
     metrics,
     metricRecordPort,
     activeCompositionCache,

@@ -1,6 +1,4 @@
-import type { RenderDrawable, RenderItem } from "@/engines/project";
 import type {
-  EvaluatedSceneDrawableNode,
   EvaluatedSceneNode,
 } from "@/engines/playback-render/models/evaluatedSceneModel";
 import type {
@@ -13,83 +11,99 @@ import type {
   AccurateRendererResult,
 } from "@/engines/playback-render/models/rendererModeModel";
 import type {
-  RenderDrawableSource,
-  RenderDrawableSourceResolver,
+  RenderNodeVisualResolver,
 } from "@/engines/playback-render/models/renderSourceModel";
 import { buildRenderTransform } from "@/engines/playback-render/helpers/renderTransformHelpers";
 
-function buildDrawableLookup(renderItems: readonly RenderItem[]) {
-  const lookup = new Map<string, RenderDrawable>();
-  renderItems.forEach((renderItem) => {
-    renderItem.drawables.forEach((drawable) => {
-      lookup.set(`${renderItem.id}:${drawable.id}`, drawable);
-    });
-  });
-  return lookup;
-}
-
-function findDrawable(
-  lookup: ReadonlyMap<string, RenderDrawable>,
-  node: EvaluatedSceneDrawableNode
-) {
-  return lookup.get(`${node.renderItemId}:${node.drawableId}`);
+function getLayerDocumentIdentity(node: EvaluatedSceneNode) {
+  return node.layerDocumentId
+    ? { layerDocumentId: node.layerDocumentId }
+    : {};
 }
 
 function buildDrawableCommand(
-  node: EvaluatedSceneDrawableNode,
-  drawableLookup: ReadonlyMap<string, RenderDrawable>,
-  resolveDrawableSource?: RenderDrawableSourceResolver
+  node: Extract<EvaluatedSceneNode, { type: "drawable" }>,
+  resolveNodeVisual?: RenderNodeVisualResolver
 ): RenderDrawableCommand | null {
-  const drawable = findDrawable(drawableLookup, node);
-  const canvas = drawable?.canvas;
-
-  if (!canvas) {
-    return null;
+  const nodeNativeSource =
+    node.layerDocumentId &&
+    node.sourceId &&
+    node.sourceResourceCacheKey &&
+    node.layerResultCacheKey
+      ? resolveNodeVisual?.({
+          layerDocumentId: node.layerDocumentId,
+          sourceId: node.sourceId,
+          sourceResourceCacheKey:
+            node.sourceResourceCacheKey,
+          layerResultCacheKey:
+            node.layerResultCacheKey,
+          renderItemId: node.renderItemId,
+          drawableId: node.drawableId,
+          logicalSize: node.logicalSize,
+        }) ?? null
+      : null;
+  if (nodeNativeSource) {
+    return {
+      type: "drawable",
+      ...getLayerDocumentIdentity(node),
+      itemId: node.itemId,
+      renderItemId: node.renderItemId,
+      drawableId: node.drawableId,
+      sourceId: node.sourceId,
+      sourceResourceCacheKey:
+        node.sourceResourceCacheKey,
+      layerResultCacheKey:
+        node.layerResultCacheKey,
+      sourceType: node.sourceType,
+      localFrame: node.localFrame,
+      logicalSize: node.logicalSize,
+      source: nodeNativeSource,
+      transform: buildRenderTransform(
+        node.logicalSize.width,
+        node.logicalSize.height,
+        node.transform
+      ),
+      opacity: node.opacity,
+    };
   }
-
-  const originalSource: RenderDrawableSource & { kind: "original" } = {
-    kind: "original",
-    image: canvas,
-    pixelSize: { ...node.logicalSize },
-  };
-  const source = resolveDrawableSource?.({
-    renderItemId: node.renderItemId,
-    drawableId: node.drawableId,
-    sourceId: node.sourceId,
-    logicalSize: node.logicalSize,
-    originalSource,
-  }) ?? originalSource;
-
-  return {
-    type: "drawable",
-    renderItemId: node.renderItemId,
-    drawableId: node.drawableId,
-    sourceId: node.sourceId,
-    localFrame: node.localFrame,
-    logicalSize: node.logicalSize,
-    source,
-    transform: buildRenderTransform(
-      node.logicalSize.width,
-      node.logicalSize.height,
-      node.transform
-    ),
-    opacity: node.opacity,
-  };
+  return null;
 }
 
 function buildRenderCommand(
   node: EvaluatedSceneNode,
-  drawableLookup: ReadonlyMap<string, RenderDrawable>,
-  resolveDrawableSource?: RenderDrawableSourceResolver
+  resolveNodeVisual?: RenderNodeVisualResolver
 ): RenderCommand | null {
   if (node.type === "drawable") {
-    return buildDrawableCommand(node, drawableLookup, resolveDrawableSource);
+    return buildDrawableCommand(node, resolveNodeVisual);
+  }
+
+  if (node.type === "placeholder") {
+    return {
+      type: "placeholder",
+      ...getLayerDocumentIdentity(node),
+      itemId: node.itemId,
+      renderItemId: null,
+      sourceId: node.sourceId,
+      sourceType: node.sourceType,
+      localFrame: node.localFrame,
+      logicalSize: node.logicalSize,
+      transform: buildRenderTransform(
+        node.logicalSize.width,
+        node.logicalSize.height,
+        node.transform
+      ),
+      opacity: node.opacity,
+      placeholder: node.placeholder,
+    };
   }
 
   return {
     type: "composition",
+    ...getLayerDocumentIdentity(node),
+    itemId: node.itemId,
     renderItemId: node.renderItemId,
     sourceId: node.sourceId,
+    sourceType: node.sourceType,
     targetCompId: node.targetCompId,
     localFrame: node.localFrame,
     width: node.size.width,
@@ -102,7 +116,10 @@ function buildRenderCommand(
     opacity: node.opacity,
     children: node.children
       .map((child) =>
-        buildRenderCommand(child, drawableLookup, resolveDrawableSource)
+        buildRenderCommand(
+          child,
+          resolveNodeVisual
+        )
       )
       .filter((command): command is RenderCommand => command !== null),
   };
@@ -110,13 +127,11 @@ function buildRenderCommand(
 
 export function renderAccurateFrame({
   evaluatedScene,
-  renderItems,
-  resolveDrawableSource,
+  resolveNodeVisual,
 }: RenderAccurateFrameOptions): RenderFrame {
-  const drawableLookup = buildDrawableLookup(renderItems);
   const commands = evaluatedScene.nodes
     .map((node) =>
-      buildRenderCommand(node, drawableLookup, resolveDrawableSource)
+      buildRenderCommand(node, resolveNodeVisual)
     )
     .filter((command): command is RenderCommand => command !== null);
 

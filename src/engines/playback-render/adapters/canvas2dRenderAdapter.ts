@@ -4,6 +4,7 @@ import type {
   RenderFrame,
 } from "@/engines/playback-render/models/renderFrameModel";
 import type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
+import { drawEditorPlaceholderToContext } from "@/engines/playback-render/adapters/editorPlaceholderCanvas2dAdapter";
 
 export type Canvas2DRenderContext = Pick<
   CanvasRenderingContext2D,
@@ -17,8 +18,14 @@ export type Canvas2DRenderContext = Pick<
   | "rotate"
   | "scale"
   | "drawImage"
+  | "fillRect"
+  | "fillText"
   | "setTransform"
   | "globalAlpha"
+  | "fillStyle"
+  | "font"
+  | "textAlign"
+  | "textBaseline"
 >;
 
 export type RenderSurface = {
@@ -76,6 +83,15 @@ export function drawRenderCommandsToContext(
         command.logicalSize.height
       );
       runtimeMetrics?.increment("drawImage");
+      context.restore();
+      return;
+    }
+
+    if (command.type === "placeholder") {
+      context.save();
+      context.globalAlpha = command.opacity / 100;
+      applyTransform(context, command.transform);
+      drawEditorPlaceholderToContext(context, command.placeholder);
       context.restore();
       return;
     }

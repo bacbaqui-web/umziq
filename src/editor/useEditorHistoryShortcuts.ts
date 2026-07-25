@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 
 type Options = {
-  selectedCompId: string | null;
-  undo: (compId: string) => void;
-  redo: (compId: string) => void;
+  undo: () => void;
+  redo: () => void;
 };
 
 export function useEditorHistoryShortcuts(options: Options) {
@@ -16,10 +15,10 @@ export function useEditorHistoryShortcuts(options: Options) {
         || activeElement instanceof HTMLTextAreaElement
         || activeElement instanceof HTMLSelectElement
         || (activeElement instanceof HTMLElement && activeElement.isContentEditable);
-      if (isTypingTarget || !options.selectedCompId) return;
+      if (isTypingTarget) return;
       event.preventDefault();
-      if (event.shiftKey) options.redo(options.selectedCompId);
-      else options.undo(options.selectedCompId);
+      if (event.shiftKey) options.redo();
+      else options.undo();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);

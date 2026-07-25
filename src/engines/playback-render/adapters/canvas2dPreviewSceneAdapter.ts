@@ -1,4 +1,3 @@
-import type { RenderItem } from "@/engines/project";
 import type { Canvas2DRenderContext } from "@/engines/playback-render/adapters/canvas2dRenderAdapter";
 import { drawPreviewNodesToContext } from "@/engines/playback-render/adapters/canvas2dPreviewNodeRenderer";
 import {
@@ -17,7 +16,9 @@ import type {
   PreviewSurfaceCachePort,
 } from "@/engines/playback-render/models/previewCanvasRenderModel";
 import type { PreviewScene } from "@/engines/playback-render/models/previewSceneModel";
-import type { RenderDrawableSourceResolver } from "@/engines/playback-render/models/renderSourceModel";
+import type {
+  RenderNodeVisualResolver,
+} from "@/engines/playback-render/models/renderSourceModel";
 import type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
 
 export type {
@@ -48,20 +49,18 @@ function clearDirtyBounds(
 export function drawPreviewSceneToContext(
   context: Canvas2DRenderContext,
   previewScene: PreviewScene,
-  renderItems: readonly RenderItem[],
-  resolveDrawableSource?: RenderDrawableSourceResolver,
   createSurface: PreviewRenderSurfaceFactory = createBrowserPreviewSurface,
   pixelScale = 1,
   runtimeMetrics?: RuntimeMetricRecordPort,
   compositionCache?: PreviewCompositionCachePort,
   previewQuality = "original",
-  surfaceCache?: PreviewSurfaceCachePort
+  surfaceCache?: PreviewSurfaceCachePort,
+  resolveNodeVisual?: RenderNodeVisualResolver
 ) {
   drawPreviewNodesToContext({
     context,
     nodes: previewScene.nodes,
-    renderItems,
-    resolveDrawableSource,
+    resolveNodeVisual,
     createSurface,
     pixelScale,
     runtimeMetrics,
@@ -74,8 +73,7 @@ export function drawPreviewSceneToContext(
 export function renderPreviewSceneToCanvas({
   canvas,
   previewScene,
-  renderItems,
-  resolveDrawableSource,
+  resolveNodeVisual,
   pixelScale = 1,
   createSurface = createBrowserPreviewSurface,
   runtimeMetrics,
@@ -86,8 +84,7 @@ export function renderPreviewSceneToCanvas({
 }: {
   canvas: HTMLCanvasElement;
   previewScene: PreviewScene;
-  renderItems: readonly RenderItem[];
-  resolveDrawableSource?: RenderDrawableSourceResolver;
+  resolveNodeVisual?: RenderNodeVisualResolver;
   pixelScale?: number;
   createSurface?: PreviewRenderSurfaceFactory;
   runtimeMetrics?: RuntimeMetricRecordPort;
@@ -135,8 +132,7 @@ export function renderPreviewSceneToCanvas({
     const skippedCount = drawPreviewNodesToContext({
       context,
       nodes: previewScene.nodes,
-      renderItems,
-      resolveDrawableSource,
+      resolveNodeVisual,
       createSurface,
       pixelScale: pixelSize.scale,
       runtimeMetrics,
@@ -169,14 +165,13 @@ export function renderPreviewSceneToCanvas({
   drawPreviewSceneToContext(
     context,
     previewScene,
-    renderItems,
-    resolveDrawableSource,
     createSurface,
     pixelSize.scale,
     runtimeMetrics,
     compositionCache,
     previewQuality,
-    surfaceCache
+    surfaceCache,
+    resolveNodeVisual
   );
   runtimeMetrics?.increment(
     "canvasDrawTime",

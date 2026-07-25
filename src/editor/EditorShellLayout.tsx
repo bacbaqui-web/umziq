@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { PsdTree } from "@/engines/psd-tree";
-import { PreviewWorkspacePane } from "@/engines/canvas";
+import PreviewWorkspacePane from "@/features/preview/components/PreviewWorkspacePane";
 import { PropertiesPanel } from "@/engines/properties";
 import { TimelinePanel } from "@/engines/timeline";
 

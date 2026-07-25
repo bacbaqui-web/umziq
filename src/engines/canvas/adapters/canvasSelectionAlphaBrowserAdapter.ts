@@ -140,6 +140,13 @@ export function createCanvasSelectionAlphaBrowserAdapter(
       return { canvas, context };
     }
 
+    if (descriptor.kind === "solid") {
+      context.globalAlpha = isRoot ? 1 : normalizeOpacity(descriptor.opacity);
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, width, height);
+      return { canvas, context };
+    }
+
     descriptor.orderedChildren.forEach((child) => {
       if (!child.source.visible || child.source.opacity <= 0) return;
       context.save();
@@ -148,6 +155,15 @@ export function createCanvasSelectionAlphaBrowserAdapter(
         context.globalAlpha = normalizeOpacity(child.source.opacity);
         context.drawImage(
           child.source.sourceCanvas,
+          0,
+          0,
+          child.source.logicalSize.width,
+          child.source.logicalSize.height
+        );
+      } else if (child.source.kind === "solid") {
+        context.globalAlpha = normalizeOpacity(child.source.opacity);
+        context.fillStyle = "#fff";
+        context.fillRect(
           0,
           0,
           child.source.logicalSize.width,

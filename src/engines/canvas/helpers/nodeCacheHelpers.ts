@@ -1,6 +1,7 @@
 import type {
   CompositionPreviewNode,
   LayerPreviewNode,
+  PlaceholderPreviewNode,
   PreviewNode,
   PreviewScene,
 } from "@/engines/playback-render";
@@ -73,6 +74,10 @@ function createDirtyNodeIdSet(
 function cloneDirtyNode(node: PreviewNode, children: PreviewNode[]) {
   if (node.kind === "layer") {
     return { ...node } satisfies LayerPreviewNode;
+  }
+
+  if (node.kind === "placeholder") {
+    return { ...node } satisfies PlaceholderPreviewNode;
   }
 
   return {

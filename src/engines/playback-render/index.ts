@@ -1,5 +1,3 @@
-export { usePlaybackEngine } from "@/engines/playback-render/usePlaybackEngine";
-export { useRenderEngine } from "@/engines/playback-render/useRenderEngine";
 export type {
   PlaybackCommands,
   PlaybackRange,
@@ -11,20 +9,44 @@ export type {
   EvaluatedSceneCompositionNode,
   EvaluatedSceneDrawableNode,
   EvaluatedSceneNode,
+  EvaluatedScenePlaceholderNode,
   EvaluatedSceneSize,
   EvaluatedSceneTransform,
 } from "@/engines/playback-render/models/evaluatedSceneModel";
+export type {
+  LayerDocumentDraftInteractionPreparation,
+  LayerDocumentPsdSourceResolution,
+  LayerDocumentPsdSourceResolutionRequest,
+  LayerDocumentPsdSourceResolver,
+  LayerDocumentResultCacheKeyInput,
+  LayerDocumentRuntimeContentDescriptor,
+  LayerDocumentRuntimeCutoverPreparationPort,
+  LayerDocumentRuntimeInput,
+  LayerDocumentRuntimePreparationQueryPort,
+  LayerDocumentRuntimeReadModel,
+  LayerDocumentRuntimeReadModelResult,
+  LayerDocumentRuntimeTarget,
+  LayerDocumentRuntimeTargetConsumerReadModel,
+  LayerDocumentRuntimeTargetReadModel,
+  LayerDocumentSourceResourceCacheKeyInput,
+  LayerDocumentSourceVisualKeyPolicy,
+  LayerDocumentTransformCommitIntent,
+  LayerDocumentTransformDraftSnapshot,
+} from "@/engines/playback-render/models/layerDocumentRuntimeModel";
+export type { EditorPlaceholderDescriptor } from "@/engines/playback-render/models/editorPlaceholderModel";
 export type {
   EvaluatedRenderTransform,
   RenderCommand,
   RenderCompositionCommand,
   RenderDrawableCommand,
+  RenderPlaceholderCommand,
   RenderFrame,
 } from "@/engines/playback-render/models/renderFrameModel";
 export type {
   BasePreviewNode,
   CompositionPreviewNode,
   LayerPreviewNode,
+  PlaceholderPreviewNode,
   PreviewNode,
   PreviewNodeKind,
   PreviewScene,
@@ -33,6 +55,8 @@ export type {
   RenderDrawableSource,
   RenderDrawableSourceRequest,
   RenderDrawableSourceResolver,
+  RenderNodeVisualRequest,
+  RenderNodeVisualResolver,
   RenderSize,
 } from "@/engines/playback-render/models/renderSourceModel";
 export type {
@@ -44,10 +68,43 @@ export type {
   RenderWithRendererModeOptions,
 } from "@/engines/playback-render/models/rendererModeModel";
 export type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
+export type {
+  LayerDocumentPsdRuntimeRegistrationBridge,
+  LayerDocumentRuntimeBatchPreflightResult,
+  LayerDocumentRuntimeBatchRegistrationErrorCode,
+  LayerDocumentRuntimeBatchRegistrationResult,
+  LayerDocumentSourceRuntimeInvalidation,
+  LayerDocumentSourceRuntimeResource,
+  LayerDocumentSourceRuntimeResourcePort,
+} from "@/engines/playback-render/models/layerDocumentSourceRuntimeResourceModel";
 export {
-  buildEvaluatedScene,
-  buildEvaluatedSceneFromItems,
-} from "@/engines/playback-render/helpers/evaluatedSceneHelpers";
+  createLayerDocumentPsdRuntimeRegistrationBridge,
+  createLayerDocumentSourceRuntimeResourceCache,
+} from "@/engines/playback-render/adapters/layerDocumentSourceRuntimeResourceCache";
+export {
+  buildLayerDocumentRuntimeReadModel,
+} from "@/engines/playback-render/adapters/layerDocumentRuntimeInputAdapter";
+export {
+  buildLayerDocumentDraftIdentity,
+  buildLayerDocumentResultCacheKey,
+  buildLayerDocumentSourceResourceCacheKey,
+  layerDocumentSourceVisualKeyPolicy,
+} from "@/engines/playback-render/helpers/layerDocumentRuntimeCacheKeyHelpers";
+export {
+  adaptLayerDocumentModifiers,
+  applyLayerDocumentTransformDraft,
+  buildLayerDocumentMotionPathSamples,
+  buildLayerDocumentTransformDraftSnapshot,
+  evaluateLayerDocumentTransform,
+  isLayerDocumentDraftForInput,
+} from "@/engines/playback-render/helpers/layerDocumentRuntimeEvaluationHelpers";
+export {
+  buildLayerDocumentRuntimeTargetReadModel,
+} from "@/engines/playback-render/helpers/layerDocumentRuntimeTargetHelpers";
+export {
+  prepareLayerDocumentPointerMove,
+  prepareLayerDocumentPointerUp,
+} from "@/engines/playback-render/helpers/layerDocumentDraftInteractionHelpers";
 export type {
   PreviewSceneTransformPatch,
   PreviewSceneUpdateResult,
@@ -60,23 +117,12 @@ export {
   updatePreviewSceneNodeTransform,
   updatePreviewSceneNodeTransformWithStats,
 } from "@/engines/playback-render/helpers/previewSceneUpdateHelpers";
-export {
-  buildRenderFrame,
-  buildRenderFrameFromEvaluatedScene,
-  buildRenderFrameFromItems,
-} from "@/engines/playback-render/controllers/buildRenderFrame";
 export { renderAccurateFrame, renderAccurateRenderer } from "@/engines/playback-render/renderers/accurateRenderer";
 export {
   buildPreviewSceneFromEvaluatedScene,
   renderFastPreviewRenderer,
 } from "@/engines/playback-render/renderers/fastPreviewRenderer";
 export { renderWithRendererMode } from "@/engines/playback-render/renderers/rendererMode";
-export {
-  flattenRenderItemsToDrawables,
-  getActiveRenderItems,
-  getActiveTimelineItems,
-} from "@/engines/playback-render/helpers/activeTimelineItemHelpers";
-export { resolveRenderItemsForComposition } from "@/engines/playback-render/helpers/renderSourceHelpers";
 export {
   createReusableRenderSurfaceFactory,
   renderFrameToCanvas,

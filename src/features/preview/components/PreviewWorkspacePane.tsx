@@ -2,7 +2,7 @@ import { useEffect, type RefObject, type WheelEvent, type MouseEvent } from "rea
 import PreviewInteractionOverlay from "@/features/preview/components/PreviewInteractionOverlay";
 import PreviewViewportLayers from "@/features/preview/components/PreviewViewportLayers";
 import PreviewWorkspaceControls from "@/features/preview/components/PreviewWorkspaceControls";
-import type { Composition, CompositionMeta, Position } from "@/models";
+import type { Position } from "@/models";
 import { resolveCanvasPreviewCursor } from "@/engines/canvas";
 import {
   isCanvasTransformDragActive,
@@ -20,8 +20,13 @@ import type {
 } from "@/engines/canvas";
 
 type PreviewWorkspacePaneProps = {
-  selectedComp: Composition | null;
-  selectedMeta: CompositionMeta | null;
+  activeScene:
+    | {
+        readonly identity: string;
+        readonly width: number;
+        readonly height: number;
+      }
+    | null;
   previewWorkspaceRef: RefObject<HTMLDivElement | null>;
   previewViewportRef: RefObject<HTMLDivElement | null>;
   previewCanvasRef: RefObject<HTMLCanvasElement | null>;
@@ -59,8 +64,7 @@ type PreviewWorkspacePaneProps = {
 };
 
 export default function PreviewWorkspacePane({
-  selectedComp,
-  selectedMeta,
+  activeScene,
   previewWorkspaceRef,
   previewViewportRef,
   previewCanvasRef,
@@ -119,7 +123,7 @@ export default function PreviewWorkspacePane({
           minHeight: 0,
         }}
       >
-        {selectedComp && selectedMeta ? (
+        {activeScene ? (
           <div
             style={{
               position: "absolute",

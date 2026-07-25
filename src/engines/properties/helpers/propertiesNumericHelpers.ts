@@ -1,5 +1,4 @@
 import type { Position, Scale } from "@/models";
-import type { ApplyAnchorCommand } from "@/engines/animation";
 import type {
   PropertiesNumericInputId,
   PropertiesNumericProperty,
@@ -103,7 +102,7 @@ export function applyPositionInput(
 
 export function hasPropertiesAnchorSemanticChange(
   initialAnchor: Position | null,
-  command: ApplyAnchorCommand | null
+  command: { anchor: Position } | null
 ) {
   return !!initialAnchor && !!command && (
     initialAnchor.x !== command.anchor.x || initialAnchor.y !== command.anchor.y

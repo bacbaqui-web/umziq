@@ -19,9 +19,9 @@ export default function TimelinePropertyTrackRow({ viewModel, contentWidth, inte
       <div style={{ gridColumn: 2, gridRow: viewModel.rowIndex, position: "relative", zIndex: viewModel.dragging ? 12 : 2, width: contentWidth, minWidth: contentWidth, height: TIMELINE_PROPERTY_ROW_HEIGHT, overflow: "visible", backgroundColor: "transparent", cursor: viewModel.dragging ? "none" : "default", border: "none", boxSizing: "border-box" }}>
         <div style={{ position: "absolute", left: viewModel.trackLeft, top: 5, height: 2, width: viewModel.trackWidth, background: colors.accentMuted, pointerEvents: "none", opacity: 0.8 }} />
         {viewModel.keyframes.map((keyframe) => (
-          <button key={`${item.sourceId}-${property}-${keyframe.frame}`}
-            onClick={(event) => { event.stopPropagation(); interactions.selectKeyframe(viewModel.targetKind, item.sourceId, keyframe.frame, property); }}
-            onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); interactions.selectKeyframe(viewModel.targetKind, item.sourceId, keyframe.frame, property); interactions.beginMoveKeyframe(event.clientX, viewModel.targetKind, item.sourceId, keyframe.frame, property); }}
+          <button key={`${item.id}-${property}-${keyframe.frame}`}
+            onClick={(event) => { event.stopPropagation(); interactions.selectKeyframe(item.id, keyframe.frame, property); }}
+            onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); interactions.selectKeyframe(item.id, keyframe.frame, property); interactions.beginMoveKeyframe(event.clientX, item.id, keyframe.frame, property); }}
             title={keyframe.title}
             style={{ position: "absolute", left: keyframe.left, top: -1, width: 14, height: 14, padding: 0, border: "none", background: "transparent", cursor: keyframe.dragging ? "none" : "pointer", zIndex: 3 }}>
             <span style={{ position: "absolute", left: 4, top: 4, width: 6, height: 6, borderRadius: 1, border: keyframe.selected ? "1px solid #ffd76b" : `1px solid ${colors.accent}`, background: keyframe.selected ? "#ffd76b" : "#d7e4f2", transform: keyframe.dragging ? "rotate(45deg) scale(1.15)" : "rotate(45deg)", boxShadow: keyframe.selected ? "0 0 0 2px rgba(255, 215, 107, 0.18)" : keyframe.dragging ? "0 0 0 2px rgba(171, 212, 255, 0.18)" : "none", transition: "transform 60ms linear, box-shadow 60ms linear", pointerEvents: "none" }} />

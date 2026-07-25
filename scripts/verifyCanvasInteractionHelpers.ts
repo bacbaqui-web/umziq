@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import type { CompositionMeta } from "@/models";
 import type { PreviewOverlay } from "@/engines/canvas/models/canvasViewModel";
 import {
   calculateOpacityDragUpdate,
@@ -9,7 +8,6 @@ import {
   formatPositionDeltaReadout,
   formatRotationHandleValue,
   formatScaleHandleReadout,
-  getCanvasTransformEditModes,
   isCanvasTransformDragActive,
   shouldRunCanvasDirectSelectionHover,
 } from "@/engines/canvas/helpers/canvasInteractionHelpers";
@@ -31,13 +29,9 @@ import {
   getScaleHandleCursor,
 } from "@/engines/canvas/helpers/canvasGizmoGeometryHelpers";
 
-const meta: CompositionMeta = {
+const meta = {
   width: 1000,
   height: 1000,
-  layerCount: 1,
-  sourceFileName: "interaction.psd",
-  frameRate: 30,
-  durationFrames: 90,
 };
 const overlay: NonNullable<PreviewOverlay> = {
   targetKind: "layer",
@@ -210,16 +204,6 @@ assert.equal(snappedRotation.nextRotation, 105);
 assert.equal(formatRotationHandleValue(-20.4), "-20°");
 assert.equal(formatScaleHandleReadout("xy", { x: 120.2, y: 80.4 }), "X 120% / Y 80%");
 assert.equal(formatPositionDeltaReadout({ x: 0, y: 3 }), "ΔX +0 / ΔY +3");
-assert.deepEqual(
-  getCanvasTransformEditModes({
-    position: true,
-    scale: false,
-    rotation: true,
-    opacity: false,
-  }),
-  { position: "animated", scale: "static", rotation: "animated", opacity: "static" }
-);
-
 const selection = {
   overlay,
   previewCorners: overlay.corners,
@@ -298,7 +282,7 @@ for (const handle of [
 ]) {
   assert.ok(
     Math.abs(
-      Math.hypot(handle.lineStart.x - 500, handle.lineStart.y - 500) - 20
+      Math.hypot(handle.lineStart.x - 500, handle.lineStart.y - 500) - 24
     ) < 1e-9
   );
 }
@@ -324,7 +308,7 @@ for (const handle of [gizmo.previewRotationHandle, gizmo.previewOpacityHandle]) 
       Math.hypot(
         handle.point.x - handle.lineEnd.x,
         handle.point.y - handle.lineEnd.y
-      ) - 5
+      ) - 6
     ) < 1e-9
   );
 }
@@ -333,7 +317,7 @@ assert.ok(
     Math.hypot(
       gizmo.previewRotationHandle.lineEnd.x - 500,
       gizmo.previewRotationHandle.lineEnd.y - 500
-    ) - 45
+    ) - 44
   ) < 1e-9
 );
 assert.ok(
@@ -341,7 +325,7 @@ assert.ok(
     Math.hypot(
       gizmo.previewOpacityHandle.lineEnd.x - 500,
       gizmo.previewOpacityHandle.lineEnd.y - 500
-    ) - 32.5
+    ) - 31.5
   ) < 1e-9
 );
 const buildOpacityGizmo = (currentOpacity: number) =>
@@ -355,11 +339,11 @@ const buildOpacityGizmo = (currentOpacity: number) =>
     currentOpacity,
   });
 for (const [opacity, centerRadius, lineEndRadius] of [
-  [-20, 25, 20],
-  [0, 25, 20],
-  [50, 37.5, 32.5],
-  [100, 50, 45],
-  [120, 50, 45],
+  [-20, 25, 19],
+  [0, 25, 19],
+  [50, 37.5, 31.5],
+  [100, 50, 44],
+  [120, 50, 44],
 ] as const) {
   const opacityGizmo = buildOpacityGizmo(opacity);
   assert.ok(opacityGizmo.previewOpacityHandle);
@@ -381,8 +365,8 @@ for (const [opacity, centerRadius, lineEndRadius] of [
   );
 }
 assert.deepEqual(gizmo.previewScaleHandles[0].arrowWingPoints, {
-  first: { x: 458, y: 495 },
-  second: { x: 458, y: 505 },
+  first: { x: 459.6, y: 494 },
+  second: { x: 459.6, y: 506 },
 });
 
 const rotatePoint = (x: number, y: number, degrees: number) => {
@@ -434,7 +418,7 @@ for (const handle of [
   assert.ok(handle);
   assert.ok(
     Math.abs(
-      Math.hypot(handle.lineStart.x - 500, handle.lineStart.y - 500) - 20
+      Math.hypot(handle.lineStart.x - 500, handle.lineStart.y - 500) - 24
     ) < 1e-9
   );
 }
@@ -448,7 +432,7 @@ for (const handle of rotatedGizmo.previewScaleHandles) {
     handle.arrowWingPoints.first.x - handle.arrowWingPoints.second.x,
     handle.arrowWingPoints.first.y - handle.arrowWingPoints.second.y
   );
-  assert.ok(Math.abs(wingSpan - 10) < 1e-9);
+  assert.ok(Math.abs(wingSpan - 12) < 1e-9);
   const wingMidpoint = {
     x: (handle.arrowWingPoints.first.x + handle.arrowWingPoints.second.x) / 2,
     y: (handle.arrowWingPoints.first.y + handle.arrowWingPoints.second.y) / 2,
@@ -458,7 +442,7 @@ for (const handle of rotatedGizmo.previewScaleHandles) {
       Math.hypot(
         handle.point.x - wingMidpoint.x,
         handle.point.y - wingMidpoint.y
-      ) - 8
+      ) - 9.6
     ) < 1e-9
   );
 }
@@ -472,12 +456,12 @@ for (const handle of [
       Math.hypot(
         handle.point.x - handle.lineEnd.x,
         handle.point.y - handle.lineEnd.y
-      ) - 5
+      ) - 6
     ) < 1e-9
   );
   assert.ok(
     Math.abs(
-      Math.hypot(handle.lineEnd.x - 500, handle.lineEnd.y - 500) - 45
+      Math.hypot(handle.lineEnd.x - 500, handle.lineEnd.y - 500) - 44
     ) < 1e-9
   );
 }

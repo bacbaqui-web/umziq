@@ -5,7 +5,7 @@ import {
   type PreviewScaleHandle,
 } from "@/features/preview/types/previewGizmoTypes";
 
-const RADIAL_ENDPOINT_SIZE = 10;
+const RADIAL_ENDPOINT_SIZE = 12;
 
 type PreviewGizmoHandlesProps = {
   cursors: {
@@ -77,7 +77,7 @@ function createPositionRingStyle({
   cursor: string;
   active: boolean;
 }) {
-  const size = 40;
+  const size = 48;
   return {
     position: "absolute" as const,
     left: point.x,
@@ -107,7 +107,7 @@ function createScaleArrowStyle({
   point: PreviewLineHandle["point"];
   cursor: string;
 }) {
-  const size = 18;
+  const size = 21.6;
   return {
     position: "absolute" as const,
     left: point.x,

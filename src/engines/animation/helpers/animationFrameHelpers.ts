@@ -1,38 +1,15 @@
-import type { TimelineItem } from "@/models";
-
-export function globalFrameToLocalFrame(globalFrame: number, startFrame: number) {
-  return globalFrame - startFrame;
-}
-
-export function localFrameToGlobalFrame(localFrame: number, startFrame: number) {
-  return startFrame + localFrame;
-}
-
-export function isFrameInsideTimelineItem(globalFrame: number, item: TimelineItem) {
-  return globalFrame >= item.startFrame && globalFrame < item.startFrame + item.durationFrames;
-}
-
-export function resolveSelectedTransformLocalFrame(
+export function globalFrameToLocalFrame(
   globalFrame: number,
-  selectedTimelineItem: TimelineItem | null
+  startFrame: number,
+  sourceOffsetFrames = 0
 ) {
-  return selectedTimelineItem && isFrameInsideTimelineItem(globalFrame, selectedTimelineItem)
-    ? globalFrameToLocalFrame(globalFrame, selectedTimelineItem.startFrame)
-    : globalFrame;
+  return globalFrame - startFrame + sourceOffsetFrames;
 }
 
-export function getKeyframeGlobalFrame(localFrame: number, ownerItem?: TimelineItem | null) {
-  return ownerItem ? localFrameToGlobalFrame(localFrame, ownerItem.startFrame) : localFrame;
-}
-
-export function buildLocalFrameBySourceId(timelineItems: TimelineItem[], globalFrame: number) {
-  const result = new Map<string, number>();
-
-  timelineItems.forEach((item) => {
-    if (isFrameInsideTimelineItem(globalFrame, item)) {
-      result.set(item.sourceId, globalFrameToLocalFrame(globalFrame, item.startFrame));
-    }
-  });
-
-  return result;
+export function localFrameToGlobalFrame(
+  localFrame: number,
+  startFrame: number,
+  sourceOffsetFrames = 0
+) {
+  return startFrame + localFrame - sourceOffsetFrames;
 }

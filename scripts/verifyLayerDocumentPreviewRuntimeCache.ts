@@ -1,0 +1,1016 @@
+import assert from "node:assert/strict";
+import {
+  buildLayerDocumentCanvasModeReadModel,
+  createCompositionPreviewCacheRuntime,
+  createDirtySceneSnapshotFromPreviewScene,
+  createDirtyState,
+  createPreviewSurfaceCacheRuntime,
+  resolvePreviewCompositionCacheForRender,
+  type LayerDocumentCanvasRenderAssetPort,
+} from "@/engines/canvas";
+import {
+  buildLayerDocumentTransformDraftSnapshot,
+  buildLayerDocumentRuntimeReadModel,
+  createLayerDocumentSourceRuntimeResourceCache,
+  drawPreviewSceneToContext,
+  renderPreviewSceneToCanvas,
+  renderFastPreviewRenderer,
+  updatePreviewSceneNodeTransform,
+  type EvaluatedScene,
+  type EvaluatedSceneDrawableNode,
+  type PreviewRenderSurface,
+  type PreviewCanvasDrawState,
+  type RenderNodeVisualResolver,
+  type LayerDocumentTransformDraftSnapshot,
+} from "@/engines/playback-render";
+import {
+  LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
+  validateLayerDocumentProject,
+  type LayerDocument,
+  type LayerDocumentCommon,
+  type LayerDocumentProject,
+  type SourceRegistryRecord,
+} from "@/models";
+import {
+  prepareSourceRegistryRefresh,
+} from "@/engines/project";
+
+const transform = {
+  position: { x: 0, y: 0 },
+  transformOffset: { x: 0, y: 0 },
+  anchor: { x: 0, y: 0 },
+  scale: { x: 100, y: 100 },
+  rotation: 0,
+};
+
+function drawable(
+  suffix: string,
+  sourceId: string
+): EvaluatedSceneDrawableNode {
+  return {
+    type: "drawable",
+    identityKind: "canonical-placement",
+    layerDocumentId: `layer-document-${suffix}`,
+    itemId: `item-${suffix}`,
+    renderItemId: `render-${suffix}`,
+    drawableId: `drawable-${suffix}`,
+    sourceId,
+    sourceResourceCacheKey: `source-cache-${sourceId}`,
+    layerResultCacheKey: `result-cache-${suffix}`,
+    sourceType: "psd",
+    localFrame: 0,
+    visible: true,
+    order: 0,
+    logicalSize: { width: 80, height: 80 },
+    transform,
+    opacity: 100,
+  };
+}
+
+const image = {} as CanvasImageSource;
+function common(
+  parentLayerDocumentId: string | null,
+  order: number,
+  sourceId: string | null = null
+): LayerDocumentCommon {
+  return {
+    source: sourceId ? { sourceId } : null,
+    transform: {
+      ...transform,
+      scaleLinked: true,
+      opacity: 100,
+    },
+    placement: {
+      parentLayerDocumentId,
+      order,
+      startFrame: 0,
+      durationFrames: 90,
+      sourceOffsetFrames: 0,
+      visible: true,
+      alias: null,
+    },
+    animation: {
+      positionKeyframes: [],
+      scaleKeyframes: [],
+      rotationKeyframes: [],
+      opacityKeyframes: [],
+      enabledProperties: {
+        position: false,
+        scale: false,
+        rotation: false,
+        opacity: false,
+      },
+    },
+    effects: [],
+    modifiers: [],
+  };
+}
+
+function sources(): Record<string, SourceRegistryRecord> {
+  const refresh = {
+    status: "normal" as const,
+    reconnectHint: null,
+  };
+  return Object.fromEntries(["a", "b"].flatMap((suffix) => [
+    [
+      `source-document-${suffix}`,
+      {
+        sourceId: `source-document-${suffix}`,
+        kind: "psd-document" as const,
+        displayName: `${suffix}.psd`,
+        path: `${suffix}.psd`,
+        fingerprint: `document-${suffix}-v1`,
+        version: 1,
+        availability: "available" as const,
+        refresh,
+        data: {
+          fileName: `${suffix}.psd`,
+          importSettings: {
+            compositionName: suffix.toUpperCase(),
+            hiddenLayerMode: "preserve" as const,
+          },
+        },
+      },
+    ],
+    [
+      `source-node-${suffix}`,
+      {
+        sourceId: `source-node-${suffix}`,
+        kind: "psd-node" as const,
+        displayName: `Node ${suffix}`,
+        path: `${suffix}.psd/Node`,
+        fingerprint: `node-${suffix}-v1`,
+        version: 1,
+        availability: "available" as const,
+        refresh,
+        data: {
+          documentSourceId: `source-document-${suffix}`,
+          sourceKey: `layer:${suffix}`,
+          sourcePath: "Node",
+          nativeVisible: true,
+        },
+      },
+    ],
+  ])) as Record<string, SourceRegistryRecord>;
+}
+
+function projectFixture(): LayerDocumentProject {
+  const layers: Record<string, LayerDocument> = {
+    root: {
+      layerDocumentId: "root",
+      name: "Root",
+      revision: 0,
+      type: "group",
+      common: common(null, 0),
+      data: {
+        role: "project-root",
+        width: 200,
+        height: 100,
+        frameRate: 30,
+        durationFrames: 90,
+      },
+    },
+    "group-a": {
+      layerDocumentId: "group-a",
+      name: "Group A",
+      revision: 0,
+      type: "group",
+      common: common("root", 0),
+      data: {
+        role: "composition",
+        width: 100,
+        height: 100,
+        frameRate: 30,
+        durationFrames: 90,
+      },
+    },
+    "group-b": {
+      layerDocumentId: "group-b",
+      name: "Group B",
+      revision: 0,
+      type: "group",
+      common: common("root", 1),
+      data: {
+        role: "composition",
+        width: 100,
+        height: 100,
+        frameRate: 30,
+        durationFrames: 90,
+      },
+    },
+    "layer-a": {
+      layerDocumentId: "layer-a",
+      name: "Layer A",
+      revision: 0,
+      type: "psd",
+      common: common("group-a", 0, "source-node-a"),
+      data: {},
+    },
+    "layer-b": {
+      layerDocumentId: "layer-b",
+      name: "Layer B",
+      revision: 0,
+      type: "psd",
+      common: common("group-b", 0, "source-node-b"),
+      data: {},
+    },
+  };
+  return {
+    metadata: {
+      schemaVersion: LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
+      projectId: "preview-cache-fixture",
+      name: "Preview cache fixture",
+    },
+    payload: {
+      layerDocumentsById: layers,
+      sourceRegistry: { sourcesById: sources() },
+    },
+  };
+}
+
+const resolvedLayerDocuments: string[] = [];
+const renderAssets: LayerDocumentCanvasRenderAssetPort = {
+  resolve: (request) => {
+    resolvedLayerDocuments.push(request.layerDocumentId);
+    return {
+      source: {
+        kind: "original",
+        image,
+        pixelSize: request.logicalSize,
+      },
+      alphaCanvas: null,
+      sourceVisualIdentity: request.sourceResourceCacheKey,
+    };
+  },
+};
+function runtimeFor(
+  project: LayerDocumentProject,
+  draft: LayerDocumentTransformDraftSnapshot | null = null
+) {
+  return buildLayerDocumentRuntimeReadModel({
+    project,
+    activeGroupLayerDocumentId: "root",
+    globalFrame: 0,
+    quality: "original",
+    draft,
+    resolvePsdSource: (request) => ({
+      renderItemId: `runtime-${request.sourceId}`,
+      drawableId: `drawable-${request.sourceId}`,
+      logicalSize: { width: 80, height: 80 },
+    }),
+  });
+}
+function canvasFor(
+  project: LayerDocumentProject,
+  rendererMode: "full-render" | "fast-render",
+  previousPreviewScene = null,
+  draft: LayerDocumentTransformDraftSnapshot | null = null
+) {
+  return buildLayerDocumentCanvasModeReadModel({
+    mode: "layer-document",
+    activeScene: {
+      layerDocumentId: "root",
+      label: "Root",
+      width: 200,
+      height: 100,
+      frameRate: 30,
+      durationFrames: 90,
+    },
+    runtime: runtimeFor(project, draft),
+    selectedLayerDocumentId: "layer-a",
+    rendererMode,
+    quality: "original",
+    viewport: {
+      previewSize: { width: 200, height: 100 },
+      viewportScale: 1,
+      viewportOffset: { x: 0, y: 0 },
+    },
+    renderAssets,
+    previousPreviewScene,
+  });
+}
+
+const project = projectFixture();
+assert.deepEqual(validateLayerDocumentProject(project), []);
+const publicRuntime = runtimeFor(project);
+assert.equal(publicRuntime.ok, true);
+if (!publicRuntime.ok) throw new Error(publicRuntime.reason);
+const evaluatedScene = publicRuntime.model.scene;
+const compositionA = evaluatedScene.nodes[0];
+const compositionB = evaluatedScene.nodes[1];
+assert.equal(compositionA?.type, "composition");
+assert.equal(compositionB?.type, "composition");
+if (
+  compositionA?.type !== "composition" ||
+  compositionB?.type !== "composition"
+) {
+  throw new Error("Expected public composition nodes");
+}
+const drawableA = compositionA.children[0];
+assert.equal(drawableA?.type, "drawable");
+if (drawableA?.type !== "drawable") {
+  throw new Error("Expected public drawable node");
+}
+
+const resolveNodeVisual: RenderNodeVisualResolver = (request) => {
+  resolvedLayerDocuments.push(request.layerDocumentId);
+  return {
+    kind: "original",
+    image,
+    pixelSize: request.logicalSize,
+  };
+};
+
+const fullCanvas = canvasFor(project, "full-render");
+assert.equal(fullCanvas.ok, true);
+if (!fullCanvas.ok) throw new Error(fullCanvas.reason);
+const accurate = fullCanvas.model.renderer.renderFrame;
+assert.ok(accurate);
+assert.equal(accurate?.commands.length, 2);
+assert.deepEqual(
+  accurate?.commands.map((command) =>
+    command.type === "composition"
+      ? command.children[0]?.type
+      : command.type
+  ),
+  ["drawable", "drawable"]
+);
+assert.deepEqual(resolvedLayerDocuments.slice(0, 2), [
+  "layer-a",
+  "layer-b",
+]);
+
+resolvedLayerDocuments.length = 0;
+const fastCanvas = canvasFor(project, "fast-render");
+assert.equal(fastCanvas.ok, true);
+if (!fastCanvas.ok) throw new Error(fastCanvas.reason);
+const previewScene = fastCanvas.model.renderer.previewScene;
+assert.ok(previewScene);
+if (!previewScene) throw new Error("Expected public preview scene");
+assert.deepEqual(
+  previewScene.nodes.map((node) => node.layerDocumentId),
+  ["group-a", "group-b"]
+);
+assert.deepEqual(
+  previewScene.nodes.map((node) => node.children[0]?.sourceResourceCacheKey),
+  publicRuntime.model.inputs
+    .filter((input) => input.type === "psd")
+    .map((input) => input.sourceResourceCacheKey)
+);
+
+const unchangedCanvas = canvasFor(
+  project,
+  "fast-render",
+  previewScene
+);
+assert.equal(unchangedCanvas.ok, true);
+if (!unchangedCanvas.ok) {
+  throw new Error(unchangedCanvas.reason);
+}
+const unchangedFast =
+  unchangedCanvas.model.renderer.previewScene;
+assert.ok(unchangedFast);
+if (!unchangedFast) {
+  throw new Error("Expected unchanged preview scene");
+}
+assert.strictEqual(unchangedFast, previewScene);
+assert.strictEqual(unchangedFast.nodes[0], previewScene.nodes[0]);
+assert.strictEqual(unchangedFast.nodes[1], previewScene.nodes[1]);
+
+const visualProject = structuredClone(project);
+visualProject.payload.layerDocumentsById[
+  "layer-a"
+]!.common.transform.position = { x: 12, y: 4 };
+const visualCanvas = canvasFor(
+  visualProject,
+  "fast-render",
+  previewScene
+);
+assert.equal(visualCanvas.ok, true);
+if (!visualCanvas.ok) {
+  throw new Error(visualCanvas.reason);
+}
+const fastWithChangedChild =
+  visualCanvas.model.renderer.previewScene;
+assert.ok(fastWithChangedChild);
+if (!fastWithChangedChild) {
+  throw new Error("Expected changed preview scene");
+}
+assert.notStrictEqual(fastWithChangedChild, previewScene);
+assert.notStrictEqual(
+  fastWithChangedChild.nodes[0],
+  previewScene.nodes[0]
+);
+assert.notStrictEqual(
+  fastWithChangedChild.nodes[0]?.children[0],
+  previewScene.nodes[0]?.children[0]
+);
+assert.strictEqual(
+  fastWithChangedChild.nodes[1],
+  previewScene.nodes[1]
+);
+assert.equal(
+  fastWithChangedChild.nodes[0]?.sourceResourceCacheKey,
+  previewScene.nodes[0]?.sourceResourceCacheKey
+);
+assert.equal(
+  fastWithChangedChild.nodes[0]?.layerResultCacheKey,
+  previewScene.nodes[0]?.layerResultCacheKey
+);
+
+const currentSource =
+  project.payload.sourceRegistry.sourcesById[
+    "source-node-a"
+  ];
+assert.ok(currentSource);
+const preparedRefresh = prepareSourceRegistryRefresh(
+  project,
+  {
+    source: {
+      ...currentSource!,
+      version: currentSource!.version + 1,
+      fingerprint: "node-a-v2",
+    },
+    cacheContext: {
+      globalFrame: 0,
+      localFrameByLayerDocumentId: {
+        "layer-a": 0,
+      },
+      quality: "original",
+    },
+  }
+);
+assert.equal(preparedRefresh.ok, true);
+if (!preparedRefresh.ok) {
+  throw new Error(preparedRefresh.error.message);
+}
+const refreshInvalidation =
+  preparedRefresh.transaction.cacheInvalidations[0];
+assert.ok(refreshInvalidation);
+assert.notEqual(
+  refreshInvalidation?.sourceResourceCacheKeyBefore,
+  refreshInvalidation?.sourceResourceCacheKeyAfter
+);
+assert.notEqual(
+  refreshInvalidation?.layerResultCacheKeyBefore,
+  refreshInvalidation?.layerResultCacheKeyAfter
+);
+const refreshedCanvas = canvasFor(
+  preparedRefresh.transaction.after,
+  "fast-render",
+  previewScene
+);
+assert.equal(refreshedCanvas.ok, true);
+if (!refreshedCanvas.ok) {
+  throw new Error(refreshedCanvas.reason);
+}
+const refreshedPreview =
+  refreshedCanvas.model.renderer.previewScene;
+assert.ok(refreshedPreview);
+if (!refreshedPreview) {
+  throw new Error("Expected refreshed preview scene");
+}
+assert.notStrictEqual(
+  refreshedPreview.nodes[0],
+  previewScene.nodes[0]
+);
+assert.notStrictEqual(
+  refreshedPreview.nodes[0]?.children[0],
+  previewScene.nodes[0]?.children[0]
+);
+assert.strictEqual(
+  refreshedPreview.nodes[1],
+  previewScene.nodes[1]
+);
+assert.deepEqual(
+  refreshedPreview.nodes[0]?.children[0]?.transform,
+  previewScene.nodes[0]?.children[0]?.transform
+);
+assert.equal(
+  refreshedPreview.nodes[0]?.children[0]
+    ?.sourceResourceCacheKey,
+  refreshInvalidation?.sourceResourceCacheKeyAfter
+);
+assert.equal(
+  refreshedPreview.nodes[0]?.children[0]
+    ?.layerResultCacheKey,
+  refreshInvalidation?.layerResultCacheKeyAfter
+);
+
+const resultKeyProject = structuredClone(project);
+resultKeyProject.payload.layerDocumentsById[
+  "layer-a"
+]!.revision += 1;
+const resultKeyCanvas = canvasFor(
+  resultKeyProject,
+  "fast-render",
+  previewScene
+);
+assert.equal(resultKeyCanvas.ok, true);
+if (!resultKeyCanvas.ok) {
+  throw new Error(resultKeyCanvas.reason);
+}
+const resultKeyPreview =
+  resultKeyCanvas.model.renderer.previewScene;
+assert.ok(resultKeyPreview);
+if (!resultKeyPreview) {
+  throw new Error("Expected result-key preview scene");
+}
+assert.notStrictEqual(
+  resultKeyPreview.nodes[0],
+  previewScene.nodes[0]
+);
+assert.notStrictEqual(
+  resultKeyPreview.nodes[0]?.children[0],
+  previewScene.nodes[0]?.children[0]
+);
+assert.strictEqual(
+  resultKeyPreview.nodes[1],
+  previewScene.nodes[1]
+);
+assert.deepEqual(
+  resultKeyPreview.nodes[0]?.children[0]?.transform,
+  previewScene.nodes[0]?.children[0]?.transform
+);
+assert.equal(
+  resultKeyPreview.nodes[0]?.children[0]
+    ?.sourceResourceCacheKey,
+  previewScene.nodes[0]?.children[0]
+    ?.sourceResourceCacheKey
+);
+assert.notEqual(
+  resultKeyPreview.nodes[0]?.children[0]
+    ?.layerResultCacheKey,
+  previewScene.nodes[0]?.children[0]
+    ?.layerResultCacheKey
+);
+
+let surfaceCreateCount = 0;
+let drawImageCount = 0;
+function createContext() {
+  return {
+    globalAlpha: 1,
+    fillStyle: "",
+    font: "",
+    textAlign: "left" as CanvasTextAlign,
+    textBaseline: "alphabetic" as CanvasTextBaseline,
+    clearRect: () => undefined,
+    beginPath: () => undefined,
+    rect: () => undefined,
+    clip: () => undefined,
+    save: () => undefined,
+    restore: () => undefined,
+    translate: () => undefined,
+    rotate: () => undefined,
+    scale: () => undefined,
+    fillRect: () => undefined,
+    fillText: () => undefined,
+    setTransform: () => undefined,
+    drawImage: () => {
+      drawImageCount += 1;
+    },
+  };
+}
+const rootContext = createContext();
+const surfaces: PreviewRenderSurface[] = [];
+const createSurface = (
+  width: number,
+  height: number,
+  pixelScale: number
+): PreviewRenderSurface => {
+  surfaceCreateCount += 1;
+  const surface = {
+    canvas: {
+      width: Math.ceil(width * pixelScale),
+      height: Math.ceil(height * pixelScale),
+    } as HTMLCanvasElement,
+    context: createContext(),
+  };
+  surfaces.push(surface);
+  return surface;
+};
+const surfaceCache = createPreviewSurfaceCacheRuntime();
+const compositionCache = createCompositionPreviewCacheRuntime({
+  releaseSurface: surfaceCache.releaseSurface,
+});
+
+resolvedLayerDocuments.length = 0;
+compositionCache.beginFrame();
+drawPreviewSceneToContext(
+  rootContext,
+  previewScene,
+  createSurface,
+  1,
+  undefined,
+  compositionCache,
+  "original",
+  surfaceCache,
+  resolveNodeVisual
+);
+compositionCache.endFrame();
+assert.equal(surfaceCreateCount, 2);
+assert.equal(compositionCache.getSnapshot().size, 2);
+assert.deepEqual(resolvedLayerDocuments, [
+  "layer-a",
+  "layer-b",
+]);
+
+compositionCache.beginFrame();
+drawPreviewSceneToContext(
+  rootContext,
+  previewScene,
+  createSurface,
+  1,
+  undefined,
+  compositionCache,
+  "original",
+  surfaceCache,
+  resolveNodeVisual
+);
+compositionCache.endFrame();
+assert.equal(surfaceCreateCount, 2);
+assert.equal(resolvedLayerDocuments.length, 2);
+
+const changedA = updatePreviewSceneNodeTransform(
+  previewScene,
+  { kind: "layer", id: "layer-a" },
+  { position: { x: 12, y: 4 } }
+);
+assert.notStrictEqual(changedA.nodes[0], previewScene.nodes[0]);
+assert.strictEqual(changedA.nodes[1], previewScene.nodes[1]);
+compositionCache.beginFrame();
+drawPreviewSceneToContext(
+  rootContext,
+  changedA,
+  createSurface,
+  1,
+  undefined,
+  compositionCache,
+  "original",
+  surfaceCache,
+  resolveNodeVisual
+);
+compositionCache.endFrame();
+assert.equal(surfaceCreateCount, 2);
+assert.deepEqual(resolvedLayerDocuments, [
+  "layer-a",
+  "layer-b",
+  "layer-a",
+]);
+assert.equal(compositionCache.getSnapshot().size, 2);
+
+const baseLayerInput = publicRuntime.model.inputs.find(
+  (input) => input.layerDocumentId === "layer-a"
+);
+assert.ok(baseLayerInput);
+const publicDraft = buildLayerDocumentTransformDraftSnapshot(
+  baseLayerInput!,
+  { position: { x: 18, y: 6 } }
+);
+const publicDraftCanvas = canvasFor(
+  project,
+  "fast-render",
+  previewScene,
+  publicDraft
+);
+assert.equal(publicDraftCanvas.ok, true);
+if (!publicDraftCanvas.ok) {
+  throw new Error(publicDraftCanvas.reason);
+}
+assert.equal(
+  publicDraftCanvas.model.selectedInput?.draftApplied,
+  true
+);
+const publicDraftPreview =
+  publicDraftCanvas.model.renderer.previewScene;
+assert.ok(publicDraftPreview);
+if (!publicDraftPreview) {
+  throw new Error("Expected public Draft preview scene");
+}
+const cacheSnapshotBeforeDraft = compositionCache.getSnapshot();
+assert.equal(
+  resolvePreviewCompositionCacheForRender({
+    compositionCache,
+    isPreviewDraftActive: true,
+  }),
+  undefined
+);
+drawPreviewSceneToContext(
+  rootContext,
+  publicDraftPreview,
+  createSurface,
+  1,
+  undefined,
+  resolvePreviewCompositionCacheForRender({
+    compositionCache,
+    isPreviewDraftActive: true,
+  }),
+  "original",
+  surfaceCache,
+  resolveNodeVisual
+);
+assert.deepEqual(
+  compositionCache.getSnapshot(),
+  cacheSnapshotBeforeDraft
+);
+assert.strictEqual(
+  resolvePreviewCompositionCacheForRender({
+    compositionCache,
+    isPreviewDraftActive: false,
+  }),
+  compositionCache
+);
+compositionCache.beginFrame();
+drawPreviewSceneToContext(
+  rootContext,
+  changedA,
+  createSurface,
+  1,
+  undefined,
+  compositionCache,
+  "original",
+  surfaceCache,
+  resolveNodeVisual
+);
+compositionCache.endFrame();
+assert.deepEqual(
+  compositionCache.getSnapshot(),
+  cacheSnapshotBeforeDraft
+);
+
+const onlySecondPsd = {
+  ...changedA,
+  nodes: [changedA.nodes[1]],
+};
+compositionCache.beginFrame();
+drawPreviewSceneToContext(
+  rootContext,
+  onlySecondPsd,
+  createSurface,
+  1,
+  undefined,
+  compositionCache,
+  "original",
+  surfaceCache,
+  resolveNodeVisual
+);
+compositionCache.endFrame();
+assert.equal(compositionCache.getSnapshot().size, 1);
+assert.ok(surfaceCache.getSnapshot().poolSize >= 1);
+assert.ok(drawImageCount > 0);
+
+let poolCreateCount = 0;
+let poolResetCount = 0;
+const poolSurfaces: PreviewRenderSurface[] = [];
+const createPoolSurface = (
+  width: number,
+  height: number,
+  scale: number
+): PreviewRenderSurface => {
+  poolCreateCount += 1;
+  const surface = {
+    canvas: {
+      width: Math.ceil(width * scale),
+      height: Math.ceil(height * scale),
+    } as HTMLCanvasElement,
+    context: {
+      ...createContext(),
+      clearRect: () => {
+        poolResetCount += 1;
+      },
+    },
+  };
+  poolSurfaces.push(surface);
+  return surface;
+};
+const boundedPool = createPreviewSurfaceCacheRuntime({
+  maxPoolSize: 2,
+});
+const poolInput = (
+  width: number,
+  height: number,
+  previewQuality: string
+) => ({
+  logicalWidth: width,
+  logicalHeight: height,
+  previewQuality,
+  previewScale: 1,
+  createSurface: createPoolSurface,
+});
+const pooledA = boundedPool.acquireSurface(
+  poolInput(10, 10, "original")
+);
+assert.ok(pooledA);
+pooledA!.canvas.width = 999;
+boundedPool.releaseSurface(pooledA!);
+const reusedA = boundedPool.acquireSurface(
+  poolInput(10, 10, "original")
+);
+assert.strictEqual(reusedA, pooledA);
+assert.equal(poolCreateCount, 1);
+assert.equal(reusedA?.canvas.width, 10);
+assert.equal(poolResetCount, 1);
+boundedPool.releaseSurface(reusedA!);
+const pooledB = boundedPool.acquireSurface(
+  poolInput(20, 10, "high")
+);
+assert.ok(pooledB);
+boundedPool.releaseSurface(pooledB!);
+const pooledC = boundedPool.acquireSurface(
+  poolInput(30, 10, "medium")
+);
+assert.ok(pooledC);
+boundedPool.releaseSurface(pooledC!);
+assert.equal(boundedPool.getSnapshot().poolSize, 2);
+assert.equal(pooledA?.canvas.width, 0);
+assert.equal(poolCreateCount, 3);
+boundedPool.dispose();
+boundedPool.dispose();
+assert.equal(boundedPool.getSnapshot().poolSize, 0);
+assert.ok(
+  poolSurfaces.every((surface) => surface.canvas.width === 0)
+);
+
+const draft = updatePreviewSceneNodeTransform(
+  previewScene,
+  { kind: "layer", id: "layer-a" },
+  { position: { x: 24, y: 8 } }
+);
+const draftDirty = createDirtyState(
+  createDirtySceneSnapshotFromPreviewScene(previewScene)
+);
+const draftResult = draftDirty.updateDirtyState(
+  createDirtySceneSnapshotFromPreviewScene(draft)
+);
+assert.deepEqual(
+  draftResult.dirtyNodes.find(
+    (node) => node.id === draft.nodes[0]?.children[0]?.id
+  )?.dirtyKinds,
+  ["transform"]
+);
+const committed = updatePreviewSceneNodeTransform(
+  previewScene,
+  { kind: "layer", id: "layer-a" },
+  { position: { x: 24, y: 8 } }
+);
+const commitDirty = createDirtyState(
+  createDirtySceneSnapshotFromPreviewScene(draft)
+);
+assert.equal(
+  commitDirty.updateDirtyState(
+    createDirtySceneSnapshotFromPreviewScene(committed)
+  ).dirtyNodes.length,
+  0
+);
+
+let disposedA = 0;
+let disposedB = 0;
+const sourceRuntime = createLayerDocumentSourceRuntimeResourceCache();
+const runtimeEntry = (
+  sourceId: string,
+  onDispose: () => void
+) => ({
+  sourceId,
+  sourceResourceCacheKey: `source-cache-${sourceId}`,
+  resolution: {
+    renderItemId: `runtime-${sourceId}`,
+    drawableId: `runtime-drawable-${sourceId}`,
+    logicalSize: { width: 80, height: 80 },
+  },
+  resource: { sourceId },
+  dispose: onDispose,
+});
+assert.equal(
+  sourceRuntime.registerBatch([
+    runtimeEntry("psd-a", () => {
+      disposedA += 1;
+    }),
+    runtimeEntry("psd-b", () => {
+      disposedB += 1;
+    }),
+  ]).ok,
+  true
+);
+assert.equal(
+  sourceRuntime.invalidate({ kind: "source", sourceId: "psd-a" }),
+  1
+);
+assert.equal(disposedA, 1);
+assert.ok(
+  sourceRuntime.resolve({
+    sourceId: "psd-b",
+    sourceResourceCacheKey: "source-cache-psd-b",
+  })
+);
+sourceRuntime.dispose();
+sourceRuntime.dispose();
+assert.equal(disposedA, 1);
+assert.equal(disposedB, 1);
+
+function directDrawable(
+  suffix: string,
+  x: number,
+  order: number
+): EvaluatedSceneDrawableNode {
+  return {
+    ...drawable(suffix, `direct-${suffix}`),
+    order,
+    logicalSize: { width: 20, height: 20 },
+    transform: {
+      ...transform,
+      position: { x, y: 20.25 },
+    },
+  };
+}
+const directScene: EvaluatedScene = {
+  compositionId: "direct-root",
+  globalFrame: 0,
+  size: { width: 200, height: 100 },
+  localFrameBySourceId: new Map(),
+  localFrameByItemId: new Map(),
+  nodes: [
+    directDrawable("mover", 20.25, 0),
+    directDrawable("separated", 170.25, 1),
+    directDrawable("foreground", 40.25, 2),
+  ],
+};
+const directPreview =
+  renderFastPreviewRenderer(directScene).previewScene;
+const directResolveCalls: string[] = [];
+const directResolver: RenderNodeVisualResolver = (request) => {
+  directResolveCalls.push(request.layerDocumentId);
+  return {
+    kind: "original",
+    image,
+    pixelSize: request.logicalSize,
+  };
+};
+const clearCalls: number[][] = [];
+const canvasContext = {
+  ...createContext(),
+  clearRect: (...values: number[]) => {
+    clearCalls.push(values);
+  },
+};
+const canvas = {
+  width: 0,
+  height: 0,
+  getContext: () => canvasContext,
+} as unknown as HTMLCanvasElement;
+const drawState: PreviewCanvasDrawState = {
+  previousScene: null,
+  previousNodeBoundsById: new Map(),
+  previousPixelScale: null,
+};
+renderPreviewSceneToCanvas({
+  canvas,
+  previewScene: directPreview,
+  resolveNodeVisual: directResolver,
+  createSurface,
+  drawState,
+});
+assert.deepEqual(directResolveCalls, [
+  "layer-document-mover",
+  "layer-document-separated",
+  "layer-document-foreground",
+]);
+assert.deepEqual(clearCalls[0], [0, 0, 200, 100]);
+directResolveCalls.length = 0;
+renderPreviewSceneToCanvas({
+  canvas,
+  previewScene: directPreview,
+  resolveNodeVisual: directResolver,
+  createSurface,
+  drawState,
+});
+assert.deepEqual(directResolveCalls, []);
+const movedPreview = updatePreviewSceneNodeTransform(
+  directPreview,
+  { kind: "layer", id: "layer-document-mover" },
+  { position: { x: 30.75, y: 20.25 } }
+);
+renderPreviewSceneToCanvas({
+  canvas,
+  previewScene: movedPreview,
+  resolveNodeVisual: directResolver,
+  createSurface,
+  drawState,
+});
+assert.deepEqual(directResolveCalls, [
+  "layer-document-mover",
+  "layer-document-foreground",
+]);
+assert.deepEqual(clearCalls.at(-1), [8, 8, 35, 25]);
+
+compositionCache.beginFrame();
+compositionCache.endFrame();
+assert.equal(compositionCache.getSnapshot().size, 0);
+assert.ok(surfaceCache.getSnapshot().poolSize > 0);
+compositionCache.dispose();
+surfaceCache.dispose();
+compositionCache.dispose();
+surfaceCache.dispose();
+assert.equal(compositionCache.getSnapshot().size, 0);
+assert.equal(surfaceCache.getSnapshot().activeCount, 0);
+assert.equal(surfaceCache.getSnapshot().poolSize, 0);
+assert.ok(surfaces.every((surface) => surface.canvas.width === 0));

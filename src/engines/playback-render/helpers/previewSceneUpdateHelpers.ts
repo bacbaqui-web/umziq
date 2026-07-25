@@ -8,8 +8,8 @@ import type {
 import type { EvaluatedSceneSize } from "@/engines/playback-render/models/evaluatedSceneModel";
 
 export type PreviewSceneUpdateTarget =
-  | { kind: "layer"; id: string }
-  | { kind: "composition"; id: string };
+  | { kind: "layer"; id: string; itemId?: string; sourceId?: string }
+  | { kind: "composition"; id: string; itemId?: string; sourceId?: string };
 
 export type PreviewSceneTransformPatch = {
   position?: Position;
@@ -55,7 +55,12 @@ function isSamePreviewNodeFrame(
 ) {
   return (
     current.kind === next.kind &&
+    current.layerDocumentId === next.layerDocumentId &&
+    current.itemId === next.itemId &&
     current.sourceId === next.sourceId &&
+    current.sourceResourceCacheKey === next.sourceResourceCacheKey &&
+    current.layerResultCacheKey === next.layerResultCacheKey &&
+    current.sourceType === next.sourceType &&
     current.renderItemId === next.renderItemId &&
     current.parentId === next.parentId &&
     current.opacity === next.opacity &&
@@ -79,7 +84,10 @@ function isSamePreviewNodeFrame(
         current.layerId === next.layerId)) &&
     (current.kind !== "composition" ||
       (next.kind === "composition" &&
-        current.targetCompId === next.targetCompId))
+        current.targetCompId === next.targetCompId)) &&
+    (current.kind !== "placeholder" ||
+      (next.kind === "placeholder" &&
+        current.placeholder === next.placeholder))
   );
 }
 
@@ -87,10 +95,22 @@ function isPreviewNodeTarget(
   node: PreviewNode,
   target: PreviewSceneUpdateTarget
 ) {
+  if (target.itemId && node.itemId !== target.itemId) return false;
+  if (target.sourceId && node.sourceId !== target.sourceId) return false;
+  if (node.layerDocumentId) {
+    return (
+      node.layerDocumentId === target.id &&
+      (target.kind === "composition"
+        ? node.kind === "composition"
+        : node.kind !== "composition")
+    );
+  }
   if (target.kind === "layer") {
     return (
-      node.kind === "layer" &&
-      (node.layerId === target.id || node.sourceId === target.id)
+      node.kind !== "composition" &&
+      (node.kind === "placeholder" ||
+        node.layerId === target.id ||
+        node.sourceId === target.id)
     );
   }
 
@@ -193,6 +213,12 @@ function updatePreviewNodeFromPlaybackFrame(
     return isSamePreviewNodeFrame(current, next, next.children)
       ? current
       : ({ ...next } satisfies LayerPreviewNode);
+  }
+
+  if (next.kind === "placeholder") {
+    return isSamePreviewNodeFrame(current, next, next.children)
+      ? current
+      : { ...next };
   }
 
   const currentChildById = new Map(

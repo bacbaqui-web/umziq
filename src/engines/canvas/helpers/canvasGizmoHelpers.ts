@@ -1,4 +1,4 @@
-import type { CompositionMeta } from "@/models";
+import type { CanvasSceneSize } from "@/engines/canvas/models/canvasEngineModel";
 import type {
   PreviewMotionPathPoint,
 } from "@/engines/canvas/models/canvasViewModel";
@@ -7,11 +7,11 @@ import type { CanvasMotionPathPointViewModel, PreviewOverlayViewModel } from "@/
 import { worldPointToCanvasPoint } from "@/engines/canvas/helpers/canvasViewportHelpers";
 
 const GIZMO_RADIAL_RADIUS = 50;
-const GIZMO_HOLLOW_ENDPOINT_RADIUS = 5;
-const GIZMO_POSITION_RING_RADIUS = 20;
+const GIZMO_HOLLOW_ENDPOINT_RADIUS = 6;
+const GIZMO_POSITION_RING_RADIUS = 24;
 const GIZMO_OPACITY_MIN_RADIUS = 25;
-const SCALE_ARROW_HEAD_LENGTH = 8;
-const SCALE_ARROW_HEAD_HALF_WIDTH = 5;
+const SCALE_ARROW_HEAD_LENGTH = 9.6;
+const SCALE_ARROW_HEAD_HALF_WIDTH = 6;
 
 function normalizeVector(x: number, y: number) {
   const length = Math.hypot(x, y) || 1;
@@ -36,7 +36,7 @@ type BuildCanvasMotionPathProjectionOptions = {
     width: number;
     height: number;
   };
-  selectedMeta: CompositionMeta;
+  selectedMeta: CanvasSceneSize;
   motionPath: readonly PreviewMotionPathPoint[];
 };
 

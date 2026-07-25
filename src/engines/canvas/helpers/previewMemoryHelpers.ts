@@ -27,17 +27,9 @@ function formatUnitValue(value: number): string {
 }
 
 export function getPreviewMemorySourceKey(
-  source: Pick<PreviewMemorySource, "sourceId" | "sourceIdentity">
+  source: Pick<PreviewMemorySource, "sourceId">
 ): string {
-  if (source.sourceIdentity) {
-    return JSON.stringify([
-      "stable",
-      source.sourceIdentity.sourceFileName,
-      source.sourceIdentity.sourceKey,
-    ]);
-  }
-
-  return JSON.stringify(["legacy", source.sourceId]);
+  return JSON.stringify(["source-registry", source.sourceId]);
 }
 
 export function scalePreviewPixelSize(

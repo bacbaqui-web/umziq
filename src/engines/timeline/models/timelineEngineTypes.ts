@@ -1,7 +1,6 @@
 import type { RefObject } from "react";
-import type { AnimatableProperty, TimelineItem } from "@/models";
-import type { SelectedKeyframe } from "@/engines/animation";
-import type { SourceSyncStatus } from "@/models";
+import type { AnimatableProperty } from "@/models";
+import type { SourceRegistryRefreshStatus } from "@/models";
 import type { TimelineReadModel } from "@/engines/timeline/models/timelineViewModel";
 
 export type TimelineCommands = {
@@ -25,23 +24,37 @@ export type TimelineCommands = {
 
 export type TimelineInteractionCommands = {
   duplicateSelectedTimelineItem: () => void;
+  duplicateTimelineItem: (itemId: string) => void;
   splitSelectedTimelineItem: () => void;
-  selectTimelineItem: (item: TimelineItem) => void;
-  activateTimelineItem: (item: TimelineItem, status: SourceSyncStatus) => void;
-  resolveTimelineSourceDelete: (item: TimelineItem, decision: "delete" | "keep") => void;
+  selectTimelineItem: (itemId: string) => void;
+  activateTimelineItem: (
+    itemId: string,
+    status: SourceRegistryRefreshStatus
+  ) => void;
+  resolveTimelineSourceDelete: (itemId: string, decision: "delete" | "keep") => void;
+  deleteTimelineItem: (itemId: string) => void;
   reorderTimelineItem: (targetItemId: string) => void;
   setDraggedTimelineItemId: (itemId: string | null) => void;
-  beginMoveTimelineItem: (clientX: number, item: TimelineItem) => void;
-  beginResizeTimelineItemStart: (clientX: number, item: TimelineItem) => void;
-  beginResizeTimelineItemEnd: (clientX: number, item: TimelineItem) => void;
-  beginRenameTimelineItem: (item: TimelineItem) => void;
+  beginMoveTimelineItem: (clientX: number, itemId: string) => void;
+  beginResizeTimelineItemStart: (clientX: number, itemId: string) => void;
+  beginResizeTimelineItemEnd: (clientX: number, itemId: string) => void;
+  beginRenameTimelineItem: (itemId: string) => void;
   changeTimelineItemName: (name: string) => void;
   commitTimelineItemName: () => void;
   cancelTimelineItemName: () => void;
   handleTimelineItemNameKey: (key: string) => void;
-  selectKeyframe: (targetKind: "layer" | "composition", targetId: string, frame: number, property: AnimatableProperty) => void;
-  beginMoveKeyframe: (clientX: number, targetKind: "layer" | "composition", targetId: string, frame: number, property: AnimatableProperty) => void;
-  deleteKeyframe: (keyframe: NonNullable<SelectedKeyframe>) => void;
+  selectKeyframe: (itemId: string, frame: number, property: AnimatableProperty) => void;
+  beginMoveKeyframe: (clientX: number, itemId: string, frame: number, property: AnimatableProperty) => void;
+  deleteKeyframe: (itemId: string, frame: number, property: AnimatableProperty) => void;
+  deleteCanonicalTimelineItem: (itemId: string) => void;
+  setCanonicalTimelineItemVisibility: (
+    itemId: string,
+    visible: boolean
+  ) => void;
+  setCanonicalTimelineItemAlias: (
+    itemId: string,
+    alias: string | null
+  ) => void;
 };
 
 export type TimelineEngineViewProps = {
@@ -50,5 +63,6 @@ export type TimelineEngineViewProps = {
   interactions: TimelineInteractionCommands;
   rulerRef: RefObject<HTMLDivElement | null>;
   switcherRef: RefObject<HTMLDivElement | null>;
+  switcherTriggerRef: RefObject<HTMLButtonElement | null>;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
 };

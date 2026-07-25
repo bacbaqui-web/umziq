@@ -1,20 +1,16 @@
 import type { Layer as PsdLayer, Psd } from "ag-psd";
 import type {
   PsdImportPlanNode,
-  PreparedPsdImport,
 } from "@/engines/project/models/psdImportPlanModel";
-import type { PsdImportSource } from "@/engines/project/models/psdSourceRuntimeModel";
 import {
   isGroupLayer,
   normalizeStackingOrder,
   sanitizeName,
 } from "@/engines/project/import/psdImportHelpers";
-import { parsePsdFile } from "@/engines/project/import/psdParser";
 import {
   buildPsdSourceKey,
   countPsdLayerIds,
 } from "@/engines/project/import/psdSourceIdentityHelpers";
-import { createDefaultPsdImportSettings } from "@/engines/project/import/psdImportSettingsHelpers";
 
 type AnalysisResult = {
   tree: PsdImportPlanNode[];
@@ -83,38 +79,5 @@ export function analyzeParsedPsd(psd: Psd): AnalysisResult {
     groupCount,
     layerCount,
     hiddenLayerCount,
-  };
-}
-
-export async function preparePsdImportSource(
-  source: PsdImportSource,
-  token: string,
-  parse: (file: File) => Promise<Psd> = parsePsdFile
-) {
-  const parsedPsd = await parse(source.file);
-  const analysis = analyzeParsedPsd(parsedPsd);
-  const prepared: PreparedPsdImport = {
-    token,
-    source,
-    parsedPsd,
-    sourceNodeByKey: analysis.sourceNodeByKey,
-  };
-  return {
-    prepared,
-    planEntry: {
-      token,
-      analysis: {
-        fileName: source.file.name,
-        width: parsedPsd.width,
-        height: parsedPsd.height,
-        groupCount: analysis.groupCount,
-        layerCount: analysis.layerCount,
-        hiddenLayerCount: analysis.hiddenLayerCount,
-        warnings: [],
-        conflict: null,
-      },
-      settings: createDefaultPsdImportSettings(source.file.name),
-      tree: analysis.tree,
-    },
   };
 }

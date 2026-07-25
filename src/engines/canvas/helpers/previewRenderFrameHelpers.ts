@@ -5,8 +5,8 @@ function collectCommandSourceIds(
   sourceIds: Set<string>
 ): void {
   commands.forEach((command) => {
-    if (command.type === "drawable") {
-      sourceIds.add(command.sourceId);
+    if (command.type !== "composition") {
+      if (command.sourceId) sourceIds.add(command.sourceId);
       return;
     }
     collectCommandSourceIds(command.children, sourceIds);

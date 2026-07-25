@@ -1,4 +1,5 @@
-import type { CompositionMeta, Position } from "@/models";
+import type { Position } from "@/models";
+import type { CanvasSceneSize } from "@/engines/canvas/models/canvasEngineModel";
 import {
   PREVIEW_MAX_ZOOM,
   PREVIEW_MIN_ZOOM,
@@ -59,7 +60,7 @@ export function getCanvasViewportValues({
   minWorkspaceWidth: number;
   minWorkspaceHeight: number;
   workspaceSize: CanvasSize;
-  selectedMeta: CompositionMeta | null;
+  selectedMeta: CanvasSceneSize | null;
   shortformFrameWidth: number;
   shortformFrameHeight: number;
   zoom: number;
@@ -105,7 +106,7 @@ export function getCanvasViewportValues({
 }
 
 type CanvasScreenTransform = {
-  meta: CompositionMeta;
+  meta: CanvasSceneSize;
   previewSize: CanvasSize;
   viewportScale: number;
   viewportOffset: Position;

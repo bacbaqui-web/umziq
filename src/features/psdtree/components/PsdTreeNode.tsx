@@ -1,23 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { PsdTreeNodeProps } from "@/engines/psd-tree";
-
-function FolderIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.65"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3.5 7.5h5l1.8 2h9.2a1 1 0 0 1 1 1v7.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V8.9a1.4 1.4 0 0 1 1.4-1.4Z" />
-    </svg>
-  );
-}
+import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 
 function PsdFileIcon() {
   return (
@@ -120,10 +103,9 @@ export default function PsdTreeNode({
 }: PsdTreeNodeProps) {
   const [rowHovered, setRowHovered] = useState(false);
   const isRoot = node.depth === 0;
-  const isMaster = node.type === "master";
   const isMain = node.type === "main";
   const hasChildren = node.children.length > 0;
-  const rowIndent = isMaster ? 10 : isMain ? 14 : 14 + (node.depth - 1) * 14;
+  const rowIndent = isMain ? 14 : 14 + (node.depth - 1) * 14;
   const childGuideLeft = rowIndent + 4;
   const isDragging = node.canReorder && draggedMainCompId === node.id;
   const showDropBefore =
@@ -200,7 +182,7 @@ export default function PsdTreeNode({
           display: "flex",
           alignItems: "center",
           gap: 8,
-          minHeight: isMain ? 52 : isMaster ? 40 : 34,
+          minHeight: isMain ? 52 : 34,
           padding: isMain ? "6px 9px" : "2px 8px",
           paddingLeft: rowIndent,
           borderRadius: isMain ? (hasChildren ? "11px 11px 0 0" : 11) : 7,
@@ -225,7 +207,7 @@ export default function PsdTreeNode({
           />
         )}
 
-        {!isMaster && !isMain && (
+        {!isMain && (
           <span
             aria-hidden="true"
             style={{
@@ -259,19 +241,7 @@ export default function PsdTreeNode({
             fontWeight: isMain ? 650 : 500,
           }}
         >
-          {isMaster ? (
-            <span
-              style={{
-                color: "#c6b36b",
-                fontSize: 10.5,
-                letterSpacing: 0.85,
-                fontWeight: 800,
-                flex: "0 0 auto",
-              }}
-            >
-              MASTER
-            </span>
-          ) : isMain ? (
+          {isMain ? (
             <PsdFileIcon />
           ) : (
             <span
@@ -283,7 +253,7 @@ export default function PsdTreeNode({
                 flex: "0 0 auto",
               }}
             >
-              <FolderIcon />
+              <LayerCompositionIcon kind="composition" size={16} />
             </span>
           )}
 
@@ -384,25 +354,23 @@ export default function PsdTreeNode({
             position: "relative",
             display: "flex",
             flexDirection: "column",
-            gap: isMaster ? 10 : 2,
-            padding: isMain ? "7px 7px 9px" : isMaster ? "2px 0 0" : "0",
+            gap: 2,
+            padding: isMain ? "7px 7px 9px" : "0",
             borderTop: isMain ? "1px solid #2d3339" : "none",
             borderRadius: isMain ? "0 0 11px 11px" : 0,
             background: isMain ? "rgba(18, 21, 24, 0.48)" : "transparent",
           }}
         >
-          {!isMaster && (
-            <span
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                left: childGuideLeft,
-                top: isMain ? 8 : 0,
-                bottom: 17,
-                borderLeft: "1px solid #303840",
-              }}
-            />
-          )}
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: childGuideLeft,
+              top: isMain ? 8 : 0,
+              bottom: 17,
+              borderLeft: "1px solid #303840",
+            }}
+          />
 
           {node.children.map((child, index) => (
             <PsdTreeNode

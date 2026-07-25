@@ -2,6 +2,22 @@
 
 > 문서 번호: 41
 > 범위: Import Preview, Refresh 계층 유지, Stable Source Identity와 Import Settings의 실제 구현 상태 및 후속 설계를 기록한다.
+>
+> **현재 상태:** 이 문서는 cutover 전 구현 역사와 제품 의도를 보존한다. 현재 저장/command authority는 Composition/Timeline/Render records가 아니라 `LayerDocumentProject`, `Source Registry`, LayerDocument transaction이며, 현재 구조는 `56_layer_document_architecture.md`를 따른다.
+
+## 현재 Addendum
+
+이 문서의 1절 이후 “실제 구현 상태”, Engine 책임표, Composition/Timeline/Render record 흐름과 당시 검증 결과는 모두 **LayerDocument cutover 전 시점의 설명**이다. PSD import의 prepare/confirm/cancel, stable source identity, editor hierarchy 보존과 refresh summary라는 제품 의도는 유지되지만 현재 구현을 찾을 때는 다음 대응을 사용한다.
+
+| 당시 표현 | 현재 authority |
+|---|---|
+| Composition/Layer/Timeline/Render records 일괄 변경 | `LayerDocumentProject` transaction |
+| Composition/Layer source identity | Source Registry record + LayerDocument Source reference |
+| Timeline/Render 순서 | `LayerDocument.common.placement.order`와 renderer projection |
+| Composition History 초기화/복원 | LayerDocument Project owner History 정책 |
+| runtime canvas/render binding | Source runtime resource cache |
+
+따라서 아래 과거 섹션의 파일명·record명·검증 개수는 현재 소스 지도가 아니다. 현재 파일 책임은 `20_src_map.md`, 현재 데이터/command/cache 계약은 `56_layer_document_architecture.md`가 우선한다.
 
 ## 1. 결론
 

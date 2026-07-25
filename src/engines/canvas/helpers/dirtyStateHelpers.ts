@@ -245,7 +245,9 @@ function toDirtyNodeSnapshot(
     childrenIds: children.map((child) => child.id),
     sourceId: node.sourceId,
     sourceFingerprint:
-      options?.sourceFingerprintBySourceId?.get(node.sourceId) ?? null,
+      node.sourceId
+        ? options?.sourceFingerprintBySourceId?.get(node.sourceId) ?? null
+        : null,
     transform: node.transform,
     opacity: node.opacity,
     visible: node.visible,

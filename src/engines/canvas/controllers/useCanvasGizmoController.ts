@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
-import type { CompositionMeta, Scale } from "@/models";
+import type { Scale } from "@/models";
+import type { CanvasSceneSize } from "@/engines/canvas/models/canvasEngineModel";
 import type { CanvasSelectionReadModel } from "@/engines/canvas/models/canvasEngineModel";
 import type { PreviewMotionPathPoint, ScaleHandleDirection } from "@/engines/canvas/models/canvasViewModel";
 import type {
@@ -35,7 +36,7 @@ export type UseCanvasGizmoControllerOptions = {
   viewportScale: number;
   viewportOffset: { x: number; y: number };
   previewSize: { width: number; height: number };
-  selectedMeta: CompositionMeta;
+  selectedMeta: CanvasSceneSize;
   selection: CanvasSelectionReadModel;
   motionPath: PreviewMotionPathPoint[];
   currentOpacity: number;

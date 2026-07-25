@@ -1,10 +1,6 @@
 import type { RefObject } from "react";
-import type { Composition, SourceSyncStatus } from "@/models";
 import type {
-  PsdImportConfirmResult,
   PsdImportPlan,
-  PsdImportSource,
-  PsdRefreshCommandResult,
 } from "@/engines/project";
 
 export type PsdTreeDropPosition = "before" | "after";
@@ -14,18 +10,18 @@ export type PsdTreeDropTarget = {
   position: PsdTreeDropPosition;
 } | null;
 
-export type PsdTreePickerMode =
-  | { type: "import" }
-  | { type: "refresh"; mainCompId: string }
-  | null;
-
 export type PsdTreeNodeViewModel = {
   id: string;
-  type: Composition["type"];
+  type: "main" | "sub";
   name: string;
   depth: number;
   selected: boolean;
-  sourceSyncStatus: SourceSyncStatus;
+  sourceSyncStatus:
+    | "normal"
+    | "updated"
+    | "new"
+    | "deletePending"
+    | "missing";
   canRefresh: boolean;
   canDelete: boolean;
   canReorder: boolean;
@@ -41,31 +37,6 @@ export type PsdRefreshSummaryViewModel = {
     value: number;
     problem: boolean;
   }>;
-};
-
-export type PsdTreeProjectReadPort = {
-  rootCompositions: readonly Composition[];
-  selectedCompId: string | null;
-};
-
-export type PsdTreeProjectCommandPort = {
-  preparePsdImport: (sources: PsdImportSource[]) => Promise<PsdImportPlan>;
-  confirmPsdImport: (plan: PsdImportPlan) => Promise<PsdImportConfirmResult>;
-  cancelPsdImport: (plan: PsdImportPlan) => void;
-  refreshMainComposition: (
-    compId: string,
-    source?: PsdImportSource | null
-  ) => Promise<PsdRefreshCommandResult>;
-  removeMainComposition: (compId: string) => void;
-  reorderMainCompositions: (
-    draggedId: string,
-    targetId: string,
-    position: PsdTreeDropPosition
-  ) => void;
-};
-
-export type PsdTreeSelectionPort = {
-  selectComposition: (compId: string) => void;
 };
 
 export type PsdTreeViewProps = {

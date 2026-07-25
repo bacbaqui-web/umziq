@@ -6,15 +6,19 @@ const root = process.cwd();
 const sourceRoot = join(root, "src");
 const engineNames = [
   "animation",
+  "audio",
   "canvas",
+  "drawing",
   "playback-render",
   "project",
   "properties",
   "psd-tree",
+  "text",
   "timeline",
 ] as const;
 const uiEngines = new Set(["canvas", "properties", "psd-tree", "timeline"]);
 const coreEngines = new Set(["animation", "playback-render", "project"]);
+const layerDomainEngines = new Set(["audio", "drawing", "text"]);
 
 function collectSourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -33,6 +37,10 @@ function engineForFile(file: string) {
 const violations: string[] = [];
 const files = collectSourceFiles(sourceRoot);
 const compositionRootPath = join(sourceRoot, "editor/useEditorCompositionRoot.ts");
+const layerDocumentAssemblyPath = join(
+  sourceRoot,
+  "editor/useLayerDocumentEditorOwner.ts"
+);
 const internalEngineImport = /@\/engines\/([a-z-]+)\/[^"'\s]+/g;
 const engineFacadeImport = /@\/engines\/([a-z-]+)(?=["'])/g;
 
@@ -44,8 +52,11 @@ for (const file of files) {
     Array.from(text.matchAll(engineFacadeImport), (match) => match[1])
   );
 
-  if (importedFacades.size === engineNames.length && file !== compositionRootPath) {
-    violations.push(`${label}: Composition Root 외부에서 일곱 Engine을 모두 조립`);
+  if (
+    importedFacades.size === engineNames.length &&
+    file !== layerDocumentAssemblyPath
+  ) {
+    violations.push(`${label}: Composition Root 외부에서 모든 Engine을 조립`);
   }
 
   for (const match of text.matchAll(internalEngineImport)) {
@@ -73,17 +84,63 @@ for (const file of files) {
     }
   }
 
+  if (owner && layerDomainEngines.has(owner)) {
+    for (const imported of importedFacades) {
+      if (
+        imported !== "project" &&
+        imported !== owner
+      ) {
+        violations.push(
+          `${label}: Layer Domain Engine ${owner}가 Core Project 이외의 Engine ${imported}에 의존`
+        );
+      }
+    }
+    if (/@\/(editor|features)\//.test(text)) {
+      violations.push(`${label}: Layer Domain Engine ${owner}가 Editor/Feature에 의존`);
+    }
+  }
+
   if (/^engines\/[^/]+\/controllers\//.test(relative(sourceRoot, file).split(sep).join("/")) && /@\/engines\/[^/]+\/controllers\//.test(text)) {
     violations.push(`${label}: Controller가 다른 Controller를 직접 import`);
   }
 }
 
 const compositionRoot = readFileSync(compositionRootPath, "utf8");
-for (const engineName of engineNames) {
+assert.match(
+  compositionRoot,
+  /useLayerDocumentEditorOwner/
+);
+assert.match(
+  compositionRoot,
+  /useLayerDocumentCanvasComposition/
+);
+assert.doesNotMatch(
+  compositionRoot,
+  /useEditorState|useProjectSourceSession|useTimelineEngine|useCanvasComposition/
+);
+const assemblyRoot = readFileSync(
+  layerDocumentAssemblyPath,
+  "utf8"
+);
+for (const nativeHook of [
+  "useLayerDocumentProjectOwner",
+  "useLayerDocumentTimelineEngine",
+  "useLayerDocumentPropertiesEngine",
+  "useLayerDocumentPsdTreeEngine",
+]) {
   assert.match(
-    compositionRoot,
-    new RegExp(`@/engines/${engineName}["']`),
-    `Composition Root에 ${engineName} Engine 공개 façade 연결이 없습니다.`
+    assemblyRoot,
+    new RegExp(nativeHook),
+    `LayerDocument 조립 경계에 ${nativeHook} 연결이 없습니다.`
+  );
+}
+for (const file of files.filter((candidate) =>
+  engineForFile(candidate)
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /@\/cutover/,
+    `${relative(root, file)} Engine이 cutover를 역참조합니다.`
   );
 }
 

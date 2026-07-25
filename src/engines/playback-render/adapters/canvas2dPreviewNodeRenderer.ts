@@ -1,4 +1,3 @@
-import type { RenderDrawable, RenderItem } from "@/engines/project";
 import type { Canvas2DRenderContext } from "@/engines/playback-render/adapters/canvas2dRenderAdapter";
 import { countPreviewNodes } from "@/engines/playback-render/helpers/previewSceneDirtyRegionHelpers";
 import { buildRenderTransform } from "@/engines/playback-render/helpers/renderTransformHelpers";
@@ -16,16 +15,14 @@ import type {
 } from "@/engines/playback-render/models/previewSceneModel";
 import type {
   RenderDrawableSource,
-  RenderDrawableSourceResolver,
+  RenderNodeVisualResolver,
 } from "@/engines/playback-render/models/renderSourceModel";
 import type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
-
-type PreviewDrawableLookup = ReadonlyMap<string, RenderDrawable>;
+import { drawEditorPlaceholderToContext } from "@/engines/playback-render/adapters/editorPlaceholderCanvas2dAdapter";
 
 type PreviewNodeRenderOptions = {
   context: Canvas2DRenderContext;
-  renderItems: readonly RenderItem[];
-  resolveDrawableSource?: RenderDrawableSourceResolver;
+  resolveNodeVisual?: RenderNodeVisualResolver;
   createSurface: PreviewRenderSurfaceFactory;
   pixelScale: number;
   runtimeMetrics?: RuntimeMetricRecordPort;
@@ -54,76 +51,50 @@ function applyPreviewNodeTransform(
   context.translate(-transform.anchor.x, -transform.anchor.y);
 }
 
-function buildDrawableLookup(
-  renderItems: readonly RenderItem[]
-): PreviewDrawableLookup {
-  const lookup = new Map<string, RenderDrawable>();
-  renderItems.forEach((renderItem) => {
-    renderItem.drawables.forEach((drawable) => {
-      lookup.set(`${renderItem.id}:${drawable.id}`, drawable);
-    });
-  });
-  return lookup;
-}
-
-function findPreviewDrawable(
-  lookup: PreviewDrawableLookup,
-  node: LayerPreviewNode
-) {
-  return lookup.get(`${node.renderItemId}:${node.drawableId}`) ?? null;
-}
-
 function resolveLayerPreviewSource({
   node,
-  drawable,
-  resolveDrawableSource,
+  resolveNodeVisual,
 }: {
   node: LayerPreviewNode;
-  drawable: RenderDrawable;
-  resolveDrawableSource?: RenderDrawableSourceResolver;
+  resolveNodeVisual?: RenderNodeVisualResolver;
 }): RenderDrawableSource | null {
-  const canvas = drawable.canvas;
-  if (!canvas) return null;
-
-  const originalSource: RenderDrawableSource & { kind: "original" } = {
-    kind: "original",
-    image: canvas,
-    pixelSize: { ...node.logicalSize },
-  };
-
-  return (
-    resolveDrawableSource?.({
+  if (
+    node.layerDocumentId &&
+    node.sourceId &&
+    node.sourceResourceCacheKey &&
+    node.layerResultCacheKey
+  ) {
+    const source = resolveNodeVisual?.({
+      layerDocumentId: node.layerDocumentId,
+      sourceId: node.sourceId,
+      sourceResourceCacheKey:
+        node.sourceResourceCacheKey,
+      layerResultCacheKey: node.layerResultCacheKey,
       renderItemId: node.renderItemId,
       drawableId: node.drawableId,
-      sourceId: node.sourceId,
       logicalSize: node.logicalSize,
-      originalSource,
-    }) ?? originalSource
-  );
+    });
+    if (source) return source;
+  }
+  return null;
 }
 
 function drawLayerPreviewNodeToContext({
   context,
   node,
-  drawableLookup,
-  resolveDrawableSource,
+  resolveNodeVisual,
   runtimeMetrics,
 }: {
   context: Canvas2DRenderContext;
   node: LayerPreviewNode;
-  drawableLookup: PreviewDrawableLookup;
-  resolveDrawableSource?: RenderDrawableSourceResolver;
+  resolveNodeVisual?: RenderNodeVisualResolver;
   runtimeMetrics?: RuntimeMetricRecordPort;
 }) {
   if (!node.visible) return;
 
-  const drawable = findPreviewDrawable(drawableLookup, node);
-  if (!drawable) return;
-
   const source = resolveLayerPreviewSource({
     node,
-    drawable,
-    resolveDrawableSource,
+    resolveNodeVisual,
   });
   if (!source) return;
 
@@ -145,8 +116,7 @@ function drawLayerPreviewNodeToContext({
 function drawCompositionPreviewNodeToContext({
   context,
   node,
-  drawableLookup,
-  resolveDrawableSource,
+  resolveNodeVisual,
   createSurface,
   pixelScale,
   runtimeMetrics,
@@ -156,8 +126,7 @@ function drawCompositionPreviewNodeToContext({
 }: {
   context: Canvas2DRenderContext;
   node: CompositionPreviewNode;
-  drawableLookup: PreviewDrawableLookup;
-  resolveDrawableSource?: RenderDrawableSourceResolver;
+  resolveNodeVisual?: RenderNodeVisualResolver;
   createSurface: PreviewRenderSurfaceFactory;
   pixelScale: number;
   runtimeMetrics?: RuntimeMetricRecordPort;
@@ -211,8 +180,7 @@ function drawCompositionPreviewNodeToContext({
     drawPreviewNodeToContext({
       context: surface.context,
       node: child,
-      drawableLookup,
-      resolveDrawableSource,
+      resolveNodeVisual,
       createSurface,
       pixelScale,
       runtimeMetrics,
@@ -246,8 +214,7 @@ function drawCompositionPreviewNodeToContext({
 function drawPreviewNodeToContext({
   context,
   node,
-  drawableLookup,
-  resolveDrawableSource,
+  resolveNodeVisual,
   createSurface,
   pixelScale,
   runtimeMetrics,
@@ -257,8 +224,7 @@ function drawPreviewNodeToContext({
 }: {
   context: Canvas2DRenderContext;
   node: PreviewNode;
-  drawableLookup: PreviewDrawableLookup;
-  resolveDrawableSource?: RenderDrawableSourceResolver;
+  resolveNodeVisual?: RenderNodeVisualResolver;
   createSurface: PreviewRenderSurfaceFactory;
   pixelScale: number;
   runtimeMetrics?: RuntimeMetricRecordPort;
@@ -270,18 +236,26 @@ function drawPreviewNodeToContext({
     drawLayerPreviewNodeToContext({
       context,
       node,
-      drawableLookup,
-      resolveDrawableSource,
+      resolveNodeVisual,
       runtimeMetrics,
     });
+    return;
+  }
+
+  if (node.kind === "placeholder") {
+    if (!node.visible) return;
+    context.save();
+    context.globalAlpha = node.opacity / 100;
+    applyPreviewNodeTransform(context, node);
+    drawEditorPlaceholderToContext(context, node.placeholder);
+    context.restore();
     return;
   }
 
   drawCompositionPreviewNodeToContext({
     context,
     node,
-    drawableLookup,
-    resolveDrawableSource,
+    resolveNodeVisual,
     createSurface,
     pixelScale,
     runtimeMetrics,
@@ -299,14 +273,12 @@ export function drawPreviewNodesToContext({
   nodes: readonly PreviewNode[];
   shouldDrawNode?: (node: PreviewNode) => boolean;
 }): number {
-  const drawableLookup = buildDrawableLookup(options.renderItems);
   let skippedCount = 0;
   nodes.forEach((node) => {
     if (!shouldDrawNode || shouldDrawNode(node)) {
       drawPreviewNodeToContext({
         ...options,
         node,
-        drawableLookup,
       });
       return;
     }

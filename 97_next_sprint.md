@@ -1,241 +1,409 @@
 # Next Sprint Handoff
 
-> 상태: 계획 초안
+> 상태: 사용자 검토용 계획 제안
 > 구현: 시작하지 않음
+> QA: 미실행
+> 현재 Sprint 승격: 사용자 승인 후 `98_sprint_plan.md`로 이동
 
-## Sprint 이름
+## 제안 방향
 
-Canvas Visual Layer Selection
+프로젝트 철학은 After Effects를 그대로 복제하는 것이 아니라, 숏폼 제작에 필요한 핵심 편집 감각만 더 쉽고 가볍게 제공하는 것이다.
 
-## Sprint 목표
+현재 Timeline에는 이미 다음 기능이 있다.
 
-Canvas에서 현재 선택한 대상을 박스만으로 구분하지 않고 실제 표시 실루엣의 Glow로 확인한다.
+- Composition breadcrumb와 switcher
+- 재생·일시정지·한 frame 이동
+- Ruler hover, scrub, playhead와 시간 readout
+- Playback Range 시작·끝 편집과 전체 duration 편집
+- Timeline item 선택, 이동, 좌우 resize, reorder, rename, duplicate, split
+- PSD source 상태와 delete/keep 결정
+- Position, Scale, Rotation, Opacity track과 keyframe 표시
+- Keyframe 선택·이동·삭제
+- Project/Animation/Playback Command와 History transaction
 
-Canvas의 보이는 Layer 또는 현재 Composition의 Sub Composition을 클릭해 기존 Timeline/Properties/Canvas Selection으로 직접 선택할 수 있게 한다.
+따라서 다음 단계의 핵심은 기능을 많이 추가하는 것이 아니다. 현재 기능을 AE처럼 빠르게 읽고 탐색할 수 있는 작업 공간으로 재구성하는 것이다.
 
-```text
-Canvas Pointer
-→ 현재 Evaluated Scene의 top-level 표시 대상 Hit Test
-→ 기존 applySelectionForComposition()
-→ Timeline / Properties / Gizmo / Glow 동기화
-```
+## 현재 구조의 핵심 문제
 
-```text
-Selected Evaluated Scene Node
-→ Editor-only Alpha Mask
-→ Silhouette Glow Overlay
-```
+### 1. 선택과 펼침이 같은 상태다
 
-Preview Renderer와 Export 출력에는 Glow나 선택 정보를 넣지 않는다.
-
-## UX 계약
-
-- Glow는 기존 Selection Box의 사각형 Glow가 아니라 Layer의 불투명 픽셀 실루엣을 따른다.
-- 기존 Selection Box, Outline과 Transform Handle은 유지한다.
-- Glow는 청록 계열의 낮은 강도로 표시하며 실제 Layer 내용을 가리지 않는다.
-- Glow 두께는 Zoom과 무관하게 화면상 일정한 크기를 유지한다.
-- 현재 Composition의 top-level Layer와 immediate Sub Composition만 직접 선택한다.
-- Sub Composition 내부 Layer는 관통 선택하지 않는다. 내부 Layer는 해당 Composition에 진입한 뒤 선택한다.
-- 겹친 대상은 현재 Painter Order에서 가장 위에 보이는 대상을 선택한다.
-- 투명 픽셀은 Hit로 취급하지 않는다. 큰 투명 여백만 클릭해서 Layer가 선택되지 않아야 한다.
-- `visible=false`, 활성 시간 밖, 크기 0, 최종 Opacity 0 대상은 선택 후보에서 제외한다.
-- 빈 Canvas를 클릭하면 Item Selection을 해제한다.
-- Space+왼쪽 버튼 또는 Middle Button Pan은 Selection보다 우선하며 선택을 변경하지 않는다.
-- Handle, Anchor, Motion Path Point는 직접 선택 Hit Test보다 우선한다.
-- 이미 선택된 대상을 누르면 기존 Position Drag를 시작한다.
-- 다른 대상을 누르면 첫 동작은 선택만 한다. 오조작을 막기 위해 같은 PointerDown에서 바로 이동시키지 않는다.
-- 아래에 가려진 Layer 순환 선택과 Alt/Cmd 클릭은 이번 Sprint 범위에서 제외한다.
-
-## 구조 원칙
-
-- 새 Engine, 전역 Store 또는 Project State를 만들지 않는다.
-- 기존 `EvaluatedScene`, `RenderItem`, Canvas Selection command를 재사용한다.
-- Hit Test 기준은 Renderer Mode에 따라 없어질 수 있는 `RenderFrame`이나 lazy `PreviewScene`이 아니라 항상 존재하는 현재 `EvaluatedScene`으로 통일한다.
-- Hit Test와 Glow는 Editor 전용 Selection 기능이다. Playback Renderer 결과, Preview Cache, Dirty Region, Export에는 포함하지 않는다.
-- Draft Transform이 활성화된 선택 대상은 기존 `DraftTransformSnapshot` Geometry를 사용해 Glow와 Hit Geometry가 Layer/Selection/Gizmo를 따라간다.
-- Alpha Mask 생성은 제품 State가 아니라 Editor 표시 계산으로 취급한다.
-
-## 제안 구조
-
-### 1. Selection Candidate
-
-현재 `EvaluatedScene.nodes`의 top-level node를 Canvas 선택 후보로 사용한다.
-
-- Drawable node → `TimelineSelection.kind = layer`
-- Composition node → `TimelineSelection.kind = subComp`
-- `sourceId`와 대응 Timeline `itemId`를 함께 유지한다.
-- node 배열을 뒤에서 앞으로 검사해 마지막으로 그려진 최상단 대상을 우선한다.
-- Composition node의 children은 Alpha 판정에는 사용하지만 선택 결과는 부모 Sub Composition으로 반환한다.
-
-### 2. 공통 Selection Alpha Mask
-
-선택 후보의 현재 시각 결과를 Editor 전용 투명 Mask로 만든다.
-
-- 현재 Evaluated Transform과 source Alpha를 사용한다.
-- Layer는 drawable Alpha를 사용한다.
-- Sub Composition은 children의 합성 Alpha를 사용하되 선택 결과는 Sub Composition 하나다.
-- 먼저 transformed quad/bounds로 빠르게 후보를 거른 뒤 Alpha를 확인한다.
-- 동일한 Mask 생성 규칙을 Click Hit Test와 Silhouette Glow가 공유한다.
-
-Mask용 scratch surface 또는 Overlay canvas는 UI 계산 자원이며 Project/History/Runtime State로 저장하지 않는다.
-
-### 3. Editor-only Glow Overlay
-
-Preview Canvas와 Gizmo 사이에 Selection Highlight 전용 Canvas layer를 둔다.
+현재는 선택된 item의 enabled property만 자동으로 표시된다. 다른 item을 선택하면 기존 property row가 사라지므로 여러 Layer의 animation 구조를 동시에 비교할 수 없다.
 
 ```text
-Preview Canvas
-→ Selection Silhouette Glow Canvas
-→ Selection Box / Motion Path / Transform Gizmo
+현재
+Item 선택
+  → Property 표시
+
+목표
+Item 선택
+  → 편집 대상 결정
+
+Disclosure
+  → Property 표시 여부 결정
 ```
 
-선택 Mask에서 외곽 blur만 만들고 내부는 제거해 Layer 원본 색과 밝기를 바꾸지 않는다. Overlay는 `pointer-events: none`이며 Export와 Preview Renderer 출력에 포함되지 않는다.
+### 2. 시간축이 항상 전체 Duration에 맞춰진다
+
+현재 `pxPerFrame`은 전체 duration을 available width에 맞추는 구조다. 긴 Composition에서는 frame, keyframe과 item edge가 지나치게 압축되며 사용자가 원하는 구간을 확대해 편집할 수 없다.
+
+### 3. Layer Stack 문법이 약하다
+
+현재 왼쪽 영역은 이름과 source status 중심이다. Layer index, item kind, disclosure hierarchy, hover·focus·selection의 구분과 sticky 구조가 약해 복잡한 Timeline을 읽기 어렵다.
+
+### 4. 후속 기능을 담을 좌표 기반이 부족하다
+
+Snapping, box selection, multi-keyframe, easing과 Graph Editor를 추가하려면 Ruler, playhead, item, range, keyframe이 같은 frame↔x 좌표 계약과 실제 visible time viewport를 먼저 사용해야 한다.
+
+## 발전 로드맵
+
+### Phase 1 — Timeline Workspace Foundation
+
+- AE식 Layer Stack 문법
+- 선택과 독립된 Property Disclosure
+- Horizontal Zoom/Scroll
+- Adaptive Ruler와 공통 frame 좌표
+- 기존 편집 기능과 History 의미 유지
+
+### Phase 2 — Precision Editing
+
+- Playhead, item edge, range edge와 keyframe snapping
+- Snap guide와 시간 readout
+- Timeline keyboard action과 context action
+- 이전/다음 keyframe 탐색
+- 기존 Property Track 활성화 기능의 Timeline 진입점
+
+### Phase 3 — Multi Selection
+
+- Item과 keyframe의 Shift/Cmd 선택
+- Box selection
+- 선택 집합 이동·삭제·복제·복사/붙여넣기
+- duplicate `sourceId`와 `itemId`의 instance 의미를 먼저 설계
+
+### Phase 4 — Motion Shaping
+
+- 제한된 easing preset
+- Interpolation Plain Data와 normalize/migration
+- 숏폼에 필요한 Position/Scale/Rotation/Opacity Graph Editor
+- Animation Evaluation과 Motion Path의 interpolation 일치
+
+### Phase 5 — Media Workflow
+
+- Marker
+- Audio waveform
+- source trim/offset
+- 필요한 경우에만 lock/solo와 media-specific track
+
+첫 Sprint에서는 Phase 1만 진행한다.
+
+## 다음 Sprint 제안
+
+### Sprint 이름
+
+`Timeline Layer Stack & Time Viewport Foundation`
+
+### Sprint 목표
+
+기존 Project, Animation, Playback, History와 Renderer 의미를 변경하지 않고 다음 기반을 만든다.
+
+```text
+Layer Stack
+  ├─ 명확한 Item Row
+  ├─ 독립 Disclosure
+  └─ 기존 Enabled Property Rows
+
+Time Viewport
+  ├─ Fit
+  ├─ Zoom
+  ├─ Horizontal Scroll
+  └─ Adaptive Ruler
+
+모든 표시
+  → 동일한 frame ↔ x 좌표 계약
+```
+
+### 사용자 경험 목표
+
+- 여러 Layer의 기존 Transform track을 동시에 펼쳐 비교할 수 있다.
+- Layer를 선택해도 다른 Layer의 펼침 상태가 사라지지 않는다.
+- 긴 Timeline의 원하는 구간을 확대하고 좌우로 이동할 수 있다.
+- Ruler, playhead, playback range, item bar와 keyframe이 확대·스크롤 후에도 정확히 정렬된다.
+- 현재 지원하는 이동·resize·reorder·rename·duplicate·split·keyframe 편집이 그대로 동작한다.
+
+## 설계 원칙
+
+### Timeline Session View State
+
+다음 값은 Project 데이터가 아닌 Editor session UI state다.
+
+- Composition별 expanded item IDs
+- Timeline zoom 또는 `pxPerFrame`
+- horizontal scroll position
+- focused row
+- Fit/Manual viewport mode
+
+Project Plain Data, History, Export와 Renderer에 저장하지 않는다. Project를 열거나 Composition을 전환할 때 존재하지 않는 item ID는 안전하게 제거한다.
+
+처음 Composition에 진입하면 현재 선택 item의 enabled property가 있는 경우 그 item만 초기 펼침 대상으로 삼고, 이후에는 사용자의 disclosure 상태를 유지한다. 여러 item을 동시에 펼칠 수 있다.
+
+### Hierarchical Row
+
+첫 Sprint의 계층은 다음 범위만 사용한다.
+
+```text
+Timeline Item
+  └─ 변형
+      ├─ 위치
+      ├─ 크기
+      ├─ 회전
+      └─ 투명
+```
+
+- 기존 `enabledProperties`가 활성화된 property만 표시한다.
+- `변형`은 hierarchy를 설명하는 presentation이며 새 animation data가 아니다.
+- Property target과 keyframe data는 기존 Layer/Composition source를 그대로 사용한다.
+- Row identity는 duplicate source에서도 안전하도록 `itemId + property`를 사용한다.
+- Selection은 기존 단일 `TimelineSelection`을 유지한다.
+
+### Layer Stack Presentation
+
+첫 Sprint에 추가할 표시 정보:
+
+- Disclosure caret
+- Layer index
+- Layer/Sub Composition kind 표시
+- 이름
+- 기존 source sync status
+- selected, hovered, focused 상태의 명확한 구분
+- sticky Layer column과 sticky Ruler
+
+Visibility, lock, solo처럼 실제 mutation 책임이 확정되지 않은 버튼은 가짜 UI로 추가하지 않는다.
+
+### Time Viewport
+
+- 기본 진입은 현재 동작과 같은 `Fit`이다.
+- Zoom slider 또는 명확한 wheel gesture를 사용하면 Manual mode로 전환한다.
+- Zoom anchor는 pointer 위치를 우선하고 keyboard/slider 조작은 playhead를 우선한다.
+- Fit 버튼으로 전체 duration 표시로 돌아간다.
+- playhead 또는 선택 item을 viewport 안으로 가져오는 최소 navigation을 제공한다.
+- active item drag 중 zoom 변경은 허용하지 않는다. Drag session 종료 후 변경한다.
+
+### 공통 좌표 계약
+
+Ruler, grid, item span, playback range, playhead, property line와 keyframe은 하나의 순수 frame projection을 사용한다.
+
+```text
+frameToTimelineX(frame, viewport)
+timelineXToFrame(x, viewport)
+resolveVisibleFrameRange(viewport)
+resolveAdaptiveTickStep(viewport)
+```
+
+Ruler tick과 화면 밖 keyframe은 전체 duration 길이에 비례해 생성하지 않고 visible range와 작은 overscan 범위만 ViewModel로 만든다.
 
 ## Task 계획
 
-### Task 1 — Selection UX 및 Runtime 계약 확정
+### Task 1 — Current Timeline Contract Baseline
 
-- 현재 Selection, Pointer, Painter Order와 Sub Composition 경계를 문서화한다.
-- 위 UX 계약을 fixture 기준으로 고정한다.
-- 동일 source가 Timeline에 여러 번 배치된 경우 `itemId` 결정 규칙을 확정한다.
-- 아직 구현하지 않는다.
+- 현재 Timeline UX, command와 ViewModel 경계를 코드와 fixture 기준으로 확정한다.
+- item select/move/resize/reorder/rename/duplicate/split 계약을 기록한다.
+- keyframe select/move/delete, global↔local frame과 History transaction을 기록한다.
+- long duration, duplicate source/different itemId, nested Sub Composition과 property 0개 fixture를 정의한다.
+- 아직 제품 UI를 수정하지 않는다.
 
-### Task 2 — Selection Candidate와 Alpha Mask 설계
+### Task 2 — Timeline Session View State 설계
 
-- `EvaluatedScene` top-level node에서 Timeline Selection 후보를 만드는 순수 구조를 설계한다.
-- Layer/Sub Composition Alpha Mask 생성 경계를 확정한다.
-- Main Renderer API나 출력 변경 없이 재사용할 helper/adapter 범위를 확정한다.
-- 아직 UI를 연결하지 않는다.
+- Composition별 disclosure, Fit/Manual, zoom, scroll과 focus state 책임을 설계한다.
+- Composition 전환, Project import, Undo/Redo와 item add/remove 후 normalize 규칙을 정한다.
+- Project/History에 저장하지 않는 것을 정적 검증으로 고정한다.
+- 아직 Presentation을 구현하지 않는다.
 
-### Task 3 — Canvas Hit Test 구현
+### Task 3 — Hierarchical Row ViewModel
 
-- Canvas pointer를 기존 좌표 helper로 Composition world 좌표로 변환한다.
-- transformed quad/bounds prefilter를 구현한다.
-- 후보를 Painter Order 역순으로 검사한다.
-- Alpha Mask의 해당 픽셀이 불투명한 첫 top-level 후보를 반환한다.
-- Layer/Sub Composition, Rotation, non-uniform/negative Scale, non-center Anchor와 Transform Offset을 지원한다.
+- Item, Transform group와 Property row의 명시적 depth/parent/disclosure ViewModel을 만든다.
+- Selection과 expansion을 분리한다.
+- 여러 item의 기존 enabled property를 동시에 표시한다.
+- duplicate source에서도 `itemId + property` 표시 identity를 유지한다.
 
-### Task 4 — Canvas 직접 선택 연결
+### Task 4 — Layer Stack Presentation
 
-- Canvas Engine 안에 단일 책임 Direct Selection Controller를 연결한다.
-- 기존 `applySelectionForComposition()`을 사용해 Timeline, Properties, Draft reset 의미를 유지한다.
-- `itemId`, `sourceId`, `kind`를 보존한다.
-- Handle/Motion Path/Pan pointer 우선순위를 유지한다.
-- 현재 선택 대상이면 기존 Position Drag, 다른 대상이면 선택만 수행한다.
-- 빈 Canvas 클릭은 Selection을 해제한다.
+- sticky Layer column/header를 만든다.
+- disclosure caret, index, kind, name, sync status와 hover/selected/focused 표시를 통일한다.
+- 기존 rename, reorder와 deletePending 결정 흐름을 보존한다.
+- Visibility/lock/solo와 새로운 mutation 기능은 추가하지 않는다.
 
-### Task 5 — Silhouette Glow Overlay 구현
+### Task 5 — Time Viewport와 Adaptive Ruler
 
-- 선택된 top-level node의 공통 Alpha Mask로 Editor-only Glow를 생성한다.
-- Preview Canvas 위, Gizmo 아래에 표시한다.
-- Zoom/Pan/Fit/1:1과 Rotation/Scale/Anchor/Offset을 반영한다.
-- Position Drag와 Editor Draft Runtime 중 Glow가 Layer를 실시간으로 따라가게 한다.
-- Glow는 pointer event를 받지 않는다.
+- Fit/Manual zoom, horizontal scroll과 zoom anchor를 구현한다.
+- 공통 frame projection helper를 Ruler, grid, range, item, playhead와 keyframe에 연결한다.
+- visible window 기반 adaptive tick과 keyframe filtering을 구현한다.
+- sticky Ruler와 viewport edge 표시를 정리한다.
 
-### Task 6 — 통합 및 회귀 검증
+### Task 6 — 기존 Interaction 연결
 
-- 직접 선택 후 Timeline, Properties, Selection Box, Handles와 Glow가 같은 대상을 표시하는지 정적/통합 fixture로 확인한다.
-- Full/Fast Renderer Mode에서 선택 결과가 같은지 확인한다.
-- Preview/Export pixel이 선택 전후 동일한지 확인한다.
-- History가 생성되지 않는지 확인한다.
-- 기존 Position/Anchor/Scale/Rotation Drag와 Motion Path interaction이 유지되는지 확인한다.
+- 새로운 viewport 좌표에서 scrub, item move/resize, keyframe drag와 edge auto-scroll을 연결한다.
+- drag 중 zoom 금지와 pointer coordinate 안정성을 보장한다.
+- Project/Animation/Playback Commands와 History port를 그대로 재사용한다.
 
-### Task 7 — 문서 갱신
+### Task 7 — 정적 회귀와 성능 검증
 
-- 실제 구현에 맞게 `20_src_map.md`를 갱신한다.
-- `98_sprint_plan.md` 진행 상태를 갱신한다.
-- Sprint 완료 시 다음 번호의 영구 기능 문서를 작성한다.
-- 작업을 멈추는 시점에만 루트 에이전트가 `99_recent_task.md`를 작성한다.
+- long duration에서 tick/ViewModel 수가 전체 duration에 비례하지 않는지 검증한다.
+- Draft-only root update에서 Timeline panel render 0 계약을 유지한다.
+- Project Update와 History transaction 수를 기존과 비교한다.
+- Animation Evaluation, exclusive playback range, Renderer order와 global↔local frame 의미가 바뀌지 않았는지 검증한다.
+- 변경 파일 ESLint, 관련 verification, 전체 test, build와 diff check를 실행한다.
 
-### Task 8 — QA
+### Task 8 — 실제 QA 대기
 
-- 사용자가 명시적으로 요청했을 때만 실제 브라우저 QA를 수행한다.
-- `layer_test.psd`에서 Layer, 겹친 Layer, 투명 여백, Sub Composition, 빈 공간을 확인한다.
-- QA 전에는 Sprint를 구현 완료/QA 대기 상태로 보고한다.
+사용자가 명시적으로 요청한 경우에만 실제 Browser QA를 수행한다.
 
-## 정적 검증 계획
+QA fixture:
 
-- no scene / no hit
-- visible=false / inactive / opacity 0 / zero-size 제외
-- rotated quad 바깥 AABB 오탐 방지
-- non-uniform/negative Scale
-- non-center Anchor와 Transform Offset
-- 투명 픽셀 통과 후 아래 Layer 선택
-- 불투명 픽셀이 겹치면 최상단 Painter 선택
-- Layer와 immediate Sub Composition 결과
-- duplicate source의 정확한 Timeline `itemId`
-- 빈 Canvas Selection 해제
-- Full/Fast Mode 동일 후보
-- Draft Position 중 Glow Geometry 추종
-- Preview/Export 출력 불변
-- 변경 파일 ESLint
-- 관련 verification
-- `npm run build`
-- `git diff --check`
+- `drag_test.psd`
+- `layer_test.psd`
 
-## QA 계획
+확인 항목:
 
-- Canvas 클릭 → Timeline/Properties/Gizmo/Glow 동시 선택
-- 투명 여백 클릭 시 아래의 보이는 Layer 선택
-- 겹친 불투명 픽셀은 최상단 Layer 선택
-- 빈 공간 클릭 시 선택 해제
-- 다른 대상 첫 클릭에서 Layer가 이동하지 않음
-- 현재 선택 대상 Position Drag 유지
-- Handle/Anchor/Motion Path Point interaction 우선
-- Space/Middle Pan 중 Selection 불변
-- Layer 및 immediate Sub Composition 선택
-- Zoom/Pan/Fit/1:1 좌표 정확성
-- Glow가 실제 실루엣을 따르고 내용물을 덮지 않음
-- Glow가 Draft Transform을 실시간 추종
-- Glow filter가 viewport edge에서 잘리지 않음
-- Full/Fast Renderer Mode 동일
-- Preview/Export 출력과 성능 구조 유지
-
-## 예상 변경 경계
-
-Canvas Engine:
-
-- Selection candidate/hit-test helper
-- Direct Selection Controller
-- Canvas Engine/Composition port wiring
-- 기존 Draft-aware Selection Geometry 재사용
-
-Preview UI:
-
-- Canvas pointer 연결
-- Selection Silhouette Glow Canvas layer
-- 기존 Selection polygon의 pointer ownership 조정
-
-검증:
-
-- Canvas hit-test helper fixture
-- Selection/Glow integration fixture
-
-문서:
-
-- `20_src_map.md`
-- `98_sprint_plan.md`
-- `99_recent_task.md`
-- Sprint 완료 영구 문서
-
-## 절대 하지 말 것
-
-- Glow를 Main Preview Canvas나 Export에 굽기
-- Renderer Mode별 별도 선택 규칙
-- Bounds만 빛나는 효과를 실제 Layer 실루엣 Glow로 기록하기
-- 투명 영역 전체를 무조건 Hit로 처리하기
-- Sub Composition 내부 Layer 관통 선택
-- Selection 변경을 History에 저장하기
-- 새 Selection Engine, 전역 Runtime, Store 또는 Project 필드 추가
-- 기존 Draft Runtime, Preview Cache, Dirty Region 또는 Renderer 책임 변경
-- Hover 선택 미리보기, 다중 선택, Alt-click 순환 선택 추가
+- 여러 Layer disclosure 유지
+- Composition별 disclosure/zoom/scroll 유지
+- Fit, zoom anchor와 horizontal scroll
+- Ruler/playhead/range/item/keyframe 정렬
+- move/resize/reorder/rename/duplicate/split
+- keyframe select/move/delete
+- Undo/Redo와 Composition 전환
+- 긴 Timeline의 반응성과 Console 오류
 
 ## Sprint 완료 조건
 
-- 선택된 Layer 또는 Sub Composition의 실제 표시 실루엣에 Editor-only Glow가 보인다.
-- Canvas의 보이는 픽셀을 클릭하면 현재 Composition의 최상단 top-level 대상이 선택된다.
-- 투명 여백은 아래 Layer 선택을 막지 않는다.
-- Timeline, Properties, Selection Box, Handles와 Glow가 같은 Selection을 표시한다.
-- Draft Transform 중 Layer와 Glow가 동시에 움직인다.
-- Preview Renderer, Export, Cache, Dirty Region과 History 계약은 변경되지 않는다.
-- 브라우저 QA 전에는 구현 완료/QA 대기로만 기록하며 QA 통과로 판단하지 않는다.
+- Selection과 Property Disclosure가 분리된다.
+- 여러 Timeline Item의 기존 enabled property를 동시에 볼 수 있다.
+- Composition별 disclosure/zoom/scroll이 session 동안 유지된다.
+- Session View State는 Project serialization과 History에 들어가지 않는다.
+- Fit과 Manual zoom/scroll이 동작한다.
+- Ruler, playhead, range, item과 keyframe이 같은 frame 좌표를 사용한다.
+- visible tick/keyframe ViewModel이 전체 duration에 비례해 증가하지 않는다.
+- 기존 Timeline item/keyframe 편집과 History 의미가 유지된다.
+- Animation Evaluation, Playback, Renderer, Draft Runtime과 Export 의미가 변경되지 않는다.
+- 새 Engine, 전역 Store와 Project schema가 추가되지 않는다.
+
+## 첫 Sprint에서 하지 않을 것
+
+- Snapping과 snap guide
+- Item/Keyframe multi-selection
+- Box selection
+- Copy/Paste와 batch mutation
+- Easing, Bezier와 Graph Editor
+- Keyframe interpolation schema 변경
+- Marker와 audio waveform
+- source trim/offset와 time remap
+- 별도 Work Area 데이터 추가
+- Visibility, lock, solo, shy 기능 추가
+- Anchor animation
+- Timeline View의 Project 직접 수정
+- 새 Engine, 전역 Runtime 또는 Store
+- Renderer, Evaluated Scene, Preview/Export 변경
+
+## 위험과 보호 계약
+
+### Plain Data와 Migration
+
+첫 Sprint는 Project schema 변경이 없으므로 migration은 0건이다. 향후 easing은 keyframe interpolation Plain Data와 normalize가 선행되어야 한다.
+
+### Duplicate Item
+
+여러 Timeline Item이 같은 `sourceId`와 animation track을 공유할 수 있다. Timeline 표시 identity는 `itemId`를 사용하되, keyframe mutation target이 item instance별이라고 오해해서는 안 된다.
+
+### History
+
+- disclosure, zoom, scroll과 focus: History 0
+- item/property mutation: 기존 Project/Animation History port
+- drag: begin → markDirty → commit 1회
+- no-op/cancel: History 0
+
+### Playback
+
+Playback Range `endFrame`의 exclusive 의미를 유지한다. 첫 Sprint에서는 Playback Range와 별도의 Work Area를 만들지 않는다.
+
+### Draft Runtime
+
+Timeline zoom/disclosure는 활성 Transform Draft를 Commit하거나 변경하지 않는다. Drag 중 viewport 변경은 금지해 pointer session 좌표를 안정화한다.
+
+### Renderer와 Order
+
+Timeline reorder는 Project Command를 통해 Timeline, Render와 Composition order를 함께 갱신한다. ViewModel이나 UI에서 배열을 직접 변경하지 않는다.
+
+### Performance
+
+- 기존 Timeline panel memo 경계와 Draft-only render 0을 유지한다.
+- 전체 duration frame 배열 생성을 visible tick 생성으로 교체한다.
+- 확대된 property row가 많아질 수 있으므로 stable row identity와 memo 입력을 유지한다.
+- 첫 Sprint에서 새 DOM virtualization system까지 도입하지 않는다. 실제 row 병목이 증명되면 후속 Sprint로 분리한다.
+
+## 예상 변경 경계
+
+### Session State와 조립
+
+- `src/editor/state/useEditorEngineStateStores.ts`
+- `src/editor/state/useEditorSessionState.ts`
+- `src/editor/useEditorCompositionRoot.ts`
+- `src/engines/timeline/useTimelineEngine.ts`
+
+### Timeline Model과 Controller
+
+- `src/engines/timeline/constants/timelineConstants.ts`
+- `src/engines/timeline/models/timelineViewModel.ts`
+- `src/engines/timeline/models/timelineEngineTypes.ts`
+- `src/engines/timeline/models/timelineInteractionModel.ts`
+- `src/engines/timeline/helpers/timelineLayoutHelpers.ts`
+- `src/engines/timeline/helpers/timelineViewModelHelpers.ts`
+- `src/engines/timeline/helpers/timelineInteractionHelpers.ts`
+- `src/engines/timeline/controllers/useTimelineViewController.ts`
+- `src/engines/timeline/controllers/useTimelinePlaybackUIController.ts`
+- `src/engines/timeline/controllers/useTimelinePointerController.ts`
+
+### Timeline UI
+
+- `src/features/timeline/components/TimelinePanel.tsx`
+- `src/features/timeline/components/TimelineRuler.tsx`
+- `src/features/timeline/components/TimelineTrackRows.tsx`
+- `src/features/timeline/components/TimelineTrackOverlays.tsx`
+- `src/features/timeline/components/TimelineItemTrackRow.tsx`
+- `src/features/timeline/components/TimelinePropertyTrackRow.tsx`
+- `src/features/timeline/components/TimelineHeader.tsx`
+
+### 보존할 Cross-Engine 계약
+
+- `src/models/timelineItemModel.ts`
+- `src/models/selectionModel.ts`
+- `src/models/animationModel.ts`
+- `src/engines/project/models/projectCommandModel.ts`
+- `src/engines/project/history/projectHistorySnapshot.ts`
+- `src/engines/animation/controllers/usePropertyTrackController.ts`
+- `src/engines/animation/controllers/useKeyframeController.ts`
+- `src/engines/animation/helpers/animationFrameHelpers.ts`
+- `src/engines/playback-render/controllers/usePlaybackRangeController.ts`
+- `src/engines/playback-render/helpers/activeTimelineItemHelpers.ts`
+
+## 리팩토링 제안
+
+이번 조사에서 Timeline 관련 500줄 이상 TS/TSX 파일은 발견되지 않았다. 다음 500줄 이상 verification 파일은 보고만 하며 이번 Sprint 계획과 분리한다.
+
+- `scripts/verifyCanvasTransformDragIntegration.ts` — 849줄
+- `scripts/verifyRenderHelpers.ts` — 816줄
+- `scripts/verifyPsdPipeline.ts` — 795줄
+- `scripts/verifyCanvasDirectSelection.ts` — 618줄
+- `scripts/verifyPreviewInteractionProfilingCdpDriver.ts` — 613줄
+- `scripts/verifyCanvasInteractionHelpers.ts` — 587줄
+- `scripts/verifyCanvasDragPerformance.ts` — 572줄
+- `scripts/verifyCanvasPreviewIntegration.ts` — 534줄
+- `scripts/verifyDrawImageOptimization.ts` — 519줄
+
+## 계획 검토 결과
+
+- Graph Editor보다 Layer Stack과 Time Viewport가 먼저라는 순서로 정리했다.
+- Selection과 Disclosure 책임을 분리했다.
+- Project 데이터와 Editor session view state를 분리했다.
+- 새 animation 기능 없이 기존 enabled track만 재사용한다.
+- horizontal zoom 전에 공통 frame projection과 visible range를 계획에 포함했다.
+- sticky presentation과 mutation 기능을 분리해 가짜 visibility/lock control을 금지했다.
+- duplicate source의 item identity와 animation target 차이를 위험 항목으로 명시했다.
+- 실제 QA는 사용자 요청 전까지 실행하지 않도록 분리했다.

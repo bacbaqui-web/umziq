@@ -1,22 +1,15 @@
-export { default as PreviewWorkspacePane } from "@/features/preview/components/PreviewWorkspacePane";
-export { useCanvasComposition } from "@/engines/canvas/useCanvasComposition";
-export type { UseCanvasCompositionOptions } from "@/engines/canvas/useCanvasComposition";
+export {
+  useLayerDocumentCanvasComposition,
+  type LayerDocumentCanvasReadPort,
+} from "@/engines/canvas/useLayerDocumentCanvasComposition";
 export type { RendererMode } from "@/engines/playback-render";
-export { useCanvasEngine } from "@/engines/canvas/useCanvasEngine";
-export type { UseCanvasEngineOptions } from "@/engines/canvas/useCanvasEngine";
 export { useCanvasPreviewRuntime } from "@/engines/canvas/useCanvasPreviewRuntime";
 export {
   PREVIEW_DEVICE_MEMORY_TIER_POLICIES,
   PREVIEW_FALLBACK_MEMORY_BUDGET_BYTES,
 } from "@/engines/canvas/constants/previewAutomaticQualityConstants";
 export type {
-  PreviewBitmapFactoryPort,
   PreviewBuildReadModel,
-  PreviewBuildSource,
-  PreviewCacheBuildError,
-  PreviewCacheBuildOptions,
-  PreviewCacheBuildProgress,
-  PreviewCacheBuildResult,
 } from "@/engines/canvas/models/previewBuildModel";
 export type {
   PreviewDeviceMemoryTier,
@@ -34,29 +27,9 @@ export type {
   PreviewMemoryBudgetResult,
 } from "@/engines/canvas/models/previewAutomaticQualityModel";
 export type {
-  PreviewCacheCommitResult,
-  PreviewCacheCommitStatus,
-  PreviewCacheKeyInput,
-  PreviewCacheRuntime,
-  PreviewCacheSnapshot,
-} from "@/engines/canvas/models/previewCacheModel";
-export type {
   PreviewQualityPreference,
   ResolvedPreviewQuality,
 } from "@/engines/canvas/models/previewQualityModel";
-export type {
-  PreviewBitmapImage,
-  PreviewBitmapRuntime,
-  PreviewGeneration,
-  PreviewRuntimeResource,
-} from "@/engines/canvas/models/previewRuntimeModel";
-export type {
-  PreviewBitmapCreationAdapter,
-  PreviewBitmapFactoryError,
-  PreviewBitmapFactoryErrorCode,
-  PreviewBitmapFactoryInput,
-  PreviewBitmapFactoryResult,
-} from "@/engines/canvas/models/previewBitmapFactoryModel";
 export type {
   PreviewMemoryEstimate,
   PreviewMemoryEstimatesByQuality,
@@ -80,26 +53,18 @@ export {
   getPreviewMemorySourceKey,
   scalePreviewPixelSize,
 } from "@/engines/canvas/helpers/previewMemoryHelpers";
-export { buildPreviewCacheKey } from "@/engines/canvas/helpers/previewCacheKeyHelpers";
-export {
-  collectPreviewBuildSources,
-  collectProjectPreviewBuildSources,
-  getPreviewBuildSourceSetKey,
-  getPreviewLifecycleRetainedCacheKeys,
-  toPreviewMemorySources,
-} from "@/engines/canvas/helpers/previewBuildSourceHelpers";
 export { collectRenderFrameSourceIds } from "@/engines/canvas/helpers/previewRenderFrameHelpers";
-export { createPreviewDrawableSourceResolver } from "@/engines/canvas/helpers/previewResolverHelpers";
 export {
   resolveAutomaticPreviewQuality,
   resolvePreviewMemoryBudget,
 } from "@/engines/canvas/helpers/previewAutomaticQualityHelpers";
-export { createPreviewBitmapResource } from "@/engines/canvas/factories/previewBitmapFactory";
-export { createPreviewCacheRuntime } from "@/engines/canvas/state/previewCacheRuntimeStore";
 export { createDirtyState } from "@/engines/canvas/state/dirtyStateStore";
 export { createCompositionPreviewCacheRuntime } from "@/engines/canvas/state/compositionPreviewCacheStore";
 export { createPreviewSurfaceCacheRuntime } from "@/engines/canvas/state/previewSurfaceCacheStore";
 export { createRuntimeMetricsResource } from "@/engines/canvas/state/runtimeMetricsStore";
+export {
+  resolvePreviewCompositionCacheForRender,
+} from "@/engines/canvas/controllers/useCanvasRenderController";
 export {
   buildDirtySummary,
   createCleanDirtyStateSnapshot,
@@ -162,10 +127,6 @@ export {
   type RuntimeMetricsSnapshot,
 } from "@/engines/canvas/models/runtimeMetricsModel";
 export {
-  buildPreviewCacheGeneration,
-  getPreviewBuildCacheKeys,
-} from "@/engines/canvas/controllers/buildPreviewCacheGeneration";
-export {
   PREVIEW_MIN_WORKSPACE_HEIGHT,
   PREVIEW_MIN_WORKSPACE_WIDTH,
   GIZMO_HANDLE_SIZE,
@@ -180,7 +141,70 @@ export type {
 } from "@/engines/canvas/models/canvasViewModel";
 export type { CanvasSelectionGlowViewModel } from "@/engines/canvas/models/canvasSelectionGlowModel";
 export type { CanvasDirectSelectionHoverViewModel } from "@/engines/canvas/models/canvasDirectSelectionModel";
-export { resolveCanvasPreviewCursor } from "@/engines/canvas/helpers/canvasDirectSelectionHitHelpers";
+export { resolveCanvasPreviewCursor } from "@/engines/canvas/helpers/canvasDirectSelectionCursorHelpers";
+export {
+  buildLayerDocumentCanvasModeReadModel,
+} from "@/engines/canvas/adapters/layerDocumentCanvasModeAdapter";
+export {
+  useLayerDocumentCanvasOverlayAdapter,
+} from "@/engines/canvas/adapters/useLayerDocumentCanvasOverlayAdapter";
+export {
+  useLayerDocumentCanvasInteractionAdapter,
+} from "@/engines/canvas/adapters/useLayerDocumentCanvasInteractionAdapter";
+export {
+  useLayerDocumentCanvasPreviewBridge,
+} from "@/engines/canvas/adapters/useLayerDocumentCanvasPreviewBridge";
+export {
+  useLayerDocumentCanvasDirectSelectionController,
+} from "@/engines/canvas/controllers/useLayerDocumentCanvasDirectSelectionController";
+export {
+  createLayerDocumentCanvasCommands,
+} from "@/engines/canvas/adapters/layerDocumentCanvasCommandAdapter";
+export {
+  createLayerDocumentCanvasNodeVisualResolver,
+  createLayerDocumentCanvasRenderAssetPort,
+} from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
+export type {
+  LayerDocumentCanvasRuntimeResourceAdapter,
+} from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
+export {
+  buildLayerDocumentCanvasRenderFrame,
+  buildLayerDocumentCanvasRendererReadModel,
+} from "@/engines/canvas/helpers/layerDocumentCanvasRendererHelpers";
+export {
+  buildLayerDocumentCanvasDirectSelectionCandidates,
+  buildLayerDocumentCanvasMotionPath,
+  buildLayerDocumentCanvasSelectionReadModel,
+  resolveLayerDocumentCanvasGlowCandidate,
+} from "@/engines/canvas/helpers/layerDocumentCanvasSelectionHelpers";
+export {
+  buildLayerDocumentCanvasGlowSelectionKey,
+  drawLayerDocumentCanvasGlow,
+  hitLayerDocumentCanvasDirectSelection,
+  resolveLayerDocumentCanvasDirectSelectionIntent,
+  resolveLayerDocumentCanvasGlowSource,
+} from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
+export type {
+  LayerDocumentCanvasCommandPort,
+  LayerDocumentCanvasCommands,
+  LayerDocumentCanvasDirectSelectionCandidate,
+  LayerDocumentCanvasDirectSelectionHit,
+  LayerDocumentCanvasDirectSelectionIntent,
+  LayerDocumentCanvasHandleDraft,
+  LayerDocumentCanvasKeyframeSelectionCommand,
+  LayerDocumentCanvasModeInput,
+  LayerDocumentCanvasModeReadModel,
+  LayerDocumentCanvasModeReadResult,
+  LayerDocumentCanvasMotionPathDraftPreparation,
+  LayerDocumentCanvasRenderAsset,
+  LayerDocumentCanvasRenderAssetPort,
+  LayerDocumentCanvasRenderAssetRequest,
+  LayerDocumentCanvasRendererReadModel,
+  LayerDocumentCanvasSceneDescriptor,
+  LayerDocumentCanvasSemanticKeyframeCommand,
+  LayerDocumentCanvasTransformHandle,
+  LayerDocumentCanvasViewportInput,
+} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
 export {
   CANVAS_SELECTION_GLOW_POINTER_EVENTS,
   CANVAS_SELECTION_OVERLAY_LAYER_ORDER,
@@ -231,26 +255,6 @@ export type {
   PreviewGuideLine,
 } from "@/engines/canvas/helpers/canvasGuideHelpers";
 export {
-  buildCompositionSelectionOverlay,
-  buildCanvasSelectionReadModel,
-  buildLayerSelectionOverlay,
-} from "@/engines/canvas/helpers/canvasSelectionHelpers";
-export {
-  areDraftTransformSnapshotsSemanticallyEqual,
-  isDraftTransformSnapshotForTargetAtFrame,
-  resolveDraftAnchorTransformCommand,
-  resolveDraftAnchorTransformCommandFromLocalAnchor,
-  resolveDraftOverlayRuntimeValuesForTargetAtFrame,
-  resolveDraftTransformSnapshot,
-} from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
-export type {
-  DraftTransformPatch,
-  DraftTransformSnapshot,
-} from "@/engines/canvas/helpers/draftTransformRuntimeHelpers";
-export type {
-  CanvasTransformDraftCommands,
-} from "@/engines/canvas/models/canvasTransformControllerModel";
-export {
   calculateOpacityDragUpdate,
   calculatePreviewPositionDragUpdate,
   calculateRotationDragUpdate,
@@ -258,7 +262,6 @@ export {
   formatPositionDeltaReadout,
   formatRotationHandleValue,
   formatScaleHandleReadout,
-  getCanvasTransformEditModes,
   isCanvasTransformDragActive,
   shouldRunCanvasDirectSelectionHover,
 } from "@/engines/canvas/helpers/canvasInteractionHelpers";

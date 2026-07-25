@@ -1,13 +1,8 @@
 import type { Layer as PsdLayer } from "ag-psd";
-import { createPropertyTrackState as buildPropertyTrackState, type Layer } from "@/models";
-import type { RenderDrawable } from "@/engines/project/models/runtimeRenderModel";
 import {
   hashBytes,
   hashString,
   normalizePsdOpacity,
-  sanitizeName,
-  slugify,
-  toLayerId,
 } from "@/engines/project/import/psdImportHelpers";
 
 export function buildLayerSourceFingerprint(layer: PsdLayer) {
@@ -34,69 +29,4 @@ export function buildLayerSourceFingerprint(layer: PsdLayer) {
       pixels: pixelHash,
     })
   );
-}
-
-export function createLayer(
-  parentId: string,
-  layer: PsdLayer,
-  index: number,
-  fallbackName: string,
-  sourcePath?: string,
-  displayName?: string,
-  sourceIdentity?: Layer["sourceIdentity"]
-): Layer {
-  const name = displayName ?? sanitizeName(layer.name, fallbackName);
-  const anchorWidth = layer.canvas?.width ?? 0;
-  const anchorHeight = layer.canvas?.height ?? 0;
-  const center = {
-    x: anchorWidth / 2,
-    y: anchorHeight / 2,
-  };
-
-  return {
-    id: toLayerId(parentId, index, name),
-    name,
-    visible: !layer.hidden,
-    sourcePath,
-    sourceIdentity,
-    sourceFingerprint: buildLayerSourceFingerprint(layer),
-    sourceSyncStatus: "normal",
-    position: {
-      x: (layer.left ?? 0) + center.x,
-      y: (layer.top ?? 0) + center.y,
-    },
-    transformOffset: {
-      x: 0,
-      y: 0,
-    },
-    anchor: {
-      x: center.x,
-      y: center.y,
-    },
-    positionKeyframes: [],
-    scale: {
-      x: 100,
-      y: 100,
-    },
-    scaleKeyframes: [],
-    scaleLinked: true,
-    rotation: 0,
-    rotationKeyframes: [],
-    opacity: normalizePsdOpacity(layer.opacity),
-    opacityKeyframes: [],
-    enabledProperties: buildPropertyTrackState(),
-    modifiers: [],
-  };
-}
-
-export function createDrawable(layer: PsdLayer, index: number, fallbackName: string): RenderDrawable {
-  const name = sanitizeName(layer.name, fallbackName);
-
-  return {
-    id: `${slugify(name) || "drawable"}-${index}`,
-    left: layer.left ?? 0,
-    top: layer.top ?? 0,
-    visible: !layer.hidden,
-    canvas: layer.canvas,
-  };
 }

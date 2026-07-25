@@ -5,6 +5,7 @@ import type {
 import type {
   CompositionPreviewNode,
   LayerPreviewNode,
+  PlaceholderPreviewNode,
   PreviewNode,
   PreviewScene,
 } from "@/engines/playback-render/models/previewSceneModel";
@@ -12,13 +13,27 @@ import type { FastPreviewRendererResult } from "@/engines/playback-render/models
 import type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
 
 function createLayerPreviewNodeId(node: Extract<EvaluatedSceneNode, { type: "drawable" }>) {
-  return `layer:${node.renderItemId}:${node.drawableId}`;
+  const identity = node.layerDocumentId ??
+    (node.identityKind === "canonical-placement"
+      ? node.itemId
+      : node.renderItemId);
+  return `layer:${identity}:${node.drawableId}`;
 }
 
 function createCompositionPreviewNodeId(
   node: Extract<EvaluatedSceneNode, { type: "composition" }>
 ) {
-  return `composition:${node.renderItemId}:${node.targetCompId}`;
+  const identity = node.layerDocumentId ??
+    (node.identityKind === "canonical-placement"
+      ? node.itemId
+      : node.renderItemId);
+  return `composition:${identity}:${node.targetCompId}`;
+}
+
+function createPlaceholderPreviewNodeId(
+  node: Extract<EvaluatedSceneNode, { type: "placeholder" }>
+) {
+  return `placeholder:${node.itemId}`;
 }
 
 function isSamePosition(
@@ -56,9 +71,20 @@ function isSameTransform(
 }
 
 function getPreviewNodeId(node: EvaluatedSceneNode): string {
-  return node.type === "drawable"
-    ? createLayerPreviewNodeId(node)
-    : createCompositionPreviewNodeId(node);
+  switch (node.type) {
+    case "drawable":
+      return createLayerPreviewNodeId(node);
+    case "composition":
+      return createCompositionPreviewNodeId(node);
+    case "placeholder":
+      return createPlaceholderPreviewNodeId(node);
+  }
+}
+
+function getLayerDocumentIdentity(node: EvaluatedSceneNode) {
+  return node.layerDocumentId
+    ? { layerDocumentId: node.layerDocumentId }
+    : {};
 }
 
 function buildPreviewNode(
@@ -70,7 +96,13 @@ function buildPreviewNode(
     const previewNode: LayerPreviewNode = {
       id: createLayerPreviewNodeId(node),
       kind: "layer",
+      ...getLayerDocumentIdentity(node),
+      itemId: node.itemId,
       sourceId: node.sourceId,
+      sourceResourceCacheKey:
+        node.sourceResourceCacheKey,
+      layerResultCacheKey: node.layerResultCacheKey,
+      sourceType: node.sourceType,
       renderItemId: node.renderItemId,
       parentId,
       children: [],
@@ -88,11 +120,43 @@ function buildPreviewNode(
     return previewNode;
   }
 
+  if (node.type === "placeholder") {
+    const previewNode: PlaceholderPreviewNode = {
+      id: createPlaceholderPreviewNodeId(node),
+      kind: "placeholder",
+      ...getLayerDocumentIdentity(node),
+      itemId: node.itemId,
+      sourceId: node.sourceId,
+      sourceResourceCacheKey:
+        node.sourceResourceCacheKey,
+      layerResultCacheKey: node.layerResultCacheKey,
+      sourceType: node.sourceType,
+      renderItemId: null,
+      parentId,
+      children: [],
+      transform: node.transform,
+      opacity: node.opacity,
+      visible: node.visible,
+      order: node.order,
+      localFrame: node.localFrame,
+      globalFrame,
+      logicalSize: node.logicalSize,
+      placeholder: node.placeholder,
+    };
+    return previewNode;
+  }
+
   const id = createCompositionPreviewNodeId(node);
   const previewNode: CompositionPreviewNode = {
     id,
     kind: "composition",
+    ...getLayerDocumentIdentity(node),
+    itemId: node.itemId,
     sourceId: node.sourceId,
+    sourceResourceCacheKey:
+      node.sourceResourceCacheKey,
+    layerResultCacheKey: node.layerResultCacheKey,
+    sourceType: node.sourceType,
     renderItemId: node.renderItemId,
     parentId,
     children: node.children.map((child) =>
@@ -119,7 +183,14 @@ function isLayerRenderStateEqual(
   return (
     previous.kind === "layer" &&
     previous.id === createLayerPreviewNodeId(node) &&
+    previous.layerDocumentId === node.layerDocumentId &&
+    previous.itemId === node.itemId &&
     previous.sourceId === node.sourceId &&
+    previous.sourceResourceCacheKey ===
+      node.sourceResourceCacheKey &&
+    previous.layerResultCacheKey ===
+      node.layerResultCacheKey &&
+    previous.sourceType === node.sourceType &&
     previous.renderItemId === node.renderItemId &&
     previous.parentId === parentId &&
     previous.order === node.order &&
@@ -127,6 +198,32 @@ function isLayerRenderStateEqual(
     previous.opacity === node.opacity &&
     previous.drawableId === node.drawableId &&
     previous.layerId === node.layerId &&
+    isSameSize(previous.logicalSize, node.logicalSize) &&
+    isSameTransform(previous.transform, node.transform)
+  );
+}
+
+function isPlaceholderRenderStateEqual(
+  previous: PreviewNode,
+  node: Extract<EvaluatedSceneNode, { type: "placeholder" }>,
+  parentId: string | null
+): boolean {
+  return (
+    previous.kind === "placeholder" &&
+    previous.id === createPlaceholderPreviewNodeId(node) &&
+    previous.layerDocumentId === node.layerDocumentId &&
+    previous.itemId === node.itemId &&
+    previous.sourceId === node.sourceId &&
+    previous.sourceResourceCacheKey ===
+      node.sourceResourceCacheKey &&
+    previous.layerResultCacheKey ===
+      node.layerResultCacheKey &&
+    previous.sourceType === node.sourceType &&
+    previous.parentId === parentId &&
+    previous.order === node.order &&
+    previous.visible === node.visible &&
+    previous.opacity === node.opacity &&
+    previous.placeholder === node.placeholder &&
     isSameSize(previous.logicalSize, node.logicalSize) &&
     isSameTransform(previous.transform, node.transform)
   );
@@ -141,7 +238,14 @@ function isCompositionRenderStateEqual(
   return (
     previous.kind === "composition" &&
     previous.id === createCompositionPreviewNodeId(node) &&
+    previous.layerDocumentId === node.layerDocumentId &&
+    previous.itemId === node.itemId &&
     previous.sourceId === node.sourceId &&
+    previous.sourceResourceCacheKey ===
+      node.sourceResourceCacheKey &&
+    previous.layerResultCacheKey ===
+      node.layerResultCacheKey &&
+    previous.sourceType === node.sourceType &&
     previous.renderItemId === node.renderItemId &&
     previous.parentId === parentId &&
     previous.order === node.order &&
@@ -234,6 +338,27 @@ function buildPlaybackPreviewNode({
     };
   }
 
+  if (node.type === "placeholder") {
+    if (previous && isPlaceholderRenderStateEqual(previous, node, parentId)) {
+      return {
+        node: previous,
+        stats: {
+          ...createEmptyPlaybackStats(),
+          cleanNodeCount: 1,
+          reusedNodeCount: 1,
+        },
+      };
+    }
+    return {
+      node: buildPreviewNode(node, globalFrame, parentId),
+      stats: {
+        ...createEmptyPlaybackStats(),
+        dirtyNodeCount: 1,
+        updatedNodeCount: 1,
+      },
+    };
+  }
+
   const id = createCompositionPreviewNodeId(node);
   let stats = createEmptyPlaybackStats();
   const children = node.children.map((child) => {
@@ -265,7 +390,14 @@ function buildPlaybackPreviewNode({
   const previewNode: CompositionPreviewNode = {
     id,
     kind: "composition",
+    ...getLayerDocumentIdentity(node),
+    itemId: node.itemId,
     sourceId: node.sourceId,
+    sourceResourceCacheKey:
+      node.sourceResourceCacheKey,
+    layerResultCacheKey:
+      node.layerResultCacheKey,
+    sourceType: node.sourceType,
     renderItemId: node.renderItemId,
     parentId,
     children,

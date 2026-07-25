@@ -7,8 +7,6 @@ import type {
   ScaleHandleDirection,
 } from "@/engines/canvas/models/canvasViewModel";
 import type { Position, Scale } from "@/models";
-import type { PropertyTrackState } from "@/models";
-import { getTransformEditMode } from "@/engines/animation";
 import {
   getScaleHandleDescriptors,
 } from "@/engines/canvas/helpers/canvasGizmoGeometryHelpers";
@@ -38,15 +36,6 @@ export function formatScaleHandleReadout(
 export function formatPositionDeltaReadout(delta: Position) {
   const format = (value: number) => `${value >= 0 ? "+" : ""}${Math.round(value)}`;
   return `ΔX ${format(delta.x)} / ΔY ${format(delta.y)}`;
-}
-
-export function getCanvasTransformEditModes(state: PropertyTrackState) {
-  return {
-    position: getTransformEditMode(state.position),
-    scale: getTransformEditMode(state.scale),
-    rotation: getTransformEditMode(state.rotation),
-    opacity: getTransformEditMode(state.opacity),
-  };
 }
 
 export function isCanvasTransformDragActive(state: {

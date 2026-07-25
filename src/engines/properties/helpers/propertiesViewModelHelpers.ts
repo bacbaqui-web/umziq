@@ -1,15 +1,9 @@
 import type {
   AnimatableProperty,
-  Composition,
-  CompositionMeta,
-  Layer,
   PropertyTrackState,
 } from "@/models";
-import type { SelectedKeyframe } from "@/engines/animation";
 import { PROPERTY_LABELS } from "@/engines/properties/constants/propertiesConstants";
 import type {
-  PropertiesInfoViewModel,
-  PropertiesKeyframeViewModel,
   PropertiesNumericInputId,
   PropertiesPropertyRowViewModel,
   PropertiesResolvedValues,
@@ -59,30 +53,25 @@ const PROPERTY_INPUT_IDS: Record<AnimatableProperty, PropertiesNumericInputId[]>
   opacity: ["opacity.value"],
 };
 
+export type PropertiesSelectedKeyframe = {
+  readonly property: AnimatableProperty;
+  readonly frame: number;
+} | null;
+
 export function getPropertiesVisualTokens(property: AnimatableProperty) {
   return PROPERTY_VISUAL_TOKENS[property];
 }
 
-export function buildPropertiesInfoViewModel(
-  composition: Composition,
-  meta: CompositionMeta | null
-): PropertiesInfoViewModel {
-  return {
-    name: composition.name,
-    sourceFileName: meta?.sourceFileName ?? "-",
-    canvasSize: meta ? `${meta.width} x ${meta.height}` : "-",
-    duration: meta
-      ? `${(meta.durationFrames / meta.frameRate).toFixed(1)}s`
-      : "-",
-  };
-}
-
 export function buildPropertiesDraftScope(
-  target: Composition | Layer | null,
+  targetId: string | null,
   currentFrame: number,
-  localFrame: number
+  localFrame: number,
+  placementIdentity?: { itemId: string; sourceId: string } | null
 ) {
-  return `${target?.id ?? "none"}:${currentFrame}:${localFrame}`;
+  const targetIdentity = placementIdentity
+    ? `${placementIdentity.itemId}:${placementIdentity.sourceId}`
+    : targetId ?? "none";
+  return `${targetIdentity}:${currentFrame}:${localFrame}`;
 }
 
 export function getPropertiesInputCurrentValue(
@@ -134,10 +123,11 @@ export function buildPropertiesPropertyRows(options: {
   propertyState: PropertyTrackState;
   values: PropertiesResolvedValues;
   editableProperties: Record<AnimatableProperty, boolean>;
+  trackEditableProperties?: Record<AnimatableProperty, boolean>;
   scaleLinked: boolean;
   numericDrafts: Partial<Record<PropertiesNumericInputId, string>>;
   hasKeyframeAtCurrentFrame: (property: AnimatableProperty) => boolean;
-  selectedKeyframe: SelectedKeyframe;
+  selectedKeyframe: PropertiesSelectedKeyframe;
 }): PropertiesPropertyRowViewModel[] {
   return options.properties.map((property) => {
     const editable = options.editableProperties[property];
@@ -172,6 +162,9 @@ export function buildPropertiesPropertyRows(options: {
       enabled: options.propertyState[property],
       visible: true,
       editable,
+      trackEditable:
+        options.trackEditableProperties?.[property] ??
+        options.editableProperties[property],
       trackBadge: options.propertyState[property] ? "On" : "Off",
       hasKeyframeAtCurrentFrame: hasKeyframe,
       isSelectedKeyframe: !!options.selectedKeyframe
@@ -181,27 +174,4 @@ export function buildPropertiesPropertyRows(options: {
       tokens: getPropertiesVisualTokens(property),
     };
   });
-}
-
-export function buildPropertiesKeyframeViewModel(options: {
-  selectedLayer: Layer | null;
-  selectedTimelineComposition: Composition | null;
-  positionTrackEnabled: boolean;
-  selectedKeyframe: SelectedKeyframe;
-  frameRate: number;
-  formatTime: (frame: number, frameRate: number) => string;
-}): PropertiesKeyframeViewModel {
-  const visible = !!options.selectedLayer || !!options.selectedTimelineComposition;
-  return {
-    visible,
-    showPositionSave: !!options.selectedLayer,
-    canSavePosition: !!options.selectedLayer && options.positionTrackEnabled,
-    selectedText: options.selectedKeyframe
-      ? `${PROPERTY_LABELS[options.selectedKeyframe.property]} · ${options.formatTime(
-        options.selectedKeyframe.frame,
-        options.frameRate
-      )}`
-      : "없음",
-    canDeleteSelected: !!options.selectedKeyframe,
-  };
 }

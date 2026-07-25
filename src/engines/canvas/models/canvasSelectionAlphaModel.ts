@@ -21,6 +21,10 @@ export type SelectionLayerAlphaDescriptor = SelectionAlphaDescriptorBase & {
   readonly sourceCanvas: HTMLCanvasElement;
 };
 
+export type SelectionSolidAlphaDescriptor = SelectionAlphaDescriptorBase & {
+  readonly kind: "solid";
+};
+
 export type SelectionSubCompositionAlphaChild = {
   readonly source: SelectionSourceAlphaDescriptor;
   readonly transform: EvaluatedSceneTransform;
@@ -34,6 +38,7 @@ export type SelectionSubCompositionAlphaDescriptor =
 
 export type SelectionSourceAlphaDescriptor =
   | SelectionLayerAlphaDescriptor
+  | SelectionSolidAlphaDescriptor
   | SelectionSubCompositionAlphaDescriptor;
 
 export type SelectionSourceAlphaEntry = {

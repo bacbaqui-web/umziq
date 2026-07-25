@@ -1,17 +1,9 @@
-import type { Composition, Layer, SourceSyncStatus, TimelineItem } from "@/models";
+import type { SourceRegistryRefreshStatus } from "@/models";
 import type { TimelineSourceStatusViewModel } from "@/engines/timeline/models/timelineViewModel";
 
-export function resolveTimelineSourceStatus(
-  item: TimelineItem,
-  allLayersById: Map<string, Layer>,
-  allCompositionsById: Map<string, Composition>
-): SourceSyncStatus {
-  return item.kind === "layer"
-    ? allLayersById.get(item.sourceId)?.sourceSyncStatus ?? "normal"
-    : allCompositionsById.get(item.sourceId)?.sourceSyncStatus ?? "normal";
-}
-
-export function buildTimelineSourceStatusViewModel(status: SourceSyncStatus): TimelineSourceStatusViewModel {
+export function buildTimelineSourceStatusViewModel(
+  status: SourceRegistryRefreshStatus
+): TimelineSourceStatusViewModel {
   const badge = status === "updated"
     ? { label: "update", color: "#7fb0de", background: "rgba(63, 96, 128, 0.34)" }
     : status === "new"

@@ -18,14 +18,14 @@ export const DIRTY_KINDS = [
 
 export type DirtyKind = (typeof DIRTY_KINDS)[number];
 
-export type DirtyTargetKind = "layer" | "composition" | "scene";
+export type DirtyTargetKind = "layer" | "composition" | "placeholder" | "scene";
 
 export type DirtyNodeSnapshot = {
   readonly id: string;
   readonly kind: Exclude<DirtyTargetKind, "scene">;
   readonly parentId: string | null;
   readonly childrenIds: readonly string[];
-  readonly sourceId: string;
+  readonly sourceId: string | null;
   readonly sourceFingerprint?: string | null;
   readonly transform: EvaluatedSceneTransform;
   readonly opacity: number;

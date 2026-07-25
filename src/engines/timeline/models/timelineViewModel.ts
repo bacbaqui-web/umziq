@@ -1,36 +1,43 @@
 import type {
   AnimatableProperty,
-  Composition,
-  CompositionMeta,
-  Layer,
-  SourceSyncStatus,
-  TimelineItem,
-  TimelineSelection,
 } from "@/models";
 
-export type { TimelineSelection } from "@/models";
+/**
+ * Identity-neutral contract consumed by the existing Timeline React UI.
+ * LayerDocument adapters produce this visual entity without making it a
+ * persisted project representation.
+ */
+export type TimelineViewItem = {
+  id: string;
+  name: string;
+  entityKind: "layer" | "composition";
+  visible: boolean;
+  startFrame: number;
+  durationFrames: number;
+  sourceOffsetFrames: number;
+};
 
-export type TimelineRow =
-  | { type: "item"; item: TimelineItem }
-  | { type: "property"; item: TimelineItem; property: AnimatableProperty };
+export type TimelineBreadcrumbSegment = {
+  id: string;
+  name: string;
+  isCurrent: boolean;
+  entityKind: "composition" | null;
+};
 
-export type TimelineKeyframeSelection = {
-  targetKind: "layer" | "composition";
-  targetId: string;
-  frame: number;
-  originFrame?: number;
-  property: AnimatableProperty;
-} | null;
+export type TimelineSelectionLabel = {
+  label: string;
+  entityKind: "layer" | "composition";
+};
 
 export type TimelineCompositionSwitcherItem = {
   id: string;
   name: string;
-  isActive: boolean;
+  depth: number;
+  isCurrent: boolean;
+  isAncestor: boolean;
 };
 
 export type TimelineCompositionSwitcherViewModel = {
-  parentName: string | null;
-  parentIsCurrent: boolean;
   items: TimelineCompositionSwitcherItem[];
   isOpen: boolean;
 };
@@ -42,14 +49,19 @@ export type TimelinePropertyVisualTokens = {
 };
 
 export type TimelineSourceStatusViewModel = {
-  status: SourceSyncStatus;
+  status:
+    | "normal"
+    | "updated"
+    | "new"
+    | "deletePending"
+    | "missing";
   isDeletePending: boolean;
   badge: { label: string; color: string; background: string } | null;
 };
 
 export type TimelineItemRowViewModel = {
   type: "item";
-  item: TimelineItem;
+  item: TimelineViewItem;
   rowIndex: number;
   connectToProperties: boolean;
   selected: boolean;
@@ -74,7 +86,7 @@ export type TimelineKeyframePointViewModel = {
 
 export type TimelinePropertyRowViewModel = {
   type: "property";
-  item: TimelineItem;
+  item: TimelineViewItem;
   property: AnimatableProperty;
   targetKind: "layer" | "composition";
   rowIndex: number;
@@ -156,8 +168,8 @@ export type TimelineRulerViewModel = {
 export type TimelineHeaderViewModel = {
   visible: boolean;
   compositionName: string | null;
-  breadcrumbPath: string | null;
-  breadcrumbDisplayText: string;
+  breadcrumbSegments: TimelineBreadcrumbSegment[];
+  selectionLabel: TimelineSelectionLabel | null;
   switcher: TimelineCompositionSwitcherViewModel;
   isPlaying: boolean;
   currentFrame: number;
@@ -168,27 +180,9 @@ export type TimelineHeaderViewModel = {
 
 export type TimelineReadModel = {
   available: boolean;
-  selectedComposition: Composition | null;
-  selectedMeta: CompositionMeta | null;
   nameColumnWidth: number;
   header: TimelineHeaderViewModel;
   ruler: TimelineRulerViewModel;
   rows: TimelineTrackRowViewModel[];
   overlay: TimelineTrackOverlayViewModel;
-};
-
-export type TimelineProjectReadPort = {
-  selectedComposition: Composition;
-  selectedMeta: CompositionMeta | null;
-  compositions: Composition[];
-  selectedTimelineItems: TimelineItem[];
-  allLayersById: Map<string, Layer>;
-  allCompositionsById: Map<string, Composition>;
-};
-
-export type TimelineSelectionReadPort = {
-  selectedTimelineTarget: TimelineSelection;
-  selectedKeyframe: TimelineKeyframeSelection;
-  draggingKeyframe: TimelineKeyframeSelection;
-  draggedTimelineItemId: string | null;
 };

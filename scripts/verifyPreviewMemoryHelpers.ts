@@ -11,10 +11,6 @@ import type { PreviewMemorySource } from "@/engines/canvas/models/previewMemoryM
 
 const source = {
   sourceId: "runtime-eye",
-  sourceIdentity: {
-    sourceFileName: "character.psd",
-    sourceKey: "layer-id:10",
-  },
   sourcePixelSize: { width: 100, height: 80 },
 } satisfies PreviewMemorySource;
 
@@ -70,22 +66,17 @@ assert.equal(zeroEstimate.estimatedBytes, 0);
 
 const flattenedDuplicate = {
   ...source,
-  sourceId: "flattened-eye-instance",
 } satisfies PreviewMemorySource;
 const sameLayerKeyInAnotherPsd = {
   ...source,
   sourceId: "other-eye",
-  sourceIdentity: {
-    sourceFileName: "other.psd",
-    sourceKey: "layer-id:10",
-  },
 } satisfies PreviewMemorySource;
-const stableDedupeEstimate = estimatePreviewMemory(
+const sourceRegistryDedupeEstimate = estimatePreviewMemory(
   [source, flattenedDuplicate, sameLayerKeyInAnotherPsd],
   "original"
 );
-assert.equal(stableDedupeEstimate.sourceCount, 2);
-assert.equal(stableDedupeEstimate.estimatedBytes, 64_000);
+assert.equal(sourceRegistryDedupeEstimate.sourceCount, 2);
+assert.equal(sourceRegistryDedupeEstimate.estimatedBytes, 64_000);
 assert.equal(
   getPreviewMemorySourceKey(source),
   getPreviewMemorySourceKey(flattenedDuplicate)
@@ -95,7 +86,7 @@ assert.notEqual(
   getPreviewMemorySourceKey(sameLayerKeyInAnotherPsd)
 );
 
-const legacyDedupeEstimate = estimatePreviewMemory(
+const sourceIdDedupeEstimate = estimatePreviewMemory(
   [
     { sourceId: "legacy-a", sourcePixelSize: { width: 10, height: 20 } },
     { sourceId: "legacy-a", sourcePixelSize: { width: 10, height: 20 } },
@@ -103,8 +94,8 @@ const legacyDedupeEstimate = estimatePreviewMemory(
   ],
   "original"
 );
-assert.equal(legacyDedupeEstimate.sourceCount, 2);
-assert.equal(legacyDedupeEstimate.estimatedBytes, 1_600);
+assert.equal(sourceIdDedupeEstimate.sourceCount, 2);
+assert.equal(sourceIdDedupeEstimate.estimatedBytes, 1_600);
 
 const largeEstimate = estimatePreviewSourceMemory(
   {

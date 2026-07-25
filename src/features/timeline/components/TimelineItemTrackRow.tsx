@@ -1,9 +1,10 @@
-import { useEffect, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import {
   TIMELINE_ITEM_ROW_HEIGHT,
   type TimelineInteractionCommands,
   type TimelineItemRowViewModel,
 } from "@/engines/timeline";
+import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 
 export default function TimelineItemTrackRow({
   viewModel,
@@ -16,6 +17,7 @@ export default function TimelineItemTrackRow({
 }) {
   const item = viewModel.item;
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const isEditingName = viewModel.isEditingName;
   const isDeletePending = viewModel.source.isDeletePending;
   const statusBadge = viewModel.source.badge;
@@ -28,6 +30,22 @@ export default function TimelineItemTrackRow({
     nameInputRef.current?.focus();
     nameInputRef.current?.select();
   }, [isEditingName]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("blur", close);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("blur", close);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [contextMenu]);
 
   const handleSelectFullName = (
     event: ReactMouseEvent<HTMLInputElement> | FocusEvent<HTMLInputElement>
@@ -44,7 +62,14 @@ export default function TimelineItemTrackRow({
       return;
     }
 
-    interactions.activateTimelineItem(item, viewModel.source.status);
+    interactions.activateTimelineItem(item.id, viewModel.source.status);
+  };
+
+  const handleContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    interactions.selectTimelineItem(item.id);
+    setContextMenu({ x: event.clientX, y: event.clientY });
   };
 
   return (
@@ -60,13 +85,14 @@ export default function TimelineItemTrackRow({
         onDragOver={(event) => event.preventDefault()}
         onDrop={() => interactions.reorderTimelineItem(item.id)}
         onClick={handleRowNameClick}
+        onContextMenu={handleContextMenu}
         onDoubleClick={(event) => {
           if (isDeletePending) {
             return;
           }
 
           event.stopPropagation();
-          interactions.beginRenameTimelineItem(item);
+          interactions.beginRenameTimelineItem(item.id);
         }}
         style={{
           gridColumn: 1,
@@ -86,7 +112,7 @@ export default function TimelineItemTrackRow({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          cursor: isEditingName ? "text" : "grab",
+          cursor: isEditingName ? "text" : "pointer",
           boxSizing: "border-box",
         }}
       >
@@ -131,6 +157,10 @@ export default function TimelineItemTrackRow({
               gap: 6,
             }}
           >
+            <LayerCompositionIcon
+              kind={item.entityKind}
+              size={14}
+            />
             <span
               style={{
                 minWidth: 0,
@@ -175,7 +205,7 @@ export default function TimelineItemTrackRow({
           >
             <button
               onClick={() => {
-                interactions.resolveTimelineSourceDelete(item, "delete");
+                interactions.resolveTimelineSourceDelete(item.id, "delete");
               }}
               style={{
                 border: "1px solid rgba(192, 95, 105, 0.85)",
@@ -192,7 +222,7 @@ export default function TimelineItemTrackRow({
 
             <button
               onClick={() => {
-                interactions.resolveTimelineSourceDelete(item, "keep");
+                interactions.resolveTimelineSourceDelete(item.id, "keep");
               }}
               style={{
                 border: "1px solid rgba(180, 180, 180, 0.18)",
@@ -213,7 +243,8 @@ export default function TimelineItemTrackRow({
       <div
         onDragOver={(event) => event.preventDefault()}
         onDrop={() => interactions.reorderTimelineItem(item.id)}
-        onClick={() => interactions.selectTimelineItem(item)}
+        onClick={() => interactions.selectTimelineItem(item.id)}
+        onContextMenu={handleContextMenu}
         style={{
           gridColumn: 2,
           gridRow: viewModel.rowIndex,
@@ -265,16 +296,18 @@ export default function TimelineItemTrackRow({
             boxShadow: "inset 1px 0 0 rgba(0,0,0,0.26), inset -1px 0 0 rgba(0,0,0,0.26)",
           }}
           onMouseDown={(event) => {
+            if (event.button !== 0) return;
             event.preventDefault();
             event.stopPropagation();
-            interactions.beginMoveTimelineItem(event.clientX, item);
+            interactions.beginMoveTimelineItem(event.clientX, item.id);
           }}
         >
           <div
             onMouseDown={(event) => {
+              if (event.button !== 0) return;
               event.preventDefault();
               event.stopPropagation();
-              interactions.beginResizeTimelineItemStart(event.clientX, item);
+              interactions.beginResizeTimelineItemStart(event.clientX, item.id);
             }}
             style={{
               position: "absolute",
@@ -288,9 +321,10 @@ export default function TimelineItemTrackRow({
 
           <div
             onMouseDown={(event) => {
+              if (event.button !== 0) return;
               event.preventDefault();
               event.stopPropagation();
-              interactions.beginResizeTimelineItemEnd(event.clientX, item);
+              interactions.beginResizeTimelineItemEnd(event.clientX, item.id);
             }}
             style={{
               position: "absolute",
@@ -303,6 +337,81 @@ export default function TimelineItemTrackRow({
           />
         </div>
       </div>
+
+      {contextMenu && (
+        <div
+          role="menu"
+          aria-label={`${item.name} 타임라인 항목 메뉴`}
+          onPointerDown={(event) => event.stopPropagation()}
+          style={{
+            position: "fixed",
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 1000,
+            minWidth: 132,
+            padding: 5,
+            borderRadius: 7,
+            border: "1px solid rgba(255,255,255,0.14)",
+            background: "#1b1f24",
+            boxShadow: "0 10px 28px rgba(0,0,0,0.42)",
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setContextMenu(null);
+              interactions.duplicateTimelineItem(item.id);
+            }}
+            style={{
+              width: "100%",
+              border: 0,
+              borderRadius: 5,
+              padding: "7px 10px",
+              background: "transparent",
+              color: "#dce5ef",
+              fontSize: 12,
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+            onPointerEnter={(event) => {
+              event.currentTarget.style.background = "rgba(255,255,255,0.08)";
+            }}
+            onPointerLeave={(event) => {
+              event.currentTarget.style.background = "transparent";
+            }}
+          >
+            복제
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setContextMenu(null);
+              interactions.deleteTimelineItem(item.id);
+            }}
+            style={{
+              width: "100%",
+              border: 0,
+              borderRadius: 5,
+              padding: "7px 10px",
+              background: "transparent",
+              color: "#f19aa3",
+              fontSize: 12,
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+            onPointerEnter={(event) => {
+              event.currentTarget.style.background = "rgba(198, 65, 78, 0.18)";
+            }}
+            onPointerLeave={(event) => {
+              event.currentTarget.style.background = "transparent";
+            }}
+          >
+            삭제
+          </button>
+        </div>
+      )}
     </div>
   );
 }

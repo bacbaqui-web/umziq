@@ -1,22 +1,35 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import type { TimelinePointerSession } from "@/engines/timeline/models/timelineInteractionModel";
 import { resolveTimelineAutoScroll } from "@/engines/timeline/helpers/timelineInteractionHelpers";
 
-type Options = {
-  move: (session: TimelinePointerSession, clientX: number) => TimelinePointerSession | void;
-  end: (session: TimelinePointerSession) => void;
+type PointerSession = {
+  readonly type: string;
+};
+
+type Options<TSession extends PointerSession> = {
+  move: (
+    session: TSession,
+    clientX: number
+  ) => TSession | void;
+  end: (session: TSession) => void;
   scrollContainerRef: RefObject<HTMLElement | null>;
 };
 
-export function useTimelinePointerController(options: Options) {
-  const sessionRef = useRef<TimelinePointerSession | null>(null);
+export function useTimelinePointerController<
+  TSession extends PointerSession,
+>(options: Options<TSession>) {
+  const sessionRef = useRef<TSession | null>(null);
   const scrollStartLeftRef = useRef(0);
-  const [activeType, setActiveType] = useState<TimelinePointerSession["type"] | null>(null);
-  const begin = useCallback((session: TimelinePointerSession) => {
+  const [activeType, setActiveType] =
+    useState<TSession["type"] | null>(null);
+  const begin = useCallback((session: TSession) => {
     sessionRef.current = session;
     scrollStartLeftRef.current = options.scrollContainerRef.current?.scrollLeft ?? 0;
     setActiveType(session.type);
   }, [options]);
+  const cancel = useCallback(() => {
+    sessionRef.current = null;
+    setActiveType(null);
+  }, []);
 
   useEffect(() => {
     const move = (event: MouseEvent) => {
@@ -67,5 +80,5 @@ export function useTimelinePointerController(options: Options) {
     document.documentElement.style.cursor = "none";
     return () => { document.body.style.cursor = body; document.documentElement.style.cursor = root; };
   }, [activeType]);
-  return { begin, activeType };
+  return { begin, cancel, activeType };
 }

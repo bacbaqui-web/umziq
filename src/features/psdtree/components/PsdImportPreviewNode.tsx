@@ -1,5 +1,6 @@
 import { useState, type DragEvent } from "react";
 import type { PsdImportPlanNode } from "@/engines/project";
+import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 
 type DropPosition = "before" | "inside" | "after";
 
@@ -76,10 +77,10 @@ export default function PsdImportPreviewNode({
         }}
       >
         <span aria-hidden="true" style={{ color: "#84909a", width: 14, textAlign: "center" }}>
-          {node.kind === "group" ? "▾" : "◇"}
+          {node.kind === "group" ? "▾" : ""}
         </span>
         <span aria-hidden="true" style={{ color: node.kind === "group" ? "#9ca8b2" : "#77838d" }}>
-          {node.kind === "group" ? "▱" : "▰"}
+          {node.kind === "group" ? "▱" : <LayerCompositionIcon kind="layer" size={14} />}
         </span>
         <span>{node.displayName}</span>
       </div>

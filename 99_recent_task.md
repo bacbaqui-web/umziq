@@ -1,52 +1,93 @@
-# 최근 작업 보고 — Transform Drag Runtime Continuity Optimization 완료
+# Layer Document Architecture Migration — Post-Sprint QA 보고
 
-## 최근 Task
+## 작업 상태
 
-`Task 8 — 문서 갱신과 Sprint 마감`
+- Sprint: `Layer Document Architecture Migration`
+- 최근 작업: Post-Sprint Browser QA와 QA 결함 수정
+- 결과: 완료
+- QA: Microsoft Edge 새 창에서 실제 조작 QA 통과
+- Commit: QA와 최종 정적 검증을 통과한 본 변경과 함께 생성
 
-## 완료 내용
+이번 문서는 작업을 멈추는 시점 기준 가장 최근 작업 한 건만 기록한다.
 
-- `49_transform_drag_runtime_continuity_optimization.md`를 새로 작성해 Sprint의 원인, Baseline, Task 2.5 전후 계측, 최종 호출 수, 보존 계약과 후속 후보를 영구 기록했다.
-- `20_src_map.md`를 실제 Project Selection identity, semantic Draft no-op, Direct Selection 3단계, positive Alpha/Glow, Motion/Gizmo와 Panel memo 경계에 맞게 갱신했다.
-- `98_sprint_plan.md`의 Task 1~8을 완료하고 Sprint 상태를 완료로 변경했다.
+---
 
-## 핵심 최적화 결과
+## 실제 QA 범위
 
-- Animation Evaluation, Full/Fast paired Renderer와 Preview Draft Seed: accepted frame 10회에서 drag당 1회로 감소했다.
-- Scale/Rotation/Opacity Motion Path full build: 10회에서 1회로 감소했다.
-- Direct Selection static/viewport Candidate build: 10회에서 1회로 감소했다.
-- positive root Opacity의 Source Alpha와 Glow scratch: 100 semantic frame에서 build 1회, reuse 99회다.
-- 동일 semantic 입력 100회는 Draft/Readout/Snapshot/Preview 갱신 각 1회로 제한된다.
-- PointerMove Project update는 0이며 PointerUp Project update와 History commit은 각 1회다.
+사용 Fixture:
 
-## 검증
+- `drag_test.psd`
+- `layer_test.psd`
 
-정적 검증:
+확인한 항목:
 
-- 전체 ESLint 성공
-- `npm test`: 42개 verification 성공
-- `npm run build`: 307 modules 성공
-- Engine Import Boundary 및 History/Animation/Canvas Drag/Direct Selection/Alpha/Glow/Dirty/Cache 회귀 성공
-- `git diff --check` 성공
+- 두 PSD의 순차 Import와 기존 Source/편집 상태 보존
+- PSD Tree, Canvas, Timeline, Properties의 Layer Document 선택 동기화
+- Canvas 더블클릭 Group 진입과 Timeline navigation
+- Properties Transform 변경과 Canvas 반영
+- Canvas Anchor 조작과 Properties 기준 X/Y 동기화
+- Undo/Redo 복원
+- 작업용(`fast-render`)과 완성본(`full-render`) 전환 및 재생
+- Duplicate의 Source 공유, Layer Document 독립성, 표시 이름
+- 대용량 `layer_test.psd` Group의 선택·편집·재생
 
-실제 Edge 대상 QA:
+---
 
-- 새 Edge 창과 `drag_test.psd`를 사용했다.
-- PSD import, Composition/Timeline 선택, Position·Anchor Draft/Properties 갱신, PointerUp Commit, Undo/Redo가 정상이다.
-- 표시 모드 `작업용(fast-render)`과 `완성본(full-render)` 전환이 정상이다.
-- 선택 Glow OFF/ON 전환이 정상이다.
-- Console에 제품 runtime 오류가 없다.
+## QA에서 발견하고 수정한 문제
 
-## QA 범위 주의
+첫 QA에서 Duplicate 자체는 독립 Layer Document로 정상 생성됐지만,
+Timeline과 Properties의 표시 이름이 원본과 같은 `background`로 남았다.
 
-Scale/Rotation/Opacity의 작은 radial hit target은 Computer Use 좌표 자동화로 안정적인 반복 조작이 어려워 실제 Edge 통과로 기록하지 않았다. 해당 Handle들의 공통 Draft/Commit과 계산 계약은 통합 fixture와 전체 정적 verification으로 검증했다. 실제 FPS/frame time/GPU profiler, 모든 Handle의 장시간 수동 체감과 Preview/Export pixel 비교는 별도 성능 QA 범위다.
+원인은 Duplicate Transaction이 Layer Document의 `name`과 Placement
+`alias`를 그대로 복사하던 것이었다.
 
-## 알려진 후속 후보
+다음 규칙으로 수정했다.
 
-- viewport change transaction이 정의되기 전까지 DOMRect session 고정은 보류한다.
-- Draft-safe Composition Cache와 bounded Glow는 stale pixel 위험 때문에 별도 설계와 pixel fixture가 필요하다.
-- 단일 production JS chunk의 기존 500 kB 경고가 남아 있다.
+- 같은 부모 Group의 Layer Document 이름, alias와 Source 표시 이름을
+  예약 이름으로 취급한다.
+- `background` 복제는 `background_2`, 다음 복제는 `background_3`으로
+  증가한다.
+- 중간 이름이 이미 있으면 충돌하지 않는 다음 번호를 사용한다.
+- 같은 `sourceId`는 계속 공유한다.
+- 새 `layerDocumentId`와 독립 Transform/Animation/Effect/Modifier/
+  Type별 데이터 계약은 유지한다.
+- Duplicate Transaction과 History 1회 계약은 유지한다.
 
-## 결론
+수정 후 실제 Edge에서 `background_2`, `background_3`이 표시되는 것을
+확인했다. `background_3`의 X를 변경해도 원본 `background`의 X가
+변하지 않아 독립 편집도 재확인했다.
 
-Transform Drag Runtime Continuity Optimization Sprint의 구현, 문서화, 정적 검증과 사용자 승인 범위 Edge 대상 QA를 완료했다. 기능 축소, 새 Runtime/Store, Preview/Export 의미 변경은 없다.
+---
+
+## 최종 QA 결과
+
+- `drag_test.psd`: 통과
+- `layer_test.psd`: 통과
+- Import/Selection/Navigation: 통과
+- Transform/Anchor/Properties 동기화: 통과
+- Duplicate 명명과 독립성: 수정 후 통과
+- Undo/Redo: 통과
+- 작업용/완성본 Renderer 재생: 통과
+
+확인한 범위에서 추가 제품 결함은 발견되지 않았다.
+
+---
+
+## 최종 정적 검증
+
+- `npm test`: 31개 verification 통과
+- `npm run lint`: 통과
+- `npm run build`: 통과
+- `git diff --check`: 통과
+
+Build에는 기존 minified chunk `753.94 kB` 경고만 남아 있다.
+
+---
+
+## 감독관 판단
+
+QA 중 발견한 Duplicate 표시 이름 결함은 최소 범위로 수정하고 동일
+절차로 재검증했다. Layer Document 단일 편집 원본, Source 공유와
+Layer별 독립 편집, History 및 Renderer 계약은 유지됐다.
+
+최종 정적 검증까지 통과했으므로 Sprint 결과를 커밋한다.

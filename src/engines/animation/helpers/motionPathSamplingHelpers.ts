@@ -18,6 +18,7 @@ type BuildMotionPathSamplesOptions = {
   positionTrackEnabled: boolean;
   startFrame: number;
   durationFrames: number;
+  sourceOffsetFrames?: number;
   compositionDurationFrames: number;
   targetId?: string;
   modifiers?: readonly ModifierInstance[];
@@ -30,13 +31,20 @@ export function buildPositionMotionPathSamples({
   positionTrackEnabled,
   startFrame,
   durationFrames,
+  sourceOffsetFrames = 0,
   compositionDurationFrames,
   targetId,
   modifiers,
   frameRate = 30,
 }: BuildMotionPathSamplesOptions): MotionPathSample[] {
   const keyframeGlobalFrames = positionTrackEnabled
-    ? new Set(positionKeyframes.map((keyframe) => localFrameToGlobalFrame(keyframe.frame, startFrame)))
+    ? new Set(positionKeyframes.map((keyframe) =>
+        localFrameToGlobalFrame(
+          keyframe.frame,
+          startFrame,
+          sourceOffsetFrames
+        )
+      ))
     : new Set<number>();
   const samples: MotionPathSample[] = [];
 
@@ -50,12 +58,20 @@ export function buildPositionMotionPathSamples({
           ? evaluatePositionKeyframes(
               basePosition,
               positionKeyframes,
-              globalFrameToLocalFrame(frame, startFrame)
+              globalFrameToLocalFrame(
+                frame,
+                startFrame,
+                sourceOffsetFrames
+              )
             )
           : basePosition,
         targetId ?? "motion-path",
         modifiers,
-        globalFrameToLocalFrame(frame, startFrame),
+        globalFrameToLocalFrame(
+          frame,
+          startFrame,
+          sourceOffsetFrames
+        ),
         frameRate
       ),
       isKeyframe: keyframeGlobalFrames.has(frame),

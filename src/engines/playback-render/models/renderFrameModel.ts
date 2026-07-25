@@ -1,4 +1,7 @@
-import type { Position, Scale } from "@/models";
+import type { LayerDocumentType, Position, Scale } from "@/models";
+import type {
+  EditorPlaceholderDescriptor,
+} from "@/engines/playback-render/models/editorPlaceholderModel";
 import type {
   RenderDrawableSource,
   RenderSize,
@@ -15,9 +18,14 @@ export type EvaluatedRenderTransform = {
 
 export type RenderDrawableCommand = {
   type: "drawable";
+  layerDocumentId?: string;
+  itemId: string;
   renderItemId: string;
   drawableId: string;
-  sourceId: string;
+  sourceId: string | null;
+  sourceResourceCacheKey?: string | null;
+  layerResultCacheKey?: string;
+  sourceType: LayerDocumentType;
   localFrame: number;
   logicalSize: RenderSize;
   source: RenderDrawableSource;
@@ -27,8 +35,11 @@ export type RenderDrawableCommand = {
 
 export type RenderCompositionCommand = {
   type: "composition";
+  layerDocumentId?: string;
+  itemId: string;
   renderItemId: string;
-  sourceId: string;
+  sourceId: string | null;
+  sourceType: LayerDocumentType;
   targetCompId: string;
   localFrame: number;
   width: number;
@@ -38,7 +49,24 @@ export type RenderCompositionCommand = {
   children: RenderCommand[];
 };
 
-export type RenderCommand = RenderDrawableCommand | RenderCompositionCommand;
+export type RenderPlaceholderCommand = {
+  type: "placeholder";
+  layerDocumentId?: string;
+  itemId: string;
+  renderItemId: null;
+  sourceId: string | null;
+  sourceType: "drawing" | "text" | "audio";
+  localFrame: number;
+  logicalSize: RenderSize;
+  transform: EvaluatedRenderTransform;
+  opacity: number;
+  placeholder: EditorPlaceholderDescriptor;
+};
+
+export type RenderCommand =
+  | RenderDrawableCommand
+  | RenderCompositionCommand
+  | RenderPlaceholderCommand;
 
 export type RenderFrame = {
   compositionId: string;

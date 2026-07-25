@@ -64,6 +64,10 @@ function buildDescriptorSignature(
     ];
   }
 
+  if (descriptor.kind === "solid") {
+    return ["solid-alpha-v1", ...common];
+  }
+
   return [
     "subcomp-alpha-v1",
     ...common,

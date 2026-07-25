@@ -1,10 +1,8 @@
 import type { RenderSize } from "@/engines/playback-render";
-import type { PsdSourceIdentity } from "@/models";
 import type { ResolvedPreviewQuality } from "@/engines/canvas/models/previewQualityModel";
 
 export type PreviewMemorySource = {
   readonly sourceId: string;
-  readonly sourceIdentity?: PsdSourceIdentity | null;
   readonly sourcePixelSize: RenderSize;
 };
 

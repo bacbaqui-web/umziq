@@ -1,15 +1,98 @@
-export { useProjectPsdEngine } from "@/engines/project/useProjectPsdEngine";
-export { useProjectCommands, type ProjectCommands } from "@/engines/project/useProjectCommands";
-export { useProjectHistory, type ProjectHistory } from "@/engines/project/useProjectHistory";
+export type {
+  DeleteSourceRegistryCommand,
+  DiscoverPsdSourceNodesCommand,
+  ImportSourceRegistryCommand,
+  LayerDocumentSourcePreparationPort,
+  LayerDocumentSourceTransaction,
+  LayerDocumentSourceTransactionErrorCode,
+  LayerDocumentSourceTransactionKind,
+  LayerDocumentSourceTransactionResult,
+  MarkSourceRegistryMissingCommand,
+  NonPsdSourceTreeItem,
+  PsdSourceTreeDocument,
+  PsdSourceTreeNode,
+  PsdSourceTreeReadModel,
+  PsdTreeSourceSelectionChange,
+  RefreshPsdSourceRegistryCommand,
+  ReconnectSourceRegistryCommand,
+  RefreshSourceRegistryCommand,
+  SourceRegistryCacheInvalidationContext,
+  SourceRegistryCacheInvalidationDescriptor,
+  SourceRegistryHistoryEntry,
+  SourceRegistryHistoryPolicy,
+  SourceRegistryTreeMetadata,
+  SourceRegistryTreeNonPsdPolicy,
+} from "@/engines/project/models/layerDocumentSourcePreparationModel";
 export {
-  createProjectSelectionModelDeriver,
-  useProjectSelectionModel,
-} from "@/engines/project/useProjectSelectionModel";
-export { reorderCompositionState } from "@/engines/project/helpers/compositionTreeHelpers";
+  buildPsdSourceTreeReadModel,
+} from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
 export {
-  DEFAULT_DURATION_FRAMES,
+  preparePsdSourceNodeDiscovery,
+  preparePsdSourceRegistryRefresh,
+  prepareSourceRegistryDelete,
+  prepareSourceRegistryImport,
+  prepareSourceRegistryMissing,
+  prepareSourceRegistryReconnect,
+  prepareSourceRegistryRefresh,
+} from "@/engines/project/actions/layerDocumentSourceTransactions";
+export {
+  LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
+} from "@/engines/project/adapters/layerDocumentSourcePreparationAdapter";
+export {
+  prepareLayerDocumentPsdImport,
+  prepareLayerDocumentPsdRefresh,
+  type PreparedLayerDocumentPsdImport,
+  type PreparedLayerDocumentPsdRefresh,
+} from "@/engines/project/import/layerDocumentPsdImportAdapter";
+export {
+  createLayerDocumentPreparedRuntimeLifecycle,
+  type LayerDocumentPreparedRuntimeClaim,
+  type LayerDocumentPreparedRuntimeDisposition,
+  type LayerDocumentPreparedRuntimeLifecycle,
+  type LayerDocumentPreparedRuntimeState,
+} from "@/engines/project/import/layerDocumentPreparedRuntimeLifecycle";
+export type {
+  CreateLayerDocumentProjectOwnerOptions,
+  LayerDocumentOwnerHistoryEntry,
+  LayerDocumentOwnerHistorySnapshot,
+  LayerDocumentOwnerPlaybackRange,
+  LayerDocumentOwnerPlaybackSession,
+  LayerDocumentOwnerRuntimeSession,
+  LayerDocumentOwnerRuntimeCachePolicy,
+  LayerDocumentOwnerSession,
+  LayerDocumentSourceStatusIdentity,
+  LayerDocumentTransformKeyframeSelection,
+  LayerDocumentProjectOwnerAction,
+  LayerDocumentProjectOwnerEffect,
+  LayerDocumentProjectOwnerErrorCode,
+  LayerDocumentProjectOwnerInitializationResult,
+  LayerDocumentProjectOwnerPort,
+  LayerDocumentProjectOwnerState,
+  LayerDocumentProjectOwnerTransitionResult,
+} from "@/engines/project/models/layerDocumentProjectOwnerModel";
+export {
+  createLayerDocumentProjectOwnerState,
+  reduceLayerDocumentProjectOwner,
+} from "@/engines/project/actions/layerDocumentProjectOwnerReducer";
+export {
+  createLayerDocumentPsdTreeController,
+  type LayerDocumentPsdImportPreviewNode,
+  type LayerDocumentPsdImportPreviewPlan,
+  type LayerDocumentPsdRefreshDiffSummary,
+  type LayerDocumentPsdTreeCommandPort,
+  type LayerDocumentPsdTreeController,
+  type PreparedLayerDocumentPsdRefreshPlan,
+} from "@/engines/project/adapters/layerDocumentPsdTreeController";
+export {
+  createLayerDocumentPsdPreparedSessionController,
+  type LayerDocumentPsdPreparedSession,
+  type LayerDocumentPsdPreparedSessionController,
+} from "@/engines/project/adapters/layerDocumentPsdPreparedSessionController";
+export {
+  useLayerDocumentProjectOwner,
+} from "@/engines/project/useLayerDocumentProjectOwner";
+export {
   DEFAULT_FRAME_RATE,
-  MASTER_COMP_ID,
   MASTER_DEFAULT_HEIGHT,
   MASTER_DEFAULT_WIDTH,
 } from "@/engines/project/constants/projectConstants";
@@ -24,11 +107,3 @@ export type {
   PsdImportPlanEntry,
   PsdImportPlanNode,
 } from "@/engines/project/models/psdImportPlanModel";
-export type {
-  PsdRefreshCommandResult,
-  PsdRefreshSummary,
-} from "@/engines/project/models/psdRefreshResultModel";
-export type {
-  RenderDrawable,
-  RenderItem,
-} from "@/engines/project/models/runtimeRenderModel";

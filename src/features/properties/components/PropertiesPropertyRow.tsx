@@ -24,9 +24,13 @@ export default function PropertiesPropertyRow({
         <input
           type="checkbox"
           checked={viewModel.enabled}
+          disabled={!viewModel.trackEditable}
           onChange={(event) =>
             commands.togglePropertyTrack(viewModel.property, event.target.checked)
           }
+          title={viewModel.trackEditable
+            ? undefined
+            : "이 source의 Animation command는 아직 연결되지 않았습니다."}
           style={{ margin: 0, accentColor: viewModel.tokens.accent }}
         />
       )}
