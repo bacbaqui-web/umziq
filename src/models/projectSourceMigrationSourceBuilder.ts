@@ -77,13 +77,30 @@ export function buildCommon(
   };
 }
 
-function sourceRefresh(source: ProjectSource, fileName: string, path: string | null) {
+function sourceRefresh(source: ProjectSource) {
   return {
-    status: source.syncStatus,
-    reconnectHint: {
-      fileName,
-      path,
-    },
+    status:
+      source.syncStatus === "updated" ||
+      source.syncStatus === "new" ||
+      source.syncStatus === "deletePending"
+        ? source.syncStatus
+        : "normal" as const,
+  };
+}
+
+function linkedLocator(
+  sourceId: string,
+  fileName: string,
+  relativePathHint: string | null
+) {
+  return {
+    locatorId: `linked:${sourceId}`,
+    kind: "linked-file" as const,
+    suggestedFileName: fileName,
+    relativePathHint:
+      relativePathHint === fileName
+        ? null
+        : relativePathHint,
   };
 }
 
@@ -173,13 +190,11 @@ function buildPsdDocumentRecords(
       sourceId,
       kind: "psd-document",
       displayName: fileName,
-      path: sourcePath,
-      fingerprint: documentSource.content.sourceFingerprint,
       version: sourceVersion,
-      availability: documentSource.availability,
-      refresh: sourceRefresh(documentSource, fileName, sourcePath),
+      refresh: sourceRefresh(documentSource),
+      locator: linkedLocator(sourceId, fileName, sourcePath),
+      contentFingerprint: null,
       data: {
-        fileName,
         importSettings: clonePlainData(
           groupWithSettings.content.importSettings
         ),
@@ -233,20 +248,13 @@ function buildPsdSourceRecord(
     sourceId,
     kind: "psd-node",
     displayName: source.name,
-    path: source.content.sourcePath,
-    fingerprint: source.content.sourceFingerprint,
     version: source.sourceVersion,
-    availability: source.availability,
-    refresh: sourceRefresh(
-      source,
-      identity.sourceFileName,
-      source.content.sourcePath
-    ),
+    refresh: sourceRefresh(source),
     data: {
       documentSourceId,
       sourceKey: identity.sourceKey,
       sourcePath: source.content.sourcePath,
-      nativeVisible: null,
+      visualFingerprint: source.content.sourceFingerprint,
     },
   };
   return { sourceId };
@@ -271,13 +279,11 @@ function buildAudioSourceRecord(
     sourceId,
     kind: "audio",
     displayName: descriptor.fileName,
-    path: null,
-    fingerprint: null,
     version: source.sourceVersion,
-    availability: source.availability,
-    refresh: sourceRefresh(source, descriptor.fileName, null),
+    refresh: sourceRefresh(source),
+    locator: linkedLocator(sourceId, descriptor.fileName, null),
+    contentFingerprint: null,
     data: {
-      fileName: descriptor.fileName,
       mimeType: descriptor.mimeType,
       durationFrames: source.content.durationFrames,
     },
@@ -332,13 +338,11 @@ function buildVideoSourceRecord(
     sourceId,
     kind: "video",
     displayName: fileName,
-    path,
-    fingerprint: readString(data, "fingerprint"),
     version: source.sourceVersion,
-    availability: source.availability,
-    refresh: sourceRefresh(source, fileName, path),
+    refresh: sourceRefresh(source),
+    locator: linkedLocator(sourceId, fileName, path),
+    contentFingerprint: null,
     data: {
-      fileName,
       mimeType: readString(data, "mimeType"),
       durationFrames,
       width,

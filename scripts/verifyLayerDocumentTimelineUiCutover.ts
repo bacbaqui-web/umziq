@@ -10,6 +10,7 @@ import {
 } from "@/cutover";
 import {
   createLayerDocumentProjectOwnerState,
+  createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   reduceLayerDocumentProjectOwner,
   type LayerDocumentProjectOwnerPort,
@@ -188,16 +189,18 @@ function projectFixture(): LayerDocumentProject {
             sourceId: "video-source",
             kind: "video",
             displayName: "shared.mp4",
-            path: "/fixtures/shared.mp4",
-            fingerprint: "shared-video-v1",
+            locator: {
+              locatorId: "linked:video-source",
+              kind: "linked-file",
+              suggestedFileName: "shared.mp4",
+              relativePathHint: "fixtures/shared.mp4",
+            },
+            contentFingerprint: null,
             version: 1,
-            availability: "available",
             refresh: {
               status: "updated",
-              reconnectHint: null,
             },
             data: {
-              fileName: "shared.mp4",
               mimeType: "video/mp4",
               durationFrames: 80,
               width: 1080,
@@ -249,6 +252,11 @@ const owner: LayerDocumentProjectOwnerPort = {
 };
 const resources =
   createLayerDocumentSourceRuntimeResourceCache();
+const sourceResolution =
+  createLayerDocumentSourceRuntimeResolutionStore();
+sourceResolution.setAvailable({
+  sourceId: "video-source",
+});
 const assembly =
   createLayerDocumentConsumerCutoverAssembly({
     owner,
@@ -263,6 +271,7 @@ const assembly =
     audioPreparation:
       LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
     sourceRuntime: resources,
+    sourceResolution,
     draftSession: {
       read: () => null,
       publish: () => {},

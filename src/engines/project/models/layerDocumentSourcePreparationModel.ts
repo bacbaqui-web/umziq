@@ -8,6 +8,10 @@ import type {
   SourceRegistryKind,
   SourceRegistryRecord,
 } from "@/models";
+import type {
+  LayerDocumentSourceRuntimeResolutionReadPort,
+  LayerDocumentSourceRuntimeResolutionStatus,
+} from "@/engines/project/models/layerDocumentSourceRuntimeResolutionModel";
 
 export type SourceRegistryTreeNonPsdPolicy =
   | "resource-leaf"
@@ -18,7 +22,13 @@ export interface SourceRegistryTreeMetadata {
   readonly kind: SourceRegistryKind;
   readonly displayName: string;
   readonly path: string | null;
-  readonly availability: "available" | "missing";
+  readonly resolutionStatus:
+    LayerDocumentSourceRuntimeResolutionStatus;
+  readonly reconciliationStatus:
+    | "normal"
+    | "updated"
+    | "new"
+    | "deletePending";
   readonly refreshStatus:
     | "normal"
     | "updated"
@@ -105,7 +115,6 @@ export type LayerDocumentSourceTransactionKind =
   | "import-sources-and-layers"
   | "refresh-source"
   | "refresh-psd-document"
-  | "mark-source-missing"
   | "reconnect-source"
   | "discover-psd-nodes"
   | "delete-source";
@@ -170,15 +179,6 @@ export interface RefreshSourceRegistryCommand {
   readonly cacheContext: SourceRegistryCacheInvalidationContext;
 }
 
-export interface MarkSourceRegistryMissingCommand {
-  readonly sourceId: string;
-  readonly reconnectHint: {
-    readonly fileName: string;
-    readonly path: string | null;
-  } | null;
-  readonly cacheContext: SourceRegistryCacheInvalidationContext;
-}
-
 export interface ReconnectSourceRegistryCommand {
   readonly source: SourceRegistryRecord;
   readonly cacheContext: SourceRegistryCacheInvalidationContext;
@@ -203,6 +203,7 @@ export interface LayerDocumentSourcePreparationPort {
     readonly readTree: (options: {
       project: LayerDocumentProject;
       selection: PsdTreeSourceSelection | null;
+      resolution: LayerDocumentSourceRuntimeResolutionReadPort;
     }) => PsdSourceTreeReadModel;
   };
   readonly commands: {
@@ -221,10 +222,6 @@ export interface LayerDocumentSourcePreparationPort {
     readonly preparePsdRefresh: (
       project: LayerDocumentProject,
       command: RefreshPsdSourceRegistryCommand
-    ) => LayerDocumentSourceTransactionResult;
-    readonly prepareMissing: (
-      project: LayerDocumentProject,
-      command: MarkSourceRegistryMissingCommand
     ) => LayerDocumentSourceTransactionResult;
     readonly prepareReconnect: (
       project: LayerDocumentProject,

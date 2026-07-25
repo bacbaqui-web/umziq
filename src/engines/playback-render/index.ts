@@ -29,6 +29,7 @@ export type {
   LayerDocumentRuntimeTargetConsumerReadModel,
   LayerDocumentRuntimeTargetReadModel,
   LayerDocumentSourceResourceCacheKeyInput,
+  LayerDocumentSourceResolutionStatusReader,
   LayerDocumentSourceVisualKeyPolicy,
   LayerDocumentTransformCommitIntent,
   LayerDocumentTransformDraftSnapshot,

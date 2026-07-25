@@ -6,6 +6,7 @@ import type {
 } from "@/models";
 import {
   buildLayerDocumentGroupScopeReadModel,
+  layerDocumentSourceVisualFingerprint,
 } from "@/models";
 import {
   globalFrameToLocalFrame,
@@ -22,6 +23,7 @@ import type {
   LayerDocumentRuntimeContentDescriptor,
   LayerDocumentRuntimeInput,
   LayerDocumentRuntimeReadModelResult,
+  LayerDocumentSourceResolutionStatusReader,
   LayerDocumentTransformDraftSnapshot,
 } from "@/engines/playback-render/models/layerDocumentRuntimeModel";
 import {
@@ -44,6 +46,8 @@ interface RuntimeBuildContext {
   readonly quality: string;
   readonly draft: LayerDocumentTransformDraftSnapshot | null;
   readonly resolvePsdSource: LayerDocumentPsdSourceResolver;
+  readonly readSourceResolutionStatus:
+    LayerDocumentSourceResolutionStatusReader;
   readonly resolutionBySourceKey: Map<
     string,
     LayerDocumentPsdSourceResolution | null
@@ -108,7 +112,8 @@ function buildSourceResourceCacheKey(options: {
           options.source.kind
         ),
         sourceVersion: options.source.version,
-        sourceFingerprint: options.source.fingerprint,
+        sourceFingerprint:
+          layerDocumentSourceVisualFingerprint(options.source),
         localFrame: options.localFrame,
         quality: options.quality,
       })
@@ -126,7 +131,10 @@ function resolvePsdContent(options: {
   if (!source || !sourceResourceCacheKey) {
     return { kind: "unavailable", reason: "missing-source" };
   }
-  if (source.availability !== "available") {
+  if (
+    context.readSourceResolutionStatus(source.sourceId) !==
+    "available"
+  ) {
     return { kind: "unavailable", reason: "source-unavailable" };
   }
   if (!context.resolutionBySourceKey.has(sourceResourceCacheKey)) {
@@ -158,7 +166,11 @@ function buildContentDescriptor(options: {
   const { layer, source } = options;
   if (
     layer.common.source &&
-    (!source || source.availability !== "available")
+    (
+      !source ||
+      options.context.readSourceResolutionStatus(source.sourceId) !==
+        "available"
+    )
   ) {
     return {
       kind: "unavailable",
@@ -400,6 +412,8 @@ export function buildLayerDocumentRuntimeReadModel(options: {
   quality: string;
   draft?: LayerDocumentTransformDraftSnapshot | null;
   resolvePsdSource: LayerDocumentPsdSourceResolver;
+  readSourceResolutionStatus:
+    LayerDocumentSourceResolutionStatusReader;
 }): LayerDocumentRuntimeReadModelResult {
   if (validateLayerDocumentProject(options.project).length > 0) {
     return { ok: false, reason: "invalid-project" };
@@ -419,6 +433,8 @@ export function buildLayerDocumentRuntimeReadModel(options: {
     quality: options.quality,
     draft: options.draft ?? null,
     resolvePsdSource: options.resolvePsdSource,
+    readSourceResolutionStatus:
+      options.readSourceResolutionStatus,
     resolutionBySourceKey: new Map(),
     inputs: [],
     targets: [],

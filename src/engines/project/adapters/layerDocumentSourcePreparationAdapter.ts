@@ -3,7 +3,6 @@ import {
   preparePsdSourceRegistryRefresh,
   prepareSourceRegistryDelete,
   prepareSourceRegistryImport,
-  prepareSourceRegistryMissing,
   prepareSourceRegistryReconnect,
   prepareSourceRegistryRefresh,
 } from "@/engines/project/actions/layerDocumentSourceTransactions";
@@ -28,7 +27,6 @@ LayerDocumentSourcePreparationPort = {
     prepareImport: prepareSourceRegistryImport,
     prepareRefresh: prepareSourceRegistryRefresh,
     preparePsdRefresh: preparePsdSourceRegistryRefresh,
-    prepareMissing: prepareSourceRegistryMissing,
     prepareReconnect: prepareSourceRegistryReconnect,
     prepareDiscovery: preparePsdSourceNodeDiscovery,
     prepareDelete: prepareSourceRegistryDelete,

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
+  migrateLayerDocumentProjectSchema1To2,
   normalizeLayerDocumentProject,
   validateLayerDocumentProject,
   type LayerAnimation,
@@ -83,23 +84,26 @@ function createCommon(
 function createSourceRecords(): Record<string, SourceRegistryRecord> {
   const refresh = {
     status: "normal" as const,
-    reconnectHint: {
-      fileName: "sample.psd",
-      path: "/portable/sample.psd",
-    },
   };
   return {
     "source-psd-document": {
       sourceId: "source-psd-document",
       kind: "psd-document",
       displayName: "sample.psd",
-      path: "/portable/sample.psd",
-      fingerprint: "document-fingerprint",
       version: 1,
-      availability: "available",
       refresh,
+      locator: {
+        locatorId: "linked:source-psd-document",
+        kind: "linked-file",
+        suggestedFileName: "sample.psd",
+        relativePathHint: "portable/sample.psd",
+      },
+      contentFingerprint: {
+        algorithm: "sha-256",
+        digestHex: "a".repeat(64),
+        byteLength: 123,
+      },
       data: {
-        fileName: "sample.psd",
         importSettings: {
           compositionName: "Scene",
           hiddenLayerMode: "preserve",
@@ -110,35 +114,29 @@ function createSourceRecords(): Record<string, SourceRegistryRecord> {
       sourceId: "source-psd-node",
       kind: "psd-node",
       displayName: "Logo",
-      path: "sample.psd/Logo",
-      fingerprint: "node-fingerprint",
       version: 3,
-      availability: "available",
       refresh,
       data: {
         documentSourceId: "source-psd-document",
         sourceKey: "layer:1",
         sourcePath: "Logo",
-        nativeVisible: null,
+        visualFingerprint: "node-fingerprint",
       },
     },
     "source-audio": {
       sourceId: "source-audio",
       kind: "audio",
       displayName: "voice.wav",
-      path: "/portable/voice.wav",
-      fingerprint: "audio-fingerprint",
       version: 1,
-      availability: "available",
-      refresh: {
-        status: "normal",
-        reconnectHint: {
-          fileName: "voice.wav",
-          path: "/portable/voice.wav",
-        },
+      refresh,
+      locator: {
+        locatorId: "linked:source-audio",
+        kind: "linked-file",
+        suggestedFileName: "voice.wav",
+        relativePathHint: "portable/voice.wav",
       },
+      contentFingerprint: null,
       data: {
-        fileName: "voice.wav",
         mimeType: "audio/wav",
         durationFrames: 90,
       },
@@ -147,19 +145,16 @@ function createSourceRecords(): Record<string, SourceRegistryRecord> {
       sourceId: "source-video",
       kind: "video",
       displayName: "clip.mp4",
-      path: "/portable/clip.mp4",
-      fingerprint: "video-fingerprint",
       version: 1,
-      availability: "missing",
-      refresh: {
-        status: "missing",
-        reconnectHint: {
-          fileName: "clip.mp4",
-          path: "/portable/clip.mp4",
-        },
+      refresh,
+      locator: {
+        locatorId: "linked:source-video",
+        kind: "linked-file",
+        suggestedFileName: "clip.mp4",
+        relativePathHint: "portable/clip.mp4",
       },
+      contentFingerprint: null,
       data: {
-        fileName: "clip.mp4",
         mimeType: "video/mp4",
         durationFrames: 90,
         width: 1080,
@@ -333,6 +328,116 @@ assert.equal(
 assert.deepEqual(valid, createValidProject());
 assert.notStrictEqual(normalizedValid.project, valid);
 
+const schema1 = clone(valid) as unknown as {
+  metadata: { schemaVersion: number };
+  payload: {
+    sourceRegistry: {
+      sourcesById: Record<string, Record<string, unknown>>;
+    };
+  };
+};
+schema1.metadata.schemaVersion = 1;
+schema1.payload.sourceRegistry.sourcesById = Object.fromEntries(
+  Object.entries(createSourceRecords()).map(([sourceId, source]) => {
+    const legacyBase = {
+      sourceId,
+      kind: source.kind,
+      displayName: source.displayName,
+      path:
+        source.kind === "psd-node"
+          ? source.data.sourcePath
+          : "locator" in source
+            ? source.locator.suggestedFileName
+            : null,
+      fingerprint:
+        source.kind === "psd-node"
+          ? source.data.visualFingerprint
+          : "legacy-weak-fingerprint",
+      version: source.version,
+      availability:
+        source.kind === "video" ? "missing" : "available",
+      refresh: {
+        status:
+          source.kind === "video" ? "missing" : source.refresh.status,
+        reconnectHint: {
+          fileName:
+            "locator" in source
+              ? source.locator.suggestedFileName
+              : source.displayName,
+          path: null,
+        },
+      },
+    };
+    if (source.kind === "psd-document") {
+      return [sourceId, {
+        ...legacyBase,
+        data: {
+          fileName: source.locator.suggestedFileName,
+          importSettings: source.data.importSettings,
+        },
+      }];
+    }
+    if (source.kind === "audio" || source.kind === "video") {
+      return [sourceId, {
+        ...legacyBase,
+        data: {
+          fileName: source.locator.suggestedFileName,
+          ...source.data,
+        },
+      }];
+    }
+    if (source.kind === "psd-node") {
+      return [sourceId, {
+        ...legacyBase,
+        data: {
+          documentSourceId: source.data.documentSourceId,
+          sourceKey: source.data.sourceKey,
+          sourcePath: source.data.sourcePath,
+          nativeVisible: true,
+        },
+      }];
+    }
+    return [sourceId, { ...legacyBase, data: source.data }];
+  })
+);
+const migratedSchema1 =
+  migrateLayerDocumentProjectSchema1To2(schema1);
+assert.equal(migratedSchema1.ok, true);
+if (!migratedSchema1.ok) {
+  throw new Error(migratedSchema1.error.message);
+}
+const normalizedSchema1 =
+  normalizeLayerDocumentProject(schema1);
+assert.equal(normalizedSchema1.ok, true);
+if (!normalizedSchema1.ok) {
+  throw new Error(JSON.stringify(normalizedSchema1.issues));
+}
+assert.equal(
+  normalizedSchema1.project.metadata.schemaVersion,
+  LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION
+);
+const migratedDocument =
+  normalizedSchema1.project.payload.sourceRegistry
+    .sourcesById["source-psd-document"];
+assert.equal(migratedDocument.kind, "psd-document");
+if (migratedDocument.kind === "psd-document") {
+  assert.equal(migratedDocument.contentFingerprint, null);
+  assert.equal(
+    migratedDocument.locator.suggestedFileName,
+    "sample.psd"
+  );
+}
+const migratedNode =
+  normalizedSchema1.project.payload.sourceRegistry
+    .sourcesById["source-psd-node"];
+assert.equal(migratedNode.kind, "psd-node");
+if (migratedNode.kind === "psd-node") {
+  assert.equal(
+    migratedNode.data.visualFingerprint,
+    "node-fingerprint"
+  );
+}
+
 const future = clone(valid) as unknown as {
   payload: {
     layerDocumentsById: Record<string, {
@@ -385,7 +490,7 @@ assert.equal(
 const invalidSchema = clone(valid) as unknown as {
   metadata: { schemaVersion: number };
 };
-invalidSchema.metadata.schemaVersion = 2;
+invalidSchema.metadata.schemaVersion = 3;
 assert.equal(hasIssue(invalidSchema, "invalid-schema-version"), true);
 
 const invalidMetadata = {
@@ -450,7 +555,7 @@ danglingPsdDocument.payload.sourceRegistry.sourcesById[
   documentSourceId: "missing-document",
   sourceKey: "layer:1",
   sourcePath: "Logo",
-  nativeVisible: null,
+  visualFingerprint: "node-fingerprint",
 };
 assert.equal(
   hasIssue(danglingPsdDocument, "invalid-source-reference"),

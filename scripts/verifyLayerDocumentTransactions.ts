@@ -153,23 +153,22 @@ function common(
 function sourceRegistry(): Record<string, SourceRegistryRecord> {
   const refresh = {
     status: "normal" as const,
-    reconnectHint: {
-      fileName: "fixture.psd",
-      path: "/fixture.psd",
-    },
   };
   return {
     "source-document": {
       sourceId: "source-document",
       kind: "psd-document",
       displayName: "fixture.psd",
-      path: "/fixture.psd",
-      fingerprint: "document-fingerprint",
+      locator: {
+        locatorId: "linked:source-document",
+        kind: "linked-file",
+        suggestedFileName: "fixture.psd",
+        relativePathHint: "fixture.psd",
+      },
+      contentFingerprint: null,
       version: 1,
-      availability: "available",
       refresh,
       data: {
-        fileName: "fixture.psd",
         importSettings: {
           compositionName: "Fixture",
           hiddenLayerMode: "preserve",
@@ -180,32 +179,26 @@ function sourceRegistry(): Record<string, SourceRegistryRecord> {
       sourceId: "source-node-a",
       kind: "psd-node",
       displayName: "Node A",
-      path: "fixture.psd/Node A",
-      fingerprint: "node-a-fingerprint",
       version: 1,
-      availability: "available",
       refresh,
       data: {
         documentSourceId: "source-document",
         sourceKey: "layer:a",
         sourcePath: "Node A",
-        nativeVisible: null,
+        visualFingerprint: "node-a-fingerprint",
       },
     },
     "source-node-b": {
       sourceId: "source-node-b",
       kind: "psd-node",
       displayName: "Node B",
-      path: "fixture.psd/Node B",
-      fingerprint: "node-b-fingerprint",
       version: 1,
-      availability: "available",
       refresh,
       data: {
         documentSourceId: "source-document",
         sourceKey: "layer:b",
         sourcePath: "Node B",
-        nativeVisible: true,
+        visualFingerprint: "node-b-fingerprint",
       },
     },
   };

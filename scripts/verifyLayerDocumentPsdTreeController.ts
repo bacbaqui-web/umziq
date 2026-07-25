@@ -22,6 +22,9 @@ import {
 import {
   buildPsdSourceTreeReadModel,
 } from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
+import {
+  createLayerDocumentSourceRuntimeResolutionStore,
+} from "@/engines/project";
 import type {
   PreparedLayerDocumentPsdImport,
   PreparedLayerDocumentPsdRefresh,
@@ -98,6 +101,8 @@ const layerSelection = "root";
 const activeGroupLayerDocumentId = "root";
 let ownerCommitCount = 0;
 let registrationAttemptCount = 0;
+const sourceResolution =
+  createLayerDocumentSourceRuntimeResolutionStore();
 let failNextRegistration = true;
 let confirmedImport: PreparedLayerDocumentPsdImport | null = null;
 
@@ -124,6 +129,9 @@ function confirmPreparedImport(
     return { ok: false as const, reason: "registration-failed" };
   }
   prepared.runtime.markTransferred();
+  prepared.resolution.sourceIds.forEach((sourceId) => {
+    sourceResolution.setAvailable({ sourceId });
+  });
   return { ok: true as const };
 }
 
@@ -132,6 +140,7 @@ const port: LayerDocumentPsdTreeCommandPort = {
     buildPsdSourceTreeReadModel({
       project,
       selection: sourceSelection,
+      resolution: sourceResolution,
     }),
   readProject: () => project,
   selectSource: (selection) => {
@@ -149,7 +158,6 @@ const port: LayerDocumentPsdTreeCommandPort = {
   },
   cancelRefresh: (prepared) => prepared.runtime.cancel(),
   refreshSource: () => ({ ok: true }),
-  markMissing: () => ({ ok: true }),
   reconnect: () => ({ ok: true }),
   deleteSource: (command) => {
     const result = prepareSourceRegistryDelete(project, command);
@@ -353,6 +361,11 @@ if (refreshTransaction.ok) {
       .refresh.status,
     "deletePending"
   );
+  Object.keys(
+    refreshedProject.payload.sourceRegistry.sourcesById
+  ).forEach((sourceId) => {
+    sourceResolution.setAvailable({ sourceId });
+  });
   const refreshedController =
     createLayerDocumentPsdTreeController({
       port: {
@@ -362,6 +375,7 @@ if (refreshTransaction.ok) {
           buildPsdSourceTreeReadModel({
             project: refreshedProject,
             selection: null,
+            resolution: sourceResolution,
           }),
       },
     });

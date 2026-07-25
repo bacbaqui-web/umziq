@@ -164,7 +164,6 @@ export function commitLayerDocumentOwnerSourceTransaction(
       (
         transaction.kind === "refresh-source" ||
         transaction.kind === "refresh-psd-document" ||
-        transaction.kind === "mark-source-missing" ||
         transaction.kind === "reconnect-source"
       )
         ? changedSourceIds

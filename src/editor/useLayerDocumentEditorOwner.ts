@@ -21,9 +21,19 @@ import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
 } from "@/engines/drawing";
 import {
+  createLayerDocumentProjectBrowserOpenAdapter,
+  createLayerDocumentProjectBrowserWriteAdapter,
+  createLayerDocumentProjectLifecycleController,
+  createLayerDocumentProjectOpenController,
+  createLayerDocumentProjectReconnectBrowserAdapter,
+  createLayerDocumentProjectReconnectController,
+  createLayerDocumentProjectSaveController,
   createLayerDocumentPsdTreeController,
+  createLayerDocumentSourceRuntimeResolutionStore,
+  LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   type LayerDocumentProjectOwnerEffect,
+  type LayerDocumentProjectLinkedSourceAccess,
   useLayerDocumentProjectOwner,
 } from "@/engines/project";
 import {
@@ -54,6 +64,13 @@ import {
 import {
   createInitialLayerDocumentOwnerOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
+import {
+  buildLayerDocumentLocalHandleKey,
+  createNewLayerDocumentEditorProject,
+} from "@/editor/layerDocumentEditorProjectIdentity";
+import {
+  createProjectLifecycleUiCommandPort,
+} from "@/editor/projectLifecycleUi";
 
 const NOOP_METRICS = {
   increment: () => {},
@@ -69,6 +86,16 @@ export function useLayerDocumentEditorOwner(
     useLayerDocumentProjectOwner(initialOptions);
   const [resources] = useState(
     createLayerDocumentSourceRuntimeResourceCache
+  );
+  const [sourceResolution] = useState(
+    createLayerDocumentSourceRuntimeResolutionStore
+  );
+  const [, setSourceResolutionRevision] = useState(0);
+  useEffect(
+    () => sourceResolution.subscribe(() => {
+      setSourceResolutionRevision((revision) => revision + 1);
+    }),
+    [sourceResolution]
   );
   const resourceDisposeTimer =
     useRef<number | null>(null);
@@ -103,6 +130,20 @@ export function useLayerDocumentEditorOwner(
       localUiRevision: 0,
       effect: null,
     });
+  const applyOwnerEffect = useCallback(
+    (effect: LayerDocumentProjectOwnerEffect) => {
+      setOwnerEffect((current) => ({
+        revision:
+          current.revision +
+          (effect.clearDraft ? 1 : 0),
+        localUiRevision:
+          current.localUiRevision +
+          (effect.resetLocalUi ? 1 : 0),
+        effect,
+      }));
+    },
+    []
+  );
   const publishDraft = useCallback(
     (
       draft:
@@ -136,19 +177,11 @@ export function useLayerDocumentEditorOwner(
       audioPreparation:
         LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
       sourceRuntime: resources,
+      sourceResolution,
       draftSession,
       effects: {
-        applyOwnerEffect: (effect) => {
-          setOwnerEffect((current) => ({
-            revision:
-              current.revision +
-              (effect.clearDraft ? 1 : 0),
-            localUiRevision:
-              current.localUiRevision +
-              (effect.resetLocalUi ? 1 : 0),
-            effect,
-          }));
-        },
+        applyOwnerEffect: (effect) =>
+          applyOwnerEffect(effect),
       },
       metrics: NOOP_METRICS,
     })
@@ -257,13 +290,149 @@ export function useLayerDocumentEditorOwner(
     activeGroup.layerDocumentId,
     playback,
   ]);
+  const [lifecycle] = useState(() =>
+    createLayerDocumentProjectLifecycleController({
+      owner,
+      runtime: {
+        stopPlayback: playback.commands.pause,
+        clearDraft: draftSession.clear,
+        invalidateSourceRuntime:
+          resources.invalidate,
+        resetSourceResolution:
+          sourceResolution.reset,
+        resetLocalUi: () => {},
+        publishOwnerEffect: applyOwnerEffect,
+      },
+    })
+  );
+  const [saveController] = useState(() =>
+    createLayerDocumentProjectSaveController({
+      readProject: () =>
+        owner.state.currentProject,
+      lifecycle,
+      browser:
+        createLayerDocumentProjectBrowserWriteAdapter(),
+    })
+  );
+  const [localHandles] = useState(() =>
+    new Map<
+      string,
+      {
+        readonly file: File;
+        readonly handle:
+          FileSystemFileHandle | null;
+        readonly permission:
+          "unknown" | "prompt" | "granted";
+      }
+    >()
+  );
+  const [openController] = useState(() =>
+    createLayerDocumentProjectOpenController({
+      lifecycle,
+      browser:
+        createLayerDocumentProjectBrowserOpenAdapter(),
+      linkedSourceAccess: {
+        find: async ({
+          projectId,
+          locatorId,
+        }): Promise<
+          LayerDocumentProjectLinkedSourceAccess
+        > => {
+          const linked = localHandles.get(
+            buildLayerDocumentLocalHandleKey(
+              projectId,
+              locatorId
+            )
+          );
+          if (!linked) {
+            return {
+              status: "missing",
+              message:
+                "No session-local handle is available",
+            };
+          }
+          try {
+            return {
+              status: "available",
+              ...linked,
+              file: linked.handle
+                ? await linked.handle.getFile()
+                : linked.file,
+            };
+          } catch {
+            return {
+              status: "error",
+              message:
+                "The linked Source file could not be read",
+            };
+          }
+        },
+      },
+      linkedSourcePreparation:
+        LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
+      sourceRuntime: resources,
+      sourceResolution,
+      saveController,
+    })
+  );
+  const [reconnectController] = useState(() =>
+    createLayerDocumentProjectReconnectController({
+      readProject: () =>
+        owner.state.currentProject,
+      browser:
+        createLayerDocumentProjectReconnectBrowserAdapter(),
+      preparation:
+        LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
+      sourceRuntime: resources,
+      sourceResolution,
+      localHandles: {
+        update: (linked) => {
+          localHandles.set(
+            buildLayerDocumentLocalHandleKey(
+              linked.projectId,
+              linked.locatorId
+            ),
+            {
+              file: linked.file,
+              handle: linked.handle,
+              permission: linked.permission,
+            }
+          );
+        },
+      },
+    })
+  );
+  const [, setLifecycleUiRevision] =
+    useState(0);
+  const [projectLifecycleCommands] =
+    useState(() =>
+      createProjectLifecycleUiCommandPort({
+        lifecycle,
+        save: saveController,
+        open: openController,
+        reconnect: reconnectController,
+        createNewProject:
+          createNewLayerDocumentEditorProject,
+        confirmDiscard: (intent) =>
+          window.confirm(
+            intent === "open-project"
+              ? "저장하지 않은 변경 사항을 버리고 다른 프로젝트를 여시겠습니까?"
+              : intent === "close-project"
+                ? "저장하지 않은 변경 사항을 버리고 프로젝트를 닫으시겠습니까?"
+                : "저장하지 않은 변경 사항을 버리고 새 프로젝트를 만드시겠습니까?"
+          ),
+        notify: () =>
+          setLifecycleUiRevision(
+            (revision) => revision + 1
+          ),
+      })
+    );
   const sourceStatus = useMemo(
     () =>
       createLayerDocumentTimelineSourceStatusAdapter({
         assembly,
-        cacheContext,
       }),
-    [assembly, cacheContext]
+    [assembly]
   );
   const allocatedIds = useRef(new Set<string>());
   const nextId = useRef(0);
@@ -346,6 +515,7 @@ export function useLayerDocumentEditorOwner(
     owner,
     assembly,
     resources,
+    sourceResolution,
     draftSession,
     canvasCommandPort,
     canvasReadPort,
@@ -354,6 +524,11 @@ export function useLayerDocumentEditorOwner(
     psdTreeProps: psdTree.viewProps,
     timelinePanelProps:
       timeline.viewProps,
+    projectLifecycleProps: {
+      viewModel:
+        projectLifecycleCommands.read(),
+      commands: projectLifecycleCommands,
+    },
     ownerEffect,
   };
 }

@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import type { AnimatableProperty } from "@/models";
-import type { SourceRegistryRefreshStatus } from "@/models";
 import type { TimelineReadModel } from "@/engines/timeline/models/timelineViewModel";
+import type { TimelineSourceStatusViewModel } from "@/engines/timeline/models/timelineViewModel";
 
 export type TimelineCommands = {
   toggleCompositionSwitcher: () => void;
@@ -29,7 +29,7 @@ export type TimelineInteractionCommands = {
   selectTimelineItem: (itemId: string) => void;
   activateTimelineItem: (
     itemId: string,
-    status: SourceRegistryRefreshStatus
+    status: TimelineSourceStatusViewModel["status"]
   ) => void;
   resolveTimelineSourceDelete: (itemId: string, decision: "delete" | "keep") => void;
   deleteTimelineItem: (itemId: string) => void;

@@ -8,6 +8,9 @@ import {
   type PlainDataObject,
   type PlainDataValue,
 } from "@/models/plainDataModel";
+import {
+  migrateLayerDocumentProjectSchema1To2,
+} from "@/models/layerDocumentSchemaMigration";
 
 const KNOWN_LAYER_TYPES = new Set([
   "psd",
@@ -112,6 +115,8 @@ function normalizeFutureSources(project: UnknownRecord) {
         originalKind,
         rawData: preserveUnknownData(value.data),
       };
+      delete value.locator;
+      delete value.contentFingerprint;
     }
   });
 }
@@ -138,7 +143,27 @@ export function normalizeLayerDocumentProject(
     };
   }
 
-  const normalized = clonePlainData(value);
+  const cloned = clonePlainData(value);
+  const schemaVersion = isRecord(cloned) &&
+    isRecord(cloned.metadata)
+    ? cloned.metadata.schemaVersion
+    : null;
+  const migrated = schemaVersion === 1
+    ? migrateLayerDocumentProjectSchema1To2(cloned)
+    : { ok: true as const, value: cloned };
+  if (!migrated.ok) {
+    return {
+      ok: false,
+      issues: [{
+        code: migrated.error.code === "non-plain-data"
+          ? "non-plain-data"
+          : "invalid-shape",
+        path: migrated.error.path,
+        message: migrated.error.message,
+      }],
+    };
+  }
+  const normalized = migrated.value;
   if (isRecord(normalized)) {
     normalizeFutureLayerDocuments(normalized);
     normalizeFutureSources(normalized);

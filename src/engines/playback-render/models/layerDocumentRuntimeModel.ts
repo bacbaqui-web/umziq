@@ -72,6 +72,15 @@ export type LayerDocumentPsdSourceResolver = (
   request: LayerDocumentPsdSourceResolutionRequest
 ) => LayerDocumentPsdSourceResolution | null;
 
+export type LayerDocumentSourceResolutionStatusReader = (
+  sourceId: string
+) =>
+  | "unresolved"
+  | "resolving"
+  | "available"
+  | "missing"
+  | "error";
+
 export type LayerDocumentRuntimeContentDescriptor =
   | {
       readonly kind: "drawable";
@@ -199,6 +208,8 @@ export interface LayerDocumentRuntimePreparationQueryPort {
   readonly readProject: () => LayerDocumentProject;
   readonly readDraft: () => LayerDocumentTransformDraftSnapshot | null;
   readonly resolvePsdSource: LayerDocumentPsdSourceResolver;
+  readonly readSourceResolutionStatus:
+    LayerDocumentSourceResolutionStatusReader;
 }
 
 /**
@@ -214,6 +225,8 @@ export interface LayerDocumentRuntimeCutoverPreparationPort {
     quality: string;
     draft?: LayerDocumentTransformDraftSnapshot | null;
     resolvePsdSource: LayerDocumentPsdSourceResolver;
+    readSourceResolutionStatus:
+      LayerDocumentSourceResolutionStatusReader;
   }) => LayerDocumentRuntimeReadModelResult;
   readonly preparePointerMove: (
     input: LayerDocumentRuntimeInput,

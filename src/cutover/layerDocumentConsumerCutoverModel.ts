@@ -16,7 +16,6 @@ import type {
   DeleteSourceRegistryCommand,
   DiscoverPsdSourceNodesCommand,
   ImportSourceRegistryCommand,
-  MarkSourceRegistryMissingCommand,
   ReconnectSourceRegistryCommand,
   RefreshPsdSourceRegistryCommand,
   RefreshSourceRegistryCommand,
@@ -24,6 +23,7 @@ import type {
   PreparedLayerDocumentPsdImport,
   PreparedLayerDocumentPsdRefresh,
   LayerDocumentPreparedRuntimeDisposition,
+  LayerDocumentSourceRuntimeResolutionPort,
 } from "@/engines/project";
 import type {
   LayerDocumentDraftInteractionPreparation,
@@ -89,6 +89,8 @@ export interface LayerDocumentConsumerCutoverInput {
   readonly audioPreparation:
     LayerDocumentAudioPreparationPort;
   readonly sourceRuntime: LayerDocumentSourceRuntimeResourcePort;
+  readonly sourceResolution:
+    LayerDocumentSourceRuntimeResolutionPort;
   readonly draftSession: LayerDocumentCutoverDraftSessionPort;
   readonly effects: LayerDocumentCutoverEffectPort;
   readonly metrics: RuntimeMetricRecordPort;
@@ -160,7 +162,16 @@ export interface LayerDocumentTimelineConsumerRow {
   readonly type: LayerDocumentType;
   readonly sourceId: string | null;
   readonly source:
-    LayerDocumentTimelineSourceReadModel | null;
+    (
+      LayerDocumentTimelineSourceReadModel & {
+        readonly resolutionStatus:
+          | "unresolved"
+          | "resolving"
+          | "available"
+          | "missing"
+          | "error";
+      }
+    ) | null;
   readonly startFrame: number;
   readonly durationFrames: number;
   readonly sourceOffsetFrames: number;
@@ -340,9 +351,6 @@ export interface LayerDocumentConsumerCutoverAssembly {
     readonly refreshPsd: (
       command: RefreshPsdSourceRegistryCommand
     ) => LayerDocumentCutoverCommandResult;
-    readonly markMissing: (
-      command: MarkSourceRegistryMissingCommand
-    ) => LayerDocumentCutoverCommandResult;
     readonly reconnect: (
       command: ReconnectSourceRegistryCommand
     ) => LayerDocumentCutoverCommandResult;
@@ -355,6 +363,8 @@ export interface LayerDocumentConsumerCutoverAssembly {
   };
   readonly runtime: {
     readonly resources: LayerDocumentSourceRuntimeResourcePort;
+    readonly resolutions:
+      LayerDocumentSourceRuntimeResolutionPort;
     readonly registrationBridge:
       LayerDocumentPsdRuntimeRegistrationBridge;
   };

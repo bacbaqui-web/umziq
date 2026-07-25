@@ -86,23 +86,27 @@ function common<TSource extends LayerSourceReference | null>(
 function sources(): Record<string, SourceRegistryRecord> {
   const refresh = {
     status: "normal" as const,
-    reconnectHint: {
-      fileName: "fixture.psd",
-      path: "/fixture.psd",
-    },
   };
   return {
     "source-document": {
       sourceId: "source-document",
       kind: "psd-document",
       displayName: "fixture.psd",
-      path: "/fixture.psd",
-      fingerprint: "document",
+      locator: {
+        locatorId: "linked:source-document",
+        kind: "linked-file",
+        suggestedFileName: "fixture.psd",
+        relativePathHint: "fixture.psd",
+      },
+      contentFingerprint: {
+        algorithm: "sha-256",
+        digestHex:
+          "0000000000000000000000000000000000000000000000000000000000000000",
+        byteLength: 1,
+      },
       version: 1,
-      availability: "available",
       refresh,
       data: {
-        fileName: "fixture.psd",
         importSettings: {
           compositionName: "Fixture",
           hiddenLayerMode: "preserve",
@@ -113,16 +117,13 @@ function sources(): Record<string, SourceRegistryRecord> {
       sourceId: "source-node",
       kind: "psd-node",
       displayName: "Shared PSD Node",
-      path: "fixture.psd/Shared",
-      fingerprint: "node",
       version: 1,
-      availability: "available",
       refresh,
       data: {
         documentSourceId: "source-document",
         sourceKey: "layer:shared",
         sourcePath: "Shared",
-        nativeVisible: null,
+        visualFingerprint: "node",
       },
     },
   };

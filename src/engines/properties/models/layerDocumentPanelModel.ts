@@ -13,7 +13,6 @@ import type {
   Position,
   PsdLayerData,
   ShapeLayerData,
-  SourceRegistryAvailability,
   SourceRegistryKind,
   SourceRegistryRefreshStatus,
   TextLayerData,
@@ -61,7 +60,7 @@ export type LayerDocumentPanelSourceDescriptor =
   | {
       readonly referenceStatus: "none";
       readonly sourceId: null;
-      readonly availability: null;
+      readonly resolutionStatus: null;
       readonly displayName: null;
       readonly path: null;
       readonly kind: null;
@@ -70,7 +69,7 @@ export type LayerDocumentPanelSourceDescriptor =
   | {
       readonly referenceStatus: "unresolved";
       readonly sourceId: string;
-      readonly availability: "missing";
+      readonly resolutionStatus: "missing";
       readonly displayName: null;
       readonly path: null;
       readonly kind: null;
@@ -79,7 +78,12 @@ export type LayerDocumentPanelSourceDescriptor =
   | {
       readonly referenceStatus: "resolved";
       readonly sourceId: string;
-      readonly availability: SourceRegistryAvailability;
+      readonly resolutionStatus:
+        | "unresolved"
+        | "resolving"
+        | "available"
+        | "missing"
+        | "error";
       readonly displayName: string;
       readonly path: string | null;
       readonly kind: SourceRegistryKind;
@@ -255,6 +259,14 @@ export interface LayerDocumentPanelPreparationPort {
     readonly describe: (options: {
       project: LayerDocumentProject;
       selectedLayerDocumentId: string | null;
+      readSourceResolutionStatus: (
+        sourceId: string
+      ) =>
+        | "unresolved"
+        | "resolving"
+        | "available"
+        | "missing"
+        | "error";
     }) => LayerDocumentPanelDescriptorResult;
   };
   readonly commands: {

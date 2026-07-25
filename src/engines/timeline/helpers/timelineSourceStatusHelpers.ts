@@ -1,8 +1,7 @@
-import type { SourceRegistryRefreshStatus } from "@/models";
 import type { TimelineSourceStatusViewModel } from "@/engines/timeline/models/timelineViewModel";
 
 export function buildTimelineSourceStatusViewModel(
-  status: SourceRegistryRefreshStatus
+  status: TimelineSourceStatusViewModel["status"]
 ): TimelineSourceStatusViewModel {
   const badge = status === "updated"
     ? { label: "update", color: "#7fb0de", background: "rgba(63, 96, 128, 0.34)" }

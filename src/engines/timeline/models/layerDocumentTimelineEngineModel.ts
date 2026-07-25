@@ -10,7 +10,6 @@ import type {
   LayerDocumentOwnerPlaybackSession,
   LayerDocumentSourceStatusIdentity,
   LayerDocumentTransformKeyframeSelection,
-  MarkSourceRegistryMissingCommand,
 } from "@/engines/project";
 
 export interface LayerDocumentTimelineConsumerRow {
@@ -27,7 +26,12 @@ export interface LayerDocumentTimelineConsumerRow {
     readonly sourceId: string;
     readonly kind: SourceRegistryKind;
     readonly displayName: string;
-    readonly availability: "available" | "missing";
+    readonly resolutionStatus:
+      | "unresolved"
+      | "resolving"
+      | "available"
+      | "missing"
+      | "error";
   } | null;
   readonly startFrame: number;
   readonly durationFrames: number;
@@ -87,10 +91,16 @@ export interface LayerDocumentTimelineOwnerPort {
       sourceId: string
     ) => unknown;
   };
-  readonly sources: {
-    readonly markMissing: (
-      command: MarkSourceRegistryMissingCommand
-    ) => unknown;
+  readonly runtime: {
+    readonly resolutions: {
+      readonly setMissing: (sourceId: string) => unknown;
+    };
+    readonly resources: {
+      readonly invalidate: (invalidation: {
+        readonly kind: "source";
+        readonly sourceId: string;
+      }) => number;
+    };
   };
 }
 

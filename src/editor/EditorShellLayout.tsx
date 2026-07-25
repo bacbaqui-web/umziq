@@ -3,6 +3,9 @@ import { PsdTree } from "@/engines/psd-tree";
 import PreviewWorkspacePane from "@/features/preview/components/PreviewWorkspacePane";
 import { PropertiesPanel } from "@/engines/properties";
 import { TimelinePanel } from "@/engines/timeline";
+import {
+  ProjectLifecycleBar,
+} from "@/editor/ProjectLifecycleBar";
 
 export type EditorShellLayoutProps = {
   leftPanelWidth: number;
@@ -16,6 +19,8 @@ export type EditorShellLayoutProps = {
   previewPaneProps: ComponentProps<typeof PreviewWorkspacePane>;
   propertiesPanelProps: ComponentProps<typeof PropertiesPanel>;
   timelinePanelProps: ComponentProps<typeof TimelinePanel>;
+  projectLifecycleProps:
+    ComponentProps<typeof ProjectLifecycleBar>;
 };
 
 export function EditorShellLayout({
@@ -30,6 +35,7 @@ export function EditorShellLayout({
   previewPaneProps,
   propertiesPanelProps,
   timelinePanelProps,
+  projectLifecycleProps,
 }: EditorShellLayoutProps) {
   return (
     <div
@@ -37,17 +43,29 @@ export function EditorShellLayout({
       style={{
         display: "grid",
         gridTemplateColumns: `${leftPanelWidth}px 6px minmax(0, 1fr) 6px ${rightPanelWidth}px`,
-        gridTemplateRows: `minmax(0, 1fr) 6px ${timelinePanelHeight}px`,
+        gridTemplateRows: `42px minmax(0, 1fr) 6px ${timelinePanelHeight}px`,
         height: "100vh",
         minHeight: 0,
         overflow: "hidden",
       }}
     >
       <div
+        style={{
+          gridColumn: "1 / -1",
+          gridRow: "1",
+          minWidth: 0,
+          zIndex: 10,
+        }}
+      >
+        <ProjectLifecycleBar
+          {...projectLifecycleProps}
+        />
+      </div>
+      <div
         className="editor-panel editor-panel-scroll"
         style={{
           gridColumn: "1",
-          gridRow: "1",
+          gridRow: "2",
           minHeight: 0,
           borderRight: "1px solid #2a2e33",
         }}
@@ -63,13 +81,22 @@ export function EditorShellLayout({
         }}
         style={{
           gridColumn: "2",
-          gridRow: "1",
+          gridRow: "2",
           background: activePanelResize === "left" ? "#3d78a8" : undefined,
           cursor: "col-resize",
         }}
       />
 
-      <PreviewWorkspacePane {...previewPaneProps} />
+      <div
+        style={{
+          gridColumn: "3",
+          gridRow: "2",
+          minWidth: 0,
+          minHeight: 0,
+        }}
+      >
+        <PreviewWorkspacePane {...previewPaneProps} />
+      </div>
 
       <div
         className="editor-resizer"
@@ -79,7 +106,7 @@ export function EditorShellLayout({
         }}
         style={{
           gridColumn: "4",
-          gridRow: "1",
+          gridRow: "2",
           background: activePanelResize === "right" ? "#3d78a8" : undefined,
           cursor: "col-resize",
         }}
@@ -89,7 +116,7 @@ export function EditorShellLayout({
         className="editor-panel"
         style={{
           gridColumn: "5",
-          gridRow: "1",
+          gridRow: "2",
           minWidth: 0,
           minHeight: 0,
           overflow: "hidden",
@@ -106,7 +133,7 @@ export function EditorShellLayout({
         }}
         style={{
           gridColumn: "1 / -1",
-          gridRow: "2",
+          gridRow: "3",
           background: activePanelResize === "bottom" ? "#3d78a8" : undefined,
           cursor: "row-resize",
         }}
@@ -116,7 +143,7 @@ export function EditorShellLayout({
         className="editor-panel"
         style={{
           gridColumn: "1 / -1",
-          gridRow: "3",
+          gridRow: "4",
           minWidth: 0,
           minHeight: 0,
           overflow: "hidden",

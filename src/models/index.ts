@@ -6,6 +6,8 @@ export * from "@/models/psdImportSettingsModel";
 export * from "@/models/layerDocumentModel";
 export * from "@/models/layerDocumentGroupScopeModel";
 export * from "@/models/layerDocumentNormalization";
+export * from "@/models/layerDocumentSchemaMigration";
+export * from "@/models/layerDocumentSourceDescriptorHelpers";
 export * from "@/models/layerDocumentPlacementFrameHelpers";
 export * from "@/models/layerDocumentSelectionModel";
 export * from "@/models/layerDocumentTimelineIntentAdapter";

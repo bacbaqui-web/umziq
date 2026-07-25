@@ -3,7 +3,6 @@ export {
 } from "@/engines/project/actions/layerDocumentSourceImportTransaction";
 export {
   preparePsdSourceNodeDiscovery,
-  prepareSourceRegistryMissing,
   prepareSourceRegistryReconnect,
   prepareSourceRegistryRefresh,
 } from "@/engines/project/actions/layerDocumentSourceLifecycleTransactions";

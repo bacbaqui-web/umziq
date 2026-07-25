@@ -3,6 +3,9 @@ import type {
   LayerDocumentProject,
   SourceRegistryRecord,
 } from "@/models";
+import {
+  layerDocumentSourceDescriptorPath,
+} from "@/models";
 import type {
   LayerDocumentPanelCapabilities,
   LayerDocumentPanelCapability,
@@ -177,14 +180,22 @@ function buildCapabilities(
 
 function buildSourceDescriptor(
   project: LayerDocumentProject,
-  layer: LayerDocument
+  layer: LayerDocument,
+  readSourceResolutionStatus: (
+    sourceId: string
+  ) =>
+    | "unresolved"
+    | "resolving"
+    | "available"
+    | "missing"
+    | "error"
 ): LayerDocumentPanelSourceDescriptor {
   const sourceId = layer.common.source?.sourceId;
   if (!sourceId) {
     return {
       referenceStatus: "none",
       sourceId: null,
-      availability: null,
+      resolutionStatus: null,
       displayName: null,
       path: null,
       kind: null,
@@ -197,7 +208,7 @@ function buildSourceDescriptor(
     return {
       referenceStatus: "unresolved",
       sourceId,
-      availability: "missing",
+      resolutionStatus: "missing",
       displayName: null,
       path: null,
       kind: null,
@@ -207,9 +218,10 @@ function buildSourceDescriptor(
   return {
     referenceStatus: "resolved",
     sourceId,
-    availability: source.availability,
+    resolutionStatus:
+      readSourceResolutionStatus(source.sourceId),
     displayName: source.displayName,
-    path: source.path,
+    path: layerDocumentSourceDescriptorPath(source),
     kind: source.kind,
     refreshStatus: source.refresh.status,
   };
@@ -247,6 +259,14 @@ function buildTypeData(layer: LayerDocument): LayerDocumentPanelTypeData {
 export function buildLayerDocumentPanelDescriptor(options: {
   project: LayerDocumentProject;
   selectedLayerDocumentId: string | null;
+  readSourceResolutionStatus: (
+    sourceId: string
+  ) =>
+    | "unresolved"
+    | "resolving"
+    | "available"
+    | "missing"
+    | "error";
 }): LayerDocumentPanelDescriptorResult {
   const selectedLayerDocumentId = options.selectedLayerDocumentId;
   if (!selectedLayerDocumentId) {
@@ -280,7 +300,11 @@ export function buildLayerDocumentPanelDescriptor(options: {
       name: layer.name,
       alias: placement.alias,
       displayName: placement.alias ?? layer.name,
-      source: buildSourceDescriptor(options.project, layer),
+      source: buildSourceDescriptor(
+        options.project,
+        layer,
+        options.readSourceResolutionStatus
+      ),
       transform: clonePlainData(layer.common.transform),
       placement: {
         parentLayerDocumentId: placement.parentLayerDocumentId,

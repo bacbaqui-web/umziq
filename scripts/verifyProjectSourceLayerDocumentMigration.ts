@@ -1022,12 +1022,19 @@ assert.notEqual(input.sourcesById["psd-logo"].transform.position.x, 999);
 
 const registry = migrated.project.payload.sourceRegistry.sourcesById;
 assert.equal(registry["psd-logo"]?.kind, "psd-node");
-assert.equal(registry["psd-missing"]?.availability, "missing");
+assert.equal(
+  "availability" in (registry["psd-missing"] ?? {}),
+  false
+);
+assert.equal(
+  registry["psd-missing"]?.refresh.status,
+  "normal"
+);
 assert.equal(
   registry["psd-logo"]?.kind === "psd-node"
-    ? registry["psd-logo"].data.nativeVisible
-    : true,
-  null
+    ? registry["psd-logo"].data.visualFingerprint
+    : null,
+  "fingerprint-psd-logo"
 );
 const psdDocumentRecords = Object.values(registry).filter(
   (source) => source.kind === "psd-document"
@@ -1049,15 +1056,24 @@ if (audioSource.type !== "audio") {
 assert.deepEqual(
   registry.audio?.kind === "audio" ? registry.audio.data : null,
   {
-    fileName: "voice.wav",
     mimeType: audioSource.content.descriptor.kind === "file"
       ? audioSource.content.descriptor.mimeType
       : null,
     durationFrames: audioSource.content.durationFrames,
   }
 );
-assert.equal(registry.audio?.path, null);
-assert.equal(registry.audio?.refresh.reconnectHint?.path, null);
+assert.equal(
+  registry.audio?.kind === "audio"
+    ? registry.audio.locator.suggestedFileName
+    : null,
+  "voice.wav"
+);
+assert.equal(
+  registry.audio?.kind === "audio"
+    ? registry.audio.locator.relativePathHint
+    : "unexpected",
+  null
+);
 const videoSource = input.sourcesById.video;
 assert.equal(videoSource.type, "video");
 if (videoSource.type !== "video") {
@@ -1066,17 +1082,23 @@ if (videoSource.type !== "video") {
 assert.deepEqual(
   registry.video?.kind === "video" ? registry.video.data : null,
   {
-    fileName: videoSource.content.data.fileName,
     mimeType: videoSource.content.data.mimeType,
     durationFrames: videoSource.content.data.durationFrames,
     width: videoSource.content.data.width,
     height: videoSource.content.data.height,
   }
 );
-assert.equal(registry.video?.path, videoSource.content.data.path);
 assert.equal(
-  registry.video?.fingerprint,
-  videoSource.content.data.fingerprint
+  registry.video?.kind === "video"
+    ? registry.video.locator.relativePathHint
+    : null,
+  videoSource.content.data.path
+);
+assert.equal(
+  registry.video?.kind === "video"
+    ? registry.video.contentFingerprint
+    : "unexpected",
+  null
 );
 assert.equal(registry["unplaced-audio"]?.kind, "audio");
 assert.deepEqual(
@@ -1096,11 +1118,17 @@ assert.notEqual(
 for (const sourceId of ["unplaced-audio", "unplaced-audio-copy"]) {
   const source = registry[sourceId];
   assert.equal(source?.kind, "audio");
-  assert.equal(source?.path, null);
-  assert.equal(source?.refresh.reconnectHint?.path, null);
   assert.equal(
-    source?.kind === "audio" ? source.data.fileName : null,
+    source?.kind === "audio"
+      ? source.locator.suggestedFileName
+      : null,
     "library.wav"
+  );
+  assert.equal(
+    source?.kind === "audio"
+      ? source.locator.relativePathHint
+      : "unexpected",
+    null
   );
 }
 

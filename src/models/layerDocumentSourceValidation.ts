@@ -197,38 +197,93 @@ function validateRefresh(
 ) {
   const record = requireRecord(value, path, issues);
   if (!record) return;
-  validateExactKeys(record, ["status", "reconnectHint"], path, issues);
+  validateExactKeys(record, ["status"], path, issues);
   if (
     typeof record.status !== "string" ||
-    !["normal", "updated", "new", "deletePending", "missing"].includes(
+    !["normal", "updated", "new", "deletePending"].includes(
       record.status
     )
   ) {
     addIssue(issues, "invalid-shape", `${path}.status`, "Invalid refresh status");
   }
-  if (record.reconnectHint === null) return;
-  const reconnectHint = requireRecord(
-    record.reconnectHint,
-    `${path}.reconnectHint`,
+}
+
+function validateLinkedSourceDescriptor(
+  source: UnknownRecord,
+  path: string,
+  issues: LayerDocumentValidationIssue[]
+) {
+  const locatorPath = `${path}.locator`;
+  const locator = requireRecord(source.locator, locatorPath, issues);
+  if (locator) {
+    validateExactKeys(
+      locator,
+      ["locatorId", "kind", "suggestedFileName", "relativePathHint"],
+      locatorPath,
+      issues
+    );
+    validateString(locator.locatorId, `${locatorPath}.locatorId`, issues, {
+      nonEmpty: true,
+    });
+    if (locator.kind !== "linked-file") {
+      addIssue(
+        issues,
+        "invalid-type-data",
+        `${locatorPath}.kind`,
+        "Linked Source locator kind must be linked-file"
+      );
+    }
+    validateString(
+      locator.suggestedFileName,
+      `${locatorPath}.suggestedFileName`,
+      issues,
+      { nonEmpty: true }
+    );
+    validateStringOrNull(
+      locator.relativePathHint,
+      `${locatorPath}.relativePathHint`,
+      issues
+    );
+  }
+
+  if (source.contentFingerprint === null) return;
+  const fingerprintPath = `${path}.contentFingerprint`;
+  const fingerprint = requireRecord(
+    source.contentFingerprint,
+    fingerprintPath,
     issues
   );
-  if (!reconnectHint) return;
+  if (!fingerprint) return;
   validateExactKeys(
-    reconnectHint,
-    ["fileName", "path"],
-    `${path}.reconnectHint`,
+    fingerprint,
+    ["algorithm", "digestHex", "byteLength"],
+    fingerprintPath,
     issues
   );
-  validateString(
-    reconnectHint.fileName,
-    `${path}.reconnectHint.fileName`,
+  if (fingerprint.algorithm !== "sha-256") {
+    addIssue(
+      issues,
+      "invalid-type-data",
+      `${fingerprintPath}.algorithm`,
+      "Linked Source fingerprint algorithm must be sha-256"
+    );
+  }
+  if (
+    typeof fingerprint.digestHex !== "string" ||
+    !/^[0-9a-f]{64}$/.test(fingerprint.digestHex)
+  ) {
+    addIssue(
+      issues,
+      "invalid-type-data",
+      `${fingerprintPath}.digestHex`,
+      "SHA-256 digest must be 64 lowercase hexadecimal characters"
+    );
+  }
+  validateNumber(
+    fingerprint.byteLength,
+    `${fingerprintPath}.byteLength`,
     issues,
-    { nonEmpty: true }
-  );
-  validateStringOrNull(
-    reconnectHint.path,
-    `${path}.reconnectHint.path`,
-    issues
+    { integer: true, minimum: 0 }
   );
 }
 
@@ -243,10 +298,7 @@ function validateSourceData(
 
   switch (source.kind) {
     case "psd-document": {
-      validateExactKeys(data, ["fileName", "importSettings"], dataPath, issues);
-      validateString(data.fileName, `${dataPath}.fileName`, issues, {
-        nonEmpty: true,
-      });
+      validateExactKeys(data, ["importSettings"], dataPath, issues);
       const settings = requireRecord(
         data.importSettings,
         `${dataPath}.importSettings`,
@@ -281,7 +333,12 @@ function validateSourceData(
     case "psd-node":
       validateExactKeys(
         data,
-        ["documentSourceId", "sourceKey", "sourcePath", "nativeVisible"],
+        [
+          "documentSourceId",
+          "sourceKey",
+          "sourcePath",
+          "visualFingerprint",
+        ],
         dataPath,
         issues
       );
@@ -297,20 +354,19 @@ function validateSourceData(
       validateString(data.sourcePath, `${dataPath}.sourcePath`, issues, {
         nonEmpty: true,
       });
-      if (data.nativeVisible !== null) {
-        validateBoolean(data.nativeVisible, `${dataPath}.nativeVisible`, issues);
-      }
+      validateStringOrNull(
+        data.visualFingerprint,
+        `${dataPath}.visualFingerprint`,
+        issues
+      );
       return;
     case "audio":
       validateExactKeys(
         data,
-        ["fileName", "mimeType", "durationFrames"],
+        ["mimeType", "durationFrames"],
         dataPath,
         issues
       );
-      validateString(data.fileName, `${dataPath}.fileName`, issues, {
-        nonEmpty: true,
-      });
       validateStringOrNull(data.mimeType, `${dataPath}.mimeType`, issues);
       validateNumber(data.durationFrames, `${dataPath}.durationFrames`, issues, {
         integer: true,
@@ -321,13 +377,10 @@ function validateSourceData(
     case "video":
       validateExactKeys(
         data,
-        ["fileName", "mimeType", "durationFrames", "width", "height"],
+        ["mimeType", "durationFrames", "width", "height"],
         dataPath,
         issues
       );
-      validateString(data.fileName, `${dataPath}.fileName`, issues, {
-        nonEmpty: true,
-      });
       validateStringOrNull(data.mimeType, `${dataPath}.mimeType`, issues);
       validateNumber(data.durationFrames, `${dataPath}.durationFrames`, issues, {
         integer: true,
@@ -370,17 +423,27 @@ export function validateSourceRecord(
   if (!record) return;
   validateExactKeys(
     record,
-    [
-      "sourceId",
-      "kind",
-      "displayName",
-      "path",
-      "fingerprint",
-      "version",
-      "availability",
-      "refresh",
-      "data",
-    ],
+    record.kind === "psd-document" ||
+      record.kind === "audio" ||
+      record.kind === "video"
+      ? [
+          "sourceId",
+          "kind",
+          "displayName",
+          "version",
+          "refresh",
+          "locator",
+          "contentFingerprint",
+          "data",
+        ]
+      : [
+          "sourceId",
+          "kind",
+          "displayName",
+          "version",
+          "refresh",
+          "data",
+        ],
     path,
     issues
   );
@@ -406,19 +469,16 @@ export function validateSourceRecord(
   validateString(record.displayName, `${path}.displayName`, issues, {
     nonEmpty: true,
   });
-  validateStringOrNull(record.path, `${path}.path`, issues);
-  validateStringOrNull(record.fingerprint, `${path}.fingerprint`, issues);
   validateNumber(record.version, `${path}.version`, issues, {
     integer: true,
     minimum: 1,
   });
-  if (record.availability !== "available" && record.availability !== "missing") {
-    addIssue(
-      issues,
-      "invalid-shape",
-      `${path}.availability`,
-      "Invalid source availability"
-    );
+  if (
+    record.kind === "psd-document" ||
+    record.kind === "audio" ||
+    record.kind === "video"
+  ) {
+    validateLinkedSourceDescriptor(record, path, issues);
   }
   validateRefresh(record.refresh, `${path}.refresh`, issues);
   validateSourceData(record, path, issues);

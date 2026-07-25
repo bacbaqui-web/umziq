@@ -1,7 +1,7 @@
 import type { PlainDataObject } from "@/models/plainDataModel";
 import type { Position, Scale } from "@/models/transformModel";
 
-export const LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION = 1 as const;
+export const LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION = 2 as const;
 
 export type LayerDocumentType =
   | "psd"
@@ -20,23 +20,27 @@ export type SourceRegistryKind =
   | "video"
   | "unknown";
 
-export type SourceRegistryAvailability = "available" | "missing";
-
 export type SourceRegistryRefreshStatus =
   | "normal"
   | "updated"
   | "new"
-  | "deletePending"
-  | "missing";
-
-export interface SourceRegistryReconnectHint {
-  fileName: string;
-  path: string | null;
-}
+  | "deletePending";
 
 export interface SourceRegistryRefresh {
   status: SourceRegistryRefreshStatus;
-  reconnectHint: SourceRegistryReconnectHint | null;
+}
+
+export interface LinkedSourceLocator {
+  locatorId: string;
+  kind: "linked-file";
+  suggestedFileName: string;
+  relativePathHint: string | null;
+}
+
+export interface LinkedSourceContentFingerprint {
+  algorithm: "sha-256";
+  digestHex: string;
+  byteLength: number;
 }
 
 export interface SourceRegistryRecordBase<
@@ -46,16 +50,23 @@ export interface SourceRegistryRecordBase<
   sourceId: string;
   kind: TKind;
   displayName: string;
-  path: string | null;
-  fingerprint: string | null;
   version: number;
-  availability: SourceRegistryAvailability;
   refresh: SourceRegistryRefresh;
   data: TData;
 }
 
+export interface LinkedSourceRegistryRecordBase<
+  TKind extends Extract<
+    SourceRegistryKind,
+    "psd-document" | "audio" | "video"
+  >,
+  TData,
+> extends SourceRegistryRecordBase<TKind, TData> {
+  locator: LinkedSourceLocator;
+  contentFingerprint: LinkedSourceContentFingerprint | null;
+}
+
 export interface PsdDocumentSourceData {
-  fileName: string;
   importSettings: {
     compositionName: string;
     hiddenLayerMode: "preserve" | "omit";
@@ -66,17 +77,15 @@ export interface PsdNodeSourceData {
   documentSourceId: string;
   sourceKey: string;
   sourcePath: string;
-  nativeVisible: boolean | null;
+  visualFingerprint: string | null;
 }
 
 export interface AudioSourceData {
-  fileName: string;
   mimeType: string | null;
   durationFrames: number | null;
 }
 
 export interface VideoSourceData {
-  fileName: string;
   mimeType: string | null;
   durationFrames: number | null;
   width: number | null;
@@ -88,7 +97,7 @@ export interface UnknownSourceData {
   rawData: PlainDataObject;
 }
 
-export type PsdDocumentSourceRecord = SourceRegistryRecordBase<
+export type PsdDocumentSourceRecord = LinkedSourceRegistryRecordBase<
   "psd-document",
   PsdDocumentSourceData
 >;
@@ -98,12 +107,12 @@ export type PsdNodeSourceRecord = SourceRegistryRecordBase<
   PsdNodeSourceData
 >;
 
-export type AudioSourceRecord = SourceRegistryRecordBase<
+export type AudioSourceRecord = LinkedSourceRegistryRecordBase<
   "audio",
   AudioSourceData
 >;
 
-export type VideoSourceRecord = SourceRegistryRecordBase<
+export type VideoSourceRecord = LinkedSourceRegistryRecordBase<
   "video",
   VideoSourceData
 >;

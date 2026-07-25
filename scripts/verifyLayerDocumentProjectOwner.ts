@@ -83,20 +83,22 @@ function common(
 function sourceRegistry(): Record<string, SourceRegistryRecord> {
   const normal = {
     status: "normal" as const,
-    reconnectHint: null,
   };
   return {
     "source-document": {
       sourceId: "source-document",
       kind: "psd-document",
       displayName: "owner.psd",
-      path: "owner.psd",
-      fingerprint: "document-v1",
       version: 1,
-      availability: "available",
       refresh: normal,
+      locator: {
+        locatorId: "linked:source-document",
+        kind: "linked-file",
+        suggestedFileName: "owner.psd",
+        relativePathHint: null,
+      },
+      contentFingerprint: null,
       data: {
-        fileName: "owner.psd",
         importSettings: {
           compositionName: "Owner",
           hiddenLayerMode: "preserve",
@@ -107,26 +109,20 @@ function sourceRegistry(): Record<string, SourceRegistryRecord> {
       sourceId: "source-node",
       kind: "psd-node",
       displayName: "Owner Pixel",
-      path: "owner.psd/Pixel",
-      fingerprint: "node-v1",
       version: 1,
-      availability: "available",
       refresh: normal,
       data: {
         documentSourceId: "source-document",
         sourceKey: "layer:owner-pixel",
         sourcePath: "owner.psd/Pixel",
-        nativeVisible: true,
+        visualFingerprint: "node-v1",
       },
     },
     "unused-source": {
       sourceId: "unused-source",
       kind: "unknown",
       displayName: "Unused",
-      path: null,
-      fingerprint: "unused-v1",
       version: 1,
-      availability: "available",
       refresh: normal,
       data: {
         originalKind: "fixture",
@@ -1069,16 +1065,18 @@ const importedDocument: SourceRegistryRecord = {
   sourceId: "imported-document",
   kind: "psd-document",
   displayName: "imported.psd",
-  path: "imported.psd",
-  fingerprint: "imported-document-v1",
   version: 1,
-  availability: "available",
   refresh: {
     status: "normal",
-    reconnectHint: null,
   },
+  locator: {
+    locatorId: "linked:imported-document",
+    kind: "linked-file",
+    suggestedFileName: "imported.psd",
+    relativePathHint: null,
+  },
+  contentFingerprint: null,
   data: {
-    fileName: "imported.psd",
     importSettings: {
       compositionName: "Imported",
       hiddenLayerMode: "preserve",
@@ -1089,19 +1087,15 @@ const importedNode: SourceRegistryRecord = {
   sourceId: "imported-node",
   kind: "psd-node",
   displayName: "Imported Node",
-  path: "imported.psd/Node",
-  fingerprint: "imported-node-v1",
   version: 1,
-  availability: "available",
   refresh: {
     status: "normal",
-    reconnectHint: null,
   },
   data: {
     documentSourceId: "imported-document",
     sourceKey: "layer:imported",
     sourcePath: "imported.psd/Node",
-    nativeVisible: true,
+    visualFingerprint: "imported-node-v1",
   },
 };
 const importTransaction = sourceTransaction(
@@ -1171,7 +1165,10 @@ const unreferencedRefresh = transition(
           {
             source: {
               ...unreferencedImportedSource,
-              fingerprint: "imported-node-v2",
+              data: {
+                ...unreferencedImportedSource.data,
+                visualFingerprint: "imported-node-v2",
+              },
               version:
                 unreferencedImportedSource.version +
                 1,
@@ -1285,15 +1282,13 @@ const refreshTransaction = sourceTransaction(
     {
       source: {
         ...refreshSource,
-        fingerprint: "node-v2",
         version: refreshSource.version + 1,
         refresh: {
           status: "updated",
-          reconnectHint: null,
         },
         data: {
           ...refreshSource.data,
-          nativeVisible: false,
+          visualFingerprint: "node-v2",
         },
       },
       cacheContext: {

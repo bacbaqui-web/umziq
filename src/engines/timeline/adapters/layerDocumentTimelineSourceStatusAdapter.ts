@@ -1,7 +1,4 @@
 import type {
-  SourceRegistryCacheInvalidationContext,
-} from "@/engines/project";
-import type {
   LayerDocumentTimelineSourceStatusPort,
   LayerDocumentTimelineOwnerPort,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
@@ -16,8 +13,6 @@ export type LayerDocumentTimelineSourceStatusResult =
 export function createLayerDocumentTimelineSourceStatusAdapter(
   options: {
     assembly: LayerDocumentTimelineOwnerPort;
-    cacheContext: () =>
-      SourceRegistryCacheInvalidationContext;
   }
 ): LayerDocumentTimelineSourceStatusPort<
   LayerDocumentTimelineSourceStatusResult
@@ -64,18 +59,13 @@ export function createLayerDocumentTimelineSourceStatusAdapter(
        * references it, and Layer subtree deletion is a separate context
        * command.
        */
-      return options.assembly.sources.markMissing({
+      options.assembly.runtime.resources.invalidate({
+        kind: "source",
         sourceId: source.sourceId,
-        reconnectHint: {
-          fileName:
-            "fileName" in source.data &&
-            typeof source.data.fileName === "string"
-              ? source.data.fileName
-              : source.displayName,
-          path: source.path,
-        },
-        cacheContext: options.cacheContext(),
       });
+      return options.assembly.runtime.resolutions.setMissing(
+        source.sourceId
+      );
     },
   };
 }

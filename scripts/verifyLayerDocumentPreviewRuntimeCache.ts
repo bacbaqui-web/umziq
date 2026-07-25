@@ -109,7 +109,6 @@ function common(
 function sources(): Record<string, SourceRegistryRecord> {
   const refresh = {
     status: "normal" as const,
-    reconnectHint: null,
   };
   return Object.fromEntries(["a", "b"].flatMap((suffix) => [
     [
@@ -118,13 +117,16 @@ function sources(): Record<string, SourceRegistryRecord> {
         sourceId: `source-document-${suffix}`,
         kind: "psd-document" as const,
         displayName: `${suffix}.psd`,
-        path: `${suffix}.psd`,
-        fingerprint: `document-${suffix}-v1`,
         version: 1,
-        availability: "available" as const,
         refresh,
+        locator: {
+          locatorId: `linked:source-document-${suffix}`,
+          kind: "linked-file" as const,
+          suggestedFileName: `${suffix}.psd`,
+          relativePathHint: null,
+        },
+        contentFingerprint: null,
         data: {
-          fileName: `${suffix}.psd`,
           importSettings: {
             compositionName: suffix.toUpperCase(),
             hiddenLayerMode: "preserve" as const,
@@ -138,16 +140,13 @@ function sources(): Record<string, SourceRegistryRecord> {
         sourceId: `source-node-${suffix}`,
         kind: "psd-node" as const,
         displayName: `Node ${suffix}`,
-        path: `${suffix}.psd/Node`,
-        fingerprint: `node-${suffix}-v1`,
         version: 1,
-        availability: "available" as const,
         refresh,
         data: {
           documentSourceId: `source-document-${suffix}`,
           sourceKey: `layer:${suffix}`,
           sourcePath: "Node",
-          nativeVisible: true,
+          visualFingerprint: `node-${suffix}-v1`,
         },
       },
     ],
@@ -258,6 +257,7 @@ function runtimeFor(
       drawableId: `drawable-${request.sourceId}`,
       logicalSize: { width: 80, height: 80 },
     }),
+    readSourceResolutionStatus: () => "available",
   });
 }
 function canvasFor(
@@ -429,7 +429,10 @@ const preparedRefresh = prepareSourceRegistryRefresh(
     source: {
       ...currentSource!,
       version: currentSource!.version + 1,
-      fingerprint: "node-a-v2",
+      data: {
+        ...currentSource!.data,
+        visualFingerprint: "node-a-v2",
+      },
     },
     cacheContext: {
       globalFrame: 0,

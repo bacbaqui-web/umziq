@@ -15,6 +15,7 @@ import {
 import {
   createLayerDocumentPsdTreeController,
   createLayerDocumentProjectOwnerState,
+  createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   reduceLayerDocumentProjectOwner,
   type LayerDocumentProjectOwnerPort,
@@ -128,13 +129,16 @@ function projectFixture(): LayerDocumentProject {
             sourceId: "document",
             kind: "psd-document",
             displayName: "existing.psd",
-            path: "existing.psd",
-            fingerprint: "document-v1",
             version: 1,
-            availability: "available",
-            refresh: { status: "normal", reconnectHint: null },
+            refresh: { status: "normal" },
+            locator: {
+              locatorId: "linked:document",
+              kind: "linked-file",
+              suggestedFileName: "existing.psd",
+              relativePathHint: null,
+            },
+            contentFingerprint: null,
             data: {
-              fileName: "existing.psd",
               importSettings: {
                 compositionName: "Existing",
                 hiddenLayerMode: "preserve",
@@ -145,16 +149,13 @@ function projectFixture(): LayerDocumentProject {
             sourceId: "node",
             kind: "psd-node",
             displayName: "Existing layer",
-            path: "existing.psd/Layer",
-            fingerprint: "node-v1",
             version: 1,
-            availability: "available",
-            refresh: { status: "normal", reconnectHint: null },
+            refresh: { status: "normal" },
             data: {
               documentSourceId: "document",
               sourceKey: "layer:1",
               sourcePath: "existing.psd/Layer",
-              nativeVisible: true,
+              visualFingerprint: "node-v1",
             },
           },
         },
@@ -204,6 +205,10 @@ const resources =
       return true;
     },
   });
+const sourceResolution =
+  createLayerDocumentSourceRuntimeResolutionStore();
+sourceResolution.setAvailable({ sourceId: "document" });
+sourceResolution.setAvailable({ sourceId: "node" });
 const assembly =
   createLayerDocumentConsumerCutoverAssembly({
     owner,
@@ -218,6 +223,7 @@ const assembly =
     audioPreparation:
       LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
     sourceRuntime: resources,
+    sourceResolution,
     draftSession: {
       read: () => draft,
       publish: (next) => {

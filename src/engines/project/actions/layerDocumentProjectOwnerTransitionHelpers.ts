@@ -20,6 +20,7 @@ function noRuntimeEffect(): LayerDocumentProjectOwnerEffect {
   return {
     clearDraft: false,
     resetLocalUi: false,
+    stopPlayback: false,
     recomputeRender: false,
     runtimeCachePolicy: "preserve",
     cacheInvalidations: [],
@@ -40,6 +41,7 @@ export function projectTransitionEffect(options?: {
   sourceRestorationIds?: readonly string[];
   sourceDisposalIds?: readonly string[];
   suspendedSourceDisposalIds?: readonly string[];
+  stopPlayback?: boolean;
 }): LayerDocumentProjectOwnerEffect {
   const cacheInvalidations = cloneOwnerPlainData(
     options?.cacheInvalidations ?? []
@@ -63,6 +65,7 @@ export function projectTransitionEffect(options?: {
   return {
     clearDraft: true,
     resetLocalUi: true,
+    stopPlayback: options?.stopPlayback ?? false,
     recomputeRender: true,
     runtimeCachePolicy:
       options?.preserveSourceRuntime

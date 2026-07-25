@@ -1,5 +1,6 @@
 import {
   findNonPlainDataPath,
+  layerDocumentSourceVisualFingerprint,
   validateLayerDocumentProject,
   type LayerDocumentProject,
   type SourceRegistryRecord,
@@ -211,7 +212,8 @@ function buildCacheInvalidations(options: {
             sourceBefore.kind
           ),
           sourceVersion: sourceBefore.version,
-          sourceFingerprint: sourceBefore.fingerprint,
+          sourceFingerprint:
+            layerDocumentSourceVisualFingerprint(sourceBefore),
           localFrame,
           quality: options.context.quality,
         });
@@ -223,7 +225,8 @@ function buildCacheInvalidations(options: {
             sourceAfter.kind
           ),
           sourceVersion: sourceAfter.version,
-          sourceFingerprint: sourceAfter.fingerprint,
+          sourceFingerprint:
+            layerDocumentSourceVisualFingerprint(sourceAfter),
           localFrame,
           quality: options.context.quality,
         });

@@ -7,6 +7,7 @@ import type {
   PsdDocumentSourceRecord,
   PsdNodeSourceRecord,
   SourceRegistryRecord,
+  LinkedSourceContentFingerprint,
 } from "@/models";
 import type {
   ImportSourceRegistryCommand,
@@ -29,9 +30,7 @@ import {
   isGroupLayer,
   normalizePsdOpacity,
 } from "@/engines/project/import/psdImportHelpers";
-import {
-  parsePsdFile,
-} from "@/engines/project/import/psdParser";
+import { parsePsdArrayBuffer } from "@/engines/project/import/psdParser";
 import {
   createLayerDocumentPreparedRuntimeLifecycle,
   type LayerDocumentPreparedRuntimeLifecycle,
@@ -45,6 +44,7 @@ export interface PreparedLayerDocumentPsdImport {
   readonly layerCount: number;
   readonly command: ImportSourceRegistryCommand;
   readonly runtime: LayerDocumentPreparedRuntimeLifecycle;
+  readonly resolution: PreparedLayerDocumentPsdResolution;
 }
 
 export interface PreparedLayerDocumentPsdRefresh {
@@ -53,6 +53,13 @@ export interface PreparedLayerDocumentPsdRefresh {
     "cacheContext"
   >;
   readonly runtime: LayerDocumentPreparedRuntimeLifecycle;
+  readonly resolution: PreparedLayerDocumentPsdResolution;
+}
+
+export interface PreparedLayerDocumentPsdResolution {
+  readonly documentSourceId: string;
+  readonly sourceIds: readonly string[];
+  readonly file: File;
 }
 
 function stableId(prefix: string, token: string, key: string) {
@@ -118,20 +125,26 @@ function documentSource(options: {
   sourceId: string;
   fileName: string;
   version: number;
-  fingerprint: string;
+  locatorId: string;
+  relativePathHint: string | null;
+  contentFingerprint: LinkedSourceContentFingerprint;
+  importSettings?: PsdDocumentSourceRecord["data"]["importSettings"];
 }): PsdDocumentSourceRecord {
   return {
     sourceId: options.sourceId,
     kind: "psd-document",
     displayName: options.fileName,
-    path: options.fileName,
-    fingerprint: options.fingerprint,
     version: options.version,
-    availability: "available",
-    refresh: { status: "normal", reconnectHint: null },
+    refresh: { status: "normal" },
+    locator: {
+      locatorId: options.locatorId,
+      kind: "linked-file",
+      suggestedFileName: options.fileName,
+      relativePathHint: options.relativePathHint,
+    },
+    contentFingerprint: options.contentFingerprint,
     data: {
-      fileName: options.fileName,
-      importSettings: {
+      importSettings: options.importSettings ?? {
         compositionName: options.fileName.replace(/\.psd$/i, ""),
         hiddenLayerMode: "preserve",
       },
@@ -152,16 +165,13 @@ function nodeSource(options: {
     sourceId: options.sourceId,
     kind: "psd-node",
     displayName: options.displayName,
-    path: options.sourcePath,
-    fingerprint: buildLayerSourceFingerprint(options.layer),
     version: options.version,
-    availability: "available",
-    refresh: { status: "normal", reconnectHint: null },
+    refresh: { status: "normal" },
     data: {
       documentSourceId: options.documentSourceId,
       sourceKey: options.sourceKey,
       sourcePath: options.sourcePath,
-      nativeVisible: !options.layer.hidden,
+      visualFingerprint: buildLayerSourceFingerprint(options.layer),
     },
   };
 }
@@ -180,7 +190,7 @@ function runtimeResource(options: {
         options.source.kind
       ),
       sourceVersion: options.source.version,
-      sourceFingerprint: options.source.fingerprint,
+      sourceFingerprint: options.source.data.visualFingerprint,
       localFrame: 0,
       quality: "preview",
     });
@@ -301,9 +311,17 @@ export async function prepareLayerDocumentPsdImport(options: {
   parentLayerDocumentId: string;
   order: number;
   durationFrames: number;
-  parsePsd?: (file: File) => Promise<Psd>;
+  parsePsd?: (
+    buffer: ArrayBuffer
+  ) => Psd | Promise<Psd>;
 }): Promise<PreparedLayerDocumentPsdImport> {
-  const psd = await (options.parsePsd ?? parsePsdFile)(options.file);
+  const buffer = await options.file.arrayBuffer();
+  const [psd, contentFingerprint] = await Promise.all([
+    options.parsePsd
+      ? options.parsePsd(buffer)
+      : Promise.resolve(parsePsdArrayBuffer(buffer)),
+    buildSha256Fingerprint(buffer),
+  ]);
   const documentSourceId = stableId(
     "psd-document",
     options.token,
@@ -326,7 +344,9 @@ export async function prepareLayerDocumentPsdImport(options: {
     sourceId: documentSourceId,
     fileName: options.file.name,
     version: 1,
-    fingerprint: `${psd.width}x${psd.height}:${options.file.size}`,
+    locatorId: `linked:${documentSourceId}`,
+    relativePathHint: null,
+    contentFingerprint,
   });
   const composition: GroupLayerDocument = {
     layerDocumentId: compositionLayerDocumentId,
@@ -363,16 +383,33 @@ export async function prepareLayerDocumentPsdImport(options: {
     runtime: createLayerDocumentPreparedRuntimeLifecycle(
       runtimeResources
     ),
+    resolution: {
+      documentSourceId,
+      sourceIds: [doc, ...tree.sources].map(
+        (source) => source.sourceId
+      ),
+      file: options.file,
+    },
   };
 }
 
 export async function prepareLayerDocumentPsdRefresh(options: {
   file: File;
+  buffer?: ArrayBuffer;
   documentSource: PsdDocumentSourceRecord;
   existingSources: readonly SourceRegistryRecord[];
-  parsePsd?: (file: File) => Promise<Psd>;
+  parsePsd?: (
+    buffer: ArrayBuffer
+  ) => Psd | Promise<Psd>;
 }): Promise<PreparedLayerDocumentPsdRefresh> {
-  const psd = await (options.parsePsd ?? parsePsdFile)(options.file);
+  const buffer =
+    options.buffer ?? await options.file.arrayBuffer();
+  const [psd, contentFingerprint] = await Promise.all([
+    options.parsePsd
+      ? options.parsePsd(buffer)
+      : Promise.resolve(parsePsdArrayBuffer(buffer)),
+    buildSha256Fingerprint(buffer),
+  ]);
   const existingBySourceKey = new Map(
     options.existingSources.flatMap((source) =>
       source.kind === "psd-node" &&
@@ -430,12 +467,16 @@ export async function prepareLayerDocumentPsdRefresh(options: {
           sourceId: options.documentSource.sourceId,
           fileName: options.file.name,
           version: options.documentSource.version + 1,
-          fingerprint:
-            `${psd.width}x${psd.height}:${options.file.size}`,
+          locatorId:
+            options.documentSource.locator.locatorId,
+          relativePathHint:
+            options.documentSource.locator.relativePathHint,
+          contentFingerprint,
+          importSettings:
+            options.documentSource.data.importSettings,
         }),
         refresh: {
           status: "updated",
-          reconnectHint: null,
         },
       },
       nodeSources: [
@@ -446,5 +487,27 @@ export async function prepareLayerDocumentPsdRefresh(options: {
     runtime: createLayerDocumentPreparedRuntimeLifecycle(
       runtimeResources
     ),
+    resolution: {
+      documentSourceId: options.documentSource.sourceId,
+      sourceIds: [
+        options.documentSource.sourceId,
+        ...refreshedNodeSources.map((source) => source.sourceId),
+      ],
+      file: options.file,
+    },
+  };
+}
+
+async function buildSha256Fingerprint(
+  buffer: ArrayBuffer
+): Promise<LinkedSourceContentFingerprint> {
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  const digestHex = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return {
+    algorithm: "sha-256",
+    digestHex,
+    byteLength: buffer.byteLength,
   };
 }

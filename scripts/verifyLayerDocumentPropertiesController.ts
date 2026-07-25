@@ -200,13 +200,16 @@ function projectFixture(): LayerDocumentProject {
             sourceId: "document",
             kind: "psd-document",
             displayName: "fixture.psd",
-            path: "fixture.psd",
-            fingerprint: "document-v1",
             version: 1,
-            availability: "available",
-            refresh: { status: "normal", reconnectHint: null },
+            refresh: { status: "normal" },
+            locator: {
+              locatorId: "linked:document",
+              kind: "linked-file",
+              suggestedFileName: "fixture.psd",
+              relativePathHint: null,
+            },
+            contentFingerprint: null,
             data: {
-              fileName: "fixture.psd",
               importSettings: {
                 compositionName: "Fixture",
                 hiddenLayerMode: "preserve",
@@ -217,16 +220,13 @@ function projectFixture(): LayerDocumentProject {
             sourceId: "shared",
             kind: "psd-node",
             displayName: "Shared pixels",
-            path: "fixture.psd/shared",
-            fingerprint: "shared-v1",
             version: 1,
-            availability: "available",
-            refresh: { status: "normal", reconnectHint: null },
+            refresh: { status: "normal" },
             data: {
               documentSourceId: "document",
               sourceKey: "shared",
               sourcePath: "shared",
-              nativeVisible: true,
+              visualFingerprint: "shared-v1",
             },
           },
         },
@@ -285,6 +285,7 @@ const port: LayerDocumentPropertiesCommandPort = {
     const descriptor = buildLayerDocumentPanelDescriptor({
       project,
       selectedLayerDocumentId,
+      readSourceResolutionStatus: () => "available",
     });
     const layer = selectedLayer();
     if (!layer) {
@@ -630,6 +631,7 @@ for (const layerDocumentId of [
   const result = buildLayerDocumentPanelDescriptor({
     project,
     selectedLayerDocumentId: layerDocumentId,
+    readSourceResolutionStatus: () => "available",
   });
   assert.equal(result.status, "ready");
   if (result.status === "ready") {

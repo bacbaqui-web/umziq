@@ -13,6 +13,7 @@ import {
 } from "@/cutover";
 import {
   createLayerDocumentProjectOwnerState,
+  createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   reduceLayerDocumentProjectOwner,
   type LayerDocumentProjectOwnerPort,
@@ -181,20 +182,22 @@ function duplicateSources():
 Record<string, SourceRegistryRecord> {
   const refresh = {
     status: "normal" as const,
-    reconnectHint: null,
   };
   return {
     "duplicate-document": {
       sourceId: "duplicate-document",
       kind: "psd-document",
       displayName: "drag_test.psd",
-      path: "drag_test.psd",
-      fingerprint: "document-v1",
+      locator: {
+        locatorId: "linked:duplicate-document",
+        kind: "linked-file",
+        suggestedFileName: "drag_test.psd",
+        relativePathHint: "drag_test.psd",
+      },
+      contentFingerprint: null,
       version: 1,
-      availability: "available",
       refresh,
       data: {
-        fileName: "drag_test.psd",
         importSettings: {
           compositionName: "drag_test",
           hiddenLayerMode: "preserve",
@@ -205,32 +208,26 @@ Record<string, SourceRegistryRecord> {
       sourceId: "background-source",
       kind: "psd-node",
       displayName: "background",
-      path: "drag_test.psd/background",
-      fingerprint: "background-v1",
       version: 1,
-      availability: "available",
       refresh,
       data: {
         documentSourceId: "duplicate-document",
         sourceKey: "layer:background",
         sourcePath: "background",
-        nativeVisible: true,
+        visualFingerprint: "background-v1",
       },
     },
     "source-name-collision": {
       sourceId: "source-name-collision",
       kind: "psd-node",
       displayName: "background_6",
-      path: "drag_test.psd/source-name-collision",
-      fingerprint: "source-name-collision-v1",
       version: 1,
-      availability: "available",
       refresh,
       data: {
         documentSourceId: "duplicate-document",
         sourceKey: "layer:source-name-collision",
         sourcePath: "source-name-collision",
-        nativeVisible: true,
+        visualFingerprint: "source-name-collision-v1",
       },
     },
   };
@@ -355,6 +352,11 @@ const owner: LayerDocumentProjectOwnerPort = {
 };
 let canvasDraft:
 LayerDocumentTransformDraftSnapshot | null = null;
+const sourceResolution =
+  createLayerDocumentSourceRuntimeResolutionStore();
+Object.keys(duplicateSources()).forEach((sourceId) => {
+  sourceResolution.setAvailable({ sourceId });
+});
 const assembly =
   createLayerDocumentConsumerCutoverAssembly({
     owner,
@@ -370,6 +372,7 @@ const assembly =
       LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
     sourceRuntime:
       createLayerDocumentSourceRuntimeResourceCache(),
+    sourceResolution,
     draftSession: {
       read: () => canvasDraft,
       publish: (draft) => {

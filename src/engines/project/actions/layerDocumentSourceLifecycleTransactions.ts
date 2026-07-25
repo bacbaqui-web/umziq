@@ -6,7 +6,6 @@ import type {
   DiscoverPsdSourceNodesCommand,
   LayerDocumentSourceTransactionKind,
   LayerDocumentSourceTransactionResult,
-  MarkSourceRegistryMissingCommand,
   ReconnectSourceRegistryCommand,
   RefreshSourceRegistryCommand,
   SourceRegistryCacheInvalidationContext,
@@ -27,7 +26,7 @@ function prepareSourceReplacement(options: {
   project: LayerDocumentProject;
   kind: Extract<
     LayerDocumentSourceTransactionKind,
-    "refresh-source" | "mark-source-missing" | "reconnect-source"
+    "refresh-source" | "reconnect-source"
   >;
   source: SourceRegistryRecord;
   cacheContext: SourceRegistryCacheInvalidationContext;
@@ -71,15 +70,12 @@ function prepareSourceReplacement(options: {
   }
   if (
     options.kind === "reconnect-source" &&
-    (
-      options.source.availability !== "available" ||
-      options.source.refresh.status !== "normal"
-    )
+    options.source.refresh.status !== "normal"
   ) {
     return failSourceTransaction(
       options.project,
       "invalid-input",
-      "Reconnect must produce available/normal Source state"
+      "Reconnect must produce normal Source reconciliation state"
     );
   }
   const after = cloneSourceTransactionData(options.project);
@@ -113,48 +109,6 @@ export function prepareSourceRegistryRefresh(
     project,
     kind: "refresh-source",
     source: command.source,
-    cacheContext: command.cacheContext,
-  });
-}
-
-export function prepareSourceRegistryMissing(
-  project: LayerDocumentProject,
-  command: MarkSourceRegistryMissingCommand
-): LayerDocumentSourceTransactionResult {
-  const invalid = validateSourceTransactionBefore(project) ??
-    validateSourceCommandPlainData(project, command);
-  if (invalid) return invalid;
-  const current =
-    project.payload.sourceRegistry.sourcesById[command.sourceId];
-  if (!current) {
-    return failSourceTransaction(
-      project,
-      "source-not-found",
-      `Source not found: ${command.sourceId}`
-    );
-  }
-  const unchangedCandidate: SourceRegistryRecord = {
-    ...cloneSourceTransactionData(current),
-    availability: "missing",
-    refresh: {
-      status: "missing",
-      reconnectHint: cloneSourceTransactionData(command.reconnectHint),
-    },
-  };
-  if (plainDataValuesEqual(current, unchangedCandidate)) {
-    return failSourceTransaction(
-      project,
-      "no-change",
-      "Source is already missing with the same reconnect hint"
-    );
-  }
-  return prepareSourceReplacement({
-    project,
-    kind: "mark-source-missing",
-    source: {
-      ...unchangedCandidate,
-      version: current.version + 1,
-    },
     cacheContext: command.cacheContext,
   });
 }

@@ -99,6 +99,7 @@ export type LayerDocumentOwnerRuntimeCachePolicy =
 export interface LayerDocumentProjectOwnerEffect {
   readonly clearDraft: boolean;
   readonly resetLocalUi: boolean;
+  readonly stopPlayback: boolean;
   readonly recomputeRender: boolean;
   readonly runtimeCachePolicy: LayerDocumentOwnerRuntimeCachePolicy;
   readonly cacheInvalidations:
@@ -114,6 +115,10 @@ export interface LayerDocumentProjectOwnerEffect {
 }
 
 export type LayerDocumentProjectOwnerAction =
+  | {
+      readonly kind: "replace-project";
+      readonly project: LayerDocumentProject;
+    }
   | {
       readonly kind: "commit-layer-transaction";
       readonly transaction: LayerDocumentTransaction;
@@ -159,6 +164,7 @@ export type LayerDocumentProjectOwnerAction =
 export type LayerDocumentProjectOwnerErrorCode =
   | "invalid-initial-state"
   | "invalid-session"
+  | "invalid-replacement"
   | "non-plain-data"
   | "stale-transaction"
   | "invalid-transaction"

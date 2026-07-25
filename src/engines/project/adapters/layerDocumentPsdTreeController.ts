@@ -6,6 +6,10 @@ import type {
   SourceRegistryRecord,
 } from "@/models";
 import {
+  layerDocumentSourceDescriptorPath,
+  layerDocumentSourceVisualFingerprint,
+} from "@/models";
+import {
   prepareLayerDocumentPsdImport,
   prepareLayerDocumentPsdRefresh,
   type PreparedLayerDocumentPsdImport,
@@ -13,7 +17,6 @@ import {
 } from "@/engines/project/import/layerDocumentPsdImportAdapter";
 import type {
   DeleteSourceRegistryCommand,
-  MarkSourceRegistryMissingCommand,
   PsdSourceTreeReadModel,
   ReconnectSourceRegistryCommand,
   RefreshSourceRegistryCommand,
@@ -41,9 +44,6 @@ export interface LayerDocumentPsdTreeCommandPort {
   ) => unknown;
   readonly refreshSource: (
     command: RefreshSourceRegistryCommand
-  ) => unknown;
-  readonly markMissing: (
-    command: MarkSourceRegistryMissingCommand
   ) => unknown;
   readonly reconnect: (
     command: ReconnectSourceRegistryCommand
@@ -224,10 +224,12 @@ function sourceChanged(
   next: SourceRegistryRecord
 ) {
   return (
-    current.fingerprint !== next.fingerprint ||
+    layerDocumentSourceVisualFingerprint(current) !==
+      layerDocumentSourceVisualFingerprint(next) ||
     current.version !== next.version ||
     current.displayName !== next.displayName ||
-    current.path !== next.path
+    layerDocumentSourceDescriptorPath(current) !==
+      layerDocumentSourceDescriptorPath(next)
   );
 }
 
@@ -343,7 +345,6 @@ export function createLayerDocumentPsdTreeController(options: {
     cancelRefresh: (plan: PreparedLayerDocumentPsdRefreshPlan) =>
       options.port.cancelRefresh(plan.prepared),
     refreshSource: options.port.refreshSource,
-    markMissing: options.port.markMissing,
     reconnect: options.port.reconnect,
     deleteSource: options.port.deleteSource,
     sourceForRefresh: (sourceId: string): PsdDocumentSourceRecord | null => {

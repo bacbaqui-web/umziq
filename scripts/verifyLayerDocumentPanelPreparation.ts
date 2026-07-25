@@ -101,20 +101,22 @@ function common<TSource extends LayerSourceReference | null>(
 function sources(): Record<string, SourceRegistryRecord> {
   const refresh = {
     status: "normal" as const,
-    reconnectHint: null,
   };
   return {
     "psd-document": {
       sourceId: "psd-document",
       kind: "psd-document",
       displayName: "Shared file.psd",
-      path: "/shared.psd",
-      fingerprint: "document-v1",
       version: 1,
-      availability: "available",
       refresh,
+      locator: {
+        locatorId: "linked:psd-document",
+        kind: "linked-file",
+        suggestedFileName: "shared.psd",
+        relativePathHint: null,
+      },
+      contentFingerprint: null,
       data: {
-        fileName: "shared.psd",
         importSettings: {
           compositionName: "Shared",
           hiddenLayerMode: "preserve",
@@ -125,29 +127,29 @@ function sources(): Record<string, SourceRegistryRecord> {
       sourceId: "shared-psd-source",
       kind: "psd-node",
       displayName: "Shared PSD pixels",
-      path: "shared.psd/Layer",
-      fingerprint: "pixels-v1",
       version: 2,
-      availability: "available",
       refresh,
       data: {
         documentSourceId: "psd-document",
         sourceKey: "layer:shared",
         sourcePath: "Layer",
-        nativeVisible: true,
+        visualFingerprint: "pixels-v1",
       },
     },
     "audio-source": {
       sourceId: "audio-source",
       kind: "audio",
       displayName: "Voice resource.wav",
-      path: "/voice.wav",
-      fingerprint: "audio-v1",
       version: 1,
-      availability: "available",
       refresh,
+      locator: {
+        locatorId: "linked:audio-source",
+        kind: "linked-file",
+        suggestedFileName: "voice.wav",
+        relativePathHint: null,
+      },
+      contentFingerprint: null,
       data: {
-        fileName: "voice.wav",
         mimeType: "audio/wav",
         durationFrames: 120,
       },
@@ -156,19 +158,16 @@ function sources(): Record<string, SourceRegistryRecord> {
       sourceId: "video-source",
       kind: "video",
       displayName: "Future resource.mov",
-      path: "/future.mov",
-      fingerprint: "video-v1",
       version: 1,
-      availability: "missing",
-      refresh: {
-        status: "missing",
-        reconnectHint: {
-          fileName: "future.mov",
-          path: "/future.mov",
-        },
+      refresh,
+      locator: {
+        locatorId: "linked:video-source",
+        kind: "linked-file",
+        suggestedFileName: "future.mov",
+        relativePathHint: null,
       },
+      contentFingerprint: null,
       data: {
-        fileName: "future.mov",
         mimeType: "video/quicktime",
         durationFrames: 120,
         width: 1920,
@@ -179,10 +178,7 @@ function sources(): Record<string, SourceRegistryRecord> {
       sourceId: "unknown-source",
       kind: "unknown",
       displayName: "Plugin resource",
-      path: null,
-      fingerprint: "plugin-v1",
       version: 1,
-      availability: "available",
       refresh,
       data: {
         originalKind: "plugin",
@@ -379,6 +375,7 @@ assert.deepEqual(
   buildLayerDocumentPanelDescriptor({
     project,
     selectedLayerDocumentId: null,
+    readSourceResolutionStatus: () => "available",
   }),
   {
     status: "empty",
@@ -391,6 +388,7 @@ assert.deepEqual(
   buildLayerDocumentPanelDescriptor({
     project,
     selectedLayerDocumentId: "stale-layer",
+    readSourceResolutionStatus: () => "available",
   }),
   {
     status: "empty",
@@ -404,6 +402,8 @@ function descriptor(layerDocumentId: string) {
   const result = LAYER_DOCUMENT_PANEL_PREPARATION_PORT.query.describe({
     project,
     selectedLayerDocumentId: layerDocumentId,
+    readSourceResolutionStatus: (sourceId) =>
+      sourceId === "video-source" ? "missing" : "available",
   });
   assert.equal(result.status, "ready");
   if (result.status !== "ready") {
@@ -480,8 +480,11 @@ assert.equal(textDescriptor.capabilities.domain.status, "editable");
 assert.equal(descriptor("audio").capabilities.domain.status, "future");
 assert.equal(descriptor("audio").typeData.kind, "audio");
 assert.equal(descriptor("video").capabilities.domain.status, "future");
-assert.equal(descriptor("video").source.availability, "missing");
-assert.equal(descriptor("video").source.refreshStatus, "missing");
+assert.equal(
+  descriptor("video").source.resolutionStatus,
+  "missing"
+);
+assert.equal(descriptor("video").source.refreshStatus, "normal");
 assert.equal(descriptor("shape").capabilities.domain.status, "future");
 assert.equal(descriptor("group").capabilities.domain.status, "read-only");
 assert.equal(

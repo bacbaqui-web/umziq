@@ -3,7 +3,6 @@ import type {
   LayerDocument,
   LayerDocumentProject,
   LayerDocumentTransformProperty,
-  SourceRegistryRefreshStatus,
 } from "@/models";
 import {
   projectVisibleLayerDocumentKeyframeFrame,
@@ -29,6 +28,7 @@ import type {
   TimelineRulerViewModel,
   TimelineTrackOverlayViewModel,
   TimelineTrackRowViewModel,
+  TimelineSourceStatusViewModel,
   TimelineViewItem,
 } from "@/engines/timeline/models/timelineViewModel";
 
@@ -79,13 +79,19 @@ export function resolveLayerDocumentTimelineEffectiveSourceStatus(
   acknowledged:
     LayerDocumentTimelineConsumerViewProps[
       "acknowledgedSourceStatuses"
-    ]
-): SourceRegistryRefreshStatus {
+    ],
+  resolutionStatus:
+    | "unresolved"
+    | "resolving"
+    | "available"
+    | "missing"
+    | "error"
+): TimelineSourceStatusViewModel["status"] {
   const sourceId = layer.common.source?.sourceId;
   if (!sourceId) return "normal";
   const source =
     project.payload.sourceRegistry.sourcesById[sourceId];
-  if (!source || source.availability === "missing") {
+  if (!source || resolutionStatus !== "available") {
     return "missing";
   }
   if (
@@ -144,7 +150,7 @@ type NativeDisplayRow =
       readonly type: "item";
       readonly item: TimelineViewItem;
       readonly layer: LayerDocument;
-      readonly status: SourceRegistryRefreshStatus;
+      readonly status: TimelineSourceStatusViewModel["status"];
     }
   | {
       readonly type: "property";
@@ -183,7 +189,8 @@ function displayRows(options: {
           options.project,
           layer,
           options.timeline
-            .acknowledgedSourceStatuses
+            .acknowledgedSourceStatuses,
+          row.source?.resolutionStatus ?? "missing"
         ),
     }];
     const selected =

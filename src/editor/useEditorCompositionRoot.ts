@@ -173,5 +173,7 @@ EditorShellLayoutProps {
       layerDocument.propertiesPanelProps,
     timelinePanelProps:
       layerDocument.timelinePanelProps,
+    projectLifecycleProps:
+      layerDocument.projectLifecycleProps,
   };
 }

@@ -291,7 +291,7 @@ export function buildLayerDocumentPropertiesViewProps(options: {
           availabilityLabel:
             descriptor.source.referenceStatus === "none"
               ? "내장 데이터"
-              : descriptor.source.availability === "available"
+              : descriptor.source.resolutionStatus === "available"
                 ? "사용 가능"
                 : "누락",
         }

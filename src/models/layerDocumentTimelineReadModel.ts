@@ -2,7 +2,6 @@ import type {
   LayerDocument,
   LayerDocumentProject,
   LayerDocumentType,
-  SourceRegistryAvailability,
   SourceRegistryKind,
 } from "@/models/layerDocumentModel";
 import {
@@ -28,7 +27,6 @@ export interface LayerDocumentTimelineSourceReadModel {
   readonly sourceId: string;
   readonly kind: SourceRegistryKind;
   readonly displayName: string;
-  readonly availability: SourceRegistryAvailability;
 }
 
 export interface LayerDocumentTimelineRowReadModel {
@@ -94,7 +92,6 @@ function buildRow(
           sourceId: sourceRecord.sourceId,
           kind: sourceRecord.kind,
           displayName: sourceRecord.displayName,
-          availability: sourceRecord.availability,
         }
       : null,
     placement: {

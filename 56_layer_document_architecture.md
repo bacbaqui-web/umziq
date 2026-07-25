@@ -14,7 +14,7 @@ LayerDocumentProject
 
 Canvas, Timeline, Properties, PSD Tree는 서로의 상태를 수정하지 않는다. Composition Root가 동일 Project owner의 read/command port를 각 Engine에 주입하고, 모든 소비자는 같은 `layerDocumentId`를 기준으로 파생 모델을 읽거나 transaction을 요청한다.
 
-이 문서는 현재 canonical 구조를 설명한다. `55_layer_type_future_engine_foundation.md`의 ProjectSource/Timeline Item 구조는 역사 기록으로만 남는다.
+이 문서는 현재 canonical 구조를 설명한다. Persistence envelope와 Project lifecycle 상세는 `57_layer_document_persistence_project_lifecycle.md`가 이어서 설명한다. `55_layer_type_future_engine_foundation.md`의 ProjectSource/Timeline Item 구조는 역사 기록으로만 남는다.
 
 ## 2. 저장 모델
 
@@ -22,7 +22,7 @@ Canvas, Timeline, Properties, PSD Tree는 서로의 상태를 수정하지 않�
 
 `LayerDocumentProject`는 Plain Data다.
 
-- `metadata`: schema version, project id, project name
+- `metadata`: schema version, project id, project name. 현재 schema version은 2다.
 - `payload.layerDocumentsById`: 모든 작업 Layer
 - `payload.sourceRegistry.sourcesById`: 외부 원본 registry
 
@@ -61,13 +61,14 @@ Placement는 parent Group, order, start/duration, source offset, visibility, ali
 
 ## 3. Source Registry와 lifecycle
 
-Source Registry는 외부 원본을 설명한다.
+Source Registry는 저장 가능한 외부 원본 descriptor와 reconciliation 상태만 설명한다.
 
-- `sourceId`, kind, display name
-- path/fingerprint/version
-- availability
-- refresh status와 reconnect hint
-- PSD document/node, audio, video, unknown별 source data
+- 모든 Source: `sourceId`, kind, display name, version, `refresh.status`
+- linked document/audio/video: stable `linked-file` locator와 optional SHA-256 content fingerprint
+- PSD node: `documentSourceId`, `sourceKey`, `sourcePath`, `visualFingerprint`
+- reconciliation status: `normal`, `updated`, `new`, `deletePending`
+
+File, FileSystemFileHandle, permission과 `unresolved`, `resolving`, `available`, `missing`, `error`는 Source Runtime Resolution port가 소유한다. Timeline, Properties, PSD Tree와 renderer는 이 runtime port를 주입받아 가용성을 읽는다. Missing 감지는 Project나 History를 변경하지 않는다.
 
 Source는 Transform, Placement, Animation, Effect, Modifier나 사용자 Layer 이름을 소유하지 않는다. 같은 Source를 참조하는 여러 LayerDocument가 runtime 원본 resource를 공유해도 편집 데이터는 독립적이다.
 
@@ -75,7 +76,8 @@ PSD import는 prepare와 confirm을 분리한다.
 
 ```text
 File 선택
-→ parse/analyze
+→ ArrayBuffer 1회 읽기
+→ 같은 buffer로 parse/analyze + SHA-256
 → Plain Data plan + prepared runtime
 → 사용자 confirm
 → Project transaction
@@ -84,7 +86,7 @@ File 선택
 
 Cancel, failure, replacement에서는 준비된 runtime을 dispose한다. Confirm 성공 뒤에는 Source별 cache key로 runtime registry에 등록한다.
 
-Refresh는 저장된 PSD source identity를 우선해 기존 LayerDocument를 유지한다. stable id가 없는 PSD node는 tree-path identity fallback을 사용한다. Source version/fingerprint가 바뀌면 해당 Source의 runtime만 invalidation하며 다른 PSD/import cache는 보존한다.
+Refresh는 저장된 PSD source identity를 우선해 기존 LayerDocument를 유지한다. stable id가 없는 PSD node는 tree-path identity fallback을 사용한다. Source version/visual fingerprint가 바뀌면 해당 Source의 runtime만 invalidation하며 다른 PSD/import cache는 보존한다.
 
 Source 삭제/교체/refresh, undo/redo, import confirm은 owner effect를 만들고 active assembly가 targeted runtime invalidation, suspend/restore 또는 orphan GC를 수행한다. Runtime resource는 dispose-once 계약을 가진다.
 
@@ -123,6 +125,18 @@ Mutation은 total result를 반환한다. 실패하면 Project, session, History
 ### 5.2 Session
 
 선택 LayerDocument, active Group, current frame과 playback range는 Editor session이다. Panel별 선택 사본을 만들지 않는다. owner가 session을 Project와 함께 일관되게 전환하며 undo/redo 뒤에는 stale local UI/Draft를 비운다.
+
+Project Lifecycle은 `untitled | file-backed`, `clean | dirty`, `idle | saving | loading` 세 축을 Project Engine runtime으로 관리한다. Dirty는 canonical Project digest와 savepoint digest의 일치 여부로 계산하므로 저장 중 생긴 후속 편집과 Undo로 savepoint에 돌아온 상태를 구분한다. 비동기 작업은 증가하는 operation token으로 stale 완료를 폐기한다.
+
+Editor Shell의 lifecycle bar는 이 공개 상태와 command port만 소비한다. New/Open/Close는 Dirty일 때 discard confirmation을 먼저 통과하며 Cancel이면 owner, Runtime, Save target을 그대로 둔다. Save/Save As와 Open 오류는 code/message를 보존한 UI notice로 표시한다. Missing/Error Source는 Reconnect entry로 노출하지만 fingerprint mismatch와 legacy null fingerprint는 자동 승인하지 않고 확인 필요 상태로 남긴다.
+
+검증된 Load/New candidate만 owner의 `replace-project` action으로 들어간다. 성공한 Replace는 새 Project의 기본 Session을 만들고 History와 runtime session을 비운 뒤 playback 정지, Draft/local UI 초기화와 Source Runtime 전체 invalidation effect를 발행한다. Cache port 자체는 dispose하지 않는다. 검증 또는 owner 교체 실패는 기존 owner state와 Runtime을 유지한다.
+
+Save는 시작 시점의 Project를 Plain Data snapshot과 canonical `.sfep` bytes로 고정한다. Native File System API가 있으면 선택한 handle을 Save controller runtime에만 보관하고, 지원하지 않으면 `.sfep` Blob download를 사용하며 handle을 남기지 않는다. Save/Save As target과 savepoint는 write와 lifecycle token 확인이 모두 성공한 뒤에만 교체한다. 저장 write는 직렬화하므로 concurrent Save에서도 마지막 유효 작업이 최종 파일 상태가 되며 stale 완료는 savepoint를 이동하지 않는다.
+
+Open은 native picker 또는 hidden `.sfep` file input으로 선택한 파일을 먼저 codec Load Candidate로 검증한다. Candidate가 유효한 경우에만 `projectId + locatorId` lookup으로 linked document 접근을 확인하고 새 Runtime resource를 준비한다. 준비가 끝난 같은 load token만 owner Replace를 수행하며, 기존 cache 전체 invalidation 뒤 새 resource를 atomic batch로 등록한다. 접근 불가 Source와 개별 preparation 실패는 각각 Missing/Error Runtime Resolution이 되고 Project는 Ready-Degraded로 열린다. 손상 파일과 stale 준비 결과는 기존 Project, Runtime과 Save target을 유지하고 준비 resource만 dispose-once 한다.
+
+Reconnect는 Missing/Error인 linked document Source 하나를 기준으로 수행한다. 선택 파일의 실제 SHA-256/byte length가 저장 descriptor와 일치할 때만 document와 dependent PSD node의 기존 cache를 suspend하고 새 runtime batch를 등록한다. 성공하면 suspended resource를 dispose하고 `(projectId, locatorId)` local handle과 dependent Runtime Resolution을 함께 갱신하며 다른 Source cache는 보존한다. Fingerprint mismatch와 schema 1에서 이관된 null fingerprint는 자동 연결하지 않고 `refresh-source | replace-source` 확인 경계를 반환한다. Cancel, 권한 거부와 stale 결과는 기존 Runtime을 유지하고, parse 실패는 해당 dependent Source의 Error Runtime Resolution만 갱신한다.
 
 ### 5.3 Draft와 commit
 
@@ -197,22 +211,22 @@ Canvas는 owner read port로 selected LayerDocument, scope, runtime input을 읽
 
 ### Timeline
 
-Timeline은 active Group 자식 LayerDocument의 placement와 animation을 row/keyframe으로 projection한다. move/trim/reorder/visibility/alias는 별도 Timeline 저장 record가 아니라 LayerDocument transaction이다.
+Timeline은 active Group 자식 LayerDocument의 placement와 animation을 row/keyframe으로 projection한다. Source 가용성은 runtime resolution에서 읽는다. move/trim/reorder/visibility/alias는 별도 Timeline 저장 record가 아니라 LayerDocument transaction이다.
 
 ### Properties
 
-Properties는 selected LayerDocument의 공통/Type data와 matching Draft를 읽는다. numeric input은 로컬 문자열/Draft를 유지할 수 있지만 commit은 owner command를 통한다.
+Properties는 selected LayerDocument의 공통/Type data, matching Draft와 runtime Source resolution을 읽는다. numeric input은 로컬 문자열/Draft를 유지할 수 있지만 commit은 owner command를 통한다.
 
 ### PSD Tree
 
-PSD Tree는 Source Registry의 PSD document/node와 Group graph를 projection한다. import/refresh/delete/reorder/select intent만 만들고 Project mutation은 Project Engine에 위임한다.
+PSD Tree는 Source Registry의 PSD document/node와 Group graph를 projection하고 가용성은 runtime resolution에서 읽는다. import/refresh/delete/reorder/select intent만 만들고 Project mutation은 Project Engine에 위임한다.
 
 ## 9. Renderer boundary
 
 Project data는 renderer resource를 포함하지 않는다.
 
 ```text
-LayerDocument + Source Registry + frame + Draft
+LayerDocument + Source Registry + Source Runtime Resolution + frame + Draft
 → LayerDocumentRuntimeInput
 → EvaluatedScene
 ├─ full-render: RenderFrame command
@@ -336,8 +350,14 @@ Active `src/models/index.ts`, Editor와 Engine은 이전 모델을 public author
 | schema/normalize/plain data | `verifyLayerDocumentSchema` |
 | offline migration | `verifyProjectSourceLayerDocumentMigration` |
 | owner/session/history/selection | `verifyLayerDocumentProjectOwner`, `verifyLayerDocumentTransactions` |
+| Project Replace/lifecycle/savepoint/stale operation | `verifyLayerDocumentProjectLifecycle` |
+| Save/Save As/native handle/Blob fallback/concurrent Save | `verifyLayerDocumentProjectSave` |
+| Open/Load/linked Runtime/Ready-Degraded/stale Load | `verifyLayerDocumentProjectOpen` |
+| Missing/Error read model/fingerprint reconnect/targeted cache | `verifyLayerDocumentProjectReconnect` |
+| lifecycle UI command port/Dirty Cancel/오류 ViewModel/Missing entry | `verifyLayerDocumentProjectLifecycleUi` |
 | duplicate/group/animation/effect/modifier | `verifyLayerDocumentTransactions`, consumer/controller fixtures |
 | PSD import/second import/refresh | source preparation, consumer cutover, PSD Tree fixtures |
+| schema 1→2 / Runtime Resolution / PSD 단일 buffer | schema, source preparation, `verifyLayerDocumentSourceRuntimeResolution` |
 | Source targeted invalidation/GC/dispose-once | consumer cutover, `verifyLayerDocumentPreviewRuntimeCache` |
 | full/fast node-native render | Canvas mode, `verifyLayerDocumentPreviewRuntimeCache` |
 | previous scene reuse/child+ancestor invalidation | `verifyLayerDocumentPreviewRuntimeCache` |
@@ -351,16 +371,18 @@ Active `src/models/index.ts`, Editor와 Engine은 이전 모델을 public author
 
 ## 17. 500줄 이상 제품 파일 책임 판단
 
-현재 `src`의 500줄 이상 TypeScript 제품 파일은 다음 8개다. 800줄 이상 제품 파일은 0개다.
+현재 `src`의 500줄 이상 TypeScript 제품 파일은 다음 10개다. 800줄 이상 제품 파일은 1개다.
 
 | 파일 | 줄 수 | 현재 판단 |
 |---|---:|---|
-| `src/cutover/createLayerDocumentConsumerCutoverAssembly.ts` | 770 | Project/Canvas/Timeline/Properties/Source port 조립이 한 파일에 모여 있다. active wiring이지만 책임 축이 여러 개이므로 후속 분리 후보이며 알려진 부채로 유지한다. |
+| `src/cutover/createLayerDocumentConsumerCutoverAssembly.ts` | 800 | Project/Canvas/Timeline/Properties/Source port 조립이 한 파일에 모여 있다. active wiring이지만 책임 축이 여러 개이므로 후속 분리 후보이며 알려진 부채로 유지한다. |
 | `src/engines/properties/adapters/layerDocumentPropertiesController.ts` | 734 | 선택 LayerDocument의 raw input, Draft, commit 의미를 한 controller에서 일관되게 집계한다. 단일 input semantics 책임으로 현재 유지하되 Type별 command가 늘면 별도 helper/adapter로 분리한다. |
-| `src/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers.ts` | 591 | placement, animation, selection을 순수 Timeline projection으로 만드는 한 helper family다. 현재 유지하며 row/keyframe projection이 독립 성장할 때 분리한다. |
+| `src/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers.ts` | 598 | placement, animation, selection을 순수 Timeline projection으로 만드는 한 helper family다. 현재 유지하며 row/keyframe projection이 독립 성장할 때 분리한다. |
 | `src/engines/timeline/useLayerDocumentTimelineEngine.ts` | 584 | Timeline controller와 public view/command 계약을 조립하는 Engine facade다. 계산은 helper에 있으므로 현재 유지하되 조립 축이 추가되면 composer 분리를 검토한다. |
+| `src/editor/useLayerDocumentEditorOwner.ts` | 534 | Project owner, lifecycle/save/open/reconnect와 각 UI Engine/runtime port를 조립하는 제품 Composition 경계다. 현재 유지하되 persistence wiring이 독립 성장하면 composer 분리를 검토한다. |
 | `src/engines/playback-render/renderers/fastPreviewRenderer.ts` | 528 | evaluated node 변환, previous-scene equality와 ancestor reuse라는 하나의 fast renderer 책임이다. 현재 유지하며 node-type별 equality 정책이 더 커지면 helper로 분리한다. |
 | `src/engines/canvas/adapters/useLayerDocumentCanvasInteractionAdapter.ts` | 520 | Canvas handle/direct-selection/motion-path interaction을 동일 Draft/commit port에 연결한다. 현재 유지하며 interaction family가 독립적으로 성장하면 adapter를 분리한다. |
+| `src/engines/project/import/layerDocumentPsdImportAdapter.ts` | 513 | PSD descriptor, Layer graph, prepared runtime을 한 import/refresh 경계에서 조립한다. 현재 유지하되 import/refresh 조립이 더 커지면 공통 builder 분리를 검토한다. |
 | `src/models/layerDocumentStructureValidation.ts` | 510 | LayerDocument 공통 shape와 구조 validation을 담당하고 상위 validation이 결과를 집계한다. 현재 유지하되 Type별 검증이 커지면 validator 파일로 이동한다. |
 | `src/engines/properties/adapters/useLayerDocumentPropertiesEngine.ts` | 503 | Properties controller와 React state/view props를 연결하는 Engine facade다. 현재 유지하며 Type별 UI session이 늘면 composer/controller 경계를 분리한다. |
 
@@ -368,13 +390,13 @@ Active `src/models/index.ts`, Editor와 Engine은 이전 모델을 public author
 
 ## 18. 알려진 한계
 
-- 제품 save/load 흐름은 아직 구현되지 않았다. 현재 앱은 빈 Source Registry와 project-root Group 하나로 bootstrap한다.
+- linked audio/video의 persistence descriptor와 lifecycle 계약은 있으나 Runtime preparation은 아직 구현되지 않았다.
 - preview memory estimate는 현재 빈 source 배열로 계산되며 quality build 상태는 `ready`, generation `0`인 골격이다.
 - Draft active 동안 composition cache를 target 단위가 아니라 전체 bypass한다.
 - composition cache와 dirty-region 최적화는 fast renderer 전용이다.
 - app reload를 넘는 warm cache persistence는 없다.
 - Photoshop stable layer id가 없거나 중복이면 PSD tree-path identity fallback을 사용하므로 원본 계층이 크게 바뀔 때 identity 보장이 약하다.
 - Drawing/Text는 placeholder 수준이고 Audio 편집/재생은 future work다. Video/Shape는 extension point만 있다.
-- `createLayerDocumentConsumerCutoverAssembly.ts`는 active wiring 책임이 770줄에 모인 리팩토링 부채다.
+- `createLayerDocumentConsumerCutoverAssembly.ts`는 active wiring 책임이 800줄에 모인 리팩토링 부채다.
 - `renderItemId`는 derived compatibility 이름일 뿐 저장 authority가 아니다.
 - Browser QA와 실제 조작 QA는 이번 정적 검증 범위에서 수행하지 않았다.

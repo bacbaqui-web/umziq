@@ -133,7 +133,6 @@ export function createLayerDocumentPsdTreeCommandPort(
     confirmRefresh: assembly.sources.confirmPreparedPsdRefresh,
     cancelRefresh: assembly.sources.cancelPreparedPsdRefresh,
     refreshSource: assembly.sources.refreshSource,
-    markMissing: assembly.sources.markMissing,
     reconnect: assembly.sources.reconnect,
     deleteSource: assembly.sources.deleteSource,
   };

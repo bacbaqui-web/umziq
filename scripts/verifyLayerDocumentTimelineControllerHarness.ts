@@ -9,6 +9,7 @@ import {
 import { createLayerDocumentConsumerCutoverAssembly } from "@/cutover";
 import {
   createLayerDocumentProjectOwnerState,
+  createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   reduceLayerDocumentProjectOwner,
   type LayerDocumentProjectOwnerPort,
@@ -161,16 +162,18 @@ function projectFixture(): LayerDocumentProject {
             sourceId: "source-a",
             kind: "video",
             displayName: "updated.mp4",
-            path: "/fixtures/updated.mp4",
-            fingerprint: "source-a-v1",
+            locator: {
+              locatorId: "linked:source-a",
+              kind: "linked-file",
+              suggestedFileName: "updated.mp4",
+              relativePathHint: "fixtures/updated.mp4",
+            },
+            contentFingerprint: null,
             version: 1,
-            availability: "available",
             refresh: {
               status: "updated",
-              reconnectHint: null,
             },
             data: {
-              fileName: "updated.mp4",
               mimeType: "video/mp4",
               durationFrames: 20,
               width: 1080,
@@ -181,16 +184,18 @@ function projectFixture(): LayerDocumentProject {
             sourceId: "source-b",
             kind: "video",
             displayName: "deleted.mp4",
-            path: "/fixtures/deleted.mp4",
-            fingerprint: "source-b-v1",
+            locator: {
+              locatorId: "linked:source-b",
+              kind: "linked-file",
+              suggestedFileName: "deleted.mp4",
+              relativePathHint: "fixtures/deleted.mp4",
+            },
+            contentFingerprint: null,
             version: 1,
-            availability: "available",
             refresh: {
               status: "deletePending",
-              reconnectHint: null,
             },
             data: {
-              fileName: "deleted.mp4",
               mimeType: "video/mp4",
               durationFrames: 20,
               width: 1080,
@@ -240,6 +245,16 @@ const owner: LayerDocumentProjectOwnerPort = {
   },
 };
 let runtimeInvalidationEffectCount = 0;
+const sourceResolution =
+  createLayerDocumentSourceRuntimeResolutionStore();
+sourceResolution.setAvailable({
+  sourceId: "source-a",
+  file: null,
+});
+sourceResolution.setAvailable({
+  sourceId: "source-b",
+  file: null,
+});
 const assembly =
   createLayerDocumentConsumerCutoverAssembly({
     owner,
@@ -255,6 +270,7 @@ const assembly =
       LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
     sourceRuntime:
       createLayerDocumentSourceRuntimeResourceCache(),
+    sourceResolution,
     draftSession: {
       read: () => null,
       publish: () => {},
@@ -702,7 +718,8 @@ assert.equal(
     assembly.project.read(),
     assembly.project.read().payload
       .layerDocumentsById["video-a"],
-    acknowledged
+    acknowledged,
+    sourceResolution.read("source-a").status
   ),
   "normal",
   "ViewModel effective status consumes Runtime-only acknowledgment"
@@ -743,29 +760,29 @@ assert.equal(deleteDecisionLayerDocumentId, null);
 assert.ok((owner.state.runtimeSession.acknowledgedSourceStatuses ?? [])
   .some((identity) => identity.sourceId === "source-b"));
 interactions.activateTimelineItem("video-b", "deletePending");
-const invalidationsBeforeDelete =
-  runtimeInvalidationEffectCount;
+const projectBeforeDelete = structuredClone(
+  assembly.project.read()
+);
+const undoBeforeDelete = structuredClone(owner.state.undoStack);
+const redoBeforeDelete = structuredClone(owner.state.redoStack);
 interactions.resolveTimelineSourceDelete(
   "video-b",
   "delete"
 );
-assert.equal(lastSourceStatusResult?.ok, true);
 assert.equal(
   deleteDecisionLayerDocumentId,
   null
 );
-const reconciledProject =
-  assembly.project.read();
-assert.equal(
-  reconciledProject.payload.sourceRegistry
-    .sourcesById["source-b"].availability,
-  "missing",
-  "delete accepts upstream deletion as a missing referenced Source"
+const reconciledProject = assembly.project.read();
+assert.deepEqual(
+  reconciledProject,
+  projectBeforeDelete,
+  "missing detection must leave persisted Project data unchanged"
 );
 assert.equal(
-  reconciledProject.payload.sourceRegistry
-    .sourcesById["source-b"].refresh.status,
-  "missing"
+  sourceResolution.read("source-b").status,
+  "missing",
+  "delete accepts upstream deletion in Runtime resolution state"
 );
 assert.ok(
   reconciledProject.payload
@@ -778,13 +795,8 @@ assert.equal(
     .source?.sourceId,
   "source-b"
 );
-assert.equal(owner.state.undoStack.length, 0);
-assert.equal(owner.state.redoStack.length, 0);
-assert.ok(
-  runtimeInvalidationEffectCount >
-    invalidationsBeforeDelete,
-  "missing lifecycle action intentionally clears History and invalidates Source caches"
-);
+assert.deepEqual(owner.state.undoStack, undoBeforeDelete);
+assert.deepEqual(owner.state.redoStack, redoBeforeDelete);
 
 unsubscribePlayback();
 playback.dispose();

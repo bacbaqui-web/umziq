@@ -1,74 +1,129 @@
-# 프로젝트 운영 규칙 정리 및 다음 작업 제안
+# New Project 이후 PSD 표시 결함 조사 보고
 
-## 이번 작업
+## 사용자 재현
 
-제품 코드는 수정하지 않고 `00_rule.md`의 운영 규칙을 정리했다.
+1. 새 프로젝트를 만든다.
+2. PSD를 불러온다.
+3. PSD Tree에는 항목이 나타난다.
+4. Canvas에는 아무것도 표시되지 않는다.
+5. Timeline에도 항목이 보이지 않는다.
+6. PSD Tree 항목을 선택해도 Canvas/Timeline이 바뀌지 않는다.
 
-### Sprint 문서 작성
+## 확정된 결함
 
-- `98_sprint_plan.md`는 구현에 필요한 설계와 제약을 유지하되 반복을 줄인다.
-- 공통 철학과 제약은 문서 앞부분에 한 번만 작성한다.
-- Task는 목적, 작업 내용, 정적 검증, 완료 조건과 Task 전용 규칙만 담는다.
-- `00_rule.md`와 영구 Architecture 문서는 다시 설명하지 않고 참조한다.
-- Gate는 PASS/FAIL, 발견 문제, 수정 사항, 다음 Task 진행 여부만 기록한다.
+New/Replace 직후 Layer selection이 비워진다.
 
-### 브라우저 QA
+`replaceLayerDocumentOwnerProject()`는 새 Session을 만들 때 다음 값을
+사용한다.
 
-- QA는 사용자가 요청했을 때만 수행한다.
-- 요청된 QA는 헤드리스 브라우저를 기본으로 사용한다.
-- 실제 Chrome은 사용자가 명시적으로 요청했을 때만 사용한다.
-- 별도 앱 인스턴스나 사용자 프로필을 만들지 않는다.
-- 실제 Chrome QA는 기존 프로필의 새 창에서 진행하고 기존 창과 탭은
-  건드리지 않는다.
+- active Group: 새 Project root로 normalize
+- Layer selection: `null`
+- Source selection: `null`
 
-## 현재 프로젝트 상태
+따라서 새 프로젝트 직후:
 
-`Layer Document Architecture Migration`은 구현, 정적 검증과 실제
-Browser QA까지 완료됐다.
+- Project root와 Master Group은 존재한다.
+- active Group도 root로 유지된다.
+- 하지만 선택된 Layer Document는 없다.
+- Properties에는 `선택된 그룹이 없습니다.`가 표시된다.
+- 초기 bootstrap에서 Master root가 선택되는 동작과 일치하지 않는다.
 
-- Project의 편집 원본은 Layer Document 집합으로 통일됐다.
-- Canvas, Timeline, Properties와 PSD Tree가 같은 Layer Document를 본다.
-- Duplicate는 Source를 공유하는 독립 Layer Document를 생성한다.
-- Legacy 편집 원본과 양방향 쓰기 구조는 제거됐다.
-- 현재 가장 큰 구조적 한계는 제품 save/load 흐름이 없다는 점이다.
-- 앱을 다시 열면 빈 Source Registry와 project-root Group에서 시작한다.
-- 기존 형식 migration은 검증된 offline 경계에만 있고 제품 load 흐름에는
-  연결되지 않았다.
+최소 수정 위치:
 
-## 다음 작업 제안
+- `src/engines/project/actions/layerDocumentProjectOwnerReplaceReducer.ts`
 
-### 1순위: Layer Document Persistence & Load Integration
+Replace Session을 만들 때 normalized root/active Group을 초기
+Layer selection으로 지정해야 한다.
 
-현재 구조를 다시 뜯기 전에 저장과 불러오기 경계를 완성하는 것을
-추천한다. 이후 Drawing, Text, Audio 기능을 추가해도 같은 Project
-Document 형식으로 저장할 수 있어야 하기 때문이다.
+## PSD Tree 선택 계약
 
-권장 범위:
+PSD Tree 클릭은 `PsdTreeSourceSelection`만 변경한다.
 
-- 현재 Layer Document Project의 직렬화/역직렬화 계약
-- schema version, normalize와 validation
-- Source 참조 저장과 Runtime Resource 분리
-- 저장 실패 및 불러오기 실패 시 현재 Project 보존
-- 불러오기 성공 시 Project/Session/History의 원자적 교체
-- 현재 형식과 offline legacy migration의 명시적 진입점
-- 저장 후 재실행 결과가 동일한지 검증하는 round-trip fixture
+PSD Tree Source 하나를 여러 Layer Document가 공유할 수 있으므로 현재
+구조에서는 Source 클릭을 임의의 Layer selection으로 변환하지 않는다.
 
-이 단계에서는 자동 저장, 클라우드 저장, 최근 파일 목록 같은 부가
-기능은 제외하는 것이 좋다.
+따라서 Layer selection이 `null`인 상태에서 PSD Tree 항목만 클릭하면:
 
-### 이후 순서
+- Source selection은 변경된다.
+- Layer selection은 계속 `null`이다.
+- Properties의 선택 대상도 생기지 않는다.
+- Timeline/Canvas에서 특정 Layer를 선택하는 동작은 발생하지 않는다.
 
-1. Persistence와 Load 경계 완성
-2. PSD Refresh/Reconnect 및 Source 누락 복구 QA
-3. Drawing Layer의 실제 기능 시작
-4. 같은 패턴으로 Text와 Audio 기능 확장
+PSD Tree 클릭으로 Timeline Layer를 선택하게 만드는 것은 이번 결함의
+최소 수정 범위가 아니다.
 
-## 감독관 의견
+## 코드에서 확인한 PSD Import 경로
 
-다음 Sprint는 `Layer Document Persistence & Load Integration`이 가장
-적절하다. 현재 아키텍처의 단일 저장 원본 계약을 실제 파일 수명까지
-완성한 뒤 Domain 기능을 추가하면 재작업과 데이터 유실 위험을 줄일 수
-있다.
+PSD Import 자체의 저장 계약은 다음과 같이 정상이다.
 
-이번 작업에서는 `98_sprint_plan.md`를 변경하거나 다음 Sprint 구현을
-시작하지 않았다.
+- PSD composition Layer의 부모는 active root다.
+- PSD 자식 Layer는 composition/group을 부모로 가진다.
+- Source와 Layer는 하나의 Import transaction으로 추가된다.
+- Import 성공 시 Layer selection은 생성된 composition으로 바뀐다.
+- Source selection은 생성된 PSD document Source로 바뀐다.
+- active Group은 Project root로 유지된다.
+
+동일한 경로를 Node harness로 확인한 결과:
+
+- New Replace 후 Master root와 active Group 존재
+- PSD confirm 후 root + composition + PSD leaf 생성
+- composition parent가 새 Project root를 참조
+- imported composition이 Layer selection으로 설정
+- Timeline row 생성
+- Canvas runtime에 composition과 drawable input 생성
+
+따라서 다음 항목은 직접 원인이 아니다.
+
+- 새 `projectId`
+- 동일한 root Layer ID
+- memoized assembly/controller
+- Persistence codec
+- PSD Import transaction의 parent/order
+
+## 현재 판단
+
+확정된 첫 번째 문제는 New Project가 root Layer selection을 만들지 않는
+것이다. 이 문제 때문에 New 직후 Properties와 선택 기반 UI가 빈 상태가
+된다.
+
+그러나 사용자가 본 “Import 완료 후에도 Timeline row와 Canvas drawable이
+전혀 없음”은 코드 harness에서는 재현되지 않았다. 가능한 구분은 다음과
+같다.
+
+1. PSD 분석 Preview까지만 완료되고 최종 Import confirm이 실행되지 않았다.
+2. Import는 완료됐지만 현재 UI가 Source selection만 보여 Layer
+   selection과 혼동됐다.
+3. 실제 Browser UI의 Import confirm 이후 rerender 경로에 별도 결함이
+   있다.
+
+사용자 실제 화면을 기준으로는 3번 가능성도 계속 열어 둔다.
+
+## 권장 수정과 회귀 검증
+
+먼저 New/Replace 직후 root Group을 Layer selection으로 지정한다.
+
+그 뒤 실제 Browser에서 다음 순서로 다시 확인해야 한다.
+
+1. New Project
+2. Master가 즉시 선택되는지 확인
+3. PSD 선택
+4. Import Preview에서 최종 불러오기 실행
+5. Project root Timeline에 PSD composition row 표시
+6. Canvas drawable 표시
+7. imported composition이 Layer selection인지 확인
+
+필요한 regression fixture:
+
+- Replace/New 직후 root Layer selection과 Properties descriptor
+- 기존 assembly를 유지한 New → PSD prepare/confirm
+- Timeline composition row와 Canvas drawable
+- PSD Tree Source 클릭은 Source selection만 바꾸고 기존 Layer
+  selection은 보존
+
+## 작업 상태
+
+- 조사만 수행
+- 제품 코드 수정 없음
+- Browser QA 추가 실행 없음
+- Build/정적 검증 미실행
+- Commit 없음

@@ -136,6 +136,7 @@ function confirmPreparedSource(options: {
   runtime: LayerDocumentPreparedRuntimeLifecycle;
   bridge: LayerDocumentPsdRuntimeRegistrationBridge;
   prepare: () => LayerDocumentSourceTransactionResult;
+  onRegistered: () => void;
 }): LayerDocumentPreparedPsdConfirmResult {
   const claim = options.runtime.claimForConfirm();
   if (!claim.ok) {
@@ -187,6 +188,7 @@ function confirmPreparedSource(options: {
       };
     }
     options.runtime.markTransferred();
+    options.onRegistered();
     return {
       ok: true,
       status: "runtime-registration-retried",
@@ -228,6 +230,7 @@ function confirmPreparedSource(options: {
     };
   }
   options.runtime.markTransferred();
+  options.onRegistered();
   return {
     ok: true,
     status: "confirmed",
@@ -361,6 +364,8 @@ export function createLayerDocumentConsumerCutoverAssembly(
       draft: input.draftSession.read(),
       resolvePsdSource:
         input.sourceRuntime.createPsdResolver(),
+      readSourceResolutionStatus: (sourceId) =>
+        input.sourceResolution.read(sourceId).status,
     });
     if (!runtime.ok) return null;
     const runtimeInput = runtime.model.inputs.find(
@@ -541,6 +546,7 @@ export function createLayerDocumentConsumerCutoverAssembly(
         const projection =
           buildLayerDocumentTimelineConsumerRows(
             currentProject(),
+            input.sourceResolution,
             activeGroupLayerDocumentId()
           );
         const playback =
@@ -588,6 +594,8 @@ export function createLayerDocumentConsumerCutoverAssembly(
           draft: input.draftSession.read(),
           resolvePsdSource:
             input.sourceRuntime.createPsdResolver(),
+          readSourceResolutionStatus: (sourceId) =>
+            input.sourceResolution.read(sourceId).status,
         }),
       }),
       pointerMove: ({
@@ -637,6 +645,8 @@ export function createLayerDocumentConsumerCutoverAssembly(
           project: currentProject(),
           selectedLayerDocumentId:
             selectedLayerDocumentId(),
+          readSourceResolutionStatus: (sourceId) =>
+            input.sourceResolution.read(sourceId).status,
         }),
       dispatch: dispatchPanel,
     },
@@ -688,6 +698,7 @@ export function createLayerDocumentConsumerCutoverAssembly(
             project: currentProject(),
             selection:
               input.owner.state.session.sourceSelection,
+            resolution: input.sourceResolution,
           }),
       importSources: (command) =>
         commitSourcePreparation(
@@ -705,6 +716,18 @@ export function createLayerDocumentConsumerCutoverAssembly(
               currentProject(),
               prepared.command
             ),
+          onRegistered: () => {
+            prepared.resolution.sourceIds.forEach((sourceId) => {
+              input.sourceResolution.setAvailable({
+                sourceId,
+                file:
+                  sourceId ===
+                  prepared.resolution.documentSourceId
+                    ? prepared.resolution.file
+                    : null,
+              });
+            });
+          },
         });
       },
       cancelPreparedPsdImport: (prepared) =>
@@ -722,6 +745,18 @@ export function createLayerDocumentConsumerCutoverAssembly(
                 cacheContext,
               }
             ),
+          onRegistered: () => {
+            prepared.resolution.sourceIds.forEach((sourceId) => {
+              input.sourceResolution.setAvailable({
+                sourceId,
+                file:
+                  sourceId ===
+                  prepared.resolution.documentSourceId
+                    ? prepared.resolution.file
+                    : null,
+              });
+            });
+          },
         }),
       cancelPreparedPsdRefresh: (prepared) =>
         prepared.runtime.cancel(),
@@ -736,12 +771,6 @@ export function createLayerDocumentConsumerCutoverAssembly(
           input,
           input.sourcePreparation.commands
             .preparePsdRefresh(currentProject(), command)
-        ),
-      markMissing: (command) =>
-        commitSourcePreparation(
-          input,
-          input.sourcePreparation.commands
-            .prepareMissing(currentProject(), command)
         ),
       reconnect: (command) =>
         commitSourcePreparation(
@@ -764,6 +793,7 @@ export function createLayerDocumentConsumerCutoverAssembly(
     },
     runtime: {
       resources: input.sourceRuntime,
+      resolutions: input.sourceResolution,
       registrationBridge: runtimeRegistrationBridge,
     },
   };

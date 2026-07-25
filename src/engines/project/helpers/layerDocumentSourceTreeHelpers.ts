@@ -5,6 +5,12 @@ import type {
   PsdTreeSourceSelection,
   SourceRegistryRecord,
 } from "@/models";
+import {
+  layerDocumentSourceDescriptorPath,
+} from "@/models";
+import type {
+  LayerDocumentSourceRuntimeResolutionReadPort,
+} from "@/engines/project/models/layerDocumentSourceRuntimeResolutionModel";
 import type {
   NonPsdSourceTreeItem,
   PsdSourceTreeDocument,
@@ -14,15 +20,22 @@ import type {
 } from "@/engines/project/models/layerDocumentSourcePreparationModel";
 
 function metadata(
-  source: SourceRegistryRecord
+  source: SourceRegistryRecord,
+  resolution: LayerDocumentSourceRuntimeResolutionReadPort
 ): SourceRegistryTreeMetadata {
+  const resolutionStatus =
+    resolution.read(source.sourceId).status;
   return {
     sourceId: source.sourceId,
     kind: source.kind,
     displayName: source.displayName,
-    path: source.path,
-    availability: source.availability,
-    refreshStatus: source.refresh.status,
+    path: layerDocumentSourceDescriptorPath(source),
+    resolutionStatus,
+    reconciliationStatus: source.refresh.status,
+    refreshStatus:
+      resolutionStatus === "available"
+        ? source.refresh.status
+        : "missing",
   };
 }
 
@@ -46,7 +59,10 @@ function documentRootSourcePaths(
 ): ReadonlySet<string> {
   if (!document) return new Set();
   return new Set(
-    [document.path, document.data.fileName]
+    [
+      document.locator.relativePathHint,
+      document.locator.suggestedFileName,
+    ]
       .filter((path): path is string => Boolean(path))
       .map((path) => path.replace(/\/+$/, ""))
       .filter((path) => path.length > 0)
@@ -61,6 +77,7 @@ interface PsdNodeHierarchy {
 function buildPsdNodeHierarchy(options: {
   sources: readonly PsdNodeSourceRecord[];
   document: PsdDocumentSourceRecord | null;
+  resolution: LayerDocumentSourceRuntimeResolutionReadPort;
 }): PsdNodeHierarchy {
   const documentExists = options.document !== null;
   const documentRootPaths = documentRootSourcePaths(options.document);
@@ -111,7 +128,7 @@ function buildPsdNodeHierarchy(options: {
   const buildNode = (
     source: PsdNodeSourceRecord
   ): PsdSourceTreeNode => ({
-    ...metadata(source),
+    ...metadata(source, options.resolution),
     kind: "psd-node",
     documentSourceId: source.data.documentSourceId,
     sourcePath: source.data.sourcePath,
@@ -137,10 +154,11 @@ function nonPsdSource(
   source: Extract<
     SourceRegistryRecord,
     { kind: "audio" | "video" | "unknown" }
-  >
+  >,
+  resolution: LayerDocumentSourceRuntimeResolutionReadPort
 ): NonPsdSourceTreeItem {
   return {
-    ...metadata(source),
+    ...metadata(source, resolution),
     kind: source.kind,
     treePolicy: source.kind === "unknown"
       ? "preserved-resource-leaf"
@@ -151,6 +169,7 @@ function nonPsdSource(
 export function buildPsdSourceTreeReadModel(options: {
   project: LayerDocumentProject;
   selection: PsdTreeSourceSelection | null;
+  resolution: LayerDocumentSourceRuntimeResolutionReadPort;
 }): PsdSourceTreeReadModel {
   const sources = Object.values(
     options.project.payload.sourceRegistry.sourcesById
@@ -176,6 +195,7 @@ export function buildPsdSourceTreeReadModel(options: {
     const hierarchy = buildPsdNodeHierarchy({
       sources: nodes,
       document: documentsById.get(documentSourceId) ?? null,
+      resolution: options.resolution,
     });
     hierarchyByDocumentId.set(documentSourceId, hierarchy);
     orphanNodes.push(...hierarchy.orphans);
@@ -187,7 +207,7 @@ export function buildPsdSourceTreeReadModel(options: {
       { kind: "psd-document" }
     > => source.kind === "psd-document")
     .map((source) => ({
-      ...metadata(source),
+      ...metadata(source, options.resolution),
       kind: "psd-document" as const,
       children: hierarchyByDocumentId.get(source.sourceId)?.roots ?? [],
     }))
@@ -201,7 +221,7 @@ export function buildPsdSourceTreeReadModel(options: {
       source.kind === "video" ||
       source.kind === "unknown"
     )
-    .map(nonPsdSource)
+    .map((source) => nonPsdSource(source, options.resolution))
     .sort(compareTreeMetadata);
   const selectedSourceId = options.selection?.sourceId ?? null;
   const selectionExists = Boolean(

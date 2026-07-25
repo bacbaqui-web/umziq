@@ -23,12 +23,8 @@ import {
   failOwnerTransition,
   successOwnerTransition,
 } from "@/engines/project/actions/layerDocumentProjectOwnerTransitionHelpers";
-import {
-  commitLayerDocumentOwnerTransaction,
-} from "@/engines/project/actions/layerDocumentProjectOwnerLayerCommitReducer";
-import {
-  commitLayerDocumentOwnerSourceTransaction,
-} from "@/engines/project/actions/layerDocumentProjectOwnerSourceCommitReducer";
+import { commitLayerDocumentOwnerTransaction } from "@/engines/project/actions/layerDocumentProjectOwnerLayerCommitReducer";
+import { commitLayerDocumentOwnerSourceTransaction } from "@/engines/project/actions/layerDocumentProjectOwnerSourceCommitReducer";
 import { restoreLayerDocumentOwnerHistory } from "@/engines/project/actions/layerDocumentProjectOwnerHistoryReducer";
 import { plainDataValuesEqual } from "@/engines/project/actions/layerDocumentSourceTransactionHelpers";
 import {
@@ -36,6 +32,7 @@ import {
   reduceOwnerRuntimeKeyframeSelection,
   reduceOwnerRuntimeSourceStatusAcknowledgment,
 } from "@/engines/project/actions/layerDocumentProjectOwnerRuntimeSessionReducer";
+import { replaceLayerDocumentOwnerProject } from "@/engines/project/actions/layerDocumentProjectOwnerReplaceReducer";
 function updateSession(
   state: LayerDocumentProjectOwnerState,
   action: Extract<
@@ -152,6 +149,7 @@ function updateSession(
     effect: {
       clearDraft: renderScopeChanged || action.kind === "set-layer-selection",
       resetLocalUi: action.kind === "set-layer-selection" || action.kind === "set-active-group",
+      stopPlayback: false,
       recomputeRender: renderScopeChanged,
       runtimeCachePolicy: "preserve",
       cacheInvalidations: [],
@@ -229,6 +227,8 @@ export function reduceLayerDocumentProjectOwner(
       return commitLayerDocumentOwnerTransaction(state, action);
     case "commit-source-transaction":
       return commitLayerDocumentOwnerSourceTransaction(state, action);
+    case "replace-project":
+      return replaceLayerDocumentOwnerProject(state, action.project);
     case "undo":
       return restoreLayerDocumentOwnerHistory(state, "undo");
     case "redo":
@@ -240,8 +240,7 @@ export function reduceLayerDocumentProjectOwner(
       return updateSession(state, action);
     case "set-transform-keyframe-selection":
       return reduceOwnerRuntimeKeyframeSelection(
-        state,
-        action.selection
+        state, action.selection
       );
     case "acknowledge-source-status": return (
       reduceOwnerRuntimeSourceStatusAcknowledgment(state, action.sourceId)

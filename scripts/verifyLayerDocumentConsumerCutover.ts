@@ -21,6 +21,7 @@ import {
 import {
   createLayerDocumentProjectOwnerState,
   createLayerDocumentPreparedRuntimeLifecycle,
+  createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   prepareLayerDocumentPsdImport,
   prepareLayerDocumentPsdRefresh,
@@ -130,7 +131,6 @@ function animatedCommon(
 function normalRefresh() {
   return {
     status: "normal" as const,
-    reconnectHint: null,
   };
 }
 
@@ -143,13 +143,21 @@ function psdDocument(
     sourceId,
     kind: "psd-document",
     displayName: `${sourceId}.psd`,
-    path: `/fixtures/${sourceId}.psd`,
-    fingerprint,
     version,
-    availability: "available",
     refresh: normalRefresh(),
+    locator: {
+      locatorId: `linked:${sourceId}`,
+      kind: "linked-file",
+      suggestedFileName: `${sourceId}.psd`,
+      relativePathHint: `fixtures/${sourceId}.psd`,
+    },
+    contentFingerprint: {
+      algorithm: "sha-256",
+      digestHex: fingerprint.padEnd(64, "0").slice(0, 64)
+        .replace(/[^0-9a-f]/g, "a"),
+      byteLength: version,
+    },
     data: {
-      fileName: `${sourceId}.psd`,
       importSettings: {
         compositionName: sourceId,
         hiddenLayerMode: "preserve",
@@ -169,20 +177,15 @@ function psdNode(options: {
     sourceId: options.sourceId,
     kind: "psd-node",
     displayName: options.sourceId,
-    path:
-      `/fixtures/${options.documentSourceId}.psd/` +
-      options.sourceId,
-    fingerprint:
-      options.fingerprint ??
-      `${options.sourceId}-v${version}`,
     version,
-    availability: "available",
     refresh: normalRefresh(),
     data: {
       documentSourceId: options.documentSourceId,
       sourceKey: `layer:${options.sourceId}`,
       sourcePath: options.sourceId,
-      nativeVisible: true,
+      visualFingerprint:
+        options.fingerprint ??
+        `${options.sourceId}-v${version}`,
     },
   };
 }
@@ -337,6 +340,10 @@ const metrics = {
 };
 const resources =
   createLayerDocumentSourceRuntimeResourceCache({ metrics });
+const sourceResolution =
+  createLayerDocumentSourceRuntimeResolutionStore();
+sourceResolution.setAvailable({ sourceId: "document" });
+sourceResolution.setAvailable({ sourceId: "node" });
 const assembly = createLayerDocumentConsumerCutoverAssembly({
   owner,
   panelPreparation:
@@ -350,6 +357,7 @@ const assembly = createLayerDocumentConsumerCutoverAssembly({
   audioPreparation:
     LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
   sourceRuntime: resources,
+  sourceResolution,
   draftSession: {
     read: () => draft,
     publish: (nextDraft) => {
@@ -385,7 +393,7 @@ assert.equal(
 assert.equal(
   flattenRows(initialTimeline.rows).find(
     (row) => row.layerDocumentId === "psd"
-  )?.source?.availability,
+  )?.source?.resolutionStatus,
   "available"
 );
 assert.equal(
@@ -494,6 +502,14 @@ const confirmedPreparedInput = {
       selectSourceId: confirmedNode.sourceId,
       selectLayerDocumentId: confirmedLayer.layerDocumentId,
     },
+    resolution: {
+      documentSourceId: confirmedDocument.sourceId,
+      sourceIds: [
+        confirmedDocument.sourceId,
+        confirmedNode.sourceId,
+      ],
+      file: new File([], "confirmed.psd"),
+    },
     runtime: createLayerDocumentPreparedRuntimeLifecycle([{
       sourceId: confirmedNode.sourceId,
       sourceResourceCacheKey: confirmedRuntimeKey,
@@ -585,6 +601,11 @@ const failedPrepared =
       selectSourceId: confirmedDocument.sourceId,
       selectLayerDocumentId: null,
     },
+    resolution: {
+      documentSourceId: confirmedDocument.sourceId,
+      sourceIds: [confirmedDocument.sourceId],
+      file: new File([], "duplicate.psd"),
+    },
     runtime: failedRuntime,
   });
 assert.equal(failedPrepared.ok, false);
@@ -606,6 +627,11 @@ const cancelledPreparedInput = {
     layers: [],
     selectSourceId: "cancelled-document",
     selectLayerDocumentId: null,
+  },
+  resolution: {
+    documentSourceId: "cancelled-document",
+    sourceIds: ["cancelled-document"],
+    file: new File([], "cancelled.psd"),
   },
   runtime: createLayerDocumentPreparedRuntimeLifecycle([
     {
@@ -762,6 +788,8 @@ const pendingAssembly =
     textPreparation: LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
     audioPreparation: LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
     sourceRuntime: pendingResources,
+    sourceResolution:
+      createLayerDocumentSourceRuntimeResolutionStore(),
     draftSession: {
       read: () => null,
       publish: () => undefined,
@@ -811,6 +839,15 @@ const pendingPrepared = {
     ],
     selectSourceId: pendingNodeA.sourceId,
     selectLayerDocumentId: "pending-layer-a",
+  },
+  resolution: {
+    documentSourceId: pendingDocument.sourceId,
+    sourceIds: [
+      pendingDocument.sourceId,
+      pendingNodeA.sourceId,
+      pendingNodeB.sourceId,
+    ],
+    file: new File([], "pending.psd"),
   },
   runtime: createLayerDocumentPreparedRuntimeLifecycle([
     batchEntry("pending-node-a", "pending-key-a", () => {
@@ -1935,7 +1972,10 @@ const refreshResult = assembly.sources.refreshSource({
   source: {
     ...currentNode,
     version: currentNode.version + 1,
-    fingerprint: "node-refreshed-v2",
+    data: {
+      ...currentNode.data,
+      visualFingerprint: "node-refreshed-v2",
+    },
     refresh: normalRefresh(),
   },
   cacheContext: {
@@ -2026,7 +2066,10 @@ assert.equal(
   assembly.sources.refreshSource({
     source: {
       ...orphanSource,
-      fingerprint: "orphan-v2",
+      data: {
+        ...orphanSource.data,
+        visualFingerprint: "orphan-v2",
+      },
       version: orphanSource.version + 1,
     },
     cacheContext: {
@@ -2110,7 +2153,10 @@ assert.equal(
   assembly.sources.refreshSource({
     source: {
       ...clearHistoryNode,
-      fingerprint: "node-clear-history",
+      data: {
+        ...clearHistoryNode.data,
+        visualFingerprint: "node-clear-history",
+      },
       version: clearHistoryNode.version + 1,
     },
     cacheContext: {

@@ -6,10 +6,14 @@ import {
 import type {
   LayerDocumentTimelineConsumerRow,
 } from "@/cutover/layerDocumentConsumerCutoverModel";
+import type {
+  LayerDocumentSourceRuntimeResolutionReadPort,
+} from "@/engines/project";
 
 function adaptRow(
   project: LayerDocumentProject,
-  row: LayerDocumentTimelineRowReadModel
+  row: LayerDocumentTimelineRowReadModel,
+  resolution: LayerDocumentSourceRuntimeResolutionReadPort
 ): LayerDocumentTimelineConsumerRow {
   const layer =
     project.payload.layerDocumentsById[row.layerDocumentId];
@@ -24,13 +28,19 @@ function adaptRow(
     label: row.label,
     type: row.type,
     sourceId: row.source?.sourceId ?? null,
-    source: row.source,
+    source: row.source
+      ? {
+          ...row.source,
+          resolutionStatus:
+            resolution.read(row.source.sourceId).status,
+        }
+      : null,
     startFrame: row.placement.startFrame,
     durationFrames: row.placement.durationFrames,
     sourceOffsetFrames: row.placement.sourceOffsetFrames,
     visible: row.placement.visible,
     children: row.children.map((child) =>
-      adaptRow(project, child)
+      adaptRow(project, child, resolution)
     ),
   };
 }
@@ -52,6 +62,7 @@ export type LayerDocumentTimelineConsumerRowsResult =
  */
 export function buildLayerDocumentTimelineConsumerRows(
   project: LayerDocumentProject,
+  resolution: LayerDocumentSourceRuntimeResolutionReadPort,
   activeGroupLayerDocumentId?: string | null
 ): LayerDocumentTimelineConsumerRowsResult {
   const result = buildLayerDocumentTimelineReadModel(
@@ -63,7 +74,7 @@ export function buildLayerDocumentTimelineConsumerRows(
   return {
     available: true,
     rows: result.model.rows.map((row) =>
-      adaptRow(project, row)
+      adaptRow(project, row, resolution)
     ),
   };
 }

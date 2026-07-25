@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
   findNonPlainDataPath,
+  normalizeLayerDocumentProject,
   validateLayerDocumentProject,
   type LayerDocument,
   type LayerDocumentCommon,
@@ -15,6 +15,9 @@ import {
 import {
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
 } from "@/engines/project/adapters/layerDocumentSourcePreparationAdapter";
+import {
+  createLayerDocumentSourceRuntimeResolutionStore,
+} from "@/engines/project";
 import {
   buildPsdSourceTreeReadModel,
 } from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
@@ -87,7 +90,6 @@ function common<TSource extends LayerSourceReference | null>(
 function refresh() {
   return {
     status: "normal" as const,
-    reconnectHint: null,
   };
 }
 
@@ -527,9 +529,9 @@ function projectFixture(): LayerDocumentProject {
       data: {},
     },
   };
-  return {
+  const legacyProject = {
     metadata: {
-      schemaVersion: LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
+      schemaVersion: 1,
       projectId: "source-preparation",
       name: "Source preparation",
     },
@@ -540,6 +542,12 @@ function projectFixture(): LayerDocumentProject {
       },
     },
   };
+  const normalized =
+    normalizeLayerDocumentProject(legacyProject);
+  if (!normalized.ok) {
+    throw new Error(JSON.stringify(normalized.issues));
+  }
+  return normalized.project;
 }
 
 function assertSuccess(
@@ -551,6 +559,12 @@ function assertSuccess(
 }
 
 const project = projectFixture();
+const sourceResolution =
+  createLayerDocumentSourceRuntimeResolutionStore();
+Object.keys(project.payload.sourceRegistry.sourcesById)
+  .forEach((sourceId) => {
+    sourceResolution.setAvailable({ sourceId });
+  });
 const projectSnapshot = structuredClone(project);
 assert.deepEqual(validateLayerDocumentProject(project), []);
 
@@ -571,6 +585,7 @@ assert.notEqual(
 const tree = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.query.readTree({
   project,
   selection: sourceSelection,
+  resolution: sourceResolution,
 });
 assert.equal(tree.selectionKind, "psd-tree-source");
 assert.equal(tree.selectionStatus, "selected");
@@ -593,8 +608,8 @@ const groupB = tree.documents[0].children[3];
 const productionGroup = tree.documents[0].children[4];
 const sharedTreeNode = tree.documents[0].children[5];
 assert.equal(sharedTreeNode.displayName, "Registry pixel node");
-assert.equal(sharedTreeNode.path, "source.psd/Pixel");
-assert.equal(sharedTreeNode.availability, "available");
+assert.equal(sharedTreeNode.path, "Pixel");
+assert.equal(sharedTreeNode.resolutionStatus, "available");
 assert.deepEqual(
   groupA.children.map((node) => node.sourceId),
   ["nested-group", "group-a-pixel"]
@@ -663,6 +678,7 @@ const staleTree = buildPsdSourceTreeReadModel({
     kind: "psd-tree-source",
     sourceId: "stale-source",
   },
+  resolution: sourceResolution,
 });
 assert.equal(staleTree.selectionStatus, "stale");
 assert.equal(staleTree.selectedSourceId, null);
@@ -671,13 +687,16 @@ const newDocument: SourceRegistryRecord = {
   sourceId: "import-document",
   kind: "psd-document",
   displayName: "Imported.psd",
-  path: "/imported.psd",
-  fingerprint: "import-document-v1",
   version: 1,
-  availability: "available",
   refresh: refresh(),
+  locator: {
+    locatorId: "linked:import-document",
+    kind: "linked-file",
+    suggestedFileName: "imported.psd",
+    relativePathHint: null,
+  },
+  contentFingerprint: null,
   data: {
-    fileName: "imported.psd",
     importSettings: {
       compositionName: "Imported",
       hiddenLayerMode: "preserve",
@@ -688,32 +707,26 @@ const newNode: SourceRegistryRecord = {
   sourceId: "import-node",
   kind: "psd-node",
   displayName: "Explicit layer node",
-  path: "imported.psd/Explicit",
-  fingerprint: "import-node-v1",
   version: 1,
-  availability: "available",
   refresh: refresh(),
   data: {
     documentSourceId: "import-document",
     sourceKey: "layer:explicit",
     sourcePath: "Explicit",
-    nativeVisible: true,
+    visualFingerprint: "import-node-v1",
   },
 };
 const unplacedNode: SourceRegistryRecord = {
   sourceId: "import-unplaced-node",
   kind: "psd-node",
   displayName: "Registry only node",
-  path: "imported.psd/Registry Only",
-  fingerprint: "import-unplaced-v1",
   version: 1,
-  availability: "available",
   refresh: refresh(),
   data: {
     documentSourceId: "import-document",
     sourceKey: "layer:unplaced",
     sourcePath: "Registry Only",
-    nativeVisible: false,
+    visualFingerprint: "import-unplaced-v1",
   },
 };
 const importedLayer: LayerDocument = {
@@ -890,21 +903,14 @@ assert.equal(sharedSource.kind, "psd-node");
 const refreshedSource: SourceRegistryRecord = {
   ...sharedSource,
   displayName: "Registry pixel node refreshed",
-  path: "source.psd/Pixel Refreshed",
-  fingerprint: "pixel-v2",
   version: sharedSource.version + 1,
-  availability: "available",
   refresh: {
     status: "updated",
-    reconnectHint: {
-      fileName: "source.psd",
-      path: "/source.psd",
-    },
   },
   data: {
     ...sharedSource.data,
     sourcePath: "Pixel Refreshed",
-    nativeVisible: false,
+    visualFingerprint: "pixel-v2",
   },
 };
 const refreshed = assertSuccess(
@@ -1025,81 +1031,37 @@ for (const changedIdentityData of [
   }
 }
 
-const missing = assertSuccess(
-  LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands.prepareMissing(
-    project,
-    {
-      sourceId: "shared-node",
-      reconnectHint: {
-        fileName: "source.psd",
-        path: "/source.psd",
-      },
-      cacheContext,
-    }
-  )
-);
-assert.equal(missing.kind, "mark-source-missing");
-assert.equal(missing.historyPolicy, "clear-history");
-assert.equal(missing.historyEntryCount, 0);
+const projectBeforeMissingResolution =
+  structuredClone(project);
+sourceResolution.setMissing("shared-node");
 assert.equal(
-  missing.after.payload.sourceRegistry.sourcesById["shared-node"]
-    .availability,
+  sourceResolution.read("shared-node").status,
   "missing"
-);
-assert.equal(
-  missing.after.payload.sourceRegistry.sourcesById["shared-node"]
-    .refresh.status,
-  "missing"
-);
-assert.equal(
-  missing.after.payload.sourceRegistry.sourcesById["shared-node"]
-    .version,
-  sharedSource.version + 1
 );
 assert.deepEqual(
-  missing.after.payload.layerDocumentsById,
-  project.payload.layerDocumentsById
+  project,
+  projectBeforeMissingResolution
 );
-const repeatedMissing = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands
-  .prepareMissing(missing.after, {
-    sourceId: "shared-node",
-    reconnectHint: {
-      fileName: "source.psd",
-      path: "/source.psd",
-    },
-    cacheContext,
-  });
-assert.equal(repeatedMissing.ok, false);
-if (!repeatedMissing.ok) {
-  assert.equal(repeatedMissing.error.code, "no-change");
-}
 
 const missingSource =
-  missing.after.payload.sourceRegistry.sourcesById["shared-node"];
+  project.payload.sourceRegistry.sourcesById["shared-node"];
 assert.equal(missingSource.kind, "psd-node");
 const reconnectSource: SourceRegistryRecord = {
   ...missingSource,
   displayName: "Registry pixel node reconnected",
-  path: "/reconnected/source.psd/Pixel",
-  fingerprint: "pixel-reconnected",
   version: missingSource.version + 1,
-  availability: "available",
   refresh: {
     status: "normal",
-    reconnectHint: {
-      fileName: "source.psd",
-      path: "/reconnected/source.psd",
-    },
   },
   data: {
     ...missingSource.data,
     sourcePath: "Pixel",
-    nativeVisible: true,
+    visualFingerprint: "pixel-reconnected",
   },
 };
 const reconnected = assertSuccess(
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands.prepareReconnect(
-    missing.after,
+    project,
     {
       source: reconnectSource,
       cacheContext,
@@ -1114,18 +1076,13 @@ assert.equal(
     .sourceId,
   "shared-node"
 );
-assert.equal(
-  reconnected.after.payload.sourceRegistry.sourcesById["shared-node"]
-    .availability,
-  "available"
-);
 assert.deepEqual(
   reconnected.after.payload.layerDocumentsById,
   project.payload.layerDocumentsById
 );
 const changedIdentityReconnect =
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands.prepareReconnect(
-    missing.after,
+    project,
     {
       source: {
         ...reconnectSource,
@@ -1159,54 +1116,53 @@ if (
 }
 const batchDocument = {
   ...psdDocumentSource,
-  fingerprint: "document-v2",
   version: psdDocumentSource.version + 1,
   refresh: {
     status: "updated" as const,
-    reconnectHint: null,
+  },
+  contentFingerprint: {
+    algorithm: "sha-256" as const,
+    digestHex: "b".repeat(64),
+    byteLength: 200,
   },
 };
 const batchSharedNode = {
   ...sharedSource,
   displayName: "Batch refreshed pixel",
-  fingerprint: "pixel-batch-v2",
   version: sharedSource.version + 1,
   refresh: {
     status: "updated" as const,
-    reconnectHint: null,
   },
   data: {
     ...sharedSource.data,
     sourcePath: "Pixel Batch Refreshed",
-    nativeVisible: false,
+    visualFingerprint: "pixel-batch-v2",
   },
 };
 const batchRemovedNode = {
   ...groupAPixelSource,
-  fingerprint: "group-a-pixel-removed",
   version: groupAPixelSource.version + 1,
   refresh: {
     status: "deletePending" as const,
-    reconnectHint: null,
+  },
+  data: {
+    ...groupAPixelSource.data,
+    visualFingerprint: "group-a-pixel-removed",
   },
 };
 const batchDiscoveredNode = {
   sourceId: "batch-discovered-node",
   kind: "psd-node" as const,
   displayName: "Batch discovered node",
-  path: "source.psd/Batch Discovered",
-  fingerprint: "batch-discovered-v1",
   version: 1,
-  availability: "available" as const,
   refresh: {
     status: "new" as const,
-    reconnectHint: null,
   },
   data: {
     documentSourceId: "psd-document",
     sourceKey: "layer:batch-discovered",
     sourcePath: "Batch Discovered",
-    nativeVisible: true,
+    visualFingerprint: "batch-discovered-v1",
   },
 };
 const batchCommand = {
@@ -1443,6 +1399,7 @@ assert.equal(
   buildPsdSourceTreeReadModel({
     project: discovered.after,
     selection: null,
+    resolution: sourceResolution,
   }).documents[0].children.some(
     (node) => node.sourceId === "discovered-node"
   ),
