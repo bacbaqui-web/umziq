@@ -1,93 +1,74 @@
-# Layer Document Architecture Migration — Post-Sprint QA 보고
+# 프로젝트 운영 규칙 정리 및 다음 작업 제안
 
-## 작업 상태
+## 이번 작업
 
-- Sprint: `Layer Document Architecture Migration`
-- 최근 작업: Post-Sprint Browser QA와 QA 결함 수정
-- 결과: 완료
-- QA: Microsoft Edge 새 창에서 실제 조작 QA 통과
-- Commit: QA와 최종 정적 검증을 통과한 본 변경과 함께 생성
+제품 코드는 수정하지 않고 `00_rule.md`의 운영 규칙을 정리했다.
 
-이번 문서는 작업을 멈추는 시점 기준 가장 최근 작업 한 건만 기록한다.
+### Sprint 문서 작성
 
----
+- `98_sprint_plan.md`는 구현에 필요한 설계와 제약을 유지하되 반복을 줄인다.
+- 공통 철학과 제약은 문서 앞부분에 한 번만 작성한다.
+- Task는 목적, 작업 내용, 정적 검증, 완료 조건과 Task 전용 규칙만 담는다.
+- `00_rule.md`와 영구 Architecture 문서는 다시 설명하지 않고 참조한다.
+- Gate는 PASS/FAIL, 발견 문제, 수정 사항, 다음 Task 진행 여부만 기록한다.
 
-## 실제 QA 범위
+### 브라우저 QA
 
-사용 Fixture:
+- QA는 사용자가 요청했을 때만 수행한다.
+- 요청된 QA는 헤드리스 브라우저를 기본으로 사용한다.
+- 실제 Chrome은 사용자가 명시적으로 요청했을 때만 사용한다.
+- 별도 앱 인스턴스나 사용자 프로필을 만들지 않는다.
+- 실제 Chrome QA는 기존 프로필의 새 창에서 진행하고 기존 창과 탭은
+  건드리지 않는다.
 
-- `drag_test.psd`
-- `layer_test.psd`
+## 현재 프로젝트 상태
 
-확인한 항목:
+`Layer Document Architecture Migration`은 구현, 정적 검증과 실제
+Browser QA까지 완료됐다.
 
-- 두 PSD의 순차 Import와 기존 Source/편집 상태 보존
-- PSD Tree, Canvas, Timeline, Properties의 Layer Document 선택 동기화
-- Canvas 더블클릭 Group 진입과 Timeline navigation
-- Properties Transform 변경과 Canvas 반영
-- Canvas Anchor 조작과 Properties 기준 X/Y 동기화
-- Undo/Redo 복원
-- 작업용(`fast-render`)과 완성본(`full-render`) 전환 및 재생
-- Duplicate의 Source 공유, Layer Document 독립성, 표시 이름
-- 대용량 `layer_test.psd` Group의 선택·편집·재생
+- Project의 편집 원본은 Layer Document 집합으로 통일됐다.
+- Canvas, Timeline, Properties와 PSD Tree가 같은 Layer Document를 본다.
+- Duplicate는 Source를 공유하는 독립 Layer Document를 생성한다.
+- Legacy 편집 원본과 양방향 쓰기 구조는 제거됐다.
+- 현재 가장 큰 구조적 한계는 제품 save/load 흐름이 없다는 점이다.
+- 앱을 다시 열면 빈 Source Registry와 project-root Group에서 시작한다.
+- 기존 형식 migration은 검증된 offline 경계에만 있고 제품 load 흐름에는
+  연결되지 않았다.
 
----
+## 다음 작업 제안
 
-## QA에서 발견하고 수정한 문제
+### 1순위: Layer Document Persistence & Load Integration
 
-첫 QA에서 Duplicate 자체는 독립 Layer Document로 정상 생성됐지만,
-Timeline과 Properties의 표시 이름이 원본과 같은 `background`로 남았다.
+현재 구조를 다시 뜯기 전에 저장과 불러오기 경계를 완성하는 것을
+추천한다. 이후 Drawing, Text, Audio 기능을 추가해도 같은 Project
+Document 형식으로 저장할 수 있어야 하기 때문이다.
 
-원인은 Duplicate Transaction이 Layer Document의 `name`과 Placement
-`alias`를 그대로 복사하던 것이었다.
+권장 범위:
 
-다음 규칙으로 수정했다.
+- 현재 Layer Document Project의 직렬화/역직렬화 계약
+- schema version, normalize와 validation
+- Source 참조 저장과 Runtime Resource 분리
+- 저장 실패 및 불러오기 실패 시 현재 Project 보존
+- 불러오기 성공 시 Project/Session/History의 원자적 교체
+- 현재 형식과 offline legacy migration의 명시적 진입점
+- 저장 후 재실행 결과가 동일한지 검증하는 round-trip fixture
 
-- 같은 부모 Group의 Layer Document 이름, alias와 Source 표시 이름을
-  예약 이름으로 취급한다.
-- `background` 복제는 `background_2`, 다음 복제는 `background_3`으로
-  증가한다.
-- 중간 이름이 이미 있으면 충돌하지 않는 다음 번호를 사용한다.
-- 같은 `sourceId`는 계속 공유한다.
-- 새 `layerDocumentId`와 독립 Transform/Animation/Effect/Modifier/
-  Type별 데이터 계약은 유지한다.
-- Duplicate Transaction과 History 1회 계약은 유지한다.
+이 단계에서는 자동 저장, 클라우드 저장, 최근 파일 목록 같은 부가
+기능은 제외하는 것이 좋다.
 
-수정 후 실제 Edge에서 `background_2`, `background_3`이 표시되는 것을
-확인했다. `background_3`의 X를 변경해도 원본 `background`의 X가
-변하지 않아 독립 편집도 재확인했다.
+### 이후 순서
 
----
+1. Persistence와 Load 경계 완성
+2. PSD Refresh/Reconnect 및 Source 누락 복구 QA
+3. Drawing Layer의 실제 기능 시작
+4. 같은 패턴으로 Text와 Audio 기능 확장
 
-## 최종 QA 결과
+## 감독관 의견
 
-- `drag_test.psd`: 통과
-- `layer_test.psd`: 통과
-- Import/Selection/Navigation: 통과
-- Transform/Anchor/Properties 동기화: 통과
-- Duplicate 명명과 독립성: 수정 후 통과
-- Undo/Redo: 통과
-- 작업용/완성본 Renderer 재생: 통과
+다음 Sprint는 `Layer Document Persistence & Load Integration`이 가장
+적절하다. 현재 아키텍처의 단일 저장 원본 계약을 실제 파일 수명까지
+완성한 뒤 Domain 기능을 추가하면 재작업과 데이터 유실 위험을 줄일 수
+있다.
 
-확인한 범위에서 추가 제품 결함은 발견되지 않았다.
-
----
-
-## 최종 정적 검증
-
-- `npm test`: 31개 verification 통과
-- `npm run lint`: 통과
-- `npm run build`: 통과
-- `git diff --check`: 통과
-
-Build에는 기존 minified chunk `753.94 kB` 경고만 남아 있다.
-
----
-
-## 감독관 판단
-
-QA 중 발견한 Duplicate 표시 이름 결함은 최소 범위로 수정하고 동일
-절차로 재검증했다. Layer Document 단일 편집 원본, Source 공유와
-Layer별 독립 편집, History 및 Renderer 계약은 유지됐다.
-
-최종 정적 검증까지 통과했으므로 Sprint 결과를 커밋한다.
+이번 작업에서는 `98_sprint_plan.md`를 변경하거나 다음 Sprint 구현을
+시작하지 않았다.
