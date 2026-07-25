@@ -234,7 +234,7 @@ function buildHeader(options: {
       selectionLabel: null,
       switcher: { items: [], isOpen: false },
       isPlaying: options.playback.isPlaying,
-      currentFrame: options.timeline.currentFrame,
+      currentFrame: options.playback.currentFrame,
       currentFrameText: "",
       canDuplicateSelectedItem: false,
       canSplitSelectedItem: false,
@@ -248,7 +248,7 @@ function buildHeader(options: {
         selectedId
       ] ?? null
     : null;
-  const currentFrame = options.timeline.currentFrame;
+  const currentFrame = options.playback.currentFrame;
   const canSplit = Boolean(
     selected &&
     selected.common.placement.parentLayerDocumentId ===

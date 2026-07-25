@@ -94,13 +94,5 @@ CreateLayerDocumentProjectOwnerOptions {
     },
     activeGroupLayerDocumentId:
       root.layerDocumentId,
-    playback: {
-      currentFrame: 0,
-      range: {
-        startFrame: 0,
-        endFrame:
-          root.data.durationFrames - 1,
-      },
-    },
   };
 }

@@ -27,6 +27,10 @@ import {
   createLayerDocumentProjectOwnerLivePort,
 } from "@/engines/project/helpers/layerDocumentProjectOwnerLivePortHelpers";
 import {
+  createEditorProjectOwnerPort,
+  createLayerDocumentProjectOwnerCompatibilityPort,
+} from "@/editor/project-owner";
+import {
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
 } from "@/engines/project/adapters/layerDocumentSourcePreparationAdapter";
 import type {
@@ -251,8 +255,6 @@ function initialize(options?: {
   project?: LayerDocumentProject;
   layerDocumentId?: string | null;
   sourceId?: string | null;
-  currentFrame?: number;
-  range?: { startFrame: number; endFrame: number };
   activeGroupLayerDocumentId?: string | null;
 }): LayerDocumentProjectOwnerState {
   const initialized = createLayerDocumentProjectOwnerState({
@@ -275,13 +277,6 @@ function initialize(options?: {
             options.activeGroupLayerDocumentId,
         }
       : {}),
-    playback: {
-      currentFrame: options?.currentFrame ?? 25,
-      range: options?.range ?? {
-        startFrame: 10,
-        endFrame: 90,
-      },
-    },
   });
   assert.equal(initialized.ok, true);
   if (!initialized.ok) throw new Error(initialized.error.message);
@@ -331,6 +326,58 @@ function commitLayer(
 const inputProject = projectFixture();
 const inputSnapshot = structuredClone(inputProject);
 const initial = initialize({ project: inputProject });
+const editorOwnerStateRef = {
+  current: initialize(),
+};
+const editorOwner = createEditorProjectOwnerPort(
+  editorOwnerStateRef.current,
+  reduceLayerDocumentProjectOwner,
+  () => {
+    editorOwnerStateRef.current =
+      editorOwner.read();
+  }
+);
+const compatibilityOwner =
+  createLayerDocumentProjectOwnerCompatibilityPort(
+    editorOwner
+  );
+assert.strictEqual(
+  compatibilityOwner.transition,
+  editorOwner.command
+);
+assert.strictEqual(
+  compatibilityOwner.state,
+  editorOwner.read()
+);
+const editorOwnerSelectionChanged =
+  compatibilityOwner.transition({
+    kind: "set-source-selection",
+    selection: {
+      kind: "psd-tree-source",
+      sourceId: "source-document",
+    },
+  });
+assert.equal(editorOwnerSelectionChanged.ok, true);
+if (!editorOwnerSelectionChanged.ok) {
+  throw new Error(
+    editorOwnerSelectionChanged.error.message
+  );
+}
+assert.strictEqual(
+  compatibilityOwner.state,
+  editorOwner.read()
+);
+assert.deepEqual(
+  compatibilityOwner.state.session.sourceSelection,
+  {
+    kind: "psd-tree-source",
+    sourceId: "source-document",
+  }
+);
+assert.equal(
+  editorOwnerSelectionChanged.effect.recomputeRender,
+  false
+);
 assert.notStrictEqual(initial.currentProject, inputProject);
 assert.deepEqual(initial.currentProject, inputProject);
 assert.deepEqual(inputProject, inputSnapshot);
@@ -342,10 +389,6 @@ assert.deepEqual(initial.session.layerSelection, {
 assert.deepEqual(initial.session.sourceSelection, {
   kind: "psd-tree-source",
   sourceId: "source-node",
-});
-assert.deepEqual(initial.session.playback, {
-  currentFrame: 25,
-  range: { startFrame: 10, endFrame: 90 },
 });
 assert.deepEqual(initial.runtimeSession, {
   selectedTransformKeyframe: null,
@@ -372,18 +415,6 @@ assert.equal(
   sourceSelectionOnly.effect.resetLocalUi,
   false
 );
-const playbackFrameOnly = transition(
-  sourceSelectionOnly.state,
-  {
-    kind: "set-playback-session",
-    playback: {
-      ...sourceSelectionOnly.state.session.playback,
-      currentFrame: 26,
-    },
-  }
-);
-assert.equal(playbackFrameOnly.effect.clearDraft, true);
-assert.equal(playbackFrameOnly.effect.resetLocalUi, false);
 assert.strictEqual(
   sourceSelectionOnly.state.currentProject,
   initial.currentProject
@@ -650,8 +681,6 @@ const scopedInitial = initialize({
   project: scopedProject,
   activeGroupLayerDocumentId: "group",
   layerDocumentId: "drawing",
-  currentFrame: 80,
-  range: { startFrame: 10, endFrame: 90 },
 });
 assert.equal(
   scopedInitial.session.activeGroupLayerDocumentId,
@@ -662,10 +691,6 @@ assert.equal(
   "drawing",
   "Layer selection is independent from active Group navigation"
 );
-assert.deepEqual(scopedInitial.session.playback, {
-  currentFrame: 23,
-  range: { startFrame: 10, endFrame: 24 },
-});
 const groupScope = buildLayerDocumentGroupScopeReadModel(
   scopedInitial.currentProject,
   scopedInitial.session.activeGroupLayerDocumentId
@@ -726,13 +751,9 @@ assert.equal(
 const scopedUndo = transition(scopedDeleted.state, { kind: "undo" });
 assert.equal(
   scopedUndo.state.session.activeGroupLayerDocumentId,
-  "group",
-  "Undo restores active Group with its Project snapshot"
+  "root",
+  "Undo preserves the currently valid active Group"
 );
-assert.deepEqual(scopedUndo.state.session.playback, {
-  currentFrame: 23,
-  range: { startFrame: 10, endFrame: 24 },
-});
 const staleGroupInitialized =
   createLayerDocumentProjectOwnerState({
     project: projectFixture(),
@@ -857,8 +878,8 @@ assert.ok(
   deleteUndone.state.currentProject.payload.layerDocumentsById.text
 );
 assert.equal(
-  deleteUndone.state.session.layerSelection?.layerDocumentId,
-  "text"
+  deleteUndone.state.session.layerSelection,
+  null
 );
 const deleteRedone = transition(deleteUndone.state, { kind: "redo" });
 assert.equal(
@@ -894,9 +915,10 @@ assert.deepEqual(
   undoDuplicate.state.currentProject,
   duplicateInitial.currentProject
 );
-assert.deepEqual(
-  undoDuplicate.state.session,
-  duplicateInitial.session
+assert.equal(
+  undoDuplicate.state.session.layerSelection?.layerDocumentId,
+  "root",
+  "Invalid duplicate selection falls back to the active Group"
 );
 assert.equal(undoDuplicate.state.canRedo, true);
 assert.equal(undoDuplicate.effect.clearDraft, true);
@@ -912,9 +934,10 @@ assert.deepEqual(
   redoDuplicate.state.currentProject,
   duplicateTransaction.after
 );
-assert.deepEqual(
-  redoDuplicate.state.session,
-  duplicated.state.session
+assert.equal(
+  redoDuplicate.state.session.layerSelection?.layerDocumentId,
+  "root",
+  "Redo does not restore the historical duplicate selection"
 );
 
 const transformInitial = initialize();
@@ -939,19 +962,97 @@ const transformed = commitLayer(
   transformInitial,
   transformTransaction
 );
+const transformHistoryEntry =
+  transformed.state.undoStack.at(-1);
+assert.ok(transformHistoryEntry);
+assert.deepEqual(
+  Object.keys(transformHistoryEntry).sort(),
+  [
+    "affectedLayerDocumentIds",
+    "affectedSourceIds",
+    "after",
+    "before",
+    "label",
+    "origin",
+  ]
+);
+assert.deepEqual(
+  Object.keys(transformHistoryEntry.before).sort(),
+  ["metadata", "payload"]
+);
+assert.deepEqual(
+  transformHistoryEntry.before,
+  transformInitial.currentProject
+);
+assert.deepEqual(
+  transformHistoryEntry.after,
+  transformed.state.currentProject
+);
+assert.deepEqual(
+  Object.keys(transformed.effect).sort(),
+  [
+    "cacheInvalidations",
+    "clearDraft",
+    "recomputeRender",
+    "resetLocalUi",
+    "runtimeCachePolicy",
+    "sourceDisposalIds",
+    "sourceInvalidationIds",
+    "sourceRestorationIds",
+    "stopPlayback",
+    "suspendedSourceDisposalIds",
+  ]
+);
+assert.doesNotMatch(
+  JSON.stringify(transformHistoryEntry),
+  /cacheInvalidations|clearDraft|recomputeRender|resetLocalUi|runtimeSession|selectedTransformKeyframe|stopPlayback|layerSelection|sourceSelection|activeGroupLayerDocumentId|playback|currentFrame/
+);
 assert.deepEqual(
   transformed.state.currentProject.payload.layerDocumentsById.drawing
     .common.transform.position,
   { x: 321, y: 654 }
 );
-const transformUndone = transition(
+const transformLayerSelectionChanged = transition(
   transformed.state,
+  {
+    kind: "set-layer-selection",
+    selection: {
+      kind: "layer-document",
+      layerDocumentId: "text",
+    },
+  }
+);
+const transformSourceSelectionChanged = transition(
+  transformLayerSelectionChanged.state,
+  {
+    kind: "set-source-selection",
+    selection: {
+      kind: "psd-tree-source",
+      sourceId: "unused-source",
+    },
+  }
+);
+const transformGroupChanged = transition(
+  transformSourceSelectionChanged.state,
+  {
+    kind: "set-active-group",
+    layerDocumentId: "group",
+  }
+);
+const transformRuntimeBeforeUndo =
+  transformGroupChanged.state.session;
+const transformUndone = transition(
+  transformGroupChanged.state,
   { kind: "undo" }
 );
 assert.deepEqual(
   transformUndone.state.currentProject.payload.layerDocumentsById
     .drawing.common.transform.position,
   drawing.common.transform.position
+);
+assert.deepEqual(
+  transformUndone.state.session,
+  transformRuntimeBeforeUndo
 );
 const transformRedone = transition(
   transformUndone.state,
@@ -961,6 +1062,10 @@ assert.deepEqual(
   transformRedone.state.currentProject.payload.layerDocumentsById
     .drawing.common.transform.position,
   { x: 321, y: 654 }
+);
+assert.deepEqual(
+  transformRedone.state.session,
+  transformRuntimeBeforeUndo
 );
 
 const domainInitial = initialize();
@@ -985,53 +1090,6 @@ assert.equal(
     .data.documentVersion,
   2
 );
-
-const playbackInitial = initialize({
-  layerDocumentId: "root",
-  currentFrame: 110,
-  range: { startFrame: 100, endFrame: 120 },
-});
-const playbackTransaction = layerTransaction(
-  buildUpdateLayerDocumentDomainTransaction(
-    playbackInitial.currentProject,
-    {
-      layerDocumentId: "root",
-      update: {
-        kind: "set-group-composition-metadata",
-        data: {
-          width: 1080,
-          height: 1920,
-          frameRate: 30,
-          durationFrames: 60,
-        },
-      },
-    }
-  )
-);
-const playbackCommitted = commitLayer(
-  playbackInitial,
-  playbackTransaction
-);
-assert.deepEqual(playbackCommitted.state.session.playback, {
-  currentFrame: 59,
-  range: { startFrame: 59, endFrame: 60 },
-});
-const playbackUndone = transition(
-  playbackCommitted.state,
-  { kind: "undo" }
-);
-assert.deepEqual(
-  playbackUndone.state.session.playback,
-  playbackInitial.session.playback
-);
-const playbackRedone = transition(
-  playbackUndone.state,
-  { kind: "redo" }
-);
-assert.deepEqual(playbackRedone.state.session.playback, {
-  currentFrame: 59,
-  range: { startFrame: 59, endFrame: 60 },
-});
 
 const branchInitial = initialize();
 const branchCreate = commitLayer(
@@ -1135,6 +1193,10 @@ assert.equal(
   undefined
 );
 assert.equal(importUndone.state.session.sourceSelection, null);
+assert.deepEqual(
+  importUndone.effect.sourceInvalidationIds,
+  ["imported-document", "imported-node"]
+);
 const importRedone = transition(importUndone.state, { kind: "redo" });
 assert.ok(
   importRedone.state.currentProject.payload.sourceRegistry.sourcesById[
@@ -1142,8 +1204,12 @@ assert.ok(
   ]
 );
 assert.equal(
-  importRedone.state.session.sourceSelection?.sourceId,
-  "imported-node"
+  importRedone.state.session.sourceSelection,
+  null
+);
+assert.deepEqual(
+  importRedone.effect.sourceRestorationIds,
+  ["imported-document", "imported-node"]
 );
 const unreferencedImportedSource =
   importRedone.state.currentProject.payload
@@ -1240,8 +1306,8 @@ assert.ok(
     .sourcesById["unused-source"]
 );
 assert.equal(
-  sourceDeleteUndone.state.session.sourceSelection?.sourceId,
-  "unused-source"
+  sourceDeleteUndone.state.session.sourceSelection,
+  null
 );
 const sourceDeleteRedone = transition(
   sourceDeleteUndone.state,
@@ -1467,24 +1533,9 @@ if (!emptyRedo.ok) assert.equal(emptyRedo.error.code, "redo-empty");
 const staleSelectionInitial = initialize({
   layerDocumentId: "does-not-exist",
   sourceId: "missing-source",
-  currentFrame: 999,
-  range: { startFrame: 998, endFrame: 999 },
 });
 assert.equal(staleSelectionInitial.session.layerSelection, null);
 assert.equal(staleSelectionInitial.session.sourceSelection, null);
-assert.deepEqual(staleSelectionInitial.session.playback, {
-  currentFrame: 119,
-  range: { startFrame: 119, endFrame: 120 },
-});
-const invalidPlaybackInitialization =
-  createLayerDocumentProjectOwnerState({
-    project: projectFixture(),
-    playback: {
-      currentFrame: Number.NaN,
-      range: { startFrame: 0, endFrame: 10 },
-    },
-  });
-assert.equal(invalidPlaybackInitialization.ok, false);
 
 const historyState = importRedone.state;
 assert.deepEqual(
@@ -1523,7 +1574,6 @@ const taskFiles = [
   "src/engines/project/actions/layerDocumentProjectOwnerHistoryReducer.ts",
   "src/engines/project/actions/layerDocumentProjectOwnerRuntimeSessionReducer.ts",
   "src/engines/project/actions/layerDocumentProjectOwnerReducer.ts",
-  "src/engines/project/useLayerDocumentProjectOwner.ts",
 ];
 taskFiles.forEach((path) => {
   const source = readFileSync(path, "utf8");
@@ -1537,14 +1587,60 @@ taskFiles.forEach((path) => {
   );
   assert.doesNotMatch(source, /\bFacade\b/);
 });
+assert.doesNotMatch(
+  [
+    readFileSync(
+      "src/engines/project/models/layerDocumentProjectOwnerModel.ts",
+      "utf8"
+    ),
+    readFileSync(
+      "src/engines/project/helpers/layerDocumentProjectOwnerHelpers.ts",
+      "utf8"
+    ),
+    readFileSync(
+      "src/engines/project/actions/layerDocumentProjectOwnerReducer.ts",
+      "utf8"
+    ),
+  ].join("\n"),
+  /playback|currentFrame|set-playback-session/
+);
 assert.ok(
   readFileSync(
     "src/engines/project/actions/layerDocumentProjectOwnerReducer.ts",
     "utf8"
   ).split("\n").length <= 251
 );
-const ownerHookSource = readFileSync(
+const editorOwnerFiles = [
+  "src/editor/project-owner/models/editorProjectOwnerModel.ts",
+  "src/editor/project-owner/helpers/editorProjectOwnerPortHelpers.ts",
+  "src/editor/project-owner/useEditorProjectOwner.ts",
+  "src/editor/project-owner/index.ts",
+];
+editorOwnerFiles.forEach((path) => {
+  const source = readFileSync(path, "utf8");
+  assert.doesNotMatch(
+    source,
+    /@\/cutover|@\/features|@\/engines\/(?:canvas|properties|psd-tree|timeline|playback-render)/
+  );
+});
+const compatibilityOwnerSource = readFileSync(
   "src/engines/project/useLayerDocumentProjectOwner.ts",
+  "utf8"
+);
+assert.match(
+  compatibilityOwnerSource,
+  /createLayerDocumentProjectOwnerCompatibilityPort/
+);
+assert.match(
+  compatibilityOwnerSource,
+  /useEditorProjectOwner\(options\)/
+);
+assert.doesNotMatch(
+  compatibilityOwnerSource,
+  /createLayerDocumentProjectOwnerState|reduceLayerDocumentProjectOwner/
+);
+const editorOwnerHookSource = readFileSync(
+  "src/editor/project-owner/useEditorProjectOwner.ts",
   "utf8"
 );
 const ownerLivePortSource = readFileSync(
@@ -1552,12 +1648,8 @@ const ownerLivePortSource = readFileSync(
   "utf8"
 );
 assert.match(
-  ownerHookSource,
-  /createLayerDocumentProjectOwnerLivePort\(\s*stateRef,\s*transition\s*\)/
-);
-assert.match(
-  ownerHookSource,
-  /createLayerDocumentProjectOwnerLivePort\([\s\S]*?\),[\s\S]*?\[state,\s*transition\]\s*\)/
+  editorOwnerHookSource,
+  /createEditorProjectOwnerPort\(\s*initialState,\s*reduceLayerDocumentProjectOwner/
 );
 assert.match(
   ownerLivePortSource,

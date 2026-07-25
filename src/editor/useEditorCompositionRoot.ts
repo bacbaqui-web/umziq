@@ -10,9 +10,21 @@ import {
   SHORTFORM_FRAME_WIDTH,
   useLayerDocumentCanvasComposition,
 } from "@/engines/canvas";
-import type {
-  RendererMode,
+import {
+  formatCompactTime,
+  type RendererMode,
 } from "@/engines/playback-render";
+import {
+  useLayerDocumentPropertiesEngine,
+} from "@/engines/properties";
+import {
+  useLayerDocumentPsdTreeEngine,
+} from "@/engines/psd-tree";
+import {
+  TIMELINE_NAME_COL_WIDTH,
+  TIMELINE_PX_PER_FRAME,
+  useLayerDocumentTimelineEngine,
+} from "@/engines/timeline";
 import type {
   EditorShellLayoutProps,
 } from "@/editor/EditorShellLayout";
@@ -31,6 +43,12 @@ import {
 import {
   useLayerDocumentEditorOwner,
 } from "@/editor/useLayerDocumentEditorOwner";
+import {
+  useLayerDocumentEditorRuntime,
+} from "@/editor/useLayerDocumentEditorRuntime";
+import {
+  useLayerDocumentPanelEnginePorts,
+} from "@/editor/useLayerDocumentPanelEnginePorts";
 
 export function useEditorCompositionRoot():
 EditorShellLayoutProps {
@@ -41,14 +59,63 @@ EditorShellLayoutProps {
   );
   const [rendererMode, setRendererMode] =
     useState<RendererMode>("full-render");
-  const layerDocument =
-    useLayerDocumentEditorOwner("original");
+  const owner = useLayerDocumentEditorOwner();
+  const runtime =
+    useLayerDocumentEditorRuntime(owner);
+  const panelPorts =
+    useLayerDocumentPanelEnginePorts({
+      assembly: runtime.assembly,
+      draftSession: runtime.draftSession,
+      frameInput: runtime.playback,
+      quality: "original",
+    });
+  const scope = runtime.assembly.scope.read();
+  if (!scope.ok) {
+    throw new Error(
+      `LayerDocument scope unavailable: ${scope.reason}`
+    );
+  }
+  const timeline =
+    useLayerDocumentTimelineEngine({
+      assembly: runtime.assembly,
+      playback: runtime.playback,
+      nameColumnWidth:
+        TIMELINE_NAME_COL_WIDTH,
+      defaultPxPerFrame:
+        TIMELINE_PX_PER_FRAME,
+      allocateLayerDocumentId:
+        panelPorts.allocateLayerDocumentId,
+      sourceStatus: panelPorts.sourceStatus,
+      formatTime: formatCompactTime,
+      resetRevision:
+        runtime.ownerEffect.localUiRevision,
+    });
+  const properties =
+    useLayerDocumentPropertiesEngine({
+      port: panelPorts.properties,
+      formatTime: formatCompactTime,
+      resetRevision:
+        runtime.ownerEffect.localUiRevision,
+    });
+  const psdTree =
+    useLayerDocumentPsdTreeEngine({
+      controller:
+        panelPorts.psdTreeController,
+      parentLayerDocumentId:
+        scope.model.activeGroup.layerDocumentId,
+      durationFrames:
+        scope.model.activeGroup.data
+          .durationFrames,
+      nextOrder:
+        panelPorts.nextPsdLayerOrder,
+      cacheContext:
+        panelPorts.readPsdCacheContext,
+    });
   const canvas =
     useLayerDocumentCanvasComposition({
-      readPort: layerDocument.canvasReadPort,
-      commandPort:
-        layerDocument.canvasCommandPort,
-      resources: layerDocument.resources,
+      readPort: panelPorts.canvasRead,
+      commandPort: panelPorts.canvasCommands,
+      resources: runtime.resources,
       viewportState: canvasState,
       interactionState: canvasState,
       rendererMode,
@@ -71,7 +138,7 @@ EditorShellLayoutProps {
       shortformFrameHeight:
         SHORTFORM_FRAME_HEIGHT,
       resetRevision:
-        layerDocument.ownerEffect.revision,
+        runtime.ownerEffect.revision,
     });
   const resetCanvasRuntime = useEffectEvent(() => {
     canvasState.setIsDraggingAnchor(false);
@@ -101,7 +168,7 @@ EditorShellLayoutProps {
   });
   useEffect(() => {
     resetCanvasRuntime();
-  }, [layerDocument.ownerEffect.revision]);
+  }, [runtime.ownerEffect.revision]);
   const { startPanelResize } =
     useEditorShellLayout({
       leftPanelWidth: shell.leftPanelWidth,
@@ -129,8 +196,8 @@ EditorShellLayoutProps {
         canvasState.isPreviewPanning,
     });
   useEditorHistoryShortcuts({
-    undo: layerDocument.assembly.project.undo,
-    redo: layerDocument.assembly.project.redo,
+    undo: runtime.assembly.project.undo,
+    redo: runtime.assembly.project.redo,
   });
   return {
     leftPanelWidth: shell.leftPanelWidth,
@@ -167,13 +234,13 @@ EditorShellLayoutProps {
       shell.timelinePanelHeight
     ),
     psdTreeProps:
-      layerDocument.psdTreeProps,
+      psdTree.viewProps,
     previewPaneProps: canvas.viewProps,
     propertiesPanelProps:
-      layerDocument.propertiesPanelProps,
+      properties.viewProps,
     timelinePanelProps:
-      layerDocument.timelinePanelProps,
+      timeline.viewProps,
     projectLifecycleProps:
-      layerDocument.projectLifecycleProps,
+      runtime.projectLifecycleProps,
   };
 }

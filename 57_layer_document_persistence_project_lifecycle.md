@@ -2,7 +2,11 @@
 
 ## 1. 목적과 문서 경계
 
-이 문서는 `LayerDocumentProject`의 `.sfep` 저장/불러오기와 앱 실행 중 Project lifecycle 계약을 설명한다. Project/Layer/Source/Engine 전체 구조는 `56_layer_document_architecture.md`가 기준이며, 여기서는 persistence envelope, 외부 Source 복구, lifecycle command의 원자성만 상세화한다.
+이 문서는 `LayerDocumentProject`의 `.sfep` 저장/불러오기와 앱 실행 중
+Project lifecycle 계약을 설명한다. Project Owner, Layer, Source와 Panel
+Engine 전체 구조는 `56_layer_document_architecture.md`가 기준이며, 여기서는
+persistence envelope, 외부 Source 복구, lifecycle command의 원자성만
+상세화한다.
 
 핵심 목표는 다음과 같다.
 
@@ -63,7 +67,9 @@ bytes 제한/UTF-8/JSON
 
 Schema 1→2 migration은 순수 Plain Data 변환이다. 이전 경로/파일명은 linked locator hint로 옮기지만 이전 fingerprint나 available 표시는 신뢰하지 않는다. linked Source의 `contentFingerprint`는 `null`이 되며 실제 파일의 SHA-256을 확인하기 전에는 자동 연결할 수 없다. Migration은 파일 접근이나 Runtime resource 생성을 하지 않는다.
 
-Save→Load→Save는 유효한 current Project에 대해 동일한 canonical bytes를 만든다. Codec가 Load Candidate를 반환하기 전에는 owner, Runtime Resolution, resource cache와 Save target을 변경하지 않는다.
+Save→Load→Save는 유효한 current Project에 대해 동일한 canonical bytes를
+만든다. Codec가 Load Candidate를 반환하기 전에는 Project Owner, Runtime
+Resolution, resource cache와 Save target을 변경하지 않는다.
 
 ## 5. Lifecycle과 Dirty
 
@@ -75,7 +81,12 @@ Lifecycle state는 세 축을 가진다.
 
 Dirty는 object identity나 UI flag가 아니라 canonical Project digest와 savepoint digest 비교로 계산한다. 따라서 Save가 진행되는 동안 후속 편집이 생기면 이전 snapshot 저장 성공 뒤에도 dirty이며, Undo로 savepoint 내용에 돌아오면 clean이다.
 
-비동기 Save/Open은 증가하는 operation token을 사용한다. 더 최신 작업이 시작된 뒤 도착한 stale 결과는 Project나 savepoint를 교체하지 않는다. 검증된 New/Open candidate의 `replace-project`만 owner를 바꾸며, 성공 시 History/session을 초기화하고 playback 정지, Draft/local UI reset, Source Resolution reset과 Runtime cache invalidation을 기존 owner effect 경계로 수행한다.
+비동기 Save/Open은 증가하는 operation token을 사용한다. 더 최신 작업이
+시작된 뒤 도착한 stale 결과는 Project나 savepoint를 교체하지 않는다.
+검증된 New/Open candidate의 `replace-project`만 Project Owner를 바꾸며,
+성공 시 History와 project-scoped Runtime을 초기화하고 playback 정지,
+Draft/local UI reset, Source Resolution reset과 Runtime cache invalidation을
+기존 Owner effect 경계로 수행한다.
 
 ## 6. Save와 Save As
 
@@ -96,12 +107,15 @@ Open은 picker에서 얻은 `.sfep` bytes를 codec로 먼저 검증한다. 유�
 2. 접근 가능하면 실제 파일로 prepared Runtime 생성
 3. 저장 fingerprint와 실제 SHA-256/byte length 일치 확인
 4. resource batch preflight
-5. 같은 load token에서 owner Replace
+5. 같은 load token에서 Project Owner Replace
 6. Runtime batch 등록과 Resolution 반영
 
 모든 Source가 준비되면 `ready`, 일부가 접근 불가이거나 준비에 실패하면 `ready-degraded`다. Ready-Degraded도 Plain Data Project 편집을 허용하며, 실패한 document Source와 dependent PSD node를 Missing/Error로 표시한다.
 
-손상 파일, unsupported schema, stale load와 owner Replace 실패는 기존 Project, Runtime과 Save target을 유지하고 prepared resource를 dispose한다. 성공한 native Open만 해당 파일 handle을 이후 Save target으로 commit한다.
+손상 파일, unsupported schema, stale load와 Project Owner Replace 실패는
+기존 Project, Runtime과 Save target을 유지하고 prepared resource를
+dispose한다. 성공한 native Open만 해당 파일 handle을 이후 Save target으로
+commit한다.
 
 ## 8. Missing Source와 Reconnect
 
@@ -119,7 +133,8 @@ Mismatch와 legacy fingerprint는 자동 승인하지 않는다. descriptor를 �
 
 ## 9. Editor UI 경계
 
-Shell의 lifecycle bar는 lifecycle/save/open/reconnect 공개 port만 사용한다. owner Project, Draft, playback, Runtime cache를 직접 변경하지 않는다.
+Shell의 lifecycle bar는 lifecycle/save/open/reconnect 공개 port만 사용한다.
+Project Owner state, Draft, playback, Runtime cache를 직접 변경하지 않는다.
 
 - New/Open/Close: dirty이면 discard confirmation
 - Cancel: 현재 Project와 Save target 보존
@@ -132,14 +147,17 @@ New command의 Project factory는 초기 bootstrap 호환 ID를 재사용하지 
 
 ## 10. Runtime 미저장과 재구축
 
-Project/History/`.sfep`에는 다음이 들어가지 않는다.
+`LayerDocumentProject`만 `.sfep`와 History snapshot에 들어간다. 다음 값은
+Project/History/`.sfep`에 들어가지 않는다.
 
 - File/handle/permission
 - Source Runtime Resolution
 - decoded PSD pixels와 prepared resource
 - Canvas/ImageBitmap/surface/composition cache
 - evaluated scene와 renderer command
-- playback clock, panel state, pointer Draft
+- layer/source selection과 active Group
+- current frame, playback range/clock/transport
+- panel state, pointer Draft와 선택된 keyframe
 
 Load는 descriptor와 외부 파일을 이용해 Runtime을 재구축한다. 외부 파일이 없으면 저장 데이터 자체를 훼손하지 않고 Missing/Error 상태로 남긴다. 이 분리로 canonical roundtrip은 브라우저 capability와 무관하며 Runtime dispose/rebuild가 Project serialization을 바꾸지 않는다.
 
@@ -166,4 +184,12 @@ Load는 descriptor와 외부 파일을 이용해 Runtime을 재구축한다. 외
 - Blob fallback Save는 같은 파일에 대한 지속 writable target을 제공하지 않는다.
 - 실제 browser picker·permission·download 통합 검증은 별도 환경에서 수행해야 한다.
 
-새 Layer Type은 `LayerDocument.type/data`, 필요한 Source descriptor와 Domain Engine preparation을 추가하되 envelope, canonical codec, owner lifecycle, Dirty/savepoint, Ready-Degraded와 Reconnect port를 그대로 재사용한다. 별도 Project root, 저장 store 또는 Runtime 직렬화를 추가하지 않는다.
+새 Layer Type은 `LayerDocument.type/data`, 필요한 Source descriptor와 기존
+Panel command/capability를 추가하되 envelope, canonical codec, Project
+Owner lifecycle, Dirty/savepoint, Ready-Degraded와 Reconnect port를 그대로
+재사용한다. 독립 Panel이 생길 때만 짝을 이루는 Engine 추가를 검토하며,
+별도 Project root, 저장 store 또는 Runtime 직렬화를 추가하지 않는다.
+
+Render 구조, 명칭, 파일 위치, public export와 책임은 후속 Render Sprint
+전까지 동결한다. Persistence는 Render Runtime을 저장하지 않는 현재 계약만
+유지하며 Render 내부 구조를 변경하지 않는다.

@@ -1,3 +1,4 @@
+/** Pure keyframe interpolation. */
 import type {
   OpacityKeyframe,
   Position,

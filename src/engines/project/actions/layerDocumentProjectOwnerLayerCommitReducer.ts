@@ -90,8 +90,6 @@ export function commitLayerDocumentOwnerTransaction(
   });
   const historyEntry: LayerDocumentOwnerHistoryEntry = {
     origin: "layer-transaction",
-    runtimeCachePolicy: "preserve",
-    sourceInvalidationIds: [],
     label: transaction.historyEntry.label,
     affectedLayerDocumentIds: [
       ...transaction.historyEntry.affectedLayerDocumentIds,
@@ -99,11 +97,9 @@ export function commitLayerDocumentOwnerTransaction(
     affectedSourceIds: [],
     before: cloneOwnerSnapshot({
       project: state.currentProject,
-      session: state.session,
     }),
     after: cloneOwnerSnapshot({
       project: nextProject,
-      session: nextSession,
     }),
   };
   const nextUndo = [

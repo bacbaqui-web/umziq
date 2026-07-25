@@ -1,3 +1,4 @@
+/** Pure Modifier definitions, normalization and lookup. */
 import type {
   ModifierInstance,
   ModifierNumberField,

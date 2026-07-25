@@ -5,7 +5,7 @@ import {
 } from "react";
 import {
   ANIMATABLE_PROPERTIES,
-} from "@/engines/animation";
+} from "@/animation";
 import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesCommandPort,

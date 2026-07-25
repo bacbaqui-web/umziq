@@ -48,7 +48,7 @@ export interface LayerDocumentPropertiesRuntimePort {
 }
 
 /**
- * The cutover side must evaluate this context in owner playback order:
+ * The cutover side evaluates this context at the injected Timeline frame:
  * global frame -> placement local frame -> animation/modifiers -> matching
  * common Draft snapshot. The Properties engine intentionally cannot import
  * the cutover assembly.

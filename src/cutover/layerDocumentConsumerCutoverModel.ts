@@ -46,18 +46,18 @@ import type {
   LayerDocumentDrawingPreparationPort,
   LayerDocumentDrawingQueryResult,
   ReplaceLayerDocumentDrawingCommand,
-} from "@/engines/drawing";
+} from "@/layer-types";
 import type {
   LayerDocumentTextPreparationPort,
   LayerDocumentTextQueryResult,
   ReplaceLayerDocumentTextCommand,
-} from "@/engines/text";
+} from "@/layer-types";
 import type {
   LayerDocumentAudioPreparationPort,
   LayerDocumentAudioFutureCommand,
   LayerDocumentAudioQueryResult,
   LayerDocumentAudioUnsupportedPreparation,
-} from "@/engines/audio";
+} from "@/layer-types";
 import type {
   PsdSourceTreeReadModel,
 } from "@/engines/project";
@@ -186,11 +186,6 @@ export interface LayerDocumentTimelineConsumerViewProps {
     LayerDocumentTransformKeyframeSelection | null;
   readonly acknowledgedSourceStatuses:
     readonly LayerDocumentSourceStatusIdentity[];
-  readonly currentFrame: number;
-  readonly playbackRange: {
-    readonly startFrame: number;
-    readonly endFrame: number;
-  };
   readonly scope: LayerDocumentGroupScopeReadModelResult;
   readonly rows: readonly LayerDocumentTimelineConsumerRow[];
   readonly commands: {
@@ -233,14 +228,6 @@ export interface LayerDocumentConsumerCutoverAssembly {
       layerDocumentId: string
     ) => LayerDocumentCutoverCommandResult;
   };
-  readonly playback: {
-    readonly read: () =>
-      LayerDocumentProjectOwnerPort["state"]["session"]["playback"];
-    readonly set: (
-      playback:
-        LayerDocumentProjectOwnerPort["state"]["session"]["playback"]
-    ) => LayerDocumentCutoverCommandResult;
-  };
   readonly timeline: {
     readonly readViewProps: () =>
       LayerDocumentTimelineConsumerViewProps;
@@ -259,11 +246,13 @@ export interface LayerDocumentConsumerCutoverAssembly {
     readonly readViewProps: (options: {
       quality: string;
       rendererMode: RendererMode;
+      globalFrame: number;
     }) => LayerDocumentCanvasConsumerViewProps;
     readonly pointerMove: (options: {
       layerDocumentId: string;
       patch: PreviewSceneTransformPatch;
       quality: string;
+      globalFrame: number;
     }) => LayerDocumentDraftInteractionPreparation | null;
     readonly pointerUp: () =>
       LayerDocumentCutoverCommandResult<

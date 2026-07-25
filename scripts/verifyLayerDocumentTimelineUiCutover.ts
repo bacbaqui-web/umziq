@@ -24,13 +24,13 @@ import {
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
-} from "@/engines/drawing";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
-} from "@/engines/text";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
-} from "@/engines/audio";
+} from "@/layer-types";
 import {
   buildLayerDocumentTimelineUiReadModel,
 } from "@/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers";
@@ -221,13 +221,6 @@ const initialized =
       layerDocumentId: "video-a",
     },
     activeGroupLayerDocumentId: "root",
-    playback: {
-      currentFrame: 12,
-      range: {
-        startFrame: 0,
-        endFrame: 79,
-      },
-    },
   });
 assert.equal(initialized.ok, true);
 if (!initialized.ok) {
@@ -744,8 +737,8 @@ assert.equal(
 playback.commands.seek(70);
 assert.equal(
   playback.read().currentFrame,
-  owner.state.session.playback.currentFrame,
-  "public playback read always reflects owner current/range"
+  70,
+  "public playback read is the Timeline Runtime authority"
 );
 
 const historyBeforeDuration =
@@ -758,6 +751,7 @@ assert.equal(
   }).ok,
   true
 );
+playback.validity.reconcile();
 assert.equal(
   owner.state.undoStack.length,
   historyBeforeDuration + 1
@@ -773,13 +767,13 @@ const rootAfter =
 assert.ok(rootAfter.type === "group");
 assert.equal(rootAfter.data.durationFrames, 40);
 assert.equal(
-  owner.state.session.playback.currentFrame,
+  playback.read().currentFrame,
   39
 );
 assert.equal(
-  owner.state.session.playback.range.endFrame,
+  playback.read().range.endFrame,
   40,
-  "active Group duration commit normalizes owner playback in the same transition"
+  "active Group duration commit clamps Timeline Runtime through validity"
 );
 playback.dispose();
 

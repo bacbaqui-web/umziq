@@ -96,7 +96,26 @@ export function abandonedSourceRuntimeIds(options: {
 }): string[] {
   const collect = (
     entries: readonly LayerDocumentOwnerHistoryEntry[]
-  ) => entries.flatMap((entry) => entry.sourceInvalidationIds);
+  ) => entries.flatMap((entry) => {
+    const beforeIds = new Set(
+      Object.keys(
+        entry.before.payload.sourceRegistry.sourcesById
+      )
+    );
+    const afterIds = new Set(
+      Object.keys(
+        entry.after.payload.sourceRegistry.sourcesById
+      )
+    );
+    return [
+      ...[...beforeIds].filter(
+        (sourceId) => !afterIds.has(sourceId)
+      ),
+      ...[...afterIds].filter(
+        (sourceId) => !beforeIds.has(sourceId)
+      ),
+    ];
+  });
   const previousIds = new Set([
     ...collect(options.previous.undoStack),
     ...collect(options.previous.redoStack),
@@ -108,6 +127,33 @@ export function abandonedSourceRuntimeIds(options: {
   return [...previousIds]
     .filter((sourceId) => !retainedIds.has(sourceId))
     .sort();
+}
+
+export function ownerSourceRuntimePresenceDiff(options: {
+  from: LayerDocumentProjectOwnerState["currentProject"];
+  to: LayerDocumentProjectOwnerState["currentProject"];
+}): {
+  sourceInvalidationIds: string[];
+  sourceRestorationIds: string[];
+} {
+  const fromIds = new Set(
+    Object.keys(
+      options.from.payload.sourceRegistry.sourcesById
+    )
+  );
+  const toIds = new Set(
+    Object.keys(
+      options.to.payload.sourceRegistry.sourcesById
+    )
+  );
+  return {
+    sourceInvalidationIds: [...fromIds]
+      .filter((sourceId) => !toIds.has(sourceId))
+      .sort(),
+    sourceRestorationIds: [...toIds]
+      .filter((sourceId) => !fromIds.has(sourceId))
+      .sort(),
+  };
 }
 
 export function failOwnerTransition(

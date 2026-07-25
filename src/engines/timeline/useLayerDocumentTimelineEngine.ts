@@ -67,6 +67,15 @@ type NativePointerSession =
       readonly startClientX: number;
     };
 
+const EMPTY_PLAYBACK_SNAPSHOT = {
+  currentFrame: 0,
+  range: {
+    startFrame: 0,
+    endFrame: 1,
+  },
+  isPlaying: false,
+} as const;
+
 export type UseLayerDocumentTimelineEngineOptions = {
   assembly: LayerDocumentTimelineOwnerPort;
   playback: LayerDocumentTimelinePlaybackPort;
@@ -136,19 +145,12 @@ export function useLayerDocumentTimelineEngine(
         : null,
     [scope]
   );
-  const isPlaying = useSyncExternalStore(
+  const playback = useSyncExternalStore(
     options.playback.subscribe,
-    () => options.playback.read().isPlaying,
-    () => false
+    options.playback.read,
+    () => EMPTY_PLAYBACK_SNAPSHOT
   );
   const playbackPort = options.playback;
-  const playback = useMemo(
-    () => ({
-      ...playbackPort.read(),
-      isPlaying,
-    }),
-    [isPlaying, playbackPort]
-  );
   const playbackUiCommands = useMemo(
     () => ({
       play: playbackPort.commands.play,

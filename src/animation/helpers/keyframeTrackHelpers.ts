@@ -1,3 +1,4 @@
+/** Pure keyframe track queries and immutable updates. */
 import type {
   OpacityKeyframe,
   PositionKeyframe,

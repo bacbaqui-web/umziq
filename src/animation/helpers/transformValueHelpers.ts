@@ -1,3 +1,4 @@
+/** Pure transform scalar normalization. */
 export function clampOpacity(value: number) {
   return Math.min(100, Math.max(0, value));
 }

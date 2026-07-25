@@ -1,5 +1,5 @@
 import type { Position, Scale } from "@/models";
-import { normalizeRotationDegrees } from "@/engines/animation";
+import { normalizeRotationDegrees } from "@/animation";
 
 export function degreesToRadians(value: number) {
   return (value * Math.PI) / 180;

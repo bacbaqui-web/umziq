@@ -4,11 +4,13 @@ import type {
 } from "@/engines/project/models/layerDocumentProjectOwnerModel";
 import {
   cloneOwnerHistoryEntry,
+  normalizeOwnerSessionForHistory,
   ownerStateWithStacks,
   validateOwnerSnapshot,
 } from "@/engines/project/helpers/layerDocumentProjectOwnerHelpers";
 import {
   failOwnerTransition,
+  ownerSourceRuntimePresenceDiff,
   projectTransitionEffect,
   successOwnerTransition,
 } from "@/engines/project/actions/layerDocumentProjectOwnerTransitionHelpers";
@@ -46,14 +48,23 @@ export function restoreLayerDocumentOwnerHistory(
   const nextRedo = direction === "undo"
     ? [...state.redoStack, cloneOwnerHistoryEntry(entry)]
     : remaining;
+  const session = normalizeOwnerSessionForHistory({
+    project: validated.snapshot,
+    current: state.session,
+  });
+  const sourceRuntimeDiff =
+    ownerSourceRuntimePresenceDiff({
+      from: state.currentProject,
+      to: validated.snapshot,
+    });
   return successOwnerTransition({
     previous: state,
     state: ownerStateWithStacks({
-      project: validated.snapshot.project,
-      session: validated.snapshot.session,
+      project: validated.snapshot,
+      session,
       runtimeSession: normalizeOwnerRuntimeSession({
-        project: validated.snapshot.project,
-        session: validated.snapshot.session,
+        project: validated.snapshot,
+        session,
         runtimeSession: state.runtimeSession,
       }),
       undoStack: nextUndo,
@@ -61,15 +72,9 @@ export function restoreLayerDocumentOwnerHistory(
     }),
     effect: projectTransitionEffect({
       preserveSourceRuntime:
-        entry.runtimeCachePolicy === "preserve",
-      sourceInvalidationIds:
-        direction === "redo"
-          ? entry.sourceInvalidationIds
-          : [],
-      sourceRestorationIds:
-        direction === "undo"
-          ? entry.sourceInvalidationIds
-          : [],
+        sourceRuntimeDiff.sourceInvalidationIds.length === 0 &&
+        sourceRuntimeDiff.sourceRestorationIds.length === 0,
+      ...sourceRuntimeDiff,
     }),
   });
 }

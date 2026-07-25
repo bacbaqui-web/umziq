@@ -11,18 +11,24 @@ main.tsx
   → App
   → EditorShell
   → useEditorCompositionRoot
-  → useLayerDocumentEditorOwner
+      → useLayerDocumentEditorOwner
       → LayerDocument Project Owner
+      → useLayerDocumentEditorRuntime
       → LayerDocument Consumer Assembly
       → Project Lifecycle / Save / Open / Reconnect ports
       → Source Runtime Resolution / Resource Registry
-      → Timeline / Properties / PSD Tree ports
-  → useLayerDocumentCanvasComposition
+      → shared Transform Draft / Timeline Runtime
+      → useLayerDocumentPanelEnginePorts
+      → Canvas / Timeline / Properties / PSD Tree Engine
   → EditorShellLayout
       → Project Lifecycle Bar / PSD Tree / Canvas / Properties / Timeline UI
 ```
 
-`src/editor/useEditorCompositionRoot.ts`가 제품 Composition Root다. Shell/Canvas의 로컬 UI 상태를 조립하고, `useLayerDocumentEditorOwner.ts`가 제공하는 동일 Project owner와 command/read port를 모든 소비자에 연결한다.
+`src/editor/useEditorCompositionRoot.ts`가 제품 Composition Root다. 동일
+Project Owner와 저장되지 않는 Editor Runtime의 최소 port를 네 Panel
+Engine에 주입하고 ViewProps를 Shell에 연결한다. Root는 current frame을
+저장하지 않으며 Timeline Runtime의 동일 read/subscribe/command port를
+Timeline과 Canvas/Properties frame input 경계로 전달한다.
 
 ## 2. 저장 데이터와 identity
 
@@ -71,8 +77,14 @@ Duplicate는 같은 Source를 참조하는 새 LayerDocument를 만들고 공통
 
 - `layerDocumentEditorBootstrap.ts`: 빈 Source Registry와 project-root Group 하나를 가진 초기 Project 생성
 - `layerDocumentEditorProjectIdentity.ts`: 새 Project마다 고유 `projectId`를 생성하고 `projectId + locatorId` session-local handle key 구성
-- `useLayerDocumentEditorOwner.ts`: Project owner, lifecycle/save/open/reconnect 공개 포트, runtime Source resolution/resource cache, Draft session, consumer assembly, panel engines 조립
-- `useEditorCompositionRoot.ts`: Editor 전체 UI/Engine Composition Root
+- `project-owner/index.ts`: Editor Project Owner의 단일 public entry
+- `project-owner/useEditorProjectOwner.ts`: Project Owner 인스턴스 1개와 안정적인 read/command(effect result) port 생성
+- `project-owner/models/editorProjectOwnerModel.ts`: Panel Runtime을 포함하지 않는 Owner 공개 port 계약
+- `project-owner/helpers/editorProjectOwnerPortHelpers.ts`: Owner port factory와 기존 Project Engine/cutover용 무상태 compatibility adapter
+- `useLayerDocumentEditorOwner.ts`: 단일 Editor Project Owner 인스턴스 생성
+- `useLayerDocumentEditorRuntime.ts`: consumer assembly, lifecycle/save/open/reconnect, Source Runtime, shared Draft와 Timeline Runtime 수명 관리
+- `useLayerDocumentPanelEnginePorts.ts`: 동일 Owner/Runtime을 Canvas/Timeline/Properties/PSD Tree의 최소 입력 port로 변환
+- `useEditorCompositionRoot.ts`: 네 Panel Engine 생성과 ViewProps 연결만 수행하는 Editor Composition Root
 - `projectLifecycleUi.ts`: lifecycle 공개 포트만 사용하는 New/Open/Save/Save As/Close/Reconnect UI command와 구조화 ViewModel
 - `ProjectLifecycleBar.tsx`: clean/dirty/saving/loading, 오류, Missing Source와 Reconnect entry를 표시하는 Shell 상단 UI
 - `state/useEditorCanvasRuntimeState.ts`: drag, hover, pan 같은 Canvas 전용 세션 상태
@@ -80,19 +92,26 @@ Duplicate는 같은 Source를 참조하는 새 LayerDocument를 만들고 공통
 - `useEditorHistoryShortcuts.ts`: owner undo/redo에 keyboard intent 전달
 - `EditorShell.tsx`, `EditorShellLayout.tsx`: UI 배치
 
-Project 저장 데이터는 owner만 교체한다. lifecycle UI는 owner/Runtime을 직접 변경하지 않고 Project Engine의 lifecycle/save/open/reconnect port만 호출한다. 선택, active Group, playback range/current frame도 owner session에 있고 undo/redo snapshot과 함께 관리된다. PointerMove Transform은 `LayerDocumentTransformDraftSnapshot`만 바꾸며 PointerUp에서 transaction과 History 한 건으로 commit한다.
+Project 저장 데이터는 Project Owner만 교체한다. lifecycle UI는
+Owner/Runtime을 직접 변경하지 않고 lifecycle/save/open/reconnect 공개
+port만 호출한다. 선택과 active Group은 Owner의 Selection Runtime이고,
+playback range/current frame/isPlaying/clock/transport는 Timeline Runtime
+한 곳에서만 소유한다. Undo/Redo와 Project/Group 전환은 현재 frame/range를
+유지하며 새 duration을 벗어날 때만 Timeline validity command로 clamp한다.
+PointerMove Transform은 `LayerDocumentTransformDraftSnapshot`만 바꾸며
+PointerUp에서 transaction과 History 한 건으로 commit한다.
 
-## 4. Project Core Engine
+## 4. Project Owner 내부 구현과 compatibility
 
 ### `src/engines/project`
 
-- `useLayerDocumentProjectOwner.ts`: React owner facade
+- `useLayerDocumentProjectOwner.ts`: Editor Project Owner를 위임하는 임시 React compatibility entry
 - `actions/layerDocumentProjectOwnerReducer.ts`: owner action dispatch
 - `actions/layerDocumentProjectOwnerLayerCommitReducer.ts`: Layer transaction commit
 - `actions/layerDocumentProjectOwnerSourceCommitReducer.ts`: Source lifecycle commit
 - `actions/layerDocumentProjectOwnerReplaceReducer.ts`: 검증된 Project의 원자 교체와 Session/History 초기화
-- `actions/layerDocumentProjectOwnerHistoryReducer.ts`: undo/redo
-- `actions/layerDocumentProjectOwnerRuntimeSessionReducer.ts`: selection/playback session
+- `actions/layerDocumentProjectOwnerHistoryReducer.ts`: Project-only undo/redo와 현재 Runtime 유효성 보정
+- `actions/layerDocumentProjectOwnerRuntimeSessionReducer.ts`: keyframe 선택과 Source status acknowledgment Runtime
 - `actions/layerDocumentSourceImportTransaction.ts`: PSD import transaction
 - `actions/layerDocumentPsdRefreshTransaction.ts`: stable Source identity 기반 refresh
 - `actions/layerDocumentSourceDeleteTransaction.ts`: source/layer delete policy
@@ -126,7 +145,7 @@ Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure�
 
 이 디렉터리는 이름과 달리 현재 실행 경로의 active wiring이다.
 
-- `createLayerDocumentConsumerCutoverAssembly.ts`: Project/selection/scope/playback/runtime/source command 및 read port 조립
+- `createLayerDocumentConsumerCutoverAssembly.ts`: Project/selection/scope/runtime/source command 및 read port 조립
 - `layerDocumentConsumerCutoverModel.ts`: 조립 port 계약
 - `layerDocumentCanvasCommandPortAdapter.ts`: Canvas semantic command 연결
 - `layerDocumentTimelineConsumerAdapter.ts`: Timeline projection
@@ -189,7 +208,7 @@ Draft 중에는 composition cache 전체를 우회해 immutable committed snapsh
 - `helpers/layerDocumentTimelineViewModelHelpers.ts`: placement/animation/selection을 row와 keyframe으로 projection
 - `adapters/layerDocumentTimelineInteractionController.ts`: move/trim/reorder/keyframe Draft와 commit intent
 - `adapters/layerDocumentTimelineNavigationController.ts`: active Group/selection navigation
-- `adapters/layerDocumentTimelinePlaybackAdapter.ts`: playback session
+- `adapters/layerDocumentTimelinePlaybackAdapter.ts`: current frame/range, isPlaying, clock, scheduler와 transport를 단독 소유하는 Timeline Runtime 및 validity command
 
 Timeline은 Layer를 저장하지 않고 LayerDocument placement/animation을 표시한다.
 
@@ -208,14 +227,33 @@ Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Dr
 - Project Engine의 controller/port를 받아 import/refresh/delete/reorder/select intent를 연결
 - Source Registry와 Group LayerDocument graph를 Tree read model로 표시하며 Source 가용성은 runtime resolution에서 읽음
 
-## 9. Domain Engine
+## 9. Pure Animation과 Layer Type 지원
 
-- `src/engines/drawing`: Drawing LayerDocument preparation/capability 경계
-- `src/engines/text`: Text LayerDocument preparation/capability 경계
-- `src/engines/audio`: Audio LayerDocument preparation/capability 경계
-- `src/engines/animation`: 공통 animation/keyframe/modifier helper와 command 모델
+- `src/animation/index.ts`: keyframe 조회/불변 갱신, 보간 평가, global/local
+  frame 변환, Modifier 정규화/결정적 계산, motion-path sampling의 단일 pure
+  public entry
+- `src/engines/animation/index.ts`: Render Sprint까지 유지하는
+  `@/engines/animation` compatibility re-export
 
-Drawing/Text는 현재 placeholder render와 최소 데이터 준비까지만 제공한다. Audio의 편집/재생은 future work다. Video/Shape는 schema와 extension point만 있다.
+Animation은 state, Runtime authority, Project 편집 원본을 소유하지 않는다.
+Timeline/Properties/Canvas 같은 비-Render 소비자는 `@/animation`만 사용하고
+Project 편집은 계속 Owner command로 수행한다. Playback/Render는 동결된 기존
+import 경로를 compatibility entry를 통해 사용한다.
+
+- `src/layer-types/index.ts`: Drawing/Text query와 transaction preparation,
+  Audio unsupported capability의 단일 public entry
+- `src/layer-types/drawingSupport.ts`: Drawing data clone query와 Owner에
+  전달할 domain transaction 준비
+- `src/layer-types/textSupport.ts`: Text data clone query와 Owner에 전달할
+  domain transaction 준비
+- `src/layer-types/audioSupport.ts`: 빈 Audio domain query와 변경 없는
+  unsupported preparation
+
+Drawing/Text/Audio는 독립 Panel과 Runtime authority가 없으므로 Engine이
+아니다. Properties Type section과 cutover compatibility가 이 단일 entry를
+소비하며 실제 변경은 Owner transaction으로 commit한다. Drawing/Text의
+placeholder render와 최소 데이터 준비는 유지하고 Audio 편집/재생은 future
+work다. Video/Shape는 schema와 extension point만 있다.
 
 ## 10. Feature UI
 
@@ -248,6 +286,9 @@ Feature UI는 Project object를 직접 mutation하지 않고 Engine view props�
 - `.sfep` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/PSD Tree consumer cutover
+- pure Animation public entry의 keyframe/evaluation/frame conversion/modifier/motion-path 계산
+- Drawing/Text Owner transaction, Audio unsupported capability와 기존
+  placeholder descriptor
 - engine import boundary와 active public barrel removal
 - full/fast render, previous-scene reuse, dirty region, composition/surface/source cache
 

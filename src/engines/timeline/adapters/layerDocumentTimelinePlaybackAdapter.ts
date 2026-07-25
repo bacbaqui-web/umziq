@@ -1,6 +1,3 @@
-import type {
-  LayerDocumentTimelineOwnerPort,
-} from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 import {
   advancePlaybackFrame,
   clampPlaybackFrame,
@@ -9,8 +6,10 @@ import {
   stepPlaybackFrame,
 } from "@/engines/playback-render";
 import type {
+  LayerDocumentTimelineOwnerPort,
   LayerDocumentTimelinePlaybackPort,
   LayerDocumentTimelinePlaybackScheduler,
+  LayerDocumentTimelineRuntimePort,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 
 export const WINDOW_TIMELINE_PLAYBACK_SCHEDULER:
@@ -22,77 +21,104 @@ LayerDocumentTimelinePlaybackScheduler = {
 };
 
 /**
- * External Timeline playback Runtime. It owns the clock and isPlaying only;
- * currentFrame/range always read and write the LayerDocument owner session.
+ * Timeline Engine Runtime is the only current-frame, range, transport and
+ * clock authority. Project Owner and the Editor root only expose project
+ * scope and wire this port to consumers.
  */
 export function createLayerDocumentTimelinePlaybackRuntime(
   options: {
-    assembly: LayerDocumentTimelineOwnerPort;
+    assembly: Pick<
+      LayerDocumentTimelineOwnerPort,
+      "scope"
+    >;
     scheduler:
       LayerDocumentTimelinePlaybackScheduler;
     clearDraft?: () => void;
   }
-): LayerDocumentTimelinePlaybackPort & {
-  readonly dispose: () => void;
-  readonly synchronizeClock: () => void;
-} {
-  let isPlaying = false;
-  let clockHandle: unknown = null;
-  let scheduledFrameRate: number | null = null;
-  const listeners = new Set<() => void>();
-  const notify = () => {
-    listeners.forEach((listener) => listener());
-  };
+): LayerDocumentTimelineRuntimePort {
   const metadata = () => {
     const scope = options.assembly.scope.read();
     return scope.ok
       ? {
           durationFrames:
-            scope.model.activeGroup.data.durationFrames,
+            scope.model.activeGroup.data
+              .durationFrames,
           frameRate:
             scope.model.activeGroup.data.frameRate,
         }
       : { durationFrames: 1, frameRate: 1 };
   };
-  const publishPlayback = (
-    currentFrame: number,
-    range =
-      options.assembly.playback.read().range
-  ) => {
-    options.assembly.playback.set({
+  const initialMetadata = metadata();
+  let currentFrame = 0;
+  let range = normalizePlaybackRange(
+    {
+      startFrame: 0,
+      endFrame: Math.max(
+        initialMetadata.durationFrames - 1,
+        1
+      ),
+    },
+    initialMetadata.durationFrames
+  );
+  let isPlaying = false;
+  let clockHandle: unknown = null;
+  let scheduledFrameRate: number | null = null;
+  const listeners = new Set<() => void>();
+  let snapshot = {
+    currentFrame,
+    range,
+    isPlaying,
+  };
+  const refreshSnapshot = () => {
+    snapshot = {
       currentFrame,
       range,
-    });
-    notify();
+      isPlaying,
+    };
+  };
+  const read: LayerDocumentTimelinePlaybackPort["read"] =
+    () => snapshot;
+  const notify = () => {
+    listeners.forEach((listener) => listener());
+  };
+  const publish = (
+    nextFrame: number,
+    nextRange = range
+  ) => {
+    const changed =
+      currentFrame !== nextFrame ||
+      range.startFrame !== nextRange.startFrame ||
+      range.endFrame !== nextRange.endFrame;
+    currentFrame = nextFrame;
+    range = nextRange;
+    if (changed) {
+      refreshSnapshot();
+      notify();
+    }
   };
   const stopClock = () => {
-    if (clockHandle !== null) {
-      options.scheduler.clearRepeating(
-        clockHandle
-      );
-      clockHandle = null;
-      scheduledFrameRate = null;
-    }
+    if (clockHandle === null) return;
+    options.scheduler.clearRepeating(clockHandle);
+    clockHandle = null;
+    scheduledFrameRate = null;
   };
   const pause = () => {
     stopClock();
     if (!isPlaying) return;
     isPlaying = false;
+    refreshSnapshot();
     notify();
   };
   const tick = () => {
     if (!isPlaying) return;
     options.clearDraft?.();
-    const playback =
-      options.assembly.playback.read();
-    const { durationFrames } = metadata();
     const next = advancePlaybackFrame(
-      playback.currentFrame,
-      durationFrames,
-      playback.range.startFrame,
-      playback.range.endFrame
+      currentFrame,
+      metadata().durationFrames,
+      range.startFrame,
+      range.endFrame
     );
-    publishPlayback(next.frame, playback.range);
+    publish(next.frame);
     if (next.shouldStop) pause();
   };
   const play = () => {
@@ -102,20 +128,14 @@ export function createLayerDocumentTimelinePlaybackRuntime(
       return;
     }
     options.clearDraft?.();
-    const playback =
-      options.assembly.playback.read();
     if (
-      playback.currentFrame <
-        playback.range.startFrame ||
-      playback.currentFrame >=
-        playback.range.endFrame
+      currentFrame < range.startFrame ||
+      currentFrame >= range.endFrame
     ) {
-      publishPlayback(
-        playback.range.startFrame,
-        playback.range
-      );
+      publish(range.startFrame);
     }
     isPlaying = true;
+    refreshSnapshot();
     scheduledFrameRate = frameRate;
     clockHandle =
       options.scheduler.setRepeating(
@@ -138,19 +158,21 @@ export function createLayerDocumentTimelinePlaybackRuntime(
         1000 / Math.max(1, frameRate)
       );
   };
-  const port: LayerDocumentTimelinePlaybackPort & {
-    readonly dispose: () => void;
-    readonly synchronizeClock: () => void;
-  } = {
-    read: () => {
-      const playback =
-        options.assembly.playback.read();
-      return {
-        currentFrame: playback.currentFrame,
-        range: playback.range,
-        isPlaying,
-      };
-    },
+  const reconcile = () => {
+    const { durationFrames } = metadata();
+    const nextRange = normalizePlaybackRange(
+      range,
+      durationFrames
+    );
+    const nextFrame = clampPlaybackFrame(
+      currentFrame,
+      durationFrames
+    );
+    publish(nextFrame, nextRange);
+    synchronizeClock();
+  };
+  return {
+    read,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -164,22 +186,19 @@ export function createLayerDocumentTimelinePlaybackRuntime(
       },
       seek: (frame) => {
         options.clearDraft?.();
-        const { durationFrames } = metadata();
-        publishPlayback(
+        publish(
           clampPlaybackFrame(
             frame,
-            durationFrames
+            metadata().durationFrames
           )
         );
       },
       stepBackward: () => {
         pause();
         options.clearDraft?.();
-        const playback =
-          options.assembly.playback.read();
-        publishPlayback(
+        publish(
           stepPlaybackFrame(
-            playback.currentFrame,
+            currentFrame,
             -1,
             metadata().durationFrames
           )
@@ -188,11 +207,9 @@ export function createLayerDocumentTimelinePlaybackRuntime(
       stepForward: () => {
         pause();
         options.clearDraft?.();
-        const playback =
-          options.assembly.playback.read();
-        publishPlayback(
+        publish(
           stepPlaybackFrame(
-            playback.currentFrame,
+            currentFrame,
             1,
             metadata().durationFrames
           )
@@ -201,15 +218,11 @@ export function createLayerDocumentTimelinePlaybackRuntime(
       reset: () => {
         pause();
         options.clearDraft?.();
-        publishPlayback(
-          getPlaybackResetFrame()
-        );
+        publish(getPlaybackResetFrame());
       },
       setRange: (startFrame, endFrame) => {
-        const playback =
-          options.assembly.playback.read();
-        publishPlayback(
-          playback.currentFrame,
+        publish(
+          currentFrame,
           normalizePlaybackRange(
             { startFrame, endFrame },
             metadata().durationFrames
@@ -217,12 +230,13 @@ export function createLayerDocumentTimelinePlaybackRuntime(
         );
       },
     },
+    validity: { reconcile },
     dispose: () => {
       stopClock();
       isPlaying = false;
+      refreshSnapshot();
       listeners.clear();
     },
     synchronizeClock,
   };
-  return port;
 }

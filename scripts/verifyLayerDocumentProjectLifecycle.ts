@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  buildLayerDocumentGroupScopeReadModel,
   buildSetLayerDocumentNameTransaction,
   type LayerDocumentProject,
 } from "@/models";
@@ -16,6 +17,9 @@ import {
 import {
   createLayerDocumentSourceRuntimeResourceCache,
 } from "@/engines/playback-render";
+import {
+  createLayerDocumentTimelinePlaybackRuntime,
+} from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";
 
 const initialOptions =
   createInitialLayerDocumentOwnerOptions();
@@ -73,6 +77,23 @@ const registered = sourceRuntime.register({
   },
 });
 assert.equal(registered.ok, true);
+const playback =
+  createLayerDocumentTimelinePlaybackRuntime({
+    assembly: {
+      scope: {
+        read: () =>
+          buildLayerDocumentGroupScopeReadModel(
+            owner.state.currentProject,
+            owner.state.session
+              .activeGroupLayerDocumentId
+          ),
+      },
+    },
+    scheduler: {
+      setRepeating: () => Symbol("clock"),
+      clearRepeating: () => {},
+    },
+  });
 const lifecycle =
   createLayerDocumentProjectLifecycleController({
     owner,
@@ -85,6 +106,7 @@ const lifecycle =
       },
       stopPlayback: () => {
         runtimeCalls.stopPlayback += 1;
+        playback.commands.pause();
       },
       invalidateSourceRuntime: (invalidation) => {
         runtimeCalls.invalidations.push(invalidation);
@@ -98,6 +120,7 @@ const lifecycle =
       },
       publishOwnerEffect: (effect) => {
         runtimeCalls.effects.push(effect);
+        playback.validity.reconcile();
       },
     },
   });
@@ -220,14 +243,6 @@ assert.strictEqual(
 assert.deepEqual(runtimeCalls, beforeInvalidRuntime);
 assert.equal(lifecycle.read().operation, "idle");
 
-const playbackChange = owner.transition({
-  kind: "set-playback-session",
-  playback: {
-    currentFrame: 25,
-    range: { startFrame: 10, endFrame: 100 },
-  },
-});
-assert.equal(playbackChange.ok, true);
 const replacement = structuredClone(
   owner.state.currentProject
 );
@@ -237,6 +252,20 @@ replacement.metadata.name = "Loaded Project";
 replacement.payload.layerDocumentsById[
   rootId
 ].name = "Loaded Root";
+const replacementRoot =
+  replacement.payload.layerDocumentsById[
+    rootId
+  ];
+assert.equal(replacementRoot.type, "group");
+if (replacementRoot.type !== "group") {
+  throw new Error("root fixture");
+}
+replacementRoot.data.durationFrames = 20;
+replacementRoot.common.placement.durationFrames =
+  20;
+playback.commands.setRange(10, 100);
+playback.commands.seek(25);
+playback.commands.play();
 const candidateSnapshot =
   structuredClone(replacement);
 const loading =
@@ -263,10 +292,6 @@ assert.equal(owner.state.canRedo, false);
 assert.deepEqual(owner.state.runtimeSession, {
   selectedTransformKeyframe: null,
 });
-assert.equal(
-  owner.state.session.playback.currentFrame,
-  0
-);
 assert.equal(owner.state.session.layerSelection, null);
 assert.equal(owner.state.session.sourceSelection, null);
 assert.equal(runtimeCalls.stopPlayback, 1);
@@ -274,10 +299,16 @@ assert.equal(runtimeCalls.clearDraft, 1);
 assert.equal(runtimeCalls.resetLocalUi, 1);
 assert.equal(runtimeCalls.resetSourceResolution, 1);
 assert.equal(runtimeCalls.recomputeRender, 1);
+assert.deepEqual(playback.read(), {
+  currentFrame: 19,
+  range: { startFrame: 10, endFrame: 20 },
+  isPlaying: false,
+});
 assert.deepEqual(runtimeCalls.invalidations, [
   { kind: "all" },
 ]);
 assert.equal(disposedResources, 1);
+playback.dispose();
 assert.equal(runtimeCalls.effects.length, 1);
 assert.equal(lifecycle.read().dirty, "clean");
 assert.equal(lifecycle.read().operation, "idle");

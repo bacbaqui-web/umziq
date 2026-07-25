@@ -7,13 +7,13 @@ import {
 } from "@/models";
 import {
   prepareLayerDocumentAudioFutureCommand,
-} from "@/engines/audio";
+} from "@/layer-types";
 import {
   prepareLayerDocumentDrawingUpdate,
-} from "@/engines/drawing";
+} from "@/layer-types";
 import {
   prepareLayerDocumentTextUpdate,
-} from "@/engines/text";
+} from "@/layer-types";
 import type {
   LayerDocumentPanelCommand,
   LayerDocumentPanelCommandPreparation,

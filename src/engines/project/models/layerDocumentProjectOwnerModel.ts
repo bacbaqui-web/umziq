@@ -10,21 +10,10 @@ import type {
   SourceRegistryCacheInvalidationDescriptor,
 } from "@/engines/project/models/layerDocumentSourcePreparationModel";
 
-export interface LayerDocumentOwnerPlaybackRange {
-  readonly startFrame: number;
-  readonly endFrame: number;
-}
-
-export interface LayerDocumentOwnerPlaybackSession {
-  readonly currentFrame: number;
-  readonly range: LayerDocumentOwnerPlaybackRange;
-}
-
 export interface LayerDocumentOwnerSession {
   readonly layerSelection: LayerDocumentSelection | null;
   readonly sourceSelection: PsdTreeSourceSelection | null;
   readonly activeGroupLayerDocumentId: string;
-  readonly playback: LayerDocumentOwnerPlaybackSession;
 }
 
 export interface LayerDocumentTransformKeyframeSelection {
@@ -55,21 +44,12 @@ export interface LayerDocumentOwnerRuntimeSession {
     readonly LayerDocumentSourceStatusIdentity[];
 }
 
-/**
- * History contains only the canonical stored Project and minimal Plain Data
- * editor session required for deterministic restore.
- */
-export interface LayerDocumentOwnerHistorySnapshot {
-  readonly project: LayerDocumentProject;
-  readonly session: LayerDocumentOwnerSession;
-}
+/** History snapshots contain canonical Project Data only. */
+export type LayerDocumentOwnerHistorySnapshot =
+  LayerDocumentProject;
 
 export interface LayerDocumentOwnerHistoryEntry {
   readonly origin: "layer-transaction" | "source-transaction";
-  readonly runtimeCachePolicy:
-    LayerDocumentOwnerRuntimeCachePolicy;
-  readonly sourceInvalidationIds:
-    readonly string[];
   readonly label: string;
   readonly affectedLayerDocumentIds: readonly string[];
   readonly affectedSourceIds: readonly string[];
@@ -142,10 +122,6 @@ export type LayerDocumentProjectOwnerAction =
       readonly layerDocumentId: string;
     }
   | {
-      readonly kind: "set-playback-session";
-      readonly playback: LayerDocumentOwnerPlaybackSession;
-    }
-  | {
       readonly kind: "set-transform-keyframe-selection";
       readonly selection:
         LayerDocumentTransformKeyframeSelection | null;
@@ -210,7 +186,6 @@ export interface CreateLayerDocumentProjectOwnerOptions {
   readonly layerSelection?: LayerDocumentSelection | null;
   readonly sourceSelection?: PsdTreeSourceSelection | null;
   readonly activeGroupLayerDocumentId?: string | null;
-  readonly playback?: LayerDocumentOwnerPlaybackSession;
 }
 
 export interface LayerDocumentProjectOwnerPort {

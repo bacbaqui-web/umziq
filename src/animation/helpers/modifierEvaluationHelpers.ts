@@ -1,3 +1,4 @@
+/** Pure deterministic modifier evaluation. */
 import type { ModifierInstance, Position, WiggleModifierInstance } from "@/models";
 
 function hashText(value: string) {

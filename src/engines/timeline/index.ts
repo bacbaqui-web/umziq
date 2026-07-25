@@ -60,6 +60,7 @@ export type {
   LayerDocumentTimelineKeyframeDrag,
   LayerDocumentTimelinePlaybackPort,
   LayerDocumentTimelinePlaybackReadModel,
+  LayerDocumentTimelineRuntimePort,
   LayerDocumentTimelinePlaybackScheduler,
   LayerDocumentTimelineRuntimeUiState,
   LayerDocumentTimelineSourceStatusPort,

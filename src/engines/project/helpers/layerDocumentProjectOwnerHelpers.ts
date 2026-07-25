@@ -9,17 +9,11 @@ import {
   type PsdTreeSourceSelection,
 } from "@/models";
 import {
-  clampPlaybackFrame,
-  createDefaultPlaybackRange,
-  normalizePlaybackRange,
-} from "@/engines/playback-render";
-import {
   cloneTransactionData,
 } from "@/models/layerDocumentTransactionHelpers";
 import type {
   LayerDocumentOwnerHistoryEntry,
   LayerDocumentOwnerHistorySnapshot,
-  LayerDocumentOwnerPlaybackSession,
   LayerDocumentOwnerRuntimeSession,
   LayerDocumentOwnerSession,
   LayerDocumentProjectOwnerState,
@@ -29,74 +23,6 @@ import type {
 } from "@/engines/project/models/layerDocumentSourcePreparationModel";
 
 export const cloneOwnerPlainData = cloneTransactionData;
-
-export function activeGroupPlaybackMetadata(
-  project: LayerDocumentProject,
-  activeGroupLayerDocumentId?: string | null
-): {
-  durationFrames: number;
-  frameRate: number;
-} {
-  const activeGroupId = normalizeActiveGroupLayerDocumentId(
-    project,
-    activeGroupLayerDocumentId
-  );
-  const root = activeGroupId
-    ? project.payload.layerDocumentsById[activeGroupId]
-    : null;
-  return root?.type === "group"
-    ? {
-        durationFrames: Math.max(1, root.data.durationFrames),
-        frameRate: Math.max(1, root.data.frameRate),
-      }
-    : { durationFrames: 1, frameRate: 1 };
-}
-
-function defaultPlaybackSession(
-  project: LayerDocumentProject,
-  activeGroupLayerDocumentId?: string | null
-): LayerDocumentOwnerPlaybackSession {
-  const metadata = activeGroupPlaybackMetadata(
-    project,
-    activeGroupLayerDocumentId
-  );
-  return {
-    currentFrame: 0,
-    range: createDefaultPlaybackRange(
-      metadata.durationFrames,
-      metadata.frameRate
-    ),
-  };
-}
-
-export function normalizeOwnerPlaybackSession(options: {
-  project: LayerDocumentProject;
-  activeGroupLayerDocumentId?: string | null;
-  playback?: LayerDocumentOwnerPlaybackSession;
-}): LayerDocumentOwnerPlaybackSession | null {
-  const playback =
-    options.playback ??
-    defaultPlaybackSession(
-      options.project,
-      options.activeGroupLayerDocumentId
-    );
-  if (
-    !Number.isFinite(playback.currentFrame) ||
-    !Number.isFinite(playback.range.startFrame) ||
-    !Number.isFinite(playback.range.endFrame)
-  ) return null;
-  const { durationFrames } = activeGroupPlaybackMetadata(
-    options.project,
-    options.activeGroupLayerDocumentId
-  );
-  return {
-    currentFrame: clampPlaybackFrame(
-      Math.floor(playback.currentFrame),
-      durationFrames
-    ),
-    range: normalizePlaybackRange(playback.range, durationFrames),
-  };
-}
 
 export function normalizeOwnerSourceSelection(
   project: LayerDocumentProject,
@@ -135,7 +61,6 @@ export function normalizeOwnerSession(options: {
   layerSelection: LayerDocumentSelection | null;
   sourceSelection: PsdTreeSourceSelection | null;
   activeGroupLayerDocumentId?: string | null;
-  playback?: LayerDocumentOwnerPlaybackSession;
 }): LayerDocumentOwnerSession | null {
   const activeGroupLayerDocumentId =
     normalizeActiveGroupLayerDocumentId(
@@ -143,12 +68,6 @@ export function normalizeOwnerSession(options: {
       options.activeGroupLayerDocumentId
     );
   if (!activeGroupLayerDocumentId) return null;
-  const playback = normalizeOwnerPlaybackSession({
-    project: options.project,
-    activeGroupLayerDocumentId,
-    playback: options.playback,
-  });
-  if (!playback) return null;
   return {
     layerSelection: normalizeLayerDocumentSelection(
       options.project,
@@ -159,7 +78,6 @@ export function normalizeOwnerSession(options: {
       options.sourceSelection
     ),
     activeGroupLayerDocumentId,
-    playback,
   };
 }
 
@@ -186,45 +104,13 @@ export function applyLayerTransactionOwnerSession(options: {
       options.current.sourceSelection
     ),
     activeGroupLayerDocumentId,
-    playback: normalizeOwnerPlaybackSession({
-      project: options.project,
-      activeGroupLayerDocumentId,
-      playback: options.current.playback,
-    })!,
   };
 }
 
 export function cloneOwnerSnapshot(options: {
   project: LayerDocumentProject;
-  session: LayerDocumentOwnerSession;
 }): LayerDocumentOwnerHistorySnapshot {
-  return {
-    project: cloneOwnerPlainData(options.project),
-    session: {
-      layerSelection: options.session.layerSelection
-        ? {
-            kind: "layer-document",
-            layerDocumentId:
-              options.session.layerSelection.layerDocumentId,
-          }
-        : null,
-      sourceSelection: options.session.sourceSelection
-        ? {
-            kind: "psd-tree-source",
-            sourceId: options.session.sourceSelection.sourceId,
-          }
-        : null,
-      activeGroupLayerDocumentId:
-        options.session.activeGroupLayerDocumentId,
-      playback: {
-        currentFrame: options.session.playback.currentFrame,
-        range: {
-          startFrame: options.session.playback.range.startFrame,
-          endFrame: options.session.playback.range.endFrame,
-        },
-      },
-    },
-  };
+  return cloneOwnerPlainData(options.project);
 }
 
 export function cloneOwnerHistoryEntry(
@@ -232,16 +118,15 @@ export function cloneOwnerHistoryEntry(
 ): LayerDocumentOwnerHistoryEntry {
   return {
     origin: entry.origin,
-    runtimeCachePolicy:
-      entry.runtimeCachePolicy,
-    sourceInvalidationIds: [
-      ...entry.sourceInvalidationIds,
-    ],
     label: entry.label,
     affectedLayerDocumentIds: [...entry.affectedLayerDocumentIds],
     affectedSourceIds: [...entry.affectedSourceIds],
-    before: cloneOwnerSnapshot(entry.before),
-    after: cloneOwnerSnapshot(entry.after),
+    before: cloneOwnerSnapshot({
+      project: entry.before,
+    }),
+    after: cloneOwnerSnapshot({
+      project: entry.after,
+    }),
   };
 }
 
@@ -261,30 +146,48 @@ export function validateOwnerSnapshot(
       message: `Owner snapshot contains non-Plain Data: ${nonPlainPath}`,
     };
   }
-  const issues = validateLayerDocumentProject(snapshot.project);
+  const issues = validateLayerDocumentProject(snapshot);
   if (issues.length > 0) {
     return {
       ok: false,
       message: `Owner snapshot Project is invalid: ${issues[0].message}`,
     };
   }
-  const session = normalizeOwnerSession({
-    project: snapshot.project,
-    layerSelection: snapshot.session.layerSelection,
-    sourceSelection: snapshot.session.sourceSelection,
-    activeGroupLayerDocumentId:
-      snapshot.session.activeGroupLayerDocumentId,
-    playback: snapshot.session.playback,
-  });
-  if (!session) {
-    return { ok: false, message: "Owner snapshot session is invalid" };
-  }
   return {
     ok: true,
-    snapshot: cloneOwnerSnapshot({
-      project: snapshot.project,
-      session,
-    }),
+    snapshot: cloneOwnerSnapshot({ project: snapshot }),
+  };
+}
+
+export function normalizeOwnerSessionForHistory(options: {
+  project: LayerDocumentProject;
+  current: LayerDocumentOwnerSession;
+}): LayerDocumentOwnerSession {
+  const activeGroupLayerDocumentId =
+    normalizeActiveGroupLayerDocumentId(
+      options.project,
+      options.current.activeGroupLayerDocumentId
+    )!;
+  const normalizedLayerSelection =
+    normalizeLayerDocumentSelection(
+      options.project,
+      options.current.layerSelection
+    ).selection;
+  return {
+    layerSelection:
+      options.current.layerSelection &&
+      !normalizedLayerSelection
+        ? {
+            kind: "layer-document",
+            layerDocumentId:
+              activeGroupLayerDocumentId,
+          }
+        : normalizedLayerSelection,
+    sourceSelection: normalizeOwnerSourceSelection(
+      options.project,
+      options.current.sourceSelection
+    ),
+    activeGroupLayerDocumentId,
   };
 }
 

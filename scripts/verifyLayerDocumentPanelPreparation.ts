@@ -12,10 +12,10 @@ import {
 } from "@/models";
 import {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
-} from "@/engines/audio";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
-} from "@/engines/drawing";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
@@ -31,7 +31,7 @@ import type {
 } from "@/engines/properties/models/layerDocumentPanelModel";
 import {
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
-} from "@/engines/text";
+} from "@/layer-types";
 import type {
   LayerDocumentRuntimeInput,
 } from "@/engines/playback-render";
@@ -923,12 +923,10 @@ const taskFiles = [
   "src/engines/properties/helpers/layerDocumentPanelDescriptorHelpers.ts",
   "src/engines/properties/adapters/layerDocumentPanelCommandAdapter.ts",
   "src/engines/properties/adapters/layerDocumentPanelPreparationAdapter.ts",
-  "src/engines/drawing/models/layerDocumentDrawingPreparationModel.ts",
-  "src/engines/drawing/adapters/layerDocumentDrawingPreparationAdapter.ts",
-  "src/engines/text/models/layerDocumentTextPreparationModel.ts",
-  "src/engines/text/adapters/layerDocumentTextPreparationAdapter.ts",
-  "src/engines/audio/models/layerDocumentAudioPreparationModel.ts",
-  "src/engines/audio/adapters/layerDocumentAudioPreparationAdapter.ts",
+  "src/layer-types/index.ts",
+  "src/layer-types/drawingSupport.ts",
+  "src/layer-types/textSupport.ts",
+  "src/layer-types/audioSupport.ts",
 ];
 taskFiles.forEach((path) => {
   const source = readFileSync(path, "utf8");
@@ -943,7 +941,7 @@ taskFiles.forEach((path) => {
   );
 });
 for (const path of taskFiles.filter((path) =>
-  /engines\/(drawing|text|audio)\//.test(path)
+  /layer-types\//.test(path)
 )) {
   const source = readFileSync(path, "utf8");
   assert.doesNotMatch(source, /@\/engines\/properties/);

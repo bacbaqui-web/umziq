@@ -17,9 +17,11 @@ import {
 } from "@/engines/project";
 import { createLayerDocumentSourceRuntimeResourceCache } from "@/engines/playback-render";
 import { LAYER_DOCUMENT_PANEL_PREPARATION_PORT } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
-import { LAYER_DOCUMENT_DRAWING_PREPARATION_PORT } from "@/engines/drawing";
-import { LAYER_DOCUMENT_TEXT_PREPARATION_PORT } from "@/engines/text";
-import { LAYER_DOCUMENT_AUDIO_PREPARATION_PORT } from "@/engines/audio";
+import {
+  LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
+  LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
+  LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
+} from "@/layer-types";
 import { createLayerDocumentTimelineInteractionController } from "@/engines/timeline/adapters/layerDocumentTimelineInteractionController";
 import { createLayerDocumentTimelineNavigationController } from "@/engines/timeline/adapters/layerDocumentTimelineNavigationController";
 import { createLayerDocumentTimelinePlaybackRuntime } from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";
@@ -89,8 +91,11 @@ function group(
     order,
     null
   );
+  const durationFrames =
+    role === "project-root" ? 20 : 6;
   value.placement.startFrame = 0;
-  value.placement.durationFrames = 20;
+  value.placement.durationFrames =
+    durationFrames;
   return {
     layerDocumentId,
     name:
@@ -105,7 +110,7 @@ function group(
       width: 1080,
       height: 1920,
       frameRate: 30,
-      durationFrames: 20,
+      durationFrames,
     },
   };
 }
@@ -215,13 +220,6 @@ const initialized =
       layerDocumentId: "video-a",
     },
     activeGroupLayerDocumentId: "root",
-    playback: {
-      currentFrame: 0,
-      range: {
-        startFrame: 0,
-        endFrame: 20,
-      },
-    },
   });
 assert.equal(initialized.ok, true);
 if (!initialized.ok) {
@@ -357,10 +355,34 @@ assert.equal(
   }).ok,
   true
 );
+playback.validity.reconcile();
 assert.equal(playback.read().currentFrame, 11);
 assert.deepEqual(playback.read().range, {
   startFrame: 0,
   endFrame: 12,
+});
+assert.equal(assembly.project.undo().ok, true);
+playback.validity.reconcile();
+assert.deepEqual(playback.read(), {
+  currentFrame: 11,
+  range: { startFrame: 0, endFrame: 12 },
+  isPlaying: false,
+});
+playback.commands.setRange(5, 18);
+playback.commands.seek(15);
+assert.equal(assembly.project.redo().ok, true);
+playback.validity.reconcile();
+assert.deepEqual(playback.read(), {
+  currentFrame: 11,
+  range: { startFrame: 5, endFrame: 12 },
+  isPlaying: false,
+});
+assert.equal(assembly.project.undo().ok, true);
+playback.validity.reconcile();
+assert.deepEqual(playback.read(), {
+  currentFrame: 11,
+  range: { startFrame: 5, endFrame: 12 },
+  isPlaying: false,
 });
 playback.commands.reset();
 let switcherOpen = false;
@@ -388,7 +410,10 @@ navigation.closeForOutsidePointer();
 assert.equal(switcherOpen, false);
 assert.equal(focusRestoreCount, 2);
 navigation.toggleCompositionSwitcher();
+playback.commands.setRange(0, 18);
+playback.commands.seek(11);
 navigation.selectComposition("nested");
+playback.validity.reconcile();
 assert.equal(
   assembly.scope.read().ok &&
     assembly.scope.read().model
@@ -397,7 +422,13 @@ assert.equal(
 );
 assert.equal(switcherOpen, false);
 assert.equal(focusRestoreCount, 3);
+assert.deepEqual(playback.read(), {
+  currentFrame: 5,
+  range: { startFrame: 0, endFrame: 6 },
+  isPlaying: false,
+});
 assembly.scope.enter("root");
+playback.validity.reconcile();
 type TimingPointerState = {
   session: LayerDocumentTimelineTimingSession;
   draft: ReturnType<

@@ -5,20 +5,15 @@ import { join, relative, sep } from "node:path";
 const root = process.cwd();
 const sourceRoot = join(root, "src");
 const engineNames = [
-  "animation",
-  "audio",
   "canvas",
-  "drawing",
   "playback-render",
   "project",
   "properties",
   "psd-tree",
-  "text",
   "timeline",
 ] as const;
 const uiEngines = new Set(["canvas", "properties", "psd-tree", "timeline"]);
-const coreEngines = new Set(["animation", "playback-render", "project"]);
-const layerDomainEngines = new Set(["audio", "drawing", "text"]);
+const coreEngines = new Set(["playback-render", "project"]);
 
 function collectSourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -36,10 +31,23 @@ function engineForFile(file: string) {
 
 const violations: string[] = [];
 const files = collectSourceFiles(sourceRoot);
-const compositionRootPath = join(sourceRoot, "editor/useEditorCompositionRoot.ts");
-const layerDocumentAssemblyPath = join(
+const animationRoot = join(sourceRoot, "animation");
+const pureAnimationFiles =
+  collectSourceFiles(animationRoot);
+const layerTypeSupportRoot = join(
   sourceRoot,
-  "editor/useLayerDocumentEditorOwner.ts"
+  "layer-types"
+);
+const layerTypeSupportFiles =
+  collectSourceFiles(layerTypeSupportRoot);
+const compositionRootPath = join(sourceRoot, "editor/useEditorCompositionRoot.ts");
+const layerDocumentRuntimePath = join(
+  sourceRoot,
+  "editor/useLayerDocumentEditorRuntime.ts"
+);
+const projectOwnerCompatibilityPath = join(
+  sourceRoot,
+  "engines/project/useLayerDocumentProjectOwner.ts"
 );
 const internalEngineImport = /@\/engines\/([a-z-]+)\/[^"'\s]+/g;
 const engineFacadeImport = /@\/engines\/([a-z-]+)(?=["'])/g;
@@ -48,25 +56,37 @@ for (const file of files) {
   const text = readFileSync(file, "utf8");
   const owner = engineForFile(file);
   const label = relative(root, file).split(sep).join("/");
+  const isEditorProjectOwner =
+    label.startsWith("src/editor/project-owner/");
   const importedFacades = new Set(
     Array.from(text.matchAll(engineFacadeImport), (match) => match[1])
   );
 
   if (
     importedFacades.size === engineNames.length &&
-    file !== layerDocumentAssemblyPath
+    file !== compositionRootPath &&
+    file !== layerDocumentRuntimePath
   ) {
     violations.push(`${label}: Composition Root 외부에서 모든 Engine을 조립`);
   }
 
   for (const match of text.matchAll(internalEngineImport)) {
-    if (owner !== match[1]) {
+    if (
+      owner !== match[1] &&
+      !(
+        isEditorProjectOwner &&
+        match[1] === "project"
+      )
+    ) {
       violations.push(`${label}: ${match[1]} Engine façade 밖의 내부 경로를 직접 import`);
     }
   }
 
   if (owner && coreEngines.has(owner)) {
-    if (/@\/(editor|features)\//.test(text)) {
+    if (
+      /@\/(editor|features)\//.test(text) &&
+      file !== projectOwnerCompatibilityPath
+    ) {
       violations.push(`${label}: Core Engine이 Editor/Feature에 의존`);
     }
     for (const imported of importedFacades) {
@@ -84,25 +104,125 @@ for (const file of files) {
     }
   }
 
-  if (owner && layerDomainEngines.has(owner)) {
-    for (const imported of importedFacades) {
-      if (
-        imported !== "project" &&
-        imported !== owner
-      ) {
-        violations.push(
-          `${label}: Layer Domain Engine ${owner}가 Core Project 이외의 Engine ${imported}에 의존`
-        );
-      }
-    }
-    if (/@\/(editor|features)\//.test(text)) {
-      violations.push(`${label}: Layer Domain Engine ${owner}가 Editor/Feature에 의존`);
-    }
-  }
-
   if (/^engines\/[^/]+\/controllers\//.test(relative(sourceRoot, file).split(sep).join("/")) && /@\/engines\/[^/]+\/controllers\//.test(text)) {
     violations.push(`${label}: Controller가 다른 Controller를 직접 import`);
   }
+}
+
+for (const file of pureAnimationFiles) {
+  const text = readFileSync(file, "utf8");
+  const label =
+    relative(root, file).split(sep).join("/");
+  assert.doesNotMatch(
+    text,
+    /from ["']@\/(?:engines|editor|cutover|features)\//,
+    `${label}: pure Animation이 runtime/editor 경계에 의존`
+  );
+  assert.doesNotMatch(
+    text,
+    /\buseState\b|\buseRef\b|\buseEffect\b|\bsubscribe\b|\bdispatch\b/,
+    `${label}: pure Animation이 state/Runtime authority를 생성`
+  );
+}
+for (const file of files.filter((candidate) =>
+  !candidate.startsWith(
+    join(sourceRoot, "engines/playback-render")
+  ) &&
+  candidate !== join(
+    sourceRoot,
+    "engines/animation/index.ts"
+  )
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /@\/engines\/animation/,
+    `${relative(root, file)}: 비-Render 소비자는 @/animation을 사용`
+  );
+}
+for (const file of files.filter((candidate) =>
+  !candidate.startsWith(animationRoot)
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /@\/animation\//,
+    `${relative(root, file)}: Animation 소비자는 단일 public entry를 사용`
+  );
+}
+assert.match(
+  readFileSync(
+    join(
+      sourceRoot,
+      "engines/animation/index.ts"
+    ),
+    "utf8"
+  ),
+  /export \* from ["']@\/animation["']/
+);
+for (const file of collectSourceFiles(
+  join(sourceRoot, "models")
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /@\/animation/,
+    `${relative(root, file)}: models ↔ Animation 순환 의존`
+  );
+}
+for (const file of layerTypeSupportFiles) {
+  const text = readFileSync(file, "utf8");
+  const label =
+    relative(root, file).split(sep).join("/");
+  assert.doesNotMatch(
+    text,
+    /from ["']@\/(?:engines|editor|cutover|features)\//,
+    `${label}: Layer Type 지원 모듈이 Panel/Runtime 경계에 의존`
+  );
+  assert.doesNotMatch(
+    text,
+    /\buseState\b|\buseRef\b|\buseEffect\b|\bsubscribe\b|\bdispatch\b/,
+    `${label}: Layer Type 지원 모듈이 state/Runtime authority를 생성`
+  );
+}
+for (const file of files.filter((candidate) =>
+  !candidate.startsWith(layerTypeSupportRoot)
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /@\/layer-types\//,
+    `${relative(root, file)}: Layer Type 소비자는 단일 public entry를 사용`
+  );
+}
+for (const file of files) {
+  const text = readFileSync(file, "utf8");
+  assert.doesNotMatch(
+    text,
+    /@\/engines\/(?:drawing|text|audio)/,
+    `${relative(root, file)}: Panel 없는 Layer Type을 Engine으로 import`
+  );
+}
+for (const file of collectSourceFiles(
+  join(sourceRoot, "models")
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /@\/layer-types/,
+    `${relative(root, file)}: models ↔ Layer Type 지원 모듈 순환 의존`
+  );
+}
+for (const removedEngine of [
+  "drawing",
+  "text",
+  "audio",
+]) {
+  assert.equal(
+    files.some((file) =>
+      relative(sourceRoot, file)
+        .split(sep)
+        .join("/")
+        .startsWith(`engines/${removedEngine}/`)
+    ),
+    false,
+    `${removedEngine}는 독립 Panel이 없어 Engine 경로를 가질 수 없습니다.`
+  );
 }
 
 const compositionRoot = readFileSync(compositionRootPath, "utf8");
@@ -118,22 +238,30 @@ assert.doesNotMatch(
   compositionRoot,
   /useEditorState|useProjectSourceSession|useTimelineEngine|useCanvasComposition/
 );
-const assemblyRoot = readFileSync(
-  layerDocumentAssemblyPath,
+const ownerRoot = readFileSync(
+  join(sourceRoot, "editor/useLayerDocumentEditorOwner.ts"),
   "utf8"
 );
+assert.match(
+  ownerRoot,
+  /useEditorProjectOwner/
+);
 for (const nativeHook of [
-  "useLayerDocumentProjectOwner",
   "useLayerDocumentTimelineEngine",
   "useLayerDocumentPropertiesEngine",
   "useLayerDocumentPsdTreeEngine",
+  "useLayerDocumentCanvasComposition",
 ]) {
   assert.match(
-    assemblyRoot,
+    compositionRoot,
     new RegExp(nativeHook),
-    `LayerDocument 조립 경계에 ${nativeHook} 연결이 없습니다.`
+    `Composition Root에 ${nativeHook} 연결이 없습니다.`
   );
 }
+assert.doesNotMatch(
+  ownerRoot,
+  /@\/engines\/(canvas|timeline|properties|psd-tree)/
+);
 for (const file of files.filter((candidate) =>
   engineForFile(candidate)
 )) {

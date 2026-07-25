@@ -15,6 +15,12 @@ const root = source(
 const owner = source(
   "src/editor/useLayerDocumentEditorOwner.ts"
 );
+const runtime = source(
+  "src/editor/useLayerDocumentEditorRuntime.ts"
+);
+const panelPorts = source(
+  "src/editor/useLayerDocumentPanelEnginePorts.ts"
+);
 const canvas = source(
   "src/engines/canvas/useLayerDocumentCanvasComposition.ts"
 );
@@ -27,6 +33,27 @@ const properties = source(
 const shell = source(
   "src/editor/EditorShell.tsx"
 );
+const projectOwner = source(
+  "src/editor/project-owner/useEditorProjectOwner.ts"
+);
+const projectOwnerCompatibility = source(
+  "src/engines/project/useLayerDocumentProjectOwner.ts"
+);
+const timelinePlayback = source(
+  "src/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter.ts"
+);
+const ownerModel = source(
+  "src/engines/project/models/layerDocumentProjectOwnerModel.ts"
+);
+const ownerReducer = source(
+  "src/engines/project/actions/layerDocumentProjectOwnerReducer.ts"
+);
+const consumerAssembly = source(
+  "src/cutover/createLayerDocumentConsumerCutoverAssembly.ts"
+);
+const canvasCommands = source(
+  "src/cutover/layerDocumentCanvasCommandPortAdapter.ts"
+);
 
 assert.equal(
   root.match(/useLayerDocumentEditorOwner\(/g)
@@ -38,15 +65,15 @@ assert.match(
   /useEditorCompositionRoot\(\)/
 );
 for (const connection of [
-  /psdTreeProps:\s*layerDocument\.psdTreeProps/,
-  /readPort:\s*layerDocument\.canvasReadPort/,
-  /propertiesPanelProps:\s*layerDocument\.propertiesPanelProps/,
-  /timelinePanelProps:\s*layerDocument\.timelinePanelProps/,
+  /psdTreeProps:\s*psdTree\.viewProps/,
+  /readPort:\s*panelPorts\.canvasRead/,
+  /propertiesPanelProps:\s*properties\.viewProps/,
+  /timelinePanelProps:\s*timeline\.viewProps/,
 ]) {
   assert.match(root, connection);
 }
 assert.doesNotMatch(
-  `${root}\n${owner}`,
+  `${root}\n${owner}\n${runtime}\n${panelPorts}`,
   /useEditorState|useProjectSourceSession|useProjectPsdEngine|useProjectSelectionModel|useProjectHistory|useTimelineEngine|usePropertiesEngine|usePsdTreeEngine|useCanvasComposition|setProjectSourceDocument|setComps|setTimelineItemsByCompId/
 );
 assert.match(
@@ -63,34 +90,147 @@ for (const stableRuntime of [
   /const \[draftSession\] = useState\(/,
   /const \[playback\] = useState\(/,
 ]) {
-  assert.match(owner, stableRuntime);
+  assert.match(runtime, stableRuntime);
 }
+assert.match(owner, /useEditorProjectOwner\(/);
+assert.equal(
+  owner.match(/useEditorProjectOwner\(/g)?.length,
+  1
+);
+assert.doesNotMatch(
+  owner,
+  /useLayerDocument(?:Timeline|Properties|PsdTree|Canvas)|createLayerDocumentConsumerCutoverAssembly|createLayerDocumentTimelinePlaybackRuntime/
+);
 for (const nativePath of [
-  /useLayerDocumentProjectOwner\(/,
   /useLayerDocumentTimelineEngine\(\{/,
   /useLayerDocumentPropertiesEngine\(\{/,
   /useLayerDocumentPsdTreeEngine\(\{/,
-  /createLayerDocumentCanvasCutoverCommandPort\(\{/,
+  /useLayerDocumentCanvasComposition\(\{/,
 ]) {
-  assert.match(owner, nativePath);
+  assert.match(root, nativePath);
+  assert.equal(
+    Array.from(
+      root.matchAll(
+        new RegExp(nativePath.source, "g")
+      )
+    ).length,
+    1
+  );
 }
-assert.match(owner, /setDraftRevision\(/);
-assert.match(owner, /applyOwnerEffect:\s*\(effect\)/);
+for (const panelPort of [
+  /createLayerDocumentCanvasCutoverCommandPort\(\{/,
+  /createLayerDocumentPropertiesCommandPort\(\{/,
+  /createLayerDocumentPsdTreeCommandPort\(/,
+]) {
+  assert.match(panelPorts, panelPort);
+}
+for (const rootBoundary of [
+  /useEditorProjectOwner\(/,
+  /useLayerDocumentEditorRuntime\(/,
+  /useLayerDocumentPanelEnginePorts\(\{/,
+]) {
+  assert.match(`${owner}\n${root}`, rootBoundary);
+}
+assert.doesNotMatch(owner, /useLayerDocumentProjectOwner\(/);
+assert.match(runtime, /createLayerDocumentProjectOwnerCompatibilityPort\(/);
 assert.match(
-  owner,
+  projectOwner,
+  /createEditorProjectOwnerPort\(\s*initialState,\s*reduceLayerDocumentProjectOwner/
+);
+assert.match(
+  projectOwnerCompatibility,
+  /useEditorProjectOwner\(options\)/
+);
+assert.doesNotMatch(
+  projectOwnerCompatibility,
+  /createLayerDocumentProjectOwnerState|reduceLayerDocumentProjectOwner/
+);
+assert.match(runtime, /setDraftRevision\(/);
+assert.match(runtime, /applyOwnerEffect:\s*\(effect\)/);
+assert.match(
+  runtime,
   /\(effect\.clearDraft \? 1 : 0\)/
 );
 assert.match(
-  owner,
+  runtime,
   /\(effect\.resetLocalUi \? 1 : 0\)/
 );
 assert.match(
-  owner,
-  /resetRevision:\s*ownerEffect\.localUiRevision/
+  root,
+  /resetRevision:\s*runtime\.ownerEffect\.localUiRevision/
 );
-assert.match(owner, /resources\.dispose\(\)/);
-assert.match(owner, /playback\.dispose\(\)/);
-assert.match(owner, /playback\.synchronizeClock\(\)/);
+assert.match(runtime, /resources\.dispose\(\)/);
+assert.match(runtime, /playback\.dispose\(\)/);
+assert.match(runtime, /playback\.synchronizeClock\(\)/);
+assert.match(
+  runtime,
+  /timelineValidity\.reconcile\(\)/
+);
+assert.match(
+  runtime,
+  /resourceDisposeTimer[\s\S]*window\.setTimeout[\s\S]*resources\.dispose\(\)/
+);
+assert.match(
+  runtime,
+  /playbackDisposeTimer[\s\S]*window\.setTimeout[\s\S]*playback\.dispose\(\)/
+);
+assert.match(
+  runtime,
+  /draftSession,[\s\S]*effects:\s*\{[\s\S]*applyOwnerEffect/
+);
+assert.match(
+  panelPorts,
+  /readDraft:\s*draftSession\.read/
+);
+assert.match(
+  root,
+  /playback:\s*runtime\.playback/
+);
+assert.match(
+  root,
+  /frameInput:\s*runtime\.playback/
+);
+assert.match(
+  panelPorts,
+  /readGlobalFrame:\s*\(\)\s*=>\s*frameInput\.read\(\)\.currentFrame/
+);
+assert.match(
+  panelPorts,
+  /globalFrame:\s*frameInput\.read\(\)\.currentFrame/
+);
+assert.match(
+  panelPorts,
+  /createLayerDocumentCanvasCutoverCommandPort\(\{[\s\S]*playback:\s*frameInput/
+);
+assert.doesNotMatch(
+  panelPorts,
+  /assembly\.playback\.read\(\)\.currentFrame/
+);
+assert.doesNotMatch(
+  root,
+  /currentFrame|useState\([^)]*frame|useRef\([^)]*frame|createLayerDocumentTimelinePlaybackRuntime/
+);
+for (const authority of [
+  /let currentFrame = 0/,
+  /let range = normalizePlaybackRange/,
+  /let isPlaying = false/,
+  /commands:\s*\{[\s\S]*play,[\s\S]*pause,[\s\S]*seek:/,
+  /validity:\s*\{\s*reconcile\s*\}/,
+]) {
+  assert.match(timelinePlayback, authority);
+}
+assert.match(
+  timeline,
+  /const playback = useSyncExternalStore\([\s\S]*options\.playback\.subscribe,[\s\S]*options\.playback\.read/
+);
+assert.doesNotMatch(
+  `${ownerModel}\n${ownerReducer}\n${consumerAssembly}`,
+  /set-playback-session|session\.playback|assembly\.playback|readonly playback:/
+);
+assert.match(
+  canvasCommands,
+  /seekFrame:\s*\(globalFrame\)[\s\S]*playback\.commands\.seek\(globalFrame\)/
+);
 assert.match(
   root,
   /resetCanvasRuntime = useEffectEvent/

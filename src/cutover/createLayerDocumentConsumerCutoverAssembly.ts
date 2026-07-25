@@ -530,17 +530,6 @@ export function createLayerDocumentConsumerCutoverAssembly(
           })
         ),
     },
-    playback: {
-      read: () => input.owner.state.session.playback,
-      set: (playback) =>
-        deliverOwnerTransition(
-          input,
-          input.owner.transition({
-            kind: "set-playback-session",
-            playback,
-          })
-        ),
-    },
     timeline: {
       readViewProps: () => {
         const projection =
@@ -549,8 +538,6 @@ export function createLayerDocumentConsumerCutoverAssembly(
             input.sourceResolution,
             activeGroupLayerDocumentId()
           );
-        const playback =
-          input.owner.state.session.playback;
         return {
           available: projection.available,
           selectedLayerDocumentId:
@@ -560,8 +547,6 @@ export function createLayerDocumentConsumerCutoverAssembly(
               .selectedTransformKeyframe,
           acknowledgedSourceStatuses: input.owner.state.runtimeSession
             .acknowledgedSourceStatuses ?? [],
-          currentFrame: playback.currentFrame,
-          playbackRange: playback.range,
           scope: readScope(),
           rows: projection.rows,
           commands: {
@@ -575,7 +560,11 @@ export function createLayerDocumentConsumerCutoverAssembly(
       acknowledgeSourceStatus,
     },
     canvas: {
-      readViewProps: ({ quality, rendererMode }) => ({
+      readViewProps: ({
+        quality,
+        rendererMode,
+        globalFrame,
+      }) => ({
         selectedLayerDocumentId:
           selectedLayerDocumentId(),
         selectedTransformKeyframe:
@@ -588,8 +577,7 @@ export function createLayerDocumentConsumerCutoverAssembly(
           project: currentProject(),
           activeGroupLayerDocumentId:
             activeGroupLayerDocumentId(),
-          globalFrame:
-            input.owner.state.session.playback.currentFrame,
+          globalFrame,
           quality,
           draft: input.draftSession.read(),
           resolvePsdSource:
@@ -602,13 +590,13 @@ export function createLayerDocumentConsumerCutoverAssembly(
         layerDocumentId,
         patch,
         quality,
+        globalFrame,
       }) =>
         publishCanvasDraft({
           layerDocumentId,
           patch,
           quality,
-          globalFrame:
-            input.owner.state.session.playback.currentFrame,
+          globalFrame,
         }),
       pointerUp: commitCanvasDraft,
       motionPathPointerMove: ({

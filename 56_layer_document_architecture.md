@@ -2,7 +2,9 @@
 
 ## 1. 결과
 
-Editor의 active 저장·편집·선택·History authority를 `LayerDocumentProject`로 통합했다.
+Editor의 저장·편집 Project Data authority를 `LayerDocumentProject`로
+통합했다. Selection과 History stack은 Project Data가 아니며 Project
+Owner의 project-scoped Runtime 책임이다.
 
 ```text
 LayerDocumentProject
@@ -12,9 +14,20 @@ LayerDocumentProject
    └─ sourceRegistry
 ```
 
-Canvas, Timeline, Properties, PSD Tree는 서로의 상태를 수정하지 않는다. Composition Root가 동일 Project owner의 read/command port를 각 Engine에 주입하고, 모든 소비자는 같은 `layerDocumentId`를 기준으로 파생 모델을 읽거나 transaction을 요청한다.
+Canvas, Timeline, Properties, PSD Tree는 서로의 상태를 수정하지 않는다.
+Composition Root가 동일 Project Owner의 read/command port를 각 Panel
+Engine에 주입하고, 모든 소비자는 같은 `layerDocumentId`를 기준으로 파생
+모델을 읽거나 transaction을 요청한다. Project Owner는 Engine이 아니다.
 
-이 문서는 현재 canonical 구조를 설명한다. Persistence envelope와 Project lifecycle 상세는 `57_layer_document_persistence_project_lifecycle.md`가 이어서 설명한다. `55_layer_type_future_engine_foundation.md`의 ProjectSource/Timeline Item 구조는 역사 기록으로만 남는다.
+이 문서는 canonical Architecture 계약과 단계별 전환 상태를 함께 설명한다.
+Sprint A/B에서 Project-only History와 Editor Project Owner 경계,
+Timeline playback Runtime, pure Animation 모듈과 Panel 없는
+Drawing/Text/Audio의 Layer Type 지원 모듈을 구현했다. `src/cutover`는
+Sprint C까지 compatibility로 유지하며 Render는 후속 Render Sprint까지
+동결한다. Persistence envelope와 Project lifecycle 상세는
+`57_layer_document_persistence_project_lifecycle.md`가 이어서 설명한다.
+`55_layer_type_future_engine_foundation.md`의 ProjectSource/Timeline Item
+구조는 역사 기록으로만 남는다.
 
 ## 2. 저장 모델
 
@@ -57,7 +70,9 @@ Placement는 parent Group, order, start/duration, source offset, visibility, ali
 - Video/Shape: schema와 extension point가 있고 제품 편집/renderer는 아직 없다.
 - Unknown: 알 수 없는 input을 안전하게 보존한다.
 
-새 Type은 새 Project/selection/store를 만들지 않는다. LayerDocument의 Type data, Domain Engine command/query, panel descriptor, renderer adapter만 추가한다.
+새 Type은 새 Project/selection/store를 만들지 않는다. LayerDocument의
+Type data와 필요한 panel descriptor, command/query, renderer adapter만
+추가한다. 독립 Panel이 있을 때만 그 Panel과 짝을 이루는 Engine을 둔다.
 
 ## 3. Source Registry와 lifecycle
 
@@ -88,7 +103,10 @@ Cancel, failure, replacement에서는 준비된 runtime을 dispose한다. Confir
 
 Refresh는 저장된 PSD source identity를 우선해 기존 LayerDocument를 유지한다. stable id가 없는 PSD node는 tree-path identity fallback을 사용한다. Source version/visual fingerprint가 바뀌면 해당 Source의 runtime만 invalidation하며 다른 PSD/import cache는 보존한다.
 
-Source 삭제/교체/refresh, undo/redo, import confirm은 owner effect를 만들고 active assembly가 targeted runtime invalidation, suspend/restore 또는 orphan GC를 수행한다. Runtime resource는 dispose-once 계약을 가진다.
+Source 삭제/교체/refresh, undo/redo, import confirm은 Owner effect를 만들고
+Composition Root가 연결한 Runtime port가 targeted invalidation,
+suspend/restore 또는 orphan GC를 수행한다. Runtime resource는 dispose-once
+계약을 가진다.
 
 ## 4. Identity
 
@@ -108,33 +126,67 @@ Source 삭제/교체/refresh, undo/redo, import confirm은 owner effect를 만�
 
 `itemId`와 `renderItemId`라는 필드는 renderer projection의 derived compatibility 이름으로 일부 runtime 모델에 남아 있다. 저장 authority나 별도 편집 entity가 아니며 active command/selection은 `layerDocumentId`를 사용한다.
 
-## 5. Owner, session, Draft, History
+## 5. Project Owner, Runtime, Draft, History
 
-### 5.1 Project owner
+### 5.1 Project Owner
 
-Project Core Engine의 owner reducer가 모든 상태 전이를 담당한다.
+Project Owner는 Editor 아래에서 `LayerDocumentProject`를 소유하는 유일한
+경계이며 Engine이 아니다. 내부의 Project State/Replace, Transaction,
+History, Lifecycle/Persistence, Source Runtime, Selection Runtime은
+하나의 외부 Owner port 뒤에서 분리된 책임으로 유지한다.
 
 - Project transaction commit
 - Source lifecycle commit
-- selection/active Group/playback session
+- Selection Runtime 보정
 - undo/redo
-- owner effect 발행
+- Owner effect 발행
 
-Mutation은 total result를 반환한다. 실패하면 Project, session, History와 runtime registration이 부분 적용되지 않는다.
+Mutation은 total result를 반환한다. 실패하면 Project, Runtime, History와
+Runtime registration이 부분 적용되지 않는다.
 
-### 5.2 Session
+### 5.2 Selection과 Timeline Runtime
 
-선택 LayerDocument, active Group, current frame과 playback range는 Editor session이다. Panel별 선택 사본을 만들지 않는다. owner가 session을 Project와 함께 일관되게 전환하며 undo/redo 뒤에는 stale local UI/Draft를 비운다.
+layer selection, source selection과 active Group은 Project Owner의
+Selection Runtime이다. 세 값은 복합 상태를 유지하며 layer/source
+selection은 동시에 존재할 수 있다. 이를 하나의 상호배타적 selection
+union으로 합치지 않고 Panel별 선택 사본도 만들지 않는다.
 
-Project Lifecycle은 `untitled | file-backed`, `clean | dirty`, `idle | saving | loading` 세 축을 Project Engine runtime으로 관리한다. Dirty는 canonical Project digest와 savepoint digest의 일치 여부로 계산하므로 저장 중 생긴 후속 편집과 Undo로 savepoint에 돌아온 상태를 구분한다. 비동기 작업은 증가하는 operation token으로 stale 완료를 폐기한다.
+current frame과 playback range, transport와 clock은 저장되지 않는 Timeline
+Engine Runtime이다. Undo/Redo는 이 Runtime을 과거 값으로 복원하지 않고
+현재 값을 새 Project의 유효 범위에 맞게 유지 또는 clamp한다. stale local
+UI와 Draft는 필요한 경우 clear/reset한다.
 
-Editor Shell의 lifecycle bar는 이 공개 상태와 command port만 소비한다. New/Open/Close는 Dirty일 때 discard confirmation을 먼저 통과하며 Cancel이면 owner, Runtime, Save target을 그대로 둔다. Save/Save As와 Open 오류는 code/message를 보존한 UI notice로 표시한다. Missing/Error Source는 Reconnect entry로 노출하지만 fingerprint mismatch와 legacy null fingerprint는 자동 승인하지 않고 확인 필요 상태로 남긴다.
+Project Lifecycle은 `untitled | file-backed`, `clean | dirty`,
+`idle | saving | loading` 세 축을 Project Owner Runtime으로 관리한다.
+Dirty는 canonical Project digest와 savepoint digest의 일치 여부로 계산하므로
+저장 중 생긴 후속 편집과 Undo로 savepoint에 돌아온 상태를 구분한다.
+비동기 작업은 증가하는 operation token으로 stale 완료를 폐기한다.
 
-검증된 Load/New candidate만 owner의 `replace-project` action으로 들어간다. 성공한 Replace는 새 Project의 기본 Session을 만들고 History와 runtime session을 비운 뒤 playback 정지, Draft/local UI 초기화와 Source Runtime 전체 invalidation effect를 발행한다. Cache port 자체는 dispose하지 않는다. 검증 또는 owner 교체 실패는 기존 owner state와 Runtime을 유지한다.
+Editor Shell의 lifecycle bar는 이 공개 상태와 command port만 소비한다.
+New/Open/Close는 Dirty일 때 discard confirmation을 먼저 통과하며 Cancel이면
+Project Owner, Runtime, Save target을 그대로 둔다. Save/Save As와 Open
+오류는 code/message를 보존한 UI notice로 표시한다. Missing/Error Source는
+Reconnect entry로 노출하지만 fingerprint mismatch와 legacy null
+fingerprint는 자동 승인하지 않고 확인 필요 상태로 남긴다.
+
+검증된 Load/New candidate만 Project Owner의 `replace-project` action으로
+들어간다. 성공한 Replace는 새 Project에 맞는 기본 Selection Runtime을
+만들고 History와 project-scoped Runtime을 초기화한 뒤 playback 정지,
+Draft/local UI 초기화와 Source Runtime 전체 invalidation effect를
+발행한다. Cache port 자체는 dispose하지 않는다. 검증 또는 Owner 교체
+실패는 기존 Project Owner state와 Runtime을 유지한다.
 
 Save는 시작 시점의 Project를 Plain Data snapshot과 canonical `.sfep` bytes로 고정한다. Native File System API가 있으면 선택한 handle을 Save controller runtime에만 보관하고, 지원하지 않으면 `.sfep` Blob download를 사용하며 handle을 남기지 않는다. Save/Save As target과 savepoint는 write와 lifecycle token 확인이 모두 성공한 뒤에만 교체한다. 저장 write는 직렬화하므로 concurrent Save에서도 마지막 유효 작업이 최종 파일 상태가 되며 stale 완료는 savepoint를 이동하지 않는다.
 
-Open은 native picker 또는 hidden `.sfep` file input으로 선택한 파일을 먼저 codec Load Candidate로 검증한다. Candidate가 유효한 경우에만 `projectId + locatorId` lookup으로 linked document 접근을 확인하고 새 Runtime resource를 준비한다. 준비가 끝난 같은 load token만 owner Replace를 수행하며, 기존 cache 전체 invalidation 뒤 새 resource를 atomic batch로 등록한다. 접근 불가 Source와 개별 preparation 실패는 각각 Missing/Error Runtime Resolution이 되고 Project는 Ready-Degraded로 열린다. 손상 파일과 stale 준비 결과는 기존 Project, Runtime과 Save target을 유지하고 준비 resource만 dispose-once 한다.
+Open은 native picker 또는 hidden `.sfep` file input으로 선택한 파일을 먼저
+codec Load Candidate로 검증한다. Candidate가 유효한 경우에만
+`projectId + locatorId` lookup으로 linked document 접근을 확인하고 새
+Runtime resource를 준비한다. 준비가 끝난 같은 load token만 Project Owner
+Replace를 수행하며, 기존 cache 전체 invalidation 뒤 새 resource를 atomic
+batch로 등록한다. 접근 불가 Source와 개별 preparation 실패는 각각
+Missing/Error Runtime Resolution이 되고 Project는 Ready-Degraded로 열린다.
+손상 파일과 stale 준비 결과는 기존 Project, Runtime과 Save target을
+유지하고 준비 resource만 dispose-once 한다.
 
 Reconnect는 Missing/Error인 linked document Source 하나를 기준으로 수행한다. 선택 파일의 실제 SHA-256/byte length가 저장 descriptor와 일치할 때만 document와 dependent PSD node의 기존 cache를 suspend하고 새 runtime batch를 등록한다. 성공하면 suspended resource를 dispose하고 `(projectId, locatorId)` local handle과 dependent Runtime Resolution을 함께 갱신하며 다른 Source cache는 보존한다. Fingerprint mismatch와 schema 1에서 이관된 null fingerprint는 자동 연결하지 않고 `refresh-source | replace-source` 확인 경계를 반환한다. Cancel, 권한 거부와 stale 결과는 기존 Runtime을 유지하고, parse 실패는 해당 dependent Source의 Error Runtime Resolution만 갱신한다.
 
@@ -156,7 +208,16 @@ Transform Draft identity는 target `layerDocumentId`, global/local frame과 patc
 
 ### 5.4 History
 
-한 사용자 action은 transaction과 History 한 건이다. Duplicate, delete, group move, Timeline placement commit, Transform/Animation/Effect/Modifier commit과 Source lifecycle이 같은 원칙을 따른다. Runtime Canvas/ImageBitmap/resource는 History나 Project snapshot에 들어가지 않는다.
+한 사용자 action은 transaction과 History 한 건이다. Duplicate, delete,
+group move, Timeline placement commit, Transform/Animation/Effect/Modifier
+commit과 Source lifecycle이 같은 원칙을 따른다.
+
+History snapshot은 `LayerDocumentProject`만 저장한다. layer/source selection,
+active Group, current frame/playback range, Draft, 선택된 keyframe, Cache,
+Source Runtime resource와 모든 Panel Runtime은 History에 들어가지 않는다.
+Undo/Redo는 Project snapshot만 교체한 뒤 현재 Runtime을 새 Project에 대해
+유효성 보정한다. History entry의 label, affected ID와 최소 semantic
+metadata는 snapshot과 구분하며 transition effect 자체를 저장하지 않는다.
 
 ## 6. Command와 read 흐름
 
@@ -164,10 +225,10 @@ Transform Draft identity는 target `layerDocumentId`, global/local frame과 patc
 UI event
 → 담당 Engine command
 → semantic intent
-→ injected Project owner port
+→ injected Project Owner port
 → validate + transaction
-→ Project/session/history state 교체
-→ owner effect
+→ Project/History state 교체
+→ Owner effect
 → Engine read model 재계산
 → UI render
 ```
@@ -177,37 +238,39 @@ UI는 Project object를 직접 mutation하지 않는다. Engine도 다른 Engine
 Read 흐름:
 
 ```text
-LayerDocumentProject + session + frame + Draft
+LayerDocumentProject + Selection Runtime + frame + Draft
 → Project/Runtime read adapter
 → Timeline / Properties / PSD Tree / Canvas read model
 → feature UI
 ```
 
-## 7. Core Engine과 Domain Engine
+## 7. Project Owner와 Panel Engine
 
-Core Engine:
+Engine은 독립 Panel과 짝을 이루는 편집 경계에만 사용한다.
 
-- Project: owner, transaction, History, Source lifecycle
-- Playback/Render: frame evaluation과 renderer projection
-- Canvas: viewport, selection, Draft interaction, preview/cache
-- Timeline: placement/animation projection과 interaction
-- Properties: 선택 LayerDocument의 값과 command
-- PSD Tree: Source/Group tree와 import/refresh intent
-- Animation: keyframe/effect/modifier 공통 계산
+- Canvas Engine ↔ Canvas Panel
+- Timeline Engine ↔ Timeline Panel
+- Properties Engine ↔ Properties Panel
+- PSD Tree Engine ↔ PSD Tree Panel
 
-Domain Engine:
+Project Owner는 Engine이 아니며 Project Data, transaction, History,
+lifecycle과 project-scoped Source/Selection Runtime의 외부 경계다.
+Animation은 상태를 소유하지 않는 순수 계산 모듈이다. Drawing, Text,
+Audio는 독립 Panel이 생기기 전까지 Engine으로 분류하지 않고
+LayerDocument Type data와 기존 Panel command/capability로 다룬다.
 
-- Drawing
-- Text
-- Audio
+Playback 상태와 command는 Timeline Engine Runtime 책임이다. Render 구조,
+명칭, 파일, public export와 Full/Fast Render 동작은 후속 Render Sprint까지
+동결하며 기존 Playback/Animation compatibility 경로를 유지한다.
 
-Domain Engine은 해당 Layer Type 영역의 preparation, capability, command/query 경계를 가진다. Project를 소유하거나 Core Engine 내부를 import하지 않는다.
-
-## 8. UI Engine별 계약
+## 8. Panel Engine별 계약
 
 ### Canvas
 
-Canvas는 owner read port로 selected LayerDocument, scope, runtime input을 읽는다. direct selection, alpha hit, glow, gizmo와 motion path 모두 같은 `layerDocumentId`를 반환한다. PointerMove는 Draft, PointerUp은 semantic commit intent다.
+Canvas는 Project Owner read port로 selected LayerDocument, scope, runtime
+input을 읽는다. direct selection, alpha hit, glow, gizmo와 motion path 모두
+같은 `layerDocumentId`를 반환한다. PointerMove는 Draft, PointerUp은
+semantic commit intent다.
 
 ### Timeline
 
@@ -215,15 +278,23 @@ Timeline은 active Group 자식 LayerDocument의 placement와 animation을 row/k
 
 ### Properties
 
-Properties는 selected LayerDocument의 공통/Type data, matching Draft와 runtime Source resolution을 읽는다. numeric input은 로컬 문자열/Draft를 유지할 수 있지만 commit은 owner command를 통한다.
+Properties는 selected LayerDocument의 공통/Type data, matching Draft와
+runtime Source resolution을 읽는다. numeric input은 로컬 문자열/Draft를
+유지할 수 있지만 commit은 Project Owner command를 통한다.
 
 ### PSD Tree
 
-PSD Tree는 Source Registry의 PSD document/node와 Group graph를 projection하고 가용성은 runtime resolution에서 읽는다. import/refresh/delete/reorder/select intent만 만들고 Project mutation은 Project Engine에 위임한다.
+PSD Tree는 Source Registry의 PSD document/node와 Group graph를 projection하고
+가용성은 runtime resolution에서 읽는다.
+import/refresh/delete/reorder/select intent만 만들고 Project mutation은
+Project Owner에 위임한다.
 
 ## 9. Renderer boundary
 
 Project data는 renderer resource를 포함하지 않는다.
+Render 구조, 명칭, 파일 위치, public export와 책임은 후속 Render Sprint
+전까지 변경하지 않는다. 이 절은 현재 Render 계약을 기록하며 Project
+Owner/Panel Engine 재분류의 수정 범위가 아니다.
 
 ```text
 LayerDocument + Source Registry + Source Runtime Resolution + frame + Draft
@@ -319,29 +390,35 @@ Active `src/models/index.ts`, Editor와 Engine은 이전 모델을 public author
 ## 14. Engine boundary
 
 - Feature UI → 담당 Engine public port만 사용
-- Domain Engine → 필요한 Core port를 Composition Root에서 주입
+- Project Owner → Engine이 아닌 단일 Project read/command/effect port
+- Panel Engine → 필요한 Owner/Runtime port를 Composition Root에서 주입
+- Engine ↔ 독립 Panel이 있을 때만 구성
 - Engine → `src/cutover` import 금지
 - Controller → 다른 Controller/Composer import 금지
 - Composer → Controller 조립과 공개 API만 담당
-- Project mutation → Project owner transaction만 수행
+- Project mutation → Project Owner transaction만 수행
 - runtime resource → Project/History/serialized data 진입 금지
 - offline migration → active barrel/bootstrap 진입 금지
 
-`src/cutover`는 현재 active wiring이지만 Engine 밖 Editor owner에서만 생성한다. 이름은 전환 역사를 반영할 뿐 이전 모델 fallback을 의미하지 않는다.
+`src/cutover`는 현재 active wiring이지만 Panel Engine 밖 Composition
+Root에서만 생성한다. 이름은 전환 역사를 반영할 뿐 이전 모델 fallback을
+의미하지 않는다.
 
 ## 15. Layer Type 확장 방법
 
 1. `LayerDocumentType`과 discriminated `data`에 Type 추가
 2. normalize/validation/plain-data fixture 추가
 3. 필요한 Source kind/lifecycle 정의
-4. Domain Engine이 필요하면 명확한 command/query/capability port 추가
+4. 기존 Panel의 명확한 command/query/capability port 추가
 5. Properties panel descriptor/command 연결
 6. Timeline capability projection 연결
 7. Canvas/renderer content adapter 추가
 8. Project transaction, duplicate, history, offline migration 정책 확인
 9. Engine import boundary와 public fixture 추가
 
-새 Type을 위해 별도 Project root, selection identity, Timeline entity 또는 renderer 저장 authority를 만들지 않는다.
+새 Type을 위해 별도 Project root, selection identity, Timeline entity 또는
+renderer 저장 authority를 만들지 않는다. 독립 Panel이 새로 생길 때만
+그 Panel과 짝을 이루는 Engine 추가를 검토한다.
 
 ## 16. 정적 검증 coverage
 

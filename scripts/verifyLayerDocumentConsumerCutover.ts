@@ -39,13 +39,13 @@ import {
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
-} from "@/engines/drawing";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
-} from "@/engines/text";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
-} from "@/engines/audio";
+} from "@/layer-types";
 
 function common(
   parentLayerDocumentId: string | null,
@@ -299,10 +299,6 @@ const initialized = createLayerDocumentProjectOwnerState({
     kind: "psd-tree-source",
     sourceId: "node",
   },
-  playback: {
-    currentFrame: 20,
-    range: { startFrame: 0, endFrame: 119 },
-  },
 });
 assert.equal(initialized.ok, true);
 if (!initialized.ok) throw new Error(initialized.error.message);
@@ -380,10 +376,6 @@ const assembly = createLayerDocumentConsumerCutoverAssembly({
 const initialTimeline = assembly.timeline.readViewProps();
 assert.equal(initialTimeline.available, true);
 assert.equal(initialTimeline.selectedLayerDocumentId, "psd");
-assert.deepEqual(initialTimeline.playbackRange, {
-  startFrame: 0,
-  endFrame: 119,
-});
 assert.equal(
   flattenRows(initialTimeline.rows).find(
     (row) => row.layerDocumentId === "psd"
@@ -405,25 +397,15 @@ assert.equal(
   "node"
 );
 let callsBefore = transitionCallCount;
-const historyBeforePlayback = owner.state.undoStack.length;
-const playbackUpdated = assembly.playback.set({
-  currentFrame: 21,
-  range: { startFrame: 0, endFrame: 119 },
-});
-assert.equal(playbackUpdated.ok, true);
-assert.equal(transitionCallCount, callsBefore + 1);
-assert.equal(owner.state.undoStack.length, historyBeforePlayback);
-assert.deepEqual(assembly.playback.read(), {
-  currentFrame: 21,
-  range: { startFrame: 0, endFrame: 119 },
-});
-assert.equal(
-  assembly.playback.set({
-    currentFrame: 20,
-    range: { startFrame: 0, endFrame: 119 },
-  }).ok,
-  true
-);
+let externalFrame = 20;
+const externalPlayback = {
+  read: () => ({ currentFrame: externalFrame }),
+  commands: {
+    seek: (frame: number) => {
+      externalFrame = frame;
+    },
+  },
+};
 
 const importDocument = psdDocument("import-document");
 const importNode = psdNode({
@@ -1031,6 +1013,7 @@ assert.equal(
   historyBeforeParsedConfirm + 1
 );
 const parsedCanvasView = assembly.canvas.readViewProps({
+  globalFrame: externalFrame,
   quality: "original",
   rendererMode: "full-render",
 });
@@ -1224,6 +1207,7 @@ assert.equal(
 );
 
 let canvas = assembly.canvas.readViewProps({
+  globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "fast-render",
 });
@@ -1266,6 +1250,7 @@ assert.doesNotMatch(
   /runtimeOnly/
 );
 canvas = assembly.canvas.readViewProps({
+  globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "fast-render",
 });
@@ -1294,6 +1279,7 @@ const copyAnimationBeforeDraft = structuredClone(
 callsBefore = transitionCallCount;
 const pointerMove = assembly.canvas.pointerMove({
   layerDocumentId: "psd-copy",
+  globalFrame: externalFrame,
   quality: "preview",
   patch: {
     position: { x: 333, y: 444 },
@@ -1311,6 +1297,7 @@ assert.equal(owner.state.undoStack.length, historyBeforeDraft);
 assert.equal(draftPublishCount, 1);
 assert.ok(draft);
 canvas = assembly.canvas.readViewProps({
+  globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "fast-render",
 });
@@ -1373,6 +1360,7 @@ assert.deepEqual(
 );
 const canvasAfterAnimatedCommit =
   assembly.canvas.readViewProps({
+    globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
   });
@@ -1432,11 +1420,13 @@ const nativeCanvasCommands =
     quality: "preview",
     port: createLayerDocumentCanvasCutoverCommandPort({
       assembly,
+      playback: externalPlayback,
       quality: "preview",
     }),
   });
 const motionPathBeforeDraft =
   assembly.canvas.readViewProps({
+    globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
   });
@@ -1495,6 +1485,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   assembly.canvas.readViewProps({
+    globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
   }).selectedTransformKeyframe,
@@ -1527,6 +1518,7 @@ assert.equal(draft?.globalFrame, 7);
 assert.equal(draft?.localFrame, 7);
 const motionPathDuringDraft =
   assembly.canvas.readViewProps({
+    globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
   });
@@ -1561,6 +1553,7 @@ assert.equal(
 );
 const motionPathAfterCancel =
   assembly.canvas.readViewProps({
+    globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
   });
@@ -1579,7 +1572,7 @@ assert.deepEqual(
     )?.position,
   originalFrameSevenSample.position
 );
-assert.equal(assembly.playback.read().currentFrame, 20);
+assert.equal(externalFrame, 20);
 
 assert.equal(
   nativeCanvasCommands.publishMotionPathKeyframeDraft({
@@ -1651,6 +1644,7 @@ const disabledTrackCommands =
     quality: "preview",
     port: createLayerDocumentCanvasCutoverCommandPort({
       assembly,
+      playback: externalPlayback,
       quality: "preview",
     }),
   });
@@ -1937,6 +1931,7 @@ const beforeRefreshLayer = structuredClone(
   assembly.project.read().payload.layerDocumentsById.psd
 );
 canvas = assembly.canvas.readViewProps({
+  globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "full-render",
 });
@@ -2004,6 +1999,7 @@ assert.equal(
 );
 assert.equal(disposedResourceCount, 2);
 const afterRefreshCanvas = assembly.canvas.readViewProps({
+  globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "full-render",
 });

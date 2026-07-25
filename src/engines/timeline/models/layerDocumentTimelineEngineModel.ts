@@ -7,7 +7,6 @@ import type {
   SourceRegistryKind,
 } from "@/models";
 import type {
-  LayerDocumentOwnerPlaybackSession,
   LayerDocumentSourceStatusIdentity,
   LayerDocumentTransformKeyframeSelection,
 } from "@/engines/project";
@@ -47,11 +46,6 @@ export interface LayerDocumentTimelineConsumerViewProps {
     LayerDocumentTransformKeyframeSelection | null;
   readonly acknowledgedSourceStatuses:
     readonly LayerDocumentSourceStatusIdentity[];
-  readonly currentFrame: number;
-  readonly playbackRange: {
-    readonly startFrame: number;
-    readonly endFrame: number;
-  };
   readonly scope: LayerDocumentGroupScopeReadModelResult;
   readonly rows: readonly LayerDocumentTimelineConsumerRow[];
   readonly commands: {
@@ -71,12 +65,6 @@ export interface LayerDocumentTimelineOwnerPort {
   readonly scope: {
     readonly read: () => LayerDocumentGroupScopeReadModelResult;
     readonly enter: (layerDocumentId: string) => unknown;
-  };
-  readonly playback: {
-    readonly read: () => LayerDocumentOwnerPlaybackSession;
-    readonly set: (
-      playback: LayerDocumentOwnerPlaybackSession
-    ) => unknown;
   };
   readonly timeline: {
     readonly readViewProps: () =>
@@ -119,8 +107,8 @@ export interface LayerDocumentTimelineKeyframeDrag {
 }
 
 /**
- * Ephemeral Timeline-only UI state. Stored Project, owner playback session,
- * Layer selection, and owner keyframe selection are intentionally absent.
+ * Ephemeral Timeline-only UI state. Stored Project, Timeline playback
+ * Runtime, Layer selection, and owner keyframe selection are absent.
  */
 export interface LayerDocumentTimelineRuntimeUiState {
   readonly isCompositionSwitcherOpen: boolean;
@@ -175,6 +163,15 @@ export interface LayerDocumentTimelinePlaybackPort {
       endFrame: number
     ) => void;
   };
+}
+
+export interface LayerDocumentTimelineRuntimePort
+  extends LayerDocumentTimelinePlaybackPort {
+  readonly validity: {
+    readonly reconcile: () => void;
+  };
+  readonly dispose: () => void;
+  readonly synchronizeClock: () => void;
 }
 
 export interface LayerDocumentTimelinePlaybackScheduler {

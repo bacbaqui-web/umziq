@@ -1,13 +1,43 @@
 import {
   buildUpdateLayerDocumentDomainTransaction,
   type LayerDocumentProject,
+  type LayerDocumentTransactionResult,
+  type LayerDocumentType,
   type TextLayerData,
 } from "@/models";
-import type {
-  LayerDocumentTextPreparationPort,
-  LayerDocumentTextQueryResult,
-  ReplaceLayerDocumentTextCommand,
-} from "@/engines/text/models/layerDocumentTextPreparationModel";
+
+export type LayerDocumentTextQueryResult =
+  | {
+      readonly status: "ready";
+      readonly layerDocumentId: string;
+      readonly data: TextLayerData;
+    }
+  | {
+      readonly status: "not-found";
+      readonly layerDocumentId: string;
+    }
+  | {
+      readonly status: "type-mismatch";
+      readonly layerDocumentId: string;
+      readonly expectedType: "text";
+      readonly actualType: LayerDocumentType;
+    };
+
+export interface ReplaceLayerDocumentTextCommand {
+  readonly layerDocumentId: string;
+  readonly data: TextLayerData;
+}
+
+export interface LayerDocumentTextPreparationPort {
+  readonly query: (
+    project: LayerDocumentProject,
+    layerDocumentId: string
+  ) => LayerDocumentTextQueryResult;
+  readonly prepareUpdate: (
+    project: LayerDocumentProject,
+    command: ReplaceLayerDocumentTextCommand
+  ) => LayerDocumentTransactionResult;
+}
 
 function cloneTextData(data: TextLayerData): TextLayerData {
   return {
@@ -20,8 +50,11 @@ export function queryLayerDocumentText(
   project: LayerDocumentProject,
   layerDocumentId: string
 ): LayerDocumentTextQueryResult {
-  const layer = project.payload.layerDocumentsById[layerDocumentId];
-  if (!layer) return { status: "not-found", layerDocumentId };
+  const layer =
+    project.payload.layerDocumentsById[layerDocumentId];
+  if (!layer) {
+    return { status: "not-found", layerDocumentId };
+  }
   if (layer.type !== "text") {
     return {
       status: "type-mismatch",

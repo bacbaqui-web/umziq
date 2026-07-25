@@ -164,8 +164,6 @@ export type {
   CreateLayerDocumentProjectOwnerOptions,
   LayerDocumentOwnerHistoryEntry,
   LayerDocumentOwnerHistorySnapshot,
-  LayerDocumentOwnerPlaybackRange,
-  LayerDocumentOwnerPlaybackSession,
   LayerDocumentOwnerRuntimeSession,
   LayerDocumentOwnerRuntimeCachePolicy,
   LayerDocumentOwnerSession,

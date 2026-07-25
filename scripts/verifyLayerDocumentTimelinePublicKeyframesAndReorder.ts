@@ -28,13 +28,13 @@ import {
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
-} from "@/engines/drawing";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
-} from "@/engines/text";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
-} from "@/engines/audio";
+} from "@/layer-types";
 import {
   createLayerDocumentTimelineInteractionController,
 } from "@/engines/timeline/adapters/layerDocumentTimelineInteractionController";
@@ -321,13 +321,6 @@ const initialized =
       layerDocumentId: "a",
     },
     activeGroupLayerDocumentId: "root",
-    playback: {
-      currentFrame: 0,
-      range: {
-        startFrame: 0,
-        endFrame: 20,
-      },
-    },
   });
 if (!initialized.ok) {
   throw new Error(initialized.error.message);
@@ -650,7 +643,7 @@ assert.equal(
 assert.equal(
   owner.state.session.layerSelection
     .layerDocumentId,
-  "background-copy-2"
+  "root"
 );
 assert.equal(assembly.project.redo().ok, true);
 assert.ok(
@@ -660,7 +653,7 @@ assert.ok(
 assert.equal(
   owner.state.session.layerSelection
     .layerDocumentId,
-  "background-copy-3"
+  "root"
 );
 assert.equal(
   owner.state.undoStack.length,
@@ -745,6 +738,7 @@ assert.equal(
 );
 const transformDraft = assembly.canvas.pointerMove({
   layerDocumentId: "background-copy-2",
+  globalFrame: playback.read().currentFrame,
   patch: { position: { x: 700, y: 0 } },
   quality: "original",
 });

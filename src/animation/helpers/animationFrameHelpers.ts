@@ -1,3 +1,4 @@
+/** Pure global/local frame conversion. */
 export function globalFrameToLocalFrame(
   globalFrame: number,
   startFrame: number,

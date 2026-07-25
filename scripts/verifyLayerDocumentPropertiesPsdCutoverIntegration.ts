@@ -34,13 +34,13 @@ import {
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
-} from "@/engines/drawing";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
-} from "@/engines/text";
+} from "@/layer-types";
 import {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
-} from "@/engines/audio";
+} from "@/layer-types";
 
 function common(
   parentLayerDocumentId: string | null,
@@ -171,10 +171,6 @@ const initialized = createLayerDocumentProjectOwnerState({
     layerDocumentId: "psd",
   },
   activeGroupLayerDocumentId: "root",
-  playback: {
-    currentFrame: 7,
-    range: { startFrame: 0, endFrame: 119 },
-  },
 });
 assert.equal(initialized.ok, true);
 if (!initialized.ok) throw new Error(initialized.error.message);
@@ -245,6 +241,7 @@ const propertiesPort =
   createLayerDocumentPropertiesCommandPort({
     assembly,
     readDraft: () => draft,
+    readGlobalFrame: () => 7,
   });
 let runtime: LayerDocumentPropertiesRuntimeState = {
   selectedLayerDocumentId: null,
@@ -373,6 +370,7 @@ const firstPsdLayer =
   );
 assert.ok(firstPsdLayer?.common.source);
 const firstRuntime = assembly.canvas.readViewProps({
+  globalFrame: 7,
   quality: "preview",
   rendererMode: "full-render",
 });
@@ -445,19 +443,19 @@ const ownerSource = readFileSync(
 );
 assert.match(
   rootSource,
-  /psdTreeProps:\s*layerDocument\.psdTreeProps/
+  /psdTreeProps:\s*psdTree\.viewProps/
 );
 assert.match(
   rootSource,
-  /propertiesPanelProps:\s*layerDocument\.propertiesPanelProps/
+  /propertiesPanelProps:\s*properties\.viewProps/
 );
 assert.match(
   rootSource,
-  /timelinePanelProps:\s*layerDocument\.timelinePanelProps/
+  /timelinePanelProps:\s*timeline\.viewProps/
 );
 assert.match(
   rootSource,
-  /readPort:\s*layerDocument\.canvasReadPort/
+  /readPort:\s*panelPorts\.canvasRead/
 );
 assert.doesNotMatch(
   `${rootSource}\n${ownerSource}`,

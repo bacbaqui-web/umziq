@@ -14,7 +14,6 @@ import type {
 } from "@/engines/project/models/layerDocumentProjectOwnerModel";
 import {
   cloneOwnerPlainData,
-  normalizeOwnerPlaybackSession,
   normalizeOwnerSession,
   normalizeOwnerSourceSelection,
   ownerStateWithStacks,
@@ -41,8 +40,7 @@ function updateSession(
       kind:
         | "set-layer-selection"
         | "set-source-selection"
-        | "set-active-group"
-        | "set-playback-session";
+        | "set-active-group";
     }
   >
 ): LayerDocumentProjectOwnerTransitionResult {
@@ -95,37 +93,15 @@ function updateSession(
       nextSession = {
         ...state.session,
         activeGroupLayerDocumentId,
-        playback: normalizeOwnerPlaybackSession({
-          project: state.currentProject,
-          activeGroupLayerDocumentId,
-          playback: state.session.playback,
-        })!,
       };
-      break;
-    }
-    case "set-playback-session": {
-      const playback = normalizeOwnerPlaybackSession({
-        project: state.currentProject,
-        activeGroupLayerDocumentId:
-          state.session.activeGroupLayerDocumentId,
-        playback: action.playback,
-      });
-      if (!playback) {
-        return failOwnerTransition(
-          state,
-          "invalid-session",
-          "Playback session must contain finite frame values"
-        );
-      }
-      nextSession = { ...state.session, playback };
       break;
     }
   }
   if (plainDataValuesEqual(state.session, nextSession)) {
     return successOwnerTransition({ previous: state, state });
   }
-  const renderScopeChanged = action.kind === "set-active-group" ||
-    action.kind === "set-playback-session";
+  const renderScopeChanged =
+    action.kind === "set-active-group";
   return successOwnerTransition({
     previous: state,
     state: ownerStateWithStacks({
@@ -189,7 +165,6 @@ export function createLayerDocumentProjectOwnerState(
     sourceSelection: options.sourceSelection ?? null,
     activeGroupLayerDocumentId:
       options.activeGroupLayerDocumentId,
-    playback: options.playback,
   });
   if (!session) {
     return {
@@ -236,7 +211,6 @@ export function reduceLayerDocumentProjectOwner(
     case "set-layer-selection":
     case "set-source-selection":
     case "set-active-group":
-    case "set-playback-session":
       return updateSession(state, action);
     case "set-transform-keyframe-selection":
       return reduceOwnerRuntimeKeyframeSelection(

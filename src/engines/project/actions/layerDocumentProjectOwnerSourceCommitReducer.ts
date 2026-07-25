@@ -14,7 +14,6 @@ import {
   cloneOwnerHistoryEntry,
   cloneOwnerPlainData,
   cloneOwnerSnapshot,
-  normalizeOwnerPlaybackSession,
   ownerStateWithStacks,
 } from "@/engines/project/helpers/layerDocumentProjectOwnerHelpers";
 import {
@@ -142,11 +141,6 @@ export function commitLayerDocumentOwnerSourceTransaction(
       transaction.sourceSelectionChange
     ),
     activeGroupLayerDocumentId,
-    playback: normalizeOwnerPlaybackSession({
-      project: nextProject,
-      activeGroupLayerDocumentId,
-      playback: state.session.playback,
-    })!,
   };
   const effect = projectTransitionEffect({
     cacheInvalidations: transaction.cacheInvalidations,
@@ -205,14 +199,6 @@ export function commitLayerDocumentOwnerSourceTransaction(
   }
   const historyEntry: LayerDocumentOwnerHistoryEntry = {
     origin: "source-transaction",
-    runtimeCachePolicy:
-      transaction.kind === "delete-source"
-        ? "apply-source-invalidations"
-        : "preserve",
-    sourceInvalidationIds:
-      transaction.kind === "delete-source"
-        ? [...transaction.deletedSourceIds]
-        : [],
     label: sourceHistory.label,
     affectedLayerDocumentIds: [
       ...sourceHistory.affectedLayerDocumentIds,
@@ -220,11 +206,9 @@ export function commitLayerDocumentOwnerSourceTransaction(
     affectedSourceIds: [...sourceHistory.affectedSourceIds],
     before: cloneOwnerSnapshot({
       project: state.currentProject,
-      session: state.session,
     }),
     after: cloneOwnerSnapshot({
       project: nextProject,
-      session: nextSession,
     }),
   };
   const nextUndo = [

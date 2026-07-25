@@ -24,6 +24,14 @@ type SelectionResult =
 export function createLayerDocumentCanvasCutoverCommandPort(
   options: {
     assembly: LayerDocumentConsumerCutoverAssembly;
+    playback: {
+      readonly read: () => {
+        readonly currentFrame: number;
+      };
+      readonly commands: {
+        readonly seek: (frame: number) => void;
+      };
+    };
     quality: string;
   }
 ): LayerDocumentCanvasCommandPort<
@@ -32,7 +40,12 @@ export function createLayerDocumentCanvasCutoverCommandPort(
   CommitResult
 > {
   return {
-    pointerMove: options.assembly.canvas.pointerMove,
+    pointerMove: (command) =>
+      options.assembly.canvas.pointerMove({
+        ...command,
+        globalFrame:
+          options.playback.read().currentFrame,
+      }),
     pointerUp: options.assembly.canvas.pointerUp,
     cancelDraft: options.assembly.canvas.cancelDraft,
     directSelect:
@@ -77,12 +90,7 @@ export function createLayerDocumentCanvasCutoverCommandPort(
           globalFrame: command.globalFrame,
         }),
     seekFrame: (globalFrame) => {
-      const playback =
-        options.assembly.playback.read();
-      options.assembly.playback.set({
-        ...playback,
-        currentFrame: globalFrame,
-      });
+      options.playback.commands.seek(globalFrame);
     },
   };
 }

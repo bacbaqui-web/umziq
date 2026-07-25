@@ -1,10 +1,11 @@
+/** Pure motion-path sampling from Layer Document inputs. */
 import type { ModifierInstance, Position, PositionKeyframe } from "@/models";
-import { evaluatePositionKeyframes } from "@/engines/animation/helpers/animationEvaluationHelpers";
-import { applyPositionModifiers } from "@/engines/animation/helpers/modifierEvaluationHelpers";
+import { evaluatePositionKeyframes } from "@/animation/helpers/animationEvaluationHelpers";
+import { applyPositionModifiers } from "@/animation/helpers/modifierEvaluationHelpers";
 import {
   globalFrameToLocalFrame,
   localFrameToGlobalFrame,
-} from "@/engines/animation/helpers/animationFrameHelpers";
+} from "@/animation/helpers/animationFrameHelpers";
 
 export interface MotionPathSample {
   frame: number;

@@ -40,12 +40,13 @@ function frameRateForLayer(
 export function createLayerDocumentPropertiesCommandPort(options: {
   assembly: LayerDocumentConsumerCutoverAssembly;
   readDraft: () => LayerDocumentTransformDraftSnapshot | null;
+  readGlobalFrame: () => number;
   quality?: string;
 }): LayerDocumentPropertiesCommandPort {
   const read = () => {
     const descriptor = options.assembly.properties.describe();
     const globalFrame =
-      options.assembly.playback.read().currentFrame;
+      options.readGlobalFrame();
     if (descriptor.status !== "ready") {
       return {
         descriptor,
@@ -106,6 +107,7 @@ export function createLayerDocumentPropertiesCommandPort(options: {
         layerDocumentId,
         patch,
         quality: options.quality ?? "preview",
+        globalFrame: options.readGlobalFrame(),
       });
       return prepared ? { ok: true } : { ok: false };
     },

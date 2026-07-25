@@ -38,7 +38,9 @@
 - Timeline UI는 `Layer Document.common.placement`를 표시하고 수정한다.
 - Type별 확장 영역은 PSD, Drawing, Text, Audio, Video, Shape, Group 등 해당 Layer Type에 필요한 데이터만 가진다.
 - `type`과 Type별 확장 데이터는 서로 불일치할 수 없도록 discriminated union 또는 동등한 검증 구조를 사용한다.
-- 새로운 Layer Type은 Project 저장 구조나 선택 구조를 새로 만들지 않고, `Layer Document`에 Type별 데이터 영역과 담당 Engine/Panel/Renderer 연결만 추가한다.
+- 새로운 Layer Type은 Project 저장 구조나 선택 구조를 새로 만들지 않고,
+  `Layer Document`에 Type별 데이터 영역과 필요한 Panel/Renderer 연결만
+  추가한다. 독립 Panel이 있을 때만 그 Panel과 짝을 이루는 Engine을 둔다.
 - File, FileHandle, ImageBitmap, Canvas, AudioNode, Decoder, GPU Resource, Render Cache 같은 Runtime 객체는 `Layer Document`에 저장하지 않는다.
 
 ### Source
@@ -60,21 +62,25 @@
 
 ### Panel과 Engine
 
-- Properties는 특별한 중심 Panel이 아니며, Transform, Drawing, Text, Audio, Video, Effect, Modifier Panel과 동일한 규칙을 따른다.
+- Properties는 특별한 중심 Panel이 아니며 Canvas, Timeline, PSD Tree와
+  같은 Panel 경계 규칙을 따른다.
 - 모든 Panel은 선택된 `Layer Document` 하나를 읽고 자신이 담당하는 영역만 수정한다.
+- Project Owner는 Engine이 아니며 Editor 아래에서 Project Data를 소유하는
+  유일한 경계다.
+- Engine은 독립 Panel과 짝을 이루는 편집 경계에만 사용한다.
+- 현재 Panel Engine은 Canvas, Timeline, Properties, PSD Tree다.
+- 독립 Panel이 없는 Animation, Drawing, Text, Audio 같은 책임에 Engine
+  이름을 붙이지 않는다. Animation은 상태를 소유하지 않는 순수 모듈로
+  둘 수 있고, Drawing/Text/Audio는 담당 Panel이 생길 때 Engine 승격을
+  검토한다.
 - Engine은 Project Data를 소유하지 않는다.
 - Engine은 Runtime Cache, Draft, Tool State, Preview 계산 결과처럼 Project에 저장되지 않는 Runtime 데이터만 소유할 수 있다.
 - Engine이 소유하는 Runtime 데이터는 `Layer Document`의 대체 편집 원본이 될 수 없다.
 - Project에 저장되는 데이터는 반드시 `Layer Document`에 저장한다.
 - Engine은 `Layer Document`의 자신이 담당하는 영역에 대한 Command와 Query를 제공한다.
 - Engine의 개수는 고정하지 않는다.
-- Engine은 프로젝트 공통 기능을 담당하는 Core Engine과 특정 Layer Type의 독립 기능을 담당하는 Domain Engine으로 구분한다.
-- Core Engine은 Project, Timeline, Canvas, Playback, History처럼 여러 Layer Type이 함께 사용하는 공통 책임을 담당한다.
-- Domain Engine은 Drawing, Text, Audio처럼 특정 Layer Type의 독립적인 편집 책임을 담당한다.
-- 향후 Video, Shape 등 새로운 Layer Type도 같은 기준에 따라 Domain Engine을 둘 수 있다.
-- Domain Engine은 기능의 수가 많다는 이유만으로 추가하지 않는다.
-- 다음 조건을 모두 만족할 때만 Domain Engine을 추가한다.
-  - 담당하는 `Layer Document` 영역과 책임이 명확하다.
+- 다음 조건을 모두 만족할 때만 Engine을 추가한다.
+  - 독립 Panel과 담당하는 `Layer Document` 영역이 명확하다.
   - 다른 Engine의 내부 구현과 강하게 섞이지 않는다.
   - 독립적인 Command와 Query 흐름으로 성장할 수 있다.
   - Engine 추가가 중복이나 직접 연결을 늘리지 않고 전체 구조를 더 단순하게 만든다.
@@ -83,7 +89,35 @@
 - 사용자 Action 한 번은 History 한 번만 생성한다.
 - 위 조건을 충족하지 않는 작은 기능은 기존 담당 Engine 또는 Controller에 둔다.
 - 새로운 Engine을 추가하거나 기존 Engine의 책임을 변경할 때는 책임, 데이터 흐름, 공개 Command/Query, Engine Boundary를 문서에 먼저 명시한다.
-- 프로젝트 문서에서는 Engine을 다른 구조명으로 완곡하게 부르지 않고 Core Engine 또는 Domain Engine으로 명확히 표현한다.
+
+### Project Owner, History와 Runtime
+
+- Project Owner의 저장 Project state와 History snapshot에는
+  `LayerDocumentProject`만 들어간다.
+- History snapshot에는 Selection, active Group, playback, Draft, Cache,
+  Source Runtime resource, Panel Runtime을 저장하지 않는다.
+- Undo/Redo는 Project snapshot만 교체하고 Runtime을 과거 값으로
+  복원하지 않는다. 현재 Runtime은 교체된 Project에 대해 유효성만
+  보정한다.
+- Selection Runtime은 layer selection, source selection,
+  active Group을 함께 관리하는 책임명이다. 세 값은 서로 다른 의미를
+  가지며 layer/source selection은 동시에 존재할 수 있으므로 하나의
+  상호배타적 union으로 합치지 않는다.
+- current frame, playback range, transport와 clock은 저장되지 않는
+  Timeline Runtime이다.
+- Draft와 선택된 keyframe은 저장되지 않는 Runtime이며 History 대상이
+  아니다.
+- Source descriptor는 Project Data지만 File/handle/decoded resource와
+  availability는 Source Runtime이다.
+
+### Render 동결
+
+- Render 구조, 명칭, 파일 위치, public export와 책임은 별도 후속
+  Render Sprint 전까지 변경하지 않는다.
+- Full/Fast Render, Canvas2D Draw, Dirty Region, Composition/Surface/
+  Source Runtime Cache와 Preview/Export 경계는 현재 계약을 유지한다.
+- Playback/Animation 소유권을 정리하더라도 Render가 소비하는 기존
+  compatibility export와 import 경로는 후속 Render Sprint까지 유지한다.
 
 3. 데이터 규칙
 
@@ -118,8 +152,9 @@
 5. 작업 규칙
 
 - 하나의 .ts 또는 .tsx 파일은 하나의 주된 책임만 가진다.
-- UI는 프로젝트 데이터를 직접 수정하지 않고 담당 Engine을 통해 변경한다.
-- 문제는 먼저 담당 Engine 안에서 해결한다.
+- UI는 프로젝트 데이터를 직접 수정하지 않고 담당 Panel Engine 또는
+  Project Owner의 공개 command를 통해 변경한다.
+- 문제는 먼저 담당 Panel Engine 또는 Project Owner 책임 안에서 해결한다.
 - 새로운 기능은 기존 구조에 추가하는 것을 우선으로 하며, 구조 변경은 마지막 선택으로 한다.
 - 관련 없는 파일은 수정하지 않는다.
 - 새 파일을 추가하거나 파일의 책임이 변경되면 20_src_map.md를 함께 업데이트한다.
