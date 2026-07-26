@@ -1,121 +1,148 @@
 import {
-  buildCanvasSelectionGlowDrawPlan,
-  buildCanvasSelectionGlowMaskRgba,
+  buildCanvasSelectionScreenToneDrawPlan,
+  buildCanvasSelectionScreenToneGlow,
 } from "@/engines/canvas/helpers/canvasSelectionGlowHelpers";
 import type {
-  CanvasSelectionGlowDrawInput,
   CanvasSelectionGlowRenderer,
 } from "@/engines/canvas/models/canvasSelectionGlowModel";
 
-type GlowRendererEvent = {
-  readonly type: "scratch-build" | "scratch-reuse" | "draw" | "clear" | "dispose";
-  readonly visualFingerprint: string | null;
-};
-
-type CreateCanvasSelectionGlowRendererOptions = {
-  createCanvas?: () => HTMLCanvasElement;
-  observe?: (event: GlowRendererEvent) => void;
-};
-
-function disposeCanvas(canvas: HTMLCanvasElement | null) {
-  if (!canvas) return;
-  canvas.width = 1;
-  canvas.height = 1;
-}
-
 function clearTarget(target: HTMLCanvasElement | null) {
   if (!target) return;
-  target.getContext("2d")?.clearRect(0, 0, target.width, target.height);
-}
-
-function releaseTarget(target: HTMLCanvasElement | null) {
-  if (!target) return;
-  clearTarget(target);
-  target.width = 1;
-  target.height = 1;
+  target
+    .getContext("2d")
+    ?.clearRect(0, 0, target.width, target.height);
 }
 
 export function createCanvasSelectionGlowRenderer({
   createCanvas = () => document.createElement("canvas"),
-  observe,
-}: CreateCanvasSelectionGlowRendererOptions = {}): CanvasSelectionGlowRenderer {
+}: {
+  createCanvas?: () => HTMLCanvasElement;
+} = {}): CanvasSelectionGlowRenderer {
   let scratch: HTMLCanvasElement | null = null;
   let scratchFingerprint: string | null = null;
+  let scratchOffsetSourcePixels = 0;
+  let scratchWidthSourcePixels = 0;
+  let scratchHeightSourcePixels = 0;
 
   const releaseScratch = () => {
-    disposeCanvas(scratch);
+    if (scratch) {
+      scratch.width = 1;
+      scratch.height = 1;
+    }
     scratch = null;
     scratchFingerprint = null;
+    scratchOffsetSourcePixels = 0;
+    scratchWidthSourcePixels = 0;
+    scratchHeightSourcePixels = 0;
   };
 
-  const ensureScratch = (input: CanvasSelectionGlowDrawInput) => {
-    if (scratch && scratchFingerprint === input.entry.visualFingerprint) {
-      observe?.({ type: "scratch-reuse", visualFingerprint: scratchFingerprint });
-      return { canvas: scratch, rebuilt: false };
+  const ensureScratch = (
+    input: Parameters<
+      CanvasSelectionGlowRenderer["draw"]
+    >[1]
+  ) => {
+    if (
+      scratch &&
+      scratchFingerprint ===
+        input.entry.visualFingerprint
+    ) {
+      return {
+        canvas: scratch,
+        offsetSourcePixels:
+          scratchOffsetSourcePixels,
+        widthSourcePixels:
+          scratchWidthSourcePixels,
+        heightSourcePixels:
+          scratchHeightSourcePixels,
+        rebuilt: false,
+      };
     }
     releaseScratch();
-    const rgba = buildCanvasSelectionGlowMaskRgba(input.entry);
-    if (!rgba) return null;
+    const glow = buildCanvasSelectionScreenToneGlow(
+      input.entry
+    );
     const next = createCanvas();
-    next.width = input.entry.width;
-    next.height = input.entry.height;
+    next.width = glow.width;
+    next.height = glow.height;
     const context = next.getContext("2d");
-    if (!context) {
-      disposeCanvas(next);
-      return null;
-    }
-    const imageData = context.createImageData(input.entry.width, input.entry.height);
-    imageData.data.set(rgba);
+    if (!context) return null;
+    const imageData = context.createImageData(
+      glow.width,
+      glow.height
+    );
+    imageData.data.set(glow.rgba);
     context.putImageData(imageData, 0, 0);
     scratch = next;
-    scratchFingerprint = input.entry.visualFingerprint;
-    observe?.({ type: "scratch-build", visualFingerprint: scratchFingerprint });
-    return { canvas: next, rebuilt: true };
+    scratchFingerprint =
+      input.entry.visualFingerprint;
+    scratchOffsetSourcePixels =
+      glow.offsetSourcePixels;
+    scratchWidthSourcePixels =
+      glow.widthSourcePixels;
+    scratchHeightSourcePixels =
+      glow.heightSourcePixels;
+    return {
+      canvas: next,
+      offsetSourcePixels:
+        glow.offsetSourcePixels,
+      widthSourcePixels:
+        glow.widthSourcePixels,
+      heightSourcePixels:
+        glow.heightSourcePixels,
+      rebuilt: true,
+    };
   };
 
   return {
     draw: (target, input) => {
-      const selectedScratch = ensureScratch(input);
-      if (!selectedScratch) {
-        clearTarget(target);
-        return null;
+      const glow = ensureScratch(input);
+      if (!glow) return null;
+      const plan =
+        buildCanvasSelectionScreenToneDrawPlan(input);
+      if (target.width !== plan.backingSize.width) {
+        target.width = plan.backingSize.width;
       }
-      const plan = buildCanvasSelectionGlowDrawPlan(input);
-      if (target.width !== plan.backingSize.width) target.width = plan.backingSize.width;
-      if (target.height !== plan.backingSize.height) target.height = plan.backingSize.height;
+      if (target.height !== plan.backingSize.height) {
+        target.height = plan.backingSize.height;
+      }
       const context = target.getContext("2d");
       if (!context) return null;
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, target.width, target.height);
       const matrix = plan.sourceToDevice;
-      context.save();
-      context.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
-      context.filter = `blur(${plan.blurDevicePixels}px)`;
-      context.globalAlpha = plan.glowAlpha;
-      context.drawImage(selectedScratch.canvas, 0, 0);
-      context.restore();
-      context.save();
-      context.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
-      context.globalCompositeOperation = "destination-out";
-      context.globalAlpha = 1;
-      context.filter = "none";
-      context.drawImage(selectedScratch.canvas, 0, 0);
-      context.restore();
-      observe?.({ type: "draw", visualFingerprint: input.entry.visualFingerprint });
+      context.setTransform(
+        matrix.a,
+        matrix.b,
+        matrix.c,
+        matrix.d,
+        matrix.e,
+        matrix.f
+      );
+      context.imageSmoothingEnabled = false;
+      context.drawImage(
+        glow.canvas,
+        -glow.offsetSourcePixels,
+        -glow.offsetSourcePixels,
+        glow.widthSourcePixels,
+        glow.heightSourcePixels
+      );
       return {
-        visualFingerprint: input.entry.visualFingerprint,
-        scratchRebuilt: selectedScratch.rebuilt,
+        visualFingerprint:
+          input.entry.visualFingerprint,
+        scratchRebuilt: glow.rebuilt,
       };
     },
     clearSelection: (target) => {
-      releaseTarget(target);
+      clearTarget(target);
       releaseScratch();
-      observe?.({ type: "clear", visualFingerprint: null });
+      if (target) {
+        target.width = 1;
+        target.height = 1;
+      }
     },
     dispose: (target) => {
-      releaseTarget(target);
+      clearTarget(target);
       releaseScratch();
-      observe?.({ type: "dispose", visualFingerprint: null });
     },
   };
 }

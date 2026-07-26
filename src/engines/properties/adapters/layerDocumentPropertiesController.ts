@@ -48,10 +48,10 @@ export interface LayerDocumentPropertiesRuntimePort {
 }
 
 /**
- * The cutover side evaluates this context at the injected Timeline frame:
+ * The Properties adapter evaluates this context at the injected Timeline frame:
  * global frame -> placement local frame -> animation/modifiers -> matching
  * common Draft snapshot. The Properties engine intentionally cannot import
- * the cutover assembly.
+ * another Panel Engine.
  */
 export interface LayerDocumentPropertiesReadContext {
   readonly descriptor: LayerDocumentPanelDescriptorResult;

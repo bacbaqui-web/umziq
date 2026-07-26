@@ -59,7 +59,7 @@ export interface LayerDocumentTimelinePointerCommandPort {
  */
 export function createLayerDocumentTimelineInteractionController(
   options: {
-    assembly: LayerDocumentTimelineOwnerPort;
+    owner: LayerDocumentTimelineOwnerPort;
     playback: LayerDocumentTimelinePlaybackPort;
     sourceStatus:
       LayerDocumentTimelineSourceStatusPort<unknown>;
@@ -70,12 +70,12 @@ export function createLayerDocumentTimelineInteractionController(
   }
 ): TimelineInteractionCommands {
   const itemById = (layerDocumentId: string) =>
-    options.assembly.project.read().payload
+    options.owner.project.read().payload
       .layerDocumentsById[layerDocumentId] ?? null;
   const selectTimelineItem = (
     layerDocumentId: string
   ) => {
-    options.assembly.timeline
+    options.owner.timeline
       .readViewProps()
       .commands.selectLayer(layerDocumentId);
   };
@@ -93,7 +93,7 @@ export function createLayerDocumentTimelineInteractionController(
         layer.common.placement
       );
     options.playback.commands.seek(globalFrame);
-    options.assembly.timeline
+    options.owner.timeline
       .selectTransformKeyframe({
         layerDocumentId,
         property,
@@ -104,7 +104,7 @@ export function createLayerDocumentTimelineInteractionController(
   const duplicateTimelineItem = (
     layerDocumentId: string
   ) => {
-    options.assembly.timeline.dispatchIntent({
+    options.owner.timeline.dispatchIntent({
       kind: "duplicate-layer",
       layerDocumentId,
       newLayerDocumentId:
@@ -114,7 +114,7 @@ export function createLayerDocumentTimelineInteractionController(
   const commitRename = () => {
     const ui = options.ui.read();
     if (!ui.editingLayerDocumentId) return;
-    options.assembly.timeline.dispatchIntent({
+    options.owner.timeline.dispatchIntent({
       kind: "set-alias",
       layerDocumentId:
         ui.editingLayerDocumentId,
@@ -127,7 +127,7 @@ export function createLayerDocumentTimelineInteractionController(
   const deleteLayer = (
     layerDocumentId: string
   ) => {
-    options.assembly.timeline.dispatchIntent({
+    options.owner.timeline.dispatchIntent({
       kind: "delete-layer",
       layerDocumentId,
     });
@@ -135,7 +135,7 @@ export function createLayerDocumentTimelineInteractionController(
   return {
     duplicateSelectedTimelineItem: () => {
       const selected =
-        options.assembly.timeline
+        options.owner.timeline
           .readViewProps()
           .selectedLayerDocumentId;
       if (selected) {
@@ -145,11 +145,11 @@ export function createLayerDocumentTimelineInteractionController(
     duplicateTimelineItem,
     splitSelectedTimelineItem: () => {
       const selected =
-        options.assembly.timeline
+        options.owner.timeline
           .readViewProps()
           .selectedLayerDocumentId;
       if (!selected) return;
-      options.assembly.timeline.dispatchIntent({
+      options.owner.timeline.dispatchIntent({
         kind: "split-layer",
         layerDocumentId: selected,
         newLayerDocumentId:
@@ -208,7 +208,7 @@ export function createLayerDocumentTimelineInteractionController(
         !targetParentLayerDocumentId
       ) return;
       const targetOrder = Object.values(
-        options.assembly.project.read()
+        options.owner.project.read()
           .payload.layerDocumentsById
       )
         .filter(
@@ -231,7 +231,7 @@ export function createLayerDocumentTimelineInteractionController(
             targetLayerDocumentId
         );
       if (targetOrder < 0) return;
-      options.assembly.timeline.dispatchIntent({
+      options.owner.timeline.dispatchIntent({
         kind: "move-layer",
         layerDocumentId: dragged,
         newParentLayerDocumentId:
@@ -312,13 +312,13 @@ export function createLayerDocumentTimelineInteractionController(
       localFrame,
       property
     ) => {
-      options.assembly.timeline.dispatchIntent({
+      options.owner.timeline.dispatchIntent({
         kind: "remove-keyframe",
         layerDocumentId,
         property,
         localFrame,
       });
-      options.assembly.timeline
+      options.owner.timeline
         .selectTransformKeyframe(null);
     },
     deleteCanonicalTimelineItem: deleteLayer,
@@ -326,7 +326,7 @@ export function createLayerDocumentTimelineInteractionController(
       layerDocumentId,
       visible
     ) => {
-      options.assembly.timeline.dispatchIntent({
+      options.owner.timeline.dispatchIntent({
         kind: "set-visibility",
         layerDocumentId,
         visible,
@@ -336,7 +336,7 @@ export function createLayerDocumentTimelineInteractionController(
       layerDocumentId,
       alias
     ) => {
-      options.assembly.timeline.dispatchIntent({
+      options.owner.timeline.dispatchIntent({
         kind: "set-alias",
         layerDocumentId,
         alias,

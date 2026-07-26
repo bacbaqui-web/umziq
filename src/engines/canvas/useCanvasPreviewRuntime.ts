@@ -1,23 +1,14 @@
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import {
   readPreviewDeviceMemoryGb,
 } from "@/engines/canvas/adapters/previewEnvironmentAdapter";
-import {
-  resolveAutomaticPreviewQuality,
-} from "@/engines/canvas/helpers/previewAutomaticQualityHelpers";
-import {
-  estimatePreviewMemoryByQuality,
-} from "@/engines/canvas/helpers/previewMemoryHelpers";
+import { resolvePreviewQuality } from "@/engines/canvas/helpers/previewQualityHelpers";
 import {
   createRuntimeMetricRecordPort,
 } from "@/engines/canvas/helpers/runtimeMetricsHelpers";
-import type {
-  PreviewBuildReadModel,
-} from "@/engines/canvas/models/previewBuildModel";
 import type {
   PreviewQualityPreference,
 } from "@/engines/canvas/models/previewQualityModel";
@@ -27,6 +18,9 @@ import {
 import {
   createRuntimeMetricsResource,
 } from "@/engines/canvas/state/runtimeMetricsStore";
+import {
+  createCanvasFpsRuntime,
+} from "@/engines/canvas/state/canvasFpsRuntimeStore";
 import {
   createCompositionPreviewCacheRuntime,
 } from "@/engines/canvas/state/compositionPreviewCacheStore";
@@ -41,6 +35,8 @@ export function useCanvasPreviewRuntime() {
     useState(readPreviewDeviceMemoryGb);
   const [metrics] =
     useState(createRuntimeMetricsResource);
+  const [fps] =
+    useState(createCanvasFpsRuntime);
   const [dirty] = useState(createDirtyState);
   const [surfaceCache] = useState(() =>
     createPreviewSurfaceCacheRuntime({
@@ -52,42 +48,22 @@ export function useCanvasPreviewRuntime() {
       releaseSurface: surfaceCache.releaseSurface,
     })
   );
-  const memoryEstimates = useMemo(
-    () => estimatePreviewMemoryByQuality([]),
-    []
+  const quality = resolvePreviewQuality(
+    preference,
+    deviceMemoryGb
   );
-  const automaticQuality = useMemo(
-    () =>
-      resolveAutomaticPreviewQuality({
-        preference,
-        estimates: memoryEstimates,
-        deviceMemoryGb,
-      }),
-    [deviceMemoryGb, memoryEstimates, preference]
-  );
-  const build: PreviewBuildReadModel = {
-    status: "ready",
-    generation: 0,
-    activeGeneration: 0,
-    activeQuality:
-      automaticQuality.resolvedQuality,
-    quality: automaticQuality.resolvedQuality,
-    completedCount: 0,
-    totalCount: 0,
-    failedCount: 0,
-  };
 
   useEffect(() => () => {
+    fps.dispose();
     compositionCache.dispose();
     surfaceCache.dispose();
-  }, [compositionCache, surfaceCache]);
+  }, [compositionCache, fps, surfaceCache]);
 
   return {
     preference,
-    automaticQuality,
-    memoryEstimates,
-    build,
+    quality,
     metrics,
+    fps,
     dirty,
     compositionCache,
     surfaceCache,

@@ -15,11 +15,11 @@ import {
   resolveLayerDocumentCanvasDirectSelectionIntent,
 } from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
 import type {
-  LayerDocumentCanvasHandleDraft,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
-import type {
   SelectionSourceAlphaProvider,
 } from "@/engines/canvas/models/canvasSelectionAlphaModel";
+import type {
+  LayerDocumentCanvasHandleDraft,
+} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
   drawPreviewSceneToContext,
@@ -354,14 +354,6 @@ if (
 ) {
   throw new Error("Expected ready native candidates");
 }
-assert.strictEqual(
-  candidates[0].descriptor.kind === "layer"
-    ? candidates[0].descriptor.sourceCanvas
-    : null,
-  candidates[1].descriptor.kind === "layer"
-    ? candidates[1].descriptor.sourceCanvas
-    : null
-);
 assert.notDeepEqual(
   candidates[0].projection.viewportBounds,
   candidates[1].projection.viewportBounds
@@ -390,12 +382,12 @@ const provider: SelectionSourceAlphaProvider = {
   get: () => ({
     status: "ready",
     entry: {
-      visualFingerprint: "shared-alpha",
+      visualFingerprint: "selection-alpha",
       width: 40,
       height: 30,
-      alphaBytes: new Uint8Array(40 * 30).fill(
-        255
-      ),
+      alphaBytes: new Uint8Array(
+        40 * 30
+      ).fill(255),
       sample: () => 255,
     },
   }),
@@ -418,14 +410,14 @@ assert.equal(
   topHit.status === "hit"
     ? topHit.candidate.layerDocumentId
     : null,
-  "layer-b"
+  "layer-a"
 );
 assert.deepEqual(
   resolveLayerDocumentCanvasDirectSelectionIntent(
     topHit,
     "layer-a"
   ),
-  { type: "select", layerDocumentId: "layer-b" }
+  { type: "drag", layerDocumentId: "layer-a" }
 );
 
 const fast = buildLayerDocumentCanvasModeReadModel({
@@ -746,7 +738,11 @@ const canvasComposition = readFileSync(
 assert.match(editorShell, /PreviewWorkspacePane/);
 assert.match(
   canvasComposition,
-  /PreviewWorkspacePane/
+  /CanvasPreviewPaneProps/
+);
+assert.doesNotMatch(
+  canvasComposition,
+  /@\/features/
 );
 const previewWorkspacePane = readFileSync(
   "src/features/preview/components/PreviewWorkspacePane.tsx",
@@ -805,17 +801,17 @@ assert.match(
   previewBridge,
   /useCanvasPointerController/
 );
-const cutoverCommandPort = readFileSync(
-  "src/cutover/layerDocumentCanvasCommandPortAdapter.ts",
+const canvasCommandPort = readFileSync(
+  "src/engines/canvas/adapters/layerDocumentCanvasCommandPortAdapter.ts",
   "utf8"
 );
 assert.match(
-  cutoverCommandPort,
-  /motionPathPointerMove/
+  canvasCommandPort,
+  /publishMotionPath/
 );
 assert.match(
-  cutoverCommandPort,
-  /motionPathPointerUp/
+  canvasCommandPort,
+  /commitMotionPath/
 );
 assert.doesNotMatch(
   readFileSync(

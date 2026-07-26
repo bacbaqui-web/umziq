@@ -521,16 +521,20 @@ const psdControllerSource = readFileSync(
   "src/engines/project/adapters/layerDocumentPsdTreeController.ts",
   "utf8"
 );
-for (const source of [propertiesControllerSource, psdControllerSource]) {
-  assert.doesNotMatch(source, /from ["']@\/cutover/);
-  assert.doesNotMatch(source, /LayerDocumentConsumerCutoverAssembly/);
-}
-const cutoverAdapterSource = readFileSync(
-  "src/cutover/layerDocumentUiControllerPortAdapters.ts",
+assert.doesNotMatch(
+  `${propertiesControllerSource}\n${psdControllerSource}`,
+  /@\/features/
+);
+const propertiesPortAdapterSource = readFileSync(
+  "src/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter.ts",
+  "utf8"
+);
+const panelPortsSource = readFileSync(
+  "src/editor/useLayerDocumentPanelEnginePorts.ts",
   "utf8"
 );
 assert.match(
-  cutoverAdapterSource,
+  panelPortsSource,
   /createLayerDocumentPropertiesCommandPort/
 );
 assert.match(
@@ -547,11 +551,21 @@ assert.match(
   ),
   /PsdTreeViewProps/
 );
-assert.match(cutoverAdapterSource, /evaluateLayerDocumentTransform/);
-assert.match(cutoverAdapterSource, /isLayerDocumentDraftForInput/);
 assert.match(
-  cutoverAdapterSource,
-  /createLayerDocumentPsdTreeCommandPort/
+  propertiesPortAdapterSource,
+  /evaluateLayerDocumentTransform/
+);
+assert.match(
+  propertiesPortAdapterSource,
+  /isLayerDocumentDraftForInput/
+);
+assert.doesNotMatch(
+  panelPortsSource,
+  /evaluateLayerDocumentTransform|isLayerDocumentDraftForInput/
+);
+assert.match(
+  panelPortsSource,
+  /createLayerDocumentPsdTreeController/
 );
 
 console.log("LayerDocument PSD Tree controller verified");

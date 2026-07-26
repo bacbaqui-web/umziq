@@ -70,7 +70,14 @@ export function drawRenderCommandsToContext(
   pixelScale = 1,
   runtimeMetrics?: RuntimeMetricRecordPort
 ) {
-  commands.forEach((command) => {
+  for (
+    let index = commands.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const command = commands[index];
+    if (!command) continue;
+    runtimeMetrics?.increment("painterTraversal");
     if (command.type === "drawable") {
       context.save();
       context.globalAlpha = command.opacity / 100;
@@ -84,7 +91,7 @@ export function drawRenderCommandsToContext(
       );
       runtimeMetrics?.increment("drawImage");
       context.restore();
-      return;
+      continue;
     }
 
     if (command.type === "placeholder") {
@@ -93,14 +100,14 @@ export function drawRenderCommandsToContext(
       applyTransform(context, command.transform);
       drawEditorPlaceholderToContext(context, command.placeholder);
       context.restore();
-      return;
+      continue;
     }
 
     runtimeMetrics?.increment("compositionRender");
     const surface = createSurface(command.width, command.height, pixelScale);
 
     if (!surface) {
-      return;
+      continue;
     }
 
     drawRenderCommandsToContext(
@@ -116,7 +123,7 @@ export function drawRenderCommandsToContext(
     context.drawImage(surface.canvas, 0, 0, command.width, command.height);
     runtimeMetrics?.increment("drawImage");
     context.restore();
-  });
+  }
 }
 
 function normalizePixelScale(value: number): number {
@@ -233,6 +240,7 @@ export function renderFrameToCanvas(
   pixelScale = 1,
   runtimeMetrics?: RuntimeMetricRecordPort
 ) {
+  runtimeMetrics?.resetFrame?.();
   const pixelSize = getSurfacePixelSize(
     frame.width,
     frame.height,

@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const root = process.cwd();
@@ -45,9 +50,17 @@ const layerDocumentRuntimePath = join(
   sourceRoot,
   "editor/useLayerDocumentEditorRuntime.ts"
 );
-const projectOwnerCompatibilityPath = join(
+const panelEnginePortsPath = join(
   sourceRoot,
-  "engines/project/useLayerDocumentProjectOwner.ts"
+  "editor/useLayerDocumentPanelEnginePorts.ts"
+);
+const editorShellLayoutPath = join(
+  sourceRoot,
+  "editor/EditorShellLayout.tsx"
+);
+const editorOwnerModelPath = join(
+  sourceRoot,
+  "editor/project-owner/models/editorProjectOwnerModel.ts"
 );
 const internalEngineImport = /@\/engines\/([a-z-]+)\/[^"'\s]+/g;
 const engineFacadeImport = /@\/engines\/([a-z-]+)(?=["'])/g;
@@ -65,7 +78,8 @@ for (const file of files) {
   if (
     importedFacades.size === engineNames.length &&
     file !== compositionRootPath &&
-    file !== layerDocumentRuntimePath
+    file !== layerDocumentRuntimePath &&
+    file !== panelEnginePortsPath
   ) {
     violations.push(`${label}: Composition Root 외부에서 모든 Engine을 조립`);
   }
@@ -84,8 +98,7 @@ for (const file of files) {
 
   if (owner && coreEngines.has(owner)) {
     if (
-      /@\/(editor|features)\//.test(text) &&
-      file !== projectOwnerCompatibilityPath
+      /@\/(editor|features)\//.test(text)
     ) {
       violations.push(`${label}: Core Engine이 Editor/Feature에 의존`);
     }
@@ -115,7 +128,7 @@ for (const file of pureAnimationFiles) {
     relative(root, file).split(sep).join("/");
   assert.doesNotMatch(
     text,
-    /from ["']@\/(?:engines|editor|cutover|features)\//,
+    /from ["']@\/(?:engines|editor|features)\//,
     `${label}: pure Animation이 runtime/editor 경계에 의존`
   );
   assert.doesNotMatch(
@@ -173,7 +186,7 @@ for (const file of layerTypeSupportFiles) {
     relative(root, file).split(sep).join("/");
   assert.doesNotMatch(
     text,
-    /from ["']@\/(?:engines|editor|cutover|features)\//,
+    /from ["']@\/(?:engines|editor|features)\//,
     `${label}: Layer Type 지원 모듈이 Panel/Runtime 경계에 의존`
   );
   assert.doesNotMatch(
@@ -265,12 +278,133 @@ assert.doesNotMatch(
 for (const file of files.filter((candidate) =>
   engineForFile(candidate)
 )) {
+  const engineSource = readFileSync(file, "utf8");
   assert.doesNotMatch(
-    readFileSync(file, "utf8"),
-    /@\/cutover/,
-    `${relative(root, file)} Engine이 cutover를 역참조합니다.`
+    engineSource,
+    /@\/features/,
+    `${relative(root, file)} Engine이 Feature를 역참조합니다.`
   );
 }
+
+assert.equal(
+  existsSync(join(sourceRoot, "cutover")),
+  false,
+  "src/cutover: 제거된 전환 계층이 다시 생성되었습니다."
+);
+for (const removedCompatibilityPath of [
+  "engines/project/useLayerDocumentProjectOwner.ts",
+  "engines/project/helpers/layerDocumentProjectOwnerLivePortHelpers.ts",
+  "features/properties/types/propertiesPanelTypes.ts",
+]) {
+  assert.equal(
+    existsSync(join(sourceRoot, removedCompatibilityPath)),
+    false,
+    `${removedCompatibilityPath}: 비-Render compatibility가 남았습니다.`
+  );
+}
+const editorShellLayout = readFileSync(
+  editorShellLayoutPath,
+  "utf8"
+);
+for (const featureComponentPath of [
+  "@/features/psdtree/components/PsdTree",
+  "@/features/preview/components/PreviewWorkspacePane",
+  "@/features/properties/components/PropertiesPanel",
+  "@/features/timeline/components/TimelinePanel",
+]) {
+  assert.match(
+    editorShellLayout,
+    new RegExp(featureComponentPath),
+    `EditorShellLayout에 ${featureComponentPath} 직접 연결이 없습니다.`
+  );
+}
+for (const panelEngine of uiEngines) {
+  assert.doesNotMatch(
+    readFileSync(
+      join(sourceRoot, `engines/${panelEngine}/index.ts`),
+      "utf8"
+    ),
+    /@\/features\//,
+    `${panelEngine} public barrel이 Feature component를 re-export합니다.`
+  );
+}
+assert.match(
+  readFileSync(editorOwnerModelPath, "utf8"),
+  /export type EditorProjectOwnerPort\s*=\s*LayerDocumentProjectOwnerPort/,
+  "EditorProjectOwnerPort가 canonical Project Owner port를 가리키지 않습니다."
+);
+assert.match(
+  readFileSync(
+    join(
+      sourceRoot,
+      "engines/canvas/models/canvasPreviewPaneModel.ts"
+    ),
+    "utf8"
+  ),
+  /export interface CanvasPreviewPaneProps/,
+  "Canvas Feature contract가 Canvas Engine public model에 없습니다."
+);
+for (const file of files.filter((candidate) =>
+  !candidate.startsWith(
+    join(sourceRoot, "engines/playback-render")
+  )
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /\bCutover\b|\bassembly\b/,
+    `${relative(root, file)}: 비-Render legacy 명칭이 남았습니다.`
+  );
+}
+assert.match(
+  readFileSync(
+    join(sourceRoot, "engines/animation/index.ts"),
+    "utf8"
+  ),
+  /Render compatibility entry/
+);
+assert.match(
+  readFileSync(
+    join(
+      sourceRoot,
+      "models/offlineMigration/index.ts"
+    ),
+    "utf8"
+  ),
+  /offline-only boundary/
+);
+const finalEditorWiring =
+  `${compositionRoot}\n${readFileSync(
+    join(
+      sourceRoot,
+      "editor/useLayerDocumentEditorRuntime.ts"
+    ),
+    "utf8"
+  )}\n${readFileSync(
+    join(
+      sourceRoot,
+      "editor/useLayerDocumentPanelEnginePorts.ts"
+    ),
+    "utf8"
+  )}`;
+for (const finalOwnerAdapter of [
+  "createEditorProjectOwnerCommandAdapter",
+  "createLayerDocumentTimelineCommandAdapter",
+  "createLayerDocumentTimelineConsumerAdapter",
+  "createLayerDocumentPropertiesOwnerCommandAdapter",
+  "createLayerDocumentCanvasDraftAdapter",
+  "createLayerDocumentPsdTreeSourceCommandAdapter",
+]) {
+  assert.match(
+    finalEditorWiring,
+    new RegExp(finalOwnerAdapter),
+    `Editor wiring에 ${finalOwnerAdapter} 주입이 없습니다.`
+  );
+}
+assert.doesNotMatch(
+  finalEditorWiring,
+  /buildLayerDocumentTimelineReadModel|buildLayerDocumentTimelineIntentTransaction|evaluateLayerDocumentTransform|applyLayerDocumentTransformDraft|\.prepareUpdate\(/,
+  "Editor wiring에 제품 계산/mutation이 남았습니다."
+);
 
 assert.deepEqual(violations, [], violations.join("\n"));
 console.log("Engine import boundary verification passed");

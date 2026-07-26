@@ -470,22 +470,6 @@ input[type="checkbox"] {
   background: rgba(255, 255, 255, 0.075);
 }
 
-.preview-quality-control__status {
-  max-width: 148px;
-  color: var(--ui-text-muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.preview-quality-control__status:empty {
-  display: none;
-}
-
-.preview-quality-control__status--error {
-  color: var(--ui-danger);
-}
-
 .preview-renderer-mode-control {
   min-width: 0;
   margin: 0;

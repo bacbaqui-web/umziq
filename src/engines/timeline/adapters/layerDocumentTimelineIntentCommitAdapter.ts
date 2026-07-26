@@ -10,9 +10,6 @@ import type {
   LayerDocumentProjectOwnerTransitionResult,
   LayerDocumentTransformKeyframeSelection,
 } from "@/engines/project";
-import type {
-  LayerDocumentCutoverCommandResult,
-} from "@/cutover/layerDocumentConsumerCutoverModel";
 
 export interface LayerDocumentTimelineOwnerCommitPreparation {
   readonly transaction:
@@ -21,10 +18,6 @@ export interface LayerDocumentTimelineOwnerCommitPreparation {
     LayerDocumentTransformKeyframeSelection;
 }
 
-/**
- * Adds the Runtime selection side effect required by a keyframe move to the
- * same owner commit preparation as its one semantic transaction.
- */
 export function prepareLayerDocumentTimelineOwnerCommit(
   project: LayerDocumentProject,
   intent: LayerDocumentTimelineIntent
@@ -69,21 +62,21 @@ export function transitionLayerDocumentTimelineKeyframeSelection(
   });
 }
 
-export function createLayerDocumentTimelineCutoverCommandAdapter(
-  options: {
-    owner: LayerDocumentProjectOwnerPort;
-    readProject: () => LayerDocumentProject;
-    commit: (
-      transaction: LayerDocumentTransactionResult,
-      selection?:
-        LayerDocumentTransformKeyframeSelection
-    ) => LayerDocumentCutoverCommandResult;
-    deliver: (
-      transition:
-        LayerDocumentProjectOwnerTransitionResult
-    ) => LayerDocumentCutoverCommandResult;
-  }
-) {
+export function createLayerDocumentTimelineCommandAdapter<
+  TCommandResult,
+>(options: {
+  owner: LayerDocumentProjectOwnerPort;
+  readProject: () => LayerDocumentProject;
+  commit: (
+    transaction: LayerDocumentTransactionResult,
+    selection?:
+      LayerDocumentTransformKeyframeSelection
+  ) => TCommandResult;
+  deliver: (
+    transition:
+      LayerDocumentProjectOwnerTransitionResult
+  ) => TCommandResult;
+}) {
   return {
     dispatchIntent: (
       intent: LayerDocumentTimelineIntent

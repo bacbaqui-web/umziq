@@ -75,18 +75,29 @@ function common(options: {
   sourceId: string;
   durationFrames: number;
   layer?: PsdLayer;
+  logicalSize?: {
+    width: number;
+    height: number;
+  };
 }): LayerDocumentCommon<LayerSourceReference> {
   const canvas = options.layer?.canvas;
+  const logicalSize = options.logicalSize ?? canvas;
   const center = {
-    x: (canvas?.width ?? 0) / 2,
-    y: (canvas?.height ?? 0) / 2,
+    x: (logicalSize?.width ?? 0) / 2,
+    y: (logicalSize?.height ?? 0) / 2,
   };
+  const sourceLeft = options.logicalSize
+    ? 0
+    : options.layer?.left ?? 0;
+  const sourceTop = options.logicalSize
+    ? 0
+    : options.layer?.top ?? 0;
   return {
     source: { sourceId: options.sourceId },
     transform: {
       position: {
-        x: (options.layer?.left ?? 0) + center.x,
-        y: (options.layer?.top ?? 0) + center.y,
+        x: sourceLeft + center.x,
+        y: sourceTop + center.y,
       },
       transformOffset: { x: 0, y: 0 },
       anchor: center,
@@ -261,6 +272,13 @@ function buildTree(options: {
         sourceId,
         durationFrames: options.durationFrames,
         layer: parsed,
+        logicalSize:
+          node.kind === "group"
+            ? {
+                width: options.psd.width,
+                height: options.psd.height,
+              }
+            : undefined,
       });
       if (node.kind === "group") {
         layers.push({
@@ -358,6 +376,10 @@ export async function prepareLayerDocumentPsdImport(options: {
       order: options.order,
       sourceId: documentSourceId,
       durationFrames: options.durationFrames,
+      logicalSize: {
+        width: psd.width,
+        height: psd.height,
+      },
     }),
     data: {
       role: "composition",

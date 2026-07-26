@@ -111,7 +111,7 @@ function buildRow(
 
 /**
  * Builds a pure hierarchical Timeline projection. The project-root row is
- * excluded by default, but its policy is explicit for future UI cutover.
+ * excluded by default, but its policy is explicit for future UI inclusion.
  */
 export function buildLayerDocumentTimelineReadModel(
   project: LayerDocumentProject,

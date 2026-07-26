@@ -1,479 +1,190 @@
 # LayerDocument Architecture
 
-## 1. 결과
+## 1. 문서 경계
 
-Editor의 저장·편집 Project Data authority를 `LayerDocumentProject`로
-통합했다. Selection과 History stack은 Project Data가 아니며 Project
-Owner의 project-scoped Runtime 책임이다.
+이 문서는 현재 `LayerDocumentProject`의 저장 authority, identity, domain
+transaction, Runtime 분리와 Render projection 계약을 정의한다.
+
+- Editor Project Owner, Composition Root와 네 Panel Engine의 최종 경계:
+  `58_editor_project_owner_panel_engine_architecture.md`
+- `.sfep`, Save/Open/Reconnect와 Project lifecycle:
+  `57_layer_document_persistence_project_lifecycle.md`
+- 현재 파일 위치와 책임:
+  `20_src_map.md`
+
+삭제된 이전 구조나 전환 단계는 현재 architecture로 취급하지 않는다.
+
+## 2. 저장 authority
+
+`LayerDocumentProject`가 유일한 저장 root이며
+`payload.layerDocumentsById`와 `payload.sourceRegistry`를 소유한다.
+편집 가능한 Layer 하나의 canonical entity는 `LayerDocument`다.
 
 ```text
 LayerDocumentProject
-├─ metadata
-└─ payload
-   ├─ layerDocumentsById
-   └─ sourceRegistry
+  metadata
+  payload
+    layerDocumentsById[layerDocumentId]
+      id, name, revision, type
+      common
+        source, transform, placement
+        animation, effects, modifiers
+      data  // type별 discriminated data
+    sourceRegistry.sourcesById[sourceId]
 ```
 
-Canvas, Timeline, Properties, PSD Tree는 서로의 상태를 수정하지 않는다.
-Composition Root가 동일 Project Owner의 read/command port를 각 Panel
-Engine에 주입하고, 모든 소비자는 같은 `layerDocumentId`를 기준으로 파생
-모델을 읽거나 transaction을 요청한다. Project Owner는 Engine이 아니다.
+Canvas layer, Timeline row, Properties panel state와 Render item은 저장
+entity가 아니다. 모두 LayerDocument 또는 저장되지 않는 Runtime에서
+파생된다. `renderItemId` 같은 Render 필드는 renderer projection의
+compatibility 이름일 뿐 저장 identity나 편집 authority가 아니다.
 
-이 문서는 canonical Architecture 계약과 단계별 전환 상태를 함께 설명한다.
-Sprint A/B에서 Project-only History와 Editor Project Owner 경계,
-Timeline playback Runtime, pure Animation 모듈과 Panel 없는
-Drawing/Text/Audio의 Layer Type 지원 모듈을 구현했다. `src/cutover`는
-Sprint C까지 compatibility로 유지하며 Render는 후속 Render Sprint까지
-동결한다. Persistence envelope와 Project lifecycle 상세는
-`57_layer_document_persistence_project_lifecycle.md`가 이어서 설명한다.
-`55_layer_type_future_engine_foundation.md`의 ProjectSource/Timeline Item
-구조는 역사 기록으로만 남는다.
+## 3. identity와 선택
 
-## 2. 저장 모델
+- `layerDocumentId`: 저장, 선택, edit command, History의 canonical identity
+- `sourceId`: 외부 원본 descriptor와 Source Runtime resolution identity
+- `projectId`: 프로젝트와 session-local file handle을 격리하는 identity
+- layer selection, source selection, active Group: 서로 다른 의미를 가진
+  Editor Selection Runtime
 
-### 2.1 Project
+layer selection과 source selection은 동시에 존재할 수 있다. active Group은
+Timeline/Canvas scope를 정하지만 별도 Project entity를 만들지 않는다.
 
-`LayerDocumentProject`는 Plain Data다.
+## 4. 공통 영역과 Type별 영역
 
-- `metadata`: schema version, project id, project name. 현재 schema version은 2다.
-- `payload.layerDocumentsById`: 모든 작업 Layer
-- `payload.sourceRegistry.sourcesById`: 외부 원본 registry
+모든 LayerDocument는 다음 공통 편집 영역을 가진다.
 
-Project는 LayerDocument와 Source Registry 외의 편집 원본을 저장하지 않는다. Timeline row, Canvas layer, panel state, evaluated scene과 renderer command는 모두 projection 또는 runtime이다.
+- `source`: optional Source Registry 참조
+- `transform`: position, scale, rotation, opacity, anchor
+- `placement`: parent, order, start, duration, source offset, visibility, alias
+- `animation`, `effects`, `modifiers`
 
-현재 bootstrap은 Source Registry가 비어 있고 `project-root` 역할의 Group LayerDocument 하나만 있는 Project를 만든다.
+`type`과 `data`는 discriminated 구조로 항상 일치해야 한다. PSD, Drawing,
+Text, Audio, Video, Shape, Group, Unknown은 같은 Project root와 선택,
+transaction, History를 사용한다.
 
-### 2.2 LayerDocument
+Drawing/Text/Audio 지원 코드는 `src/layer-types`의 순수 public entry다.
+독립 Panel과 Runtime authority가 없으므로 Engine이 아니다. 새 Type도
+독립 Panel이 실제로 생길 때만 별도 Panel Engine 승격을 검토한다.
 
-모든 LayerDocument는 다음 identity와 공통 영역을 직접 소유한다.
+## 5. Source와 편집 데이터
 
-- `layerDocumentId`: canonical identity
-- `name`, `revision`, `type`
-- `common.source`: optional Source Registry reference
-- `common.transform`
-- `common.placement`
-- `common.animation`
-- `common.effects`
-- `common.modifiers`
-- `data`: Type별 discriminated data
+Source Registry는 원본 identity, locator hint, content fingerprint,
+availability 복구에 필요한 reconciliation descriptor만 저장한다.
+Transform, Placement, Animation, Effect, Modifier와 Type별 편집 데이터는
+Source에 저장하지 않는다.
 
-Placement는 parent Group, order, start/duration, source offset, visibility, alias를 가진다. Timeline은 이 값을 표시하고 수정하는 UI/Engine 이름이지 저장 데이터 영역이 아니다.
+같은 Source를 여러 LayerDocument가 참조할 수 있다. 원본 resource는
+공유하지만 각 LayerDocument의 편집 데이터는 독립적이다. Duplicate는
+Source 참조를 유지한 새 LayerDocument를 만들고 공통/Type별 편집 데이터를
+deep copy한다.
 
-### 2.3 Layer Type
+## 6. transaction과 History
 
-현재 schema는 PSD, Drawing, Text, Audio, Video, Shape, Group, Unknown을 구분한다. `type`과 `data`는 validation 가능한 discriminated union이다.
+UI와 Engine은 Project object를 직접 mutation하지 않는다. 모든 저장 변경은
+검증된 Project transaction을 Project Owner command로 전달한다.
 
-- PSD: Source Registry의 PSD node를 참조하며 PSD 편집 metadata를 가진다.
-- Group: 자식 scope, composition size/frame rate/duration 역할을 가진다.
-- Drawing/Text: 최소 Plain Data와 placeholder renderer 경계가 있다.
-- Audio: Source metadata와 future playback/editing 경계가 있다.
-- Video/Shape: schema와 extension point가 있고 제품 편집/renderer는 아직 없다.
-- Unknown: 알 수 없는 input을 안전하게 보존한다.
+- content: Transform, Animation, Effect, Modifier
+- placement: move, trim, reorder, visibility, alias
+- structural: create, duplicate, delete, Group 이동
+- source lifecycle: import, refresh, replace, reconnect 결과 반영, delete
 
-새 Type은 새 Project/selection/store를 만들지 않는다. LayerDocument의
-Type data와 필요한 panel descriptor, command/query, renderer adapter만
-추가한다. 독립 Panel이 있을 때만 그 Panel과 짝을 이루는 Engine을 둔다.
+사용자 action 하나는 Project transaction 하나와 History 한 건으로
+commit한다. 실패한 preparation이나 transaction은 Project, History,
+selection을 부분 변경하지 않는다.
 
-## 3. Source Registry와 lifecycle
+History snapshot에는 `LayerDocumentProject`만 들어간다. Undo/Redo는 Project
+snapshot만 교체하며 selection, active Group, playback, Draft, cache,
+Source Runtime을 과거 값으로 복원하지 않는다. 현재 Runtime은 새 Project에
+대해 유효성만 보정한다.
 
-Source Registry는 저장 가능한 외부 원본 descriptor와 reconciliation 상태만 설명한다.
+## 7. 저장되지 않는 Runtime
 
-- 모든 Source: `sourceId`, kind, display name, version, `refresh.status`
-- linked document/audio/video: stable `linked-file` locator와 optional SHA-256 content fingerprint
-- PSD node: `documentSourceId`, `sourceKey`, `sourcePath`, `visualFingerprint`
-- reconciliation status: `normal`, `updated`, `new`, `deletePending`
+다음 값은 Project, `.sfep`, History에 들어가지 않는다.
 
-File, FileSystemFileHandle, permission과 `unresolved`, `resolving`, `available`, `missing`, `error`는 Source Runtime Resolution port가 소유한다. Timeline, Properties, PSD Tree와 renderer는 이 runtime port를 주입받아 가용성을 읽는다. Missing 감지는 Project나 History를 변경하지 않는다.
+- File, FileSystemFileHandle, permission
+- decoded PSD resource, ImageBitmap, Canvas, AudioNode, GPU resource
+- Source resolution과 renderer/source/surface/composition cache
+- selection과 active Group
+- current frame, playback range, clock, transport
+- pointer/transform Draft, 선택된 keyframe, Panel local state
 
-Source는 Transform, Placement, Animation, Effect, Modifier나 사용자 Layer 이름을 소유하지 않는다. 같은 Source를 참조하는 여러 LayerDocument가 runtime 원본 resource를 공유해도 편집 데이터는 독립적이다.
+Runtime은 LayerDocument를 대체하는 편집 원본이 아니다. committed Project가
+바뀌면 Runtime은 invalidate, reconcile, rebuild 또는 dispose된다.
 
-PSD import는 prepare와 confirm을 분리한다.
+## 8. Timeline과 Draft
 
-```text
-File 선택
-→ ArrayBuffer 1회 읽기
-→ 같은 buffer로 parse/analyze + SHA-256
-→ Plain Data plan + prepared runtime
-→ 사용자 confirm
-→ Project transaction
-→ runtime resource atomic registration
-```
+Timeline row는 `LayerDocument.common.placement`의 projection이다. Timeline
+Runtime이 current frame, playback range, playing state, clock와 transport를
+한 곳에서 소유한다. Project/Group 전환과 Undo/Redo는 현재 frame과 range를
+유지하고 새 duration 밖일 때만 clamp한다.
 
-Cancel, failure, replacement에서는 준비된 runtime을 dispose한다. Confirm 성공 뒤에는 Source별 cache key로 runtime registry에 등록한다.
+Canvas pointer move와 Properties 연속 입력은 shared Transform Draft를
+사용한다. Draft는 preview에 즉시 반영되지만 Project와 History를 바꾸지
+않는다. 완료 시점에만 transaction과 History 한 건으로 commit하며 cancel,
+owner effect 또는 scope 변경 시 폐기한다.
 
-Refresh는 저장된 PSD source identity를 우선해 기존 LayerDocument를 유지한다. stable id가 없는 PSD node는 tree-path identity fallback을 사용한다. Source version/visual fingerprint가 바뀌면 해당 Source의 runtime만 invalidation하며 다른 PSD/import cache는 보존한다.
+## 9. Render projection과 cache
 
-Source 삭제/교체/refresh, undo/redo, import confirm은 Owner effect를 만들고
-Composition Root가 연결한 Runtime port가 targeted invalidation,
-suspend/restore 또는 orphan GC를 수행한다. Runtime resource는 dispose-once
-계약을 가진다.
+Playback/Render는 Project, Source descriptor, Source Runtime, frame, Draft를
+node-native evaluated scene으로 투영한다. Full/Fast renderer는
+`layerDocumentId`, `sourceId`, source resource key와 layer result key를
+구분한다.
 
-## 4. Identity
+Preview cache는 다음 책임으로 분리된다.
 
-`layerDocumentId`가 다음 흐름의 동일 identity다.
+1. Source runtime resource
+2. frame/revision/Draft 기반 Layer result
+3. fast composition surface
+4. quality/scale/size 기반 surface pool
 
-- Project lookup
-- selection과 active Group scope
-- Timeline row/placement
-- Canvas direct selection, glow, gizmo, motion path
-- Properties target
-- Transform Draft
-- transaction과 History
-- EvaluatedScene/PreviewScene node
-- Layer result cache key
-
-`sourceId`는 공유 가능한 외부 원본 identity다. 두 identity를 교환해서 사용하지 않는다.
-
-`itemId`와 `renderItemId`라는 필드는 renderer projection의 derived compatibility 이름으로 일부 runtime 모델에 남아 있다. 저장 authority나 별도 편집 entity가 아니며 active command/selection은 `layerDocumentId`를 사용한다.
-
-## 5. Project Owner, Runtime, Draft, History
-
-### 5.1 Project Owner
-
-Project Owner는 Editor 아래에서 `LayerDocumentProject`를 소유하는 유일한
-경계이며 Engine이 아니다. 내부의 Project State/Replace, Transaction,
-History, Lifecycle/Persistence, Source Runtime, Selection Runtime은
-하나의 외부 Owner port 뒤에서 분리된 책임으로 유지한다.
-
-- Project transaction commit
-- Source lifecycle commit
-- Selection Runtime 보정
-- undo/redo
-- Owner effect 발행
-
-Mutation은 total result를 반환한다. 실패하면 Project, Runtime, History와
-Runtime registration이 부분 적용되지 않는다.
-
-### 5.2 Selection과 Timeline Runtime
-
-layer selection, source selection과 active Group은 Project Owner의
-Selection Runtime이다. 세 값은 복합 상태를 유지하며 layer/source
-selection은 동시에 존재할 수 있다. 이를 하나의 상호배타적 selection
-union으로 합치지 않고 Panel별 선택 사본도 만들지 않는다.
-
-current frame과 playback range, transport와 clock은 저장되지 않는 Timeline
-Engine Runtime이다. Undo/Redo는 이 Runtime을 과거 값으로 복원하지 않고
-현재 값을 새 Project의 유효 범위에 맞게 유지 또는 clamp한다. stale local
-UI와 Draft는 필요한 경우 clear/reset한다.
-
-Project Lifecycle은 `untitled | file-backed`, `clean | dirty`,
-`idle | saving | loading` 세 축을 Project Owner Runtime으로 관리한다.
-Dirty는 canonical Project digest와 savepoint digest의 일치 여부로 계산하므로
-저장 중 생긴 후속 편집과 Undo로 savepoint에 돌아온 상태를 구분한다.
-비동기 작업은 증가하는 operation token으로 stale 완료를 폐기한다.
-
-Editor Shell의 lifecycle bar는 이 공개 상태와 command port만 소비한다.
-New/Open/Close는 Dirty일 때 discard confirmation을 먼저 통과하며 Cancel이면
-Project Owner, Runtime, Save target을 그대로 둔다. Save/Save As와 Open
-오류는 code/message를 보존한 UI notice로 표시한다. Missing/Error Source는
-Reconnect entry로 노출하지만 fingerprint mismatch와 legacy null
-fingerprint는 자동 승인하지 않고 확인 필요 상태로 남긴다.
-
-검증된 Load/New candidate만 Project Owner의 `replace-project` action으로
-들어간다. 성공한 Replace는 새 Project에 맞는 기본 Selection Runtime을
-만들고 History와 project-scoped Runtime을 초기화한 뒤 playback 정지,
-Draft/local UI 초기화와 Source Runtime 전체 invalidation effect를
-발행한다. Cache port 자체는 dispose하지 않는다. 검증 또는 Owner 교체
-실패는 기존 Project Owner state와 Runtime을 유지한다.
-
-Save는 시작 시점의 Project를 Plain Data snapshot과 canonical `.sfep` bytes로 고정한다. Native File System API가 있으면 선택한 handle을 Save controller runtime에만 보관하고, 지원하지 않으면 `.sfep` Blob download를 사용하며 handle을 남기지 않는다. Save/Save As target과 savepoint는 write와 lifecycle token 확인이 모두 성공한 뒤에만 교체한다. 저장 write는 직렬화하므로 concurrent Save에서도 마지막 유효 작업이 최종 파일 상태가 되며 stale 완료는 savepoint를 이동하지 않는다.
-
-Open은 native picker 또는 hidden `.sfep` file input으로 선택한 파일을 먼저
-codec Load Candidate로 검증한다. Candidate가 유효한 경우에만
-`projectId + locatorId` lookup으로 linked document 접근을 확인하고 새
-Runtime resource를 준비한다. 준비가 끝난 같은 load token만 Project Owner
-Replace를 수행하며, 기존 cache 전체 invalidation 뒤 새 resource를 atomic
-batch로 등록한다. 접근 불가 Source와 개별 preparation 실패는 각각
-Missing/Error Runtime Resolution이 되고 Project는 Ready-Degraded로 열린다.
-손상 파일과 stale 준비 결과는 기존 Project, Runtime과 Save target을
-유지하고 준비 resource만 dispose-once 한다.
-
-Reconnect는 Missing/Error인 linked document Source 하나를 기준으로 수행한다. 선택 파일의 실제 SHA-256/byte length가 저장 descriptor와 일치할 때만 document와 dependent PSD node의 기존 cache를 suspend하고 새 runtime batch를 등록한다. 성공하면 suspended resource를 dispose하고 `(projectId, locatorId)` local handle과 dependent Runtime Resolution을 함께 갱신하며 다른 Source cache는 보존한다. Fingerprint mismatch와 schema 1에서 이관된 null fingerprint는 자동 연결하지 않고 `refresh-source | replace-source` 확인 경계를 반환한다. Cancel, 권한 거부와 stale 결과는 기존 Runtime을 유지하고, parse 실패는 해당 dependent Source의 Error Runtime Resolution만 갱신한다.
-
-### 5.3 Draft와 commit
-
-Canvas/Properties/Timeline의 연속 입력은 PointerMove 동안 runtime Draft만 갱신한다.
-
-```text
-PointerDown
-→ immutable committed base
-→ PointerMove: Draft snapshot/read model
-→ PointerUp: semantic intent
-→ Project transaction 1회
-→ History 1회
-→ Draft clear
-```
-
-Transform Draft identity는 target `layerDocumentId`, global/local frame과 patch를 포함한다. Draft가 active인 동안 committed Project snapshot은 바뀌지 않는다. commit 결과가 Draft geometry와 같으면 preview dirty comparison도 clean으로 돌아간다.
-
-### 5.4 History
-
-한 사용자 action은 transaction과 History 한 건이다. Duplicate, delete,
-group move, Timeline placement commit, Transform/Animation/Effect/Modifier
-commit과 Source lifecycle이 같은 원칙을 따른다.
-
-History snapshot은 `LayerDocumentProject`만 저장한다. layer/source selection,
-active Group, current frame/playback range, Draft, 선택된 keyframe, Cache,
-Source Runtime resource와 모든 Panel Runtime은 History에 들어가지 않는다.
-Undo/Redo는 Project snapshot만 교체한 뒤 현재 Runtime을 새 Project에 대해
-유효성 보정한다. History entry의 label, affected ID와 최소 semantic
-metadata는 snapshot과 구분하며 transition effect 자체를 저장하지 않는다.
-
-## 6. Command와 read 흐름
-
-```text
-UI event
-→ 담당 Engine command
-→ semantic intent
-→ injected Project Owner port
-→ validate + transaction
-→ Project/History state 교체
-→ Owner effect
-→ Engine read model 재계산
-→ UI render
-```
+Draft 중 composition cache는 immutable committed snapshot과 섞이지 않도록
+우회한다. Source 교체/삭제/Reconnect는 관련 Source와 dependent Layer만
+targeted invalidation하고 resource를 dispose-once 처리한다.
 
-UI는 Project object를 직접 mutation하지 않는다. Engine도 다른 Engine 내부 구현이나 state를 import하지 않는다. 다영역 조합은 Composition Root의 port wiring 또는 Project transaction에서 수행한다.
+## 10. Render compatibility 예외
 
-Read 흐름:
+Render 구조, 파일 위치, public export와 명칭은 후속 Render Sprint까지
+동결한다. 따라서 다음 두 항목은 의도적으로 남아 있다.
 
-```text
-LayerDocumentProject + Selection Runtime + frame + Draft
-→ Project/Runtime read adapter
-→ Timeline / Properties / PSD Tree / Canvas read model
-→ feature UI
-```
+- `src/engines/animation/index.ts`의 Render용 `@/engines/animation`
+  compatibility entry
+- `src/engines/playback-render` 내부의
+  `LayerDocumentRuntimeCutoverPreparationPort`
 
-## 7. Project Owner와 Panel Engine
+이 예외는 Render 내부 계약에만 적용된다. Editor, Project Owner, Panel
+Engine과 Feature UI에는 별도 compatibility/cutover 계층이 없으며 최종
+public boundary를 직접 사용한다.
 
-Engine은 독립 Panel과 짝을 이루는 편집 경계에만 사용한다.
+## 11. offline migration
 
-- Canvas Engine ↔ Canvas Panel
-- Timeline Engine ↔ Timeline Panel
-- Properties Engine ↔ Properties Panel
-- PSD Tree Engine ↔ PSD Tree Panel
+이전 ProjectSource 문서를 LayerDocumentProject로 바꾸는 기능은
+`src/models/offlineMigration/index.ts`의 명시적 offline-only boundary다.
+bootstrap, active Editor와 Engine public barrel은 이전 모델을 import하거나
+export하지 않는다.
 
-Project Owner는 Engine이 아니며 Project Data, transaction, History,
-lifecycle과 project-scoped Source/Selection Runtime의 외부 경계다.
-Animation은 상태를 소유하지 않는 순수 계산 모듈이다. Drawing, Text,
-Audio는 독립 Panel이 생기기 전까지 Engine으로 분류하지 않고
-LayerDocument Type data와 기존 Panel command/capability로 다룬다.
+현재 schema migration은 persistence codec가 Plain Data에만 수행한다.
+migration은 File 접근, Runtime 생성 또는 UI state 변경을 하지 않는다.
 
-Playback 상태와 command는 Timeline Engine Runtime 책임이다. Render 구조,
-명칭, 파일, public export와 Full/Fast Render 동작은 후속 Render Sprint까지
-동결하며 기존 Playback/Animation compatibility 경로를 유지한다.
+## 12. 검증 계약
 
-## 8. Panel Engine별 계약
+자동 검증은 최소한 다음을 보존한다.
 
-### Canvas
+- normalize/validation과 schema/offline migration
+- transaction 원자성, Duplicate, Group, History, selection
+- Draft commit/cancel과 Timeline frame authority
+- PSD import/refresh/delete/reconnect와 Source Runtime dispose-once
+- full/fast Render, dirty region, previous-scene reuse와 cache
+- Core/Panel Engine import 경계, public entry와 최종 Editor wiring
 
-Canvas는 Project Owner read port로 selected LayerDocument, scope, runtime
-input을 읽는다. direct selection, alpha hit, glow, gizmo와 motion path 모두
-같은 `layerDocumentId`를 반환한다. PointerMove는 Draft, PointerUp은
-semantic commit intent다.
+실행 기준은 `npm test`, `npm run lint`, `npm run build`,
+`git diff --check`다. Browser picker와 실제 UI 조작은 이 정적/public fixture
+검증의 범위가 아니다.
 
-### Timeline
+## 13. 알려진 제한
 
-Timeline은 active Group 자식 LayerDocument의 placement와 animation을 row/keyframe으로 projection한다. Source 가용성은 runtime resolution에서 읽는다. move/trim/reorder/visibility/alias는 별도 Timeline 저장 record가 아니라 LayerDocument transaction이다.
-
-### Properties
-
-Properties는 selected LayerDocument의 공통/Type data, matching Draft와
-runtime Source resolution을 읽는다. numeric input은 로컬 문자열/Draft를
-유지할 수 있지만 commit은 Project Owner command를 통한다.
-
-### PSD Tree
-
-PSD Tree는 Source Registry의 PSD document/node와 Group graph를 projection하고
-가용성은 runtime resolution에서 읽는다.
-import/refresh/delete/reorder/select intent만 만들고 Project mutation은
-Project Owner에 위임한다.
-
-## 9. Renderer boundary
-
-Project data는 renderer resource를 포함하지 않는다.
-Render 구조, 명칭, 파일 위치, public export와 책임은 후속 Render Sprint
-전까지 변경하지 않는다. 이 절은 현재 Render 계약을 기록하며 Project
-Owner/Panel Engine 재분류의 수정 범위가 아니다.
-
-```text
-LayerDocument + Source Registry + Source Runtime Resolution + frame + Draft
-→ LayerDocumentRuntimeInput
-→ EvaluatedScene
-├─ full-render: RenderFrame command
-└─ fast-render: PreviewScene
-→ RenderNodeVisualResolver
-→ Canvas2D
-```
-
-Full/fast 경로는 node마다 다음 identity를 보존한다.
-
-- `layerDocumentId`
-- `sourceId`
-- `sourceResourceCacheKey`
-- `layerResultCacheKey`
-
-Drawable visual은 네 key가 모두 있는 node-native request만 resolve한다. 이전 Project/runtime record fallback은 active renderer에 없다.
-
-## 10. Cache 4층
-
-### 10.1 Source runtime cache
-
-정적 원본 pixel/resource를 `sourceId + sourceResourceCacheKey`로 보관한다. 같은 Source를 참조하는 LayerDocument가 공유한다. registration preflight/commit은 atomic이며 Source 또는 cache-key 단위 invalidation, suspend/restore, orphan GC, dispose-once를 제공한다.
-
-### 10.2 Layer result identity
-
-`layerResultCacheKey`는 `layerDocumentId`, revision, frame, quality, Source resource key와 Draft identity를 포함한다. Source 원본 key와 편집 결과 identity를 분리한다.
-
-### 10.3 Composition preview cache
-
-Fast renderer의 composition surface를 renderer mode, quality, scale, node id, size와 runtime id로 구분한다. 같은 node reference는 hit, child/ancestor 변화로 새 node reference가 생기면 miss/release한다. `beginFrame/endFrame`은 이번 frame에 사용하지 않은 entry를 퇴출한다.
-
-Draft 중에는 committed composition snapshot 오염을 막기 위해 composition cache 전체를 bypass한다. commit 후에는 committed node/cache 경로로 복귀한다.
-
-### 10.4 Surface pool
-
-Surface는 quality, scale, logical size와 pixel size key로 pooling한다. acquire 때 transform/clear/size를 reset하고, release 뒤 같은 key에서 재사용한다. bounded pool은 LRU로 오래된 surface를 dispose하고 최종 dispose는 Canvas 크기를 0으로 만든다.
-
-## 11. Dirty state와 incremental draw
-
-Dirty state는 PreviewScene snapshot을 비교해 node별 dirty kind를 만든다.
-
-- transform
-- opacity
-- visibility
-- frame
-- logical size
-- source
-- order
-- hierarchy/composition
-
-Fast Canvas draw plan은 다음 셋 중 하나다.
-
-- `full`: 첫 frame, size/scale/composition render state 변화
-- `skip`: 이전 scene과 동일
-- `dirty`: 이전/새 bounds 합집합만 fractional-safe floor/ceil clear 후 교차 node 재draw
-
-움직인 node와 dirty bounds에 겹치는 foreground는 다시 그리고, 떨어진 node는 유지한다. Composition render state가 바뀌면 부분 draw 대신 안전한 full draw를 선택한다.
-
-## 12. Duplicate와 구조 변경
-
-Duplicate:
-
-1. 새 `layerDocumentId` 생성
-2. 같은 Source reference 유지
-3. 표시 이름을 sibling scope의 Layer name, placement alias, Source display name과 비교해 `name_2`, `name_3` 순서의 다음 빈 suffix로 저장
-4. 기존 표시 이름이 `name_2`처럼 suffix를 가지면 `name_3`부터 증가
-5. Transform/Placement/Animation/Effect/Modifier/Type data deep copy
-6. 원본 바로 위 order 배치
-7. 새 LayerDocument 선택
-8. transaction/History 한 건
-
-원본이 alias를 표시 중이면 새 suffix는 복제본 placement alias에 저장하고, 그렇지 않으면 복제본 LayerDocument name에 저장한다. Source Registry display name은 충돌 검사에만 사용하며 Duplicate로 변경하지 않는다.
-
-Group subtree 구조 변경, delete, reorder도 graph/Source reference/selection validation을 통과해야 commit된다.
-
-## 13. Offline migration boundary
-
-이전 ProjectSource 형식은 active runtime bootstrap이 아니다. `src/models/offlineMigration/index.ts`만 명시적으로 이전 normalize/validation/migration API를 공개한다.
-
-```text
-이전 serialized input
-→ offline validation/normalization
-→ identity/source/layer builder
-→ LayerDocumentProject
-→ current validation
-```
-
-Active `src/models/index.ts`, Editor와 Engine은 이전 모델을 public authority로 export/import하지 않는다. migration 결과가 current schema를 통과한 뒤부터는 일반 LayerDocumentProject와 같다.
-
-## 14. Engine boundary
-
-- Feature UI → 담당 Engine public port만 사용
-- Project Owner → Engine이 아닌 단일 Project read/command/effect port
-- Panel Engine → 필요한 Owner/Runtime port를 Composition Root에서 주입
-- Engine ↔ 독립 Panel이 있을 때만 구성
-- Engine → `src/cutover` import 금지
-- Controller → 다른 Controller/Composer import 금지
-- Composer → Controller 조립과 공개 API만 담당
-- Project mutation → Project Owner transaction만 수행
-- runtime resource → Project/History/serialized data 진입 금지
-- offline migration → active barrel/bootstrap 진입 금지
-
-`src/cutover`는 현재 active wiring이지만 Panel Engine 밖 Composition
-Root에서만 생성한다. 이름은 전환 역사를 반영할 뿐 이전 모델 fallback을
-의미하지 않는다.
-
-## 15. Layer Type 확장 방법
-
-1. `LayerDocumentType`과 discriminated `data`에 Type 추가
-2. normalize/validation/plain-data fixture 추가
-3. 필요한 Source kind/lifecycle 정의
-4. 기존 Panel의 명확한 command/query/capability port 추가
-5. Properties panel descriptor/command 연결
-6. Timeline capability projection 연결
-7. Canvas/renderer content adapter 추가
-8. Project transaction, duplicate, history, offline migration 정책 확인
-9. Engine import boundary와 public fixture 추가
-
-새 Type을 위해 별도 Project root, selection identity, Timeline entity 또는
-renderer 저장 authority를 만들지 않는다. 독립 Panel이 새로 생길 때만
-그 Panel과 짝을 이루는 Engine 추가를 검토한다.
-
-## 16. 정적 검증 coverage
-
-| 계약 | Public fixture coverage |
-|---|---|
-| schema/normalize/plain data | `verifyLayerDocumentSchema` |
-| offline migration | `verifyProjectSourceLayerDocumentMigration` |
-| owner/session/history/selection | `verifyLayerDocumentProjectOwner`, `verifyLayerDocumentTransactions` |
-| Project Replace/lifecycle/savepoint/stale operation | `verifyLayerDocumentProjectLifecycle` |
-| Save/Save As/native handle/Blob fallback/concurrent Save | `verifyLayerDocumentProjectSave` |
-| Open/Load/linked Runtime/Ready-Degraded/stale Load | `verifyLayerDocumentProjectOpen` |
-| Missing/Error read model/fingerprint reconnect/targeted cache | `verifyLayerDocumentProjectReconnect` |
-| lifecycle UI command port/Dirty Cancel/오류 ViewModel/Missing entry | `verifyLayerDocumentProjectLifecycleUi` |
-| duplicate/group/animation/effect/modifier | `verifyLayerDocumentTransactions`, consumer/controller fixtures |
-| PSD import/second import/refresh | source preparation, consumer cutover, PSD Tree fixtures |
-| schema 1→2 / Runtime Resolution / PSD 단일 buffer | schema, source preparation, `verifyLayerDocumentSourceRuntimeResolution` |
-| Source targeted invalidation/GC/dispose-once | consumer cutover, `verifyLayerDocumentPreviewRuntimeCache` |
-| full/fast node-native render | Canvas mode, `verifyLayerDocumentPreviewRuntimeCache` |
-| previous scene reuse/child+ancestor invalidation | `verifyLayerDocumentPreviewRuntimeCache` |
-| composition/surface cache and Draft bypass | `verifyLayerDocumentPreviewRuntimeCache` |
-| full/skip/dirty fractional region draw | `verifyLayerDocumentPreviewRuntimeCache` |
-| Canvas/Timeline/Properties/PSD Tree | 각 LayerDocument controller/UI boundary fixture |
-| selection identity | Canvas, Timeline, Properties, owner fixtures |
-| active public barrel/engine boundary | legacy-removal and import-boundary fixtures |
-
-이 표는 정적/Node verification 범위다. Browser QA와 실제 PSD picker, drag/drop, Canvas pointer 조작 QA를 대신하지 않는다.
-
-## 17. 500줄 이상 제품 파일 책임 판단
-
-현재 `src`의 500줄 이상 TypeScript 제품 파일은 다음 10개다. 800줄 이상 제품 파일은 1개다.
-
-| 파일 | 줄 수 | 현재 판단 |
-|---|---:|---|
-| `src/cutover/createLayerDocumentConsumerCutoverAssembly.ts` | 800 | Project/Canvas/Timeline/Properties/Source port 조립이 한 파일에 모여 있다. active wiring이지만 책임 축이 여러 개이므로 후속 분리 후보이며 알려진 부채로 유지한다. |
-| `src/engines/properties/adapters/layerDocumentPropertiesController.ts` | 734 | 선택 LayerDocument의 raw input, Draft, commit 의미를 한 controller에서 일관되게 집계한다. 단일 input semantics 책임으로 현재 유지하되 Type별 command가 늘면 별도 helper/adapter로 분리한다. |
-| `src/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers.ts` | 598 | placement, animation, selection을 순수 Timeline projection으로 만드는 한 helper family다. 현재 유지하며 row/keyframe projection이 독립 성장할 때 분리한다. |
-| `src/engines/timeline/useLayerDocumentTimelineEngine.ts` | 584 | Timeline controller와 public view/command 계약을 조립하는 Engine facade다. 계산은 helper에 있으므로 현재 유지하되 조립 축이 추가되면 composer 분리를 검토한다. |
-| `src/editor/useLayerDocumentEditorOwner.ts` | 534 | Project owner, lifecycle/save/open/reconnect와 각 UI Engine/runtime port를 조립하는 제품 Composition 경계다. 현재 유지하되 persistence wiring이 독립 성장하면 composer 분리를 검토한다. |
-| `src/engines/playback-render/renderers/fastPreviewRenderer.ts` | 528 | evaluated node 변환, previous-scene equality와 ancestor reuse라는 하나의 fast renderer 책임이다. 현재 유지하며 node-type별 equality 정책이 더 커지면 helper로 분리한다. |
-| `src/engines/canvas/adapters/useLayerDocumentCanvasInteractionAdapter.ts` | 520 | Canvas handle/direct-selection/motion-path interaction을 동일 Draft/commit port에 연결한다. 현재 유지하며 interaction family가 독립적으로 성장하면 adapter를 분리한다. |
-| `src/engines/project/import/layerDocumentPsdImportAdapter.ts` | 513 | PSD descriptor, Layer graph, prepared runtime을 한 import/refresh 경계에서 조립한다. 현재 유지하되 import/refresh 조립이 더 커지면 공통 builder 분리를 검토한다. |
-| `src/models/layerDocumentStructureValidation.ts` | 510 | LayerDocument 공통 shape와 구조 validation을 담당하고 상위 validation이 결과를 집계한다. 현재 유지하되 Type별 검증이 커지면 validator 파일로 이동한다. |
-| `src/engines/properties/adapters/useLayerDocumentPropertiesEngine.ts` | 503 | Properties controller와 React state/view props를 연결하는 Engine facade다. 현재 유지하며 Type별 UI session이 늘면 composer/controller 경계를 분리한다. |
-
-500줄 이상 verification fixture는 여러 public 계약과 회귀 시나리오를 한 실행 단위에 모은 검증 aggregation이다. 제품 mutation/계산 책임과 구분하며 이 표의 제품 리팩토링 판단 대상에는 포함하지 않는다.
-
-## 18. 알려진 한계
-
-- linked audio/video의 persistence descriptor와 lifecycle 계약은 있으나 Runtime preparation은 아직 구현되지 않았다.
-- preview memory estimate는 현재 빈 source 배열로 계산되며 quality build 상태는 `ready`, generation `0`인 골격이다.
-- Draft active 동안 composition cache를 target 단위가 아니라 전체 bypass한다.
-- composition cache와 dirty-region 최적화는 fast renderer 전용이다.
-- app reload를 넘는 warm cache persistence는 없다.
-- Photoshop stable layer id가 없거나 중복이면 PSD tree-path identity fallback을 사용하므로 원본 계층이 크게 바뀔 때 identity 보장이 약하다.
-- Drawing/Text는 placeholder 수준이고 Audio 편집/재생은 future work다. Video/Shape는 extension point만 있다.
-- `createLayerDocumentConsumerCutoverAssembly.ts`는 active wiring 책임이 800줄에 모인 리팩토링 부채다.
-- `renderItemId`는 derived compatibility 이름일 뿐 저장 authority가 아니다.
-- Browser QA와 실제 조작 QA는 이번 정적 검증 범위에서 수행하지 않았다.
+- linked Audio/Video Runtime preparation은 구현되지 않았다.
+- Video/Shape는 schema와 extension point 중심이다.
+- legacy fingerprint가 없거나 mismatch인 Source의 Refresh/Replace 선택 UI는
+  후속 구현 대상이다.
+- Render compatibility 예외의 제거와 명칭 정리는 후속 Render Sprint
+  범위다.

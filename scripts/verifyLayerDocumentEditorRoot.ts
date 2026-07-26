@@ -36,9 +36,6 @@ const shell = source(
 const projectOwner = source(
   "src/editor/project-owner/useEditorProjectOwner.ts"
 );
-const projectOwnerCompatibility = source(
-  "src/engines/project/useLayerDocumentProjectOwner.ts"
-);
 const timelinePlayback = source(
   "src/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter.ts"
 );
@@ -48,11 +45,8 @@ const ownerModel = source(
 const ownerReducer = source(
   "src/engines/project/actions/layerDocumentProjectOwnerReducer.ts"
 );
-const consumerAssembly = source(
-  "src/cutover/createLayerDocumentConsumerCutoverAssembly.ts"
-);
 const canvasCommands = source(
-  "src/cutover/layerDocumentCanvasCommandPortAdapter.ts"
+  "src/engines/canvas/adapters/layerDocumentCanvasCommandPortAdapter.ts"
 );
 
 assert.equal(
@@ -86,8 +80,8 @@ assert.doesNotMatch(
 );
 for (const stableRuntime of [
   /const \[resources\] = useState\(/,
-  /const \[assembly\] = useState\(/,
-  /const \[draftSession\] = useState\(/,
+  /const \[ownerCommands\] = useState\(/,
+  /const \[draftSession\] = useState<[\s\S]{0,80}>\(/,
   /const \[playback\] = useState\(/,
 ]) {
   assert.match(runtime, stableRuntime);
@@ -99,7 +93,7 @@ assert.equal(
 );
 assert.doesNotMatch(
   owner,
-  /useLayerDocument(?:Timeline|Properties|PsdTree|Canvas)|createLayerDocumentConsumerCutoverAssembly|createLayerDocumentTimelinePlaybackRuntime/
+  /useLayerDocument(?:Timeline|Properties|PsdTree|Canvas)|createLayerDocumentTimelinePlaybackRuntime/
 );
 for (const nativePath of [
   /useLayerDocumentTimelineEngine\(\{/,
@@ -118,9 +112,9 @@ for (const nativePath of [
   );
 }
 for (const panelPort of [
-  /createLayerDocumentCanvasCutoverCommandPort\(\{/,
+  /createLayerDocumentCanvasCommandPort\(\{/,
   /createLayerDocumentPropertiesCommandPort\(\{/,
-  /createLayerDocumentPsdTreeCommandPort\(/,
+  /createLayerDocumentPsdTreeController\(\{/,
 ]) {
   assert.match(panelPorts, panelPort);
 }
@@ -132,21 +126,16 @@ for (const rootBoundary of [
   assert.match(`${owner}\n${root}`, rootBoundary);
 }
 assert.doesNotMatch(owner, /useLayerDocumentProjectOwner\(/);
-assert.match(runtime, /createLayerDocumentProjectOwnerCompatibilityPort\(/);
+assert.doesNotMatch(
+  runtime,
+  /createLayerDocumentProjectOwnerCompatibilityPort/
+);
 assert.match(
   projectOwner,
   /createEditorProjectOwnerPort\(\s*initialState,\s*reduceLayerDocumentProjectOwner/
 );
-assert.match(
-  projectOwnerCompatibility,
-  /useEditorProjectOwner\(options\)/
-);
-assert.doesNotMatch(
-  projectOwnerCompatibility,
-  /createLayerDocumentProjectOwnerState|reduceLayerDocumentProjectOwner/
-);
 assert.match(runtime, /setDraftRevision\(/);
-assert.match(runtime, /applyOwnerEffect:\s*\(effect\)/);
+assert.match(runtime, /applyOwnerEffect,/);
 assert.match(
   runtime,
   /\(effect\.clearDraft \? 1 : 0\)/
@@ -176,7 +165,7 @@ assert.match(
 );
 assert.match(
   runtime,
-  /draftSession,[\s\S]*effects:\s*\{[\s\S]*applyOwnerEffect/
+  /createEditorProjectOwnerCommandAdapter\(\{[\s\S]*draftSession\.clear,[\s\S]*applyOwnerEffect/
 );
 assert.match(
   panelPorts,
@@ -200,11 +189,11 @@ assert.match(
 );
 assert.match(
   panelPorts,
-  /createLayerDocumentCanvasCutoverCommandPort\(\{[\s\S]*playback:\s*frameInput/
+  /createLayerDocumentCanvasCommandPort\(\{[\s\S]*playback:\s*frameInput/
 );
 assert.doesNotMatch(
   panelPorts,
-  /assembly\.playback\.read\(\)\.currentFrame/
+  /ports\.playback\.read\(\)\.currentFrame/
 );
 assert.doesNotMatch(
   root,
@@ -224,8 +213,8 @@ assert.match(
   /const playback = useSyncExternalStore\([\s\S]*options\.playback\.subscribe,[\s\S]*options\.playback\.read/
 );
 assert.doesNotMatch(
-  `${ownerModel}\n${ownerReducer}\n${consumerAssembly}`,
-  /set-playback-session|session\.playback|assembly\.playback|readonly playback:/
+  `${ownerModel}\n${ownerReducer}`,
+  /set-playback-session|session\.playback|ports\.playback|readonly playback:/
 );
 assert.match(
   canvasCommands,
@@ -276,5 +265,5 @@ assert.equal(
 );
 
 console.log(
-  "LayerDocument Editor Root atomic cutover verification passed"
+  "LayerDocument Editor Root verification passed"
 );

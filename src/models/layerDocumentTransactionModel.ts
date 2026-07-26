@@ -266,23 +266,3 @@ export interface UpdateLayerDocumentDomainCommand {
   /** Successful type-matched domain updates increment revision by one. */
   update: LayerDocumentDomainUpdate;
 }
-
-/**
- * Task 9 may implement this boundary to atomically apply transaction.after,
- * selectionChange, and exactly one historyEntry. Task 4 provides no owner,
- * store, Runtime, Legacy projection, or commit implementation.
- */
-export interface LayerDocumentTransactionCommitPort {
-  readProject: () => LayerDocumentProject;
-  commitTransaction: (transaction: LayerDocumentTransaction) => void;
-}
-
-export interface LayerDocumentTransactionQueryPort {
-  readProject: LayerDocumentTransactionCommitPort["readProject"];
-  readLayer: (layerDocumentId: string) => LayerDocument | null;
-}
-
-export interface LayerDocumentAtomicCutoverPort {
-  query: LayerDocumentTransactionQueryPort;
-  commit: Pick<LayerDocumentTransactionCommitPort, "commitTransaction">;
-}

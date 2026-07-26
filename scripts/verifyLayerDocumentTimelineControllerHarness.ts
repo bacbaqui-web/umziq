@@ -6,7 +6,9 @@ import {
   type LayerDocumentCommon,
   type LayerDocumentProject,
 } from "@/models";
-import { createLayerDocumentConsumerCutoverAssembly } from "@/cutover";
+import {
+  createLayerDocumentVerificationPorts,
+} from "./helpers/createLayerDocumentVerificationPorts";
 import {
   createLayerDocumentProjectOwnerState,
   createLayerDocumentSourceRuntimeResolutionStore,
@@ -253,8 +255,8 @@ sourceResolution.setAvailable({
   sourceId: "source-b",
   file: null,
 });
-const assembly =
-  createLayerDocumentConsumerCutoverAssembly({
+const ports =
+  createLayerDocumentVerificationPorts({
     owner,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
@@ -293,7 +295,7 @@ let clearedClocks = 0;
 let draftClearCount = 0;
 const playback =
   createLayerDocumentTimelinePlaybackRuntime({
-    assembly,
+    scope: ports.scope,
     scheduler: {
       setRepeating: (callback, intervalMs) => {
         scheduledTick = callback;
@@ -348,7 +350,7 @@ assert.ok(draftClearCount > 0);
 playback.commands.setRange(-20, 99);
 playback.commands.seek(99);
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "set-group-duration",
     layerDocumentId: "root",
     durationFrames: 12,
@@ -361,7 +363,7 @@ assert.deepEqual(playback.read().range, {
   startFrame: 0,
   endFrame: 12,
 });
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 playback.validity.reconcile();
 assert.deepEqual(playback.read(), {
   currentFrame: 11,
@@ -370,14 +372,14 @@ assert.deepEqual(playback.read(), {
 });
 playback.commands.setRange(5, 18);
 playback.commands.seek(15);
-assert.equal(assembly.project.redo().ok, true);
+assert.equal(ports.project.redo().ok, true);
 playback.validity.reconcile();
 assert.deepEqual(playback.read(), {
   currentFrame: 11,
   range: { startFrame: 5, endFrame: 12 },
   isPlaying: false,
 });
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 playback.validity.reconcile();
 assert.deepEqual(playback.read(), {
   currentFrame: 11,
@@ -389,7 +391,7 @@ let switcherOpen = false;
 let focusRestoreCount = 0;
 const navigation =
   createLayerDocumentTimelineNavigationController({
-    assembly,
+    owner: ports,
     ui: {
       readIsOpen: () => switcherOpen,
       setIsOpen: (value) => {
@@ -415,8 +417,8 @@ playback.commands.seek(11);
 navigation.selectComposition("nested");
 playback.validity.reconcile();
 assert.equal(
-  assembly.scope.read().ok &&
-    assembly.scope.read().model
+  ports.scope.read().ok &&
+    ports.scope.read().model
       .activeGroupLayerDocumentId,
   "nested"
 );
@@ -427,7 +429,7 @@ assert.deepEqual(playback.read(), {
   range: { startFrame: 0, endFrame: 6 },
   isPlaying: false,
 });
-assembly.scope.enter("root");
+ports.scope.enter("root");
 playback.validity.reconcile();
 type TimingPointerState = {
   session: LayerDocumentTimelineTimingSession;
@@ -456,7 +458,7 @@ const moveTimingPointer = (
 const releasePointer = () => {
   if (timingPointer) {
     if (timingPointer.draft) {
-      assembly.timeline.dispatchIntent({
+      ports.timeline.dispatchIntent({
         kind: "set-timing",
         ...timingPointer.draft,
       });
@@ -465,7 +467,7 @@ const releasePointer = () => {
     return;
   }
   if (keyframePointer) {
-    assembly.timeline.dispatchIntent({
+    ports.timeline.dispatchIntent({
       kind: "move-keyframe",
       layerDocumentId:
         keyframePointer.layerDocumentId,
@@ -489,7 +491,7 @@ let lastSourceStatusResult:
   LayerDocumentTimelineSourceStatusResult = null;
 const sourceStatus =
   createLayerDocumentTimelineSourceStatusAdapter({
-    assembly,
+    owner: ports,
     cacheContext: () => ({
       globalFrame:
         playback.read().currentFrame,
@@ -518,7 +520,7 @@ const observedSourceStatus = {
 const allocatedIds = ["video-a-copy"];
 const interactions =
   createLayerDocumentTimelineInteractionController({
-    assembly,
+    owner: ports,
     playback,
     sourceStatus: observedSourceStatus,
     allocateLayerDocumentId: () => {
@@ -566,7 +568,7 @@ const interactions =
           LayerDocumentTimelineTimingOperation
       ) => {
         const layer =
-          assembly.project.read().payload
+          ports.project.read().payload
             .layerDocumentsById[
               layerDocumentId
             ];
@@ -626,7 +628,7 @@ assert.equal(
   "pointer draft must not transition the owner"
 );
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["video-a"].common
     .placement.startFrame,
   2
@@ -642,7 +644,7 @@ assert.equal(
   transitionsBeforePointer + 1
 );
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["video-a"].common
     .placement.startFrame,
   5
@@ -655,7 +657,7 @@ interactions.changeTimelineItemName(
 );
 interactions.commitTimelineItemName();
 const renamed =
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["video-a"];
 assert.equal(
   renamed.common.placement.alias,
@@ -666,7 +668,7 @@ interactions.duplicateTimelineItem(
   "video-a"
 );
 assert.ok(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["video-a-copy"]
 );
 interactions.setDraggedTimelineItemId(
@@ -674,28 +676,28 @@ interactions.setDraggedTimelineItemId(
 );
 interactions.reorderTimelineItem("video-a");
 assert.ok(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["video-b"].common
     .placement.order <
-    assembly.project.read().payload
+    ports.project.read().payload
       .layerDocumentsById["video-a"].common
       .placement.order
 );
 const sourcesBeforeLayerDelete =
   structuredClone(
-    assembly.project.read().payload
+    ports.project.read().payload
       .sourceRegistry
   );
 interactions.deleteTimelineItem(
   "video-a-copy"
 );
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["video-a-copy"],
   undefined
 );
 assert.deepEqual(
-  assembly.project.read().payload
+  ports.project.read().payload
     .sourceRegistry,
   sourcesBeforeLayerDelete,
   "Layer context delete must leave Source Registry immutable"
@@ -711,7 +713,7 @@ assert.ok(keyframePointer);
 keyframePointer.targetLocalFrame = 3;
 releasePointer();
 const positionFrames =
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["video-a"].common
     .animation.positionKeyframes.map(
       (keyframe) => keyframe.frame
@@ -720,7 +722,7 @@ assert.deepEqual(positionFrames, [3, 4]);
 
 interactions.selectTimelineItem("video-b");
 const projectBeforeAcknowledge =
-  structuredClone(assembly.project.read());
+  structuredClone(ports.project.read());
 const undoBeforeAcknowledge =
   structuredClone(owner.state.undoStack);
 const redoBeforeAcknowledge =
@@ -733,7 +735,7 @@ interactions.activateTimelineItem(
 );
 assert.equal(lastSourceStatusResult?.ok, true);
 assert.deepEqual(
-  assembly.project.read(),
+  ports.project.read(),
   projectBeforeAcknowledge,
   "row activation must not rewrite Source content/version/status"
 );
@@ -746,8 +748,8 @@ const acknowledged =
     .acknowledgedSourceStatuses ?? [];
 assert.equal(
   resolveLayerDocumentTimelineEffectiveSourceStatus(
-    assembly.project.read(),
-    assembly.project.read().payload
+    ports.project.read(),
+    ports.project.read().payload
       .layerDocumentsById["video-a"],
     acknowledged,
     sourceResolution.read("source-a").status
@@ -755,7 +757,7 @@ assert.equal(
   "normal",
   "ViewModel effective status consumes Runtime-only acknowledgment"
 );
-const sourceA = assembly.project.read().payload
+const sourceA = ports.project.read().payload
   .sourceRegistry.sourcesById["source-a"];
 sourceA.version += 1;
 sourceA.refresh.status = "new";
@@ -775,13 +777,13 @@ interactions.activateTimelineItem(
   "video-b",
   "deletePending"
 );
-const sourceBeforeKeep = structuredClone(assembly.project.read()
+const sourceBeforeKeep = structuredClone(ports.project.read()
   .payload.sourceRegistry.sourcesById["source-b"]);
 const historyBeforeKeep = owner.state.undoStack.length;
 interactions.resolveTimelineSourceDelete("video-b", "keep");
 assert.equal(lastSourceStatusResult?.ok, true);
 assert.deepEqual(
-  assembly.project.read().payload.sourceRegistry
+  ports.project.read().payload.sourceRegistry
     .sourcesById["source-b"],
   sourceBeforeKeep,
   "keep acknowledges deletePending without Source refresh"
@@ -792,7 +794,7 @@ assert.ok((owner.state.runtimeSession.acknowledgedSourceStatuses ?? [])
   .some((identity) => identity.sourceId === "source-b"));
 interactions.activateTimelineItem("video-b", "deletePending");
 const projectBeforeDelete = structuredClone(
-  assembly.project.read()
+  ports.project.read()
 );
 const undoBeforeDelete = structuredClone(owner.state.undoStack);
 const redoBeforeDelete = structuredClone(owner.state.redoStack);
@@ -804,7 +806,7 @@ assert.equal(
   deleteDecisionLayerDocumentId,
   null
 );
-const reconciledProject = assembly.project.read();
+const reconciledProject = ports.project.read();
 assert.deepEqual(
   reconciledProject,
   projectBeforeDelete,

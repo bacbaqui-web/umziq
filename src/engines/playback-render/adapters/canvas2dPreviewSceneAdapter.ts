@@ -15,7 +15,10 @@ import type {
   PreviewRenderSurfaceFactory,
   PreviewSurfaceCachePort,
 } from "@/engines/playback-render/models/previewCanvasRenderModel";
-import type { PreviewScene } from "@/engines/playback-render/models/previewSceneModel";
+import type {
+  PreviewNode,
+  PreviewScene,
+} from "@/engines/playback-render/models/previewSceneModel";
 import type {
   RenderNodeVisualResolver,
 } from "@/engines/playback-render/models/renderSourceModel";
@@ -44,6 +47,30 @@ function clearDirtyBounds(
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(left, top, right - left, bottom - top);
   context.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
+}
+
+function retainSkippedCompositionSurfaces(
+  nodes: readonly PreviewNode[],
+  compositionCache: PreviewCompositionCachePort | undefined,
+  previewQuality: string,
+  previewScale: number
+): void {
+  if (!compositionCache) return;
+  nodes.forEach((node) => {
+    if (node.kind !== "composition") return;
+    compositionCache.getSurface({
+      node,
+      previewQuality,
+      previewScale,
+      rendererMode: "fast-render",
+    });
+    retainSkippedCompositionSurfaces(
+      node.children,
+      compositionCache,
+      previewQuality,
+      previewScale
+    );
+  });
 }
 
 export function drawPreviewSceneToContext(
@@ -94,6 +121,7 @@ export function renderPreviewSceneToCanvas({
   drawState?: PreviewCanvasDrawState;
 }) {
   const startTime = performance.now();
+  runtimeMetrics?.resetFrame?.();
   const pixelSize = getCanvasPixelSize(previewScene.logicalSize, pixelScale);
   if (canvas.width !== pixelSize.width) canvas.width = pixelSize.width;
   if (canvas.height !== pixelSize.height) canvas.height = pixelSize.height;
@@ -107,7 +135,14 @@ export function renderPreviewSceneToCanvas({
   });
 
   if (drawPlan.mode === "skip") {
+    runtimeMetrics?.increment("dirtySkip");
     runtimeMetrics?.increment("drawImageSkipped", drawPlan.skippedNodeCount);
+    retainSkippedCompositionSurfaces(
+      previewScene.nodes,
+      compositionCache,
+      previewQuality,
+      pixelSize.scale
+    );
     runtimeMetrics?.increment(
       "canvasDrawTime",
       Math.max(1, Math.ceil(performance.now() - startTime))
@@ -119,6 +154,13 @@ export function renderPreviewSceneToCanvas({
   }
 
   if (drawPlan.mode === "dirty") {
+    runtimeMetrics?.increment("dirtyPartial");
+    retainSkippedCompositionSurfaces(
+      previewScene.nodes,
+      compositionCache,
+      previewQuality,
+      pixelSize.scale
+    );
     clearDirtyBounds(context, drawPlan.dirtyBounds, pixelSize.scale);
     context.save();
     context.beginPath();
@@ -160,6 +202,7 @@ export function renderPreviewSceneToCanvas({
   }
 
   context.setTransform(1, 0, 0, 1, 0, 0);
+  runtimeMetrics?.increment("dirtyFull");
   context.clearRect(0, 0, pixelSize.width, pixelSize.height);
   context.setTransform(pixelSize.scale, 0, 0, pixelSize.scale, 0, 0);
   drawPreviewSceneToContext(

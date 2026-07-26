@@ -24,11 +24,7 @@ import {
   reduceLayerDocumentProjectOwner,
 } from "@/engines/project/actions/layerDocumentProjectOwnerReducer";
 import {
-  createLayerDocumentProjectOwnerLivePort,
-} from "@/engines/project/helpers/layerDocumentProjectOwnerLivePortHelpers";
-import {
   createEditorProjectOwnerPort,
-  createLayerDocumentProjectOwnerCompatibilityPort,
 } from "@/editor/project-owner";
 import {
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
@@ -334,23 +330,11 @@ const editorOwner = createEditorProjectOwnerPort(
   reduceLayerDocumentProjectOwner,
   () => {
     editorOwnerStateRef.current =
-      editorOwner.read();
+      editorOwner.state;
   }
 );
-const compatibilityOwner =
-  createLayerDocumentProjectOwnerCompatibilityPort(
-    editorOwner
-  );
-assert.strictEqual(
-  compatibilityOwner.transition,
-  editorOwner.command
-);
-assert.strictEqual(
-  compatibilityOwner.state,
-  editorOwner.read()
-);
 const editorOwnerSelectionChanged =
-  compatibilityOwner.transition({
+  editorOwner.transition({
     kind: "set-source-selection",
     selection: {
       kind: "psd-tree-source",
@@ -364,11 +348,11 @@ if (!editorOwnerSelectionChanged.ok) {
   );
 }
 assert.strictEqual(
-  compatibilityOwner.state,
-  editorOwner.read()
+  editorOwner.state,
+  editorOwnerStateRef.current
 );
 assert.deepEqual(
-  compatibilityOwner.state.session.sourceSelection,
+  editorOwner.state.session.sourceSelection,
   {
     kind: "psd-tree-source",
     sourceId: "source-document",
@@ -768,19 +752,9 @@ assert.equal(
   "root"
 );
 
-const liveStateRef = { current: initialize() };
-const livePort = createLayerDocumentProjectOwnerLivePort(
-  liveStateRef,
-  (action) => {
-    const result = reduceLayerDocumentProjectOwner(
-      liveStateRef.current,
-      action
-    );
-    if (result.ok && result.changed) {
-      liveStateRef.current = result.state;
-    }
-    return result;
-  }
+const livePort = createEditorProjectOwnerPort(
+  initialize(),
+  reduceLayerDocumentProjectOwner
 );
 assert.equal(
   typeof Object.getOwnPropertyDescriptor(livePort, "state")?.get,
@@ -1567,7 +1541,6 @@ assert.equal(
 const taskFiles = [
   "src/engines/project/models/layerDocumentProjectOwnerModel.ts",
   "src/engines/project/helpers/layerDocumentProjectOwnerHelpers.ts",
-  "src/engines/project/helpers/layerDocumentProjectOwnerLivePortHelpers.ts",
   "src/engines/project/actions/layerDocumentProjectOwnerTransitionHelpers.ts",
   "src/engines/project/actions/layerDocumentProjectOwnerLayerCommitReducer.ts",
   "src/engines/project/actions/layerDocumentProjectOwnerSourceCommitReducer.ts",
@@ -1620,40 +1593,16 @@ editorOwnerFiles.forEach((path) => {
   const source = readFileSync(path, "utf8");
   assert.doesNotMatch(
     source,
-    /@\/cutover|@\/features|@\/engines\/(?:canvas|properties|psd-tree|timeline|playback-render)/
+    /@\/features|@\/engines\/(?:canvas|properties|psd-tree|timeline|playback-render)/
   );
 });
-const compatibilityOwnerSource = readFileSync(
-  "src/engines/project/useLayerDocumentProjectOwner.ts",
-  "utf8"
-);
-assert.match(
-  compatibilityOwnerSource,
-  /createLayerDocumentProjectOwnerCompatibilityPort/
-);
-assert.match(
-  compatibilityOwnerSource,
-  /useEditorProjectOwner\(options\)/
-);
-assert.doesNotMatch(
-  compatibilityOwnerSource,
-  /createLayerDocumentProjectOwnerState|reduceLayerDocumentProjectOwner/
-);
 const editorOwnerHookSource = readFileSync(
   "src/editor/project-owner/useEditorProjectOwner.ts",
-  "utf8"
-);
-const ownerLivePortSource = readFileSync(
-  "src/engines/project/helpers/layerDocumentProjectOwnerLivePortHelpers.ts",
   "utf8"
 );
 assert.match(
   editorOwnerHookSource,
   /createEditorProjectOwnerPort\(\s*initialState,\s*reduceLayerDocumentProjectOwner/
-);
-assert.match(
-  ownerLivePortSource,
-  /get state\(\)\s*\{\s*return stateRef\.current;?\s*\}/
 );
 const compositionRootSource = readFileSync(
   "src/editor/useEditorCompositionRoot.ts",

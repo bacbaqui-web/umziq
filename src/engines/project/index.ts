@@ -196,9 +196,6 @@ export {
   type LayerDocumentPsdPreparedSessionController,
 } from "@/engines/project/adapters/layerDocumentPsdPreparedSessionController";
 export {
-  useLayerDocumentProjectOwner,
-} from "@/engines/project/useLayerDocumentProjectOwner";
-export {
   DEFAULT_FRAME_RATE,
   MASTER_DEFAULT_HEIGHT,
   MASTER_DEFAULT_WIDTH,

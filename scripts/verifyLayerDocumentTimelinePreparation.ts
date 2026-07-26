@@ -886,10 +886,6 @@ const intentModelSource = readFileSync(
   "src/models/layerDocumentTimelineIntentModel.ts",
   "utf8"
 );
-assert.match(
-  intentModelSource,
-  /interface LayerDocumentTimelineCutoverPreparationPort/
-);
 assert.doesNotMatch(intentModelSource, /commitTransaction:/);
 
 console.log("Layer Document Timeline preparation verification passed");

@@ -1,4 +1,3 @@
-export { default as PropertiesPanel } from "@/features/properties/components/PropertiesPanel";
 export { PROPERTY_LABELS } from "@/engines/properties/constants/propertiesConstants";
 export type {
   PropertiesCommand,
@@ -51,6 +50,12 @@ export {
   type LayerDocumentPropertiesRuntimePort,
   type LayerDocumentPropertiesRuntimeState,
 } from "@/engines/properties/adapters/layerDocumentPropertiesController";
+export {
+  createLayerDocumentPropertiesCommandPort,
+} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter";
+export {
+  createLayerDocumentPropertiesOwnerCommandAdapter,
+} from "@/engines/properties/adapters/layerDocumentPropertiesOwnerCommandAdapter";
 export {
   buildLayerDocumentPropertiesViewProps,
   useLayerDocumentPropertiesEngine,

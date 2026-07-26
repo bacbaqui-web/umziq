@@ -6,8 +6,8 @@ import {
   type LayerDocumentProject,
 } from "@/models";
 import {
-  createLayerDocumentConsumerCutoverAssembly,
-} from "@/cutover";
+  createLayerDocumentVerificationPorts,
+} from "./helpers/createLayerDocumentVerificationPorts";
 import {
   createLayerDocumentProjectOwnerState,
   createLayerDocumentSourceRuntimeResolutionStore,
@@ -173,8 +173,8 @@ function projectFixture(): LayerDocumentProject {
     metadata: {
       schemaVersion:
         LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
-      projectId: "timeline-ui-cutover",
-      name: "Timeline UI cutover fixture",
+      projectId: "timeline-ui-integration",
+      name: "Timeline UI integration fixture",
     },
     payload: {
       layerDocumentsById: {
@@ -250,8 +250,8 @@ const sourceResolution =
 sourceResolution.setAvailable({
   sourceId: "video-source",
 });
-const assembly =
-  createLayerDocumentConsumerCutoverAssembly({
+const ports =
+  createLayerDocumentVerificationPorts({
     owner,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
@@ -329,7 +329,7 @@ const runtime: LayerDocumentTimelineRuntimeUiState = {
 };
 const playback =
   createLayerDocumentTimelinePlaybackRuntime({
-    assembly,
+    scope: ports.scope,
     scheduler: {
       setRepeating: () => Symbol("clock"),
       clearRepeating: () => {},
@@ -341,9 +341,9 @@ const formatTime = (
 ) => `${frame}/${frameRate}`;
 const initialView =
   buildLayerDocumentTimelineUiReadModel({
-    project: assembly.project.read(),
+    project: ports.project.read(),
     timeline:
-      assembly.timeline.readViewProps(),
+      ports.timeline.readViewProps(),
     runtime,
     playback: playback.read(),
     ruler,
@@ -416,7 +416,7 @@ assert.deepEqual(
   ["scale", 4],
 ] as const).forEach(([property, localFrame]) => {
   const selection =
-    assembly.timeline.selectTransformKeyframe({
+    ports.timeline.selectTransformKeyframe({
       layerDocumentId: "video-a",
       property,
       localFrame,
@@ -442,7 +442,7 @@ assert.deepEqual(
   }
 );
 const invalidScaleSelection =
-  assembly.timeline.selectTransformKeyframe({
+  ports.timeline.selectTransformKeyframe({
     layerDocumentId: "video-a",
     property: "scale",
     localFrame: 77,
@@ -457,9 +457,9 @@ assert.equal(
 );
 const selectedScaleView =
   buildLayerDocumentTimelineUiReadModel({
-    project: assembly.project.read(),
+    project: ports.project.read(),
     timeline:
-      assembly.timeline.readViewProps(),
+      ports.timeline.readViewProps(),
     runtime,
     playback: playback.read(),
     ruler,
@@ -480,7 +480,7 @@ assert.ok(
 const historyBeforeDuplicate =
   owner.state.undoStack.length;
 const duplicate =
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "duplicate-layer",
     layerDocumentId: "video-a",
     newLayerDocumentId: "video-b",
@@ -507,7 +507,7 @@ const transitionsBeforeMove =
 const historyBeforeMove =
   owner.state.undoStack.length;
 const movedKeyframe =
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "move-keyframe",
     layerDocumentId: "video-b",
     property: "position",
@@ -554,7 +554,7 @@ assert.deepEqual(
 );
 
 assert.equal(
-  assembly.timeline.selectTransformKeyframe({
+  ports.timeline.selectTransformKeyframe({
     layerDocumentId: "video-b",
     property: "opacity",
     localFrame: 6,
@@ -565,7 +565,7 @@ assert.equal(
 const historyBeforeRemove =
   owner.state.undoStack.length;
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "remove-keyframe",
     layerDocumentId: "video-b",
     property: "opacity",
@@ -587,7 +587,7 @@ assert.equal(
 const pointerMoveProjectBefore =
   JSON.stringify(owner.state.currentProject);
 assert.equal(
-  assembly.timeline.selectTransformKeyframe({
+  ports.timeline.selectTransformKeyframe({
     layerDocumentId: "video-b",
     property: "position",
     localFrame: 8,
@@ -635,9 +635,9 @@ assert.equal(
 );
 const draftView =
   buildLayerDocumentTimelineUiReadModel({
-    project: assembly.project.read(),
+    project: ports.project.read(),
     timeline:
-      assembly.timeline.readViewProps(),
+      ports.timeline.readViewProps(),
     runtime: { ...runtime, timingDraft: trimDraft },
     playback: playback.read(),
     ruler,
@@ -659,7 +659,7 @@ const transitionsBeforeTrimCommit =
 const historyBeforeTrimCommit =
   owner.state.undoStack.length;
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "set-timing",
     ...trimDraft,
   }).ok,
@@ -692,7 +692,7 @@ const nameBeforeAlias =
   owner.state.currentProject.payload
     .layerDocumentsById["video-b"].name;
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "set-alias",
     layerDocumentId: "video-b",
     alias: "Edited placement alias",
@@ -744,7 +744,7 @@ assert.equal(
 const historyBeforeDuration =
   owner.state.undoStack.length;
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "set-group-duration",
     layerDocumentId: "root",
     durationFrames: 40,
@@ -778,5 +778,5 @@ assert.equal(
 playback.dispose();
 
 console.log(
-  "LayerDocument Timeline UI cutover verification passed"
+  "LayerDocument Timeline UI integration verification passed"
 );

@@ -2,27 +2,48 @@ import type {
   SelectionAlphaBrowserAdapter,
   SelectionSourceAlphaDescriptor,
   SelectionSourceAlphaEntry,
-  SelectionSourceAlphaResult,
   SelectionSubCompositionAlphaChild,
 } from "@/engines/canvas/models/canvasSelectionAlphaModel";
 
 type SelectionAlphaCanvasFactory = () => HTMLCanvasElement;
 
-function toPixelDimension(value: number) {
-  return Number.isFinite(value) && value > 0 ? Math.ceil(value) : 0;
+function dimension(value: number) {
+  return Number.isFinite(value) && value > 0
+    ? Math.ceil(value)
+    : 0;
 }
 
-function normalizeOpacity(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(1, Math.max(0, value / 100));
+function opacity(value: number) {
+  return Number.isFinite(value)
+    ? Math.min(1, Math.max(0, value / 100))
+    : 0;
 }
 
-function disposeCanvas(canvas: HTMLCanvasElement) {
-  canvas.width = 1;
-  canvas.height = 1;
+function applyTransform(
+  context: CanvasRenderingContext2D,
+  child: SelectionSubCompositionAlphaChild
+) {
+  const { logicalSize } = child.source;
+  const { transform } = child;
+  const x =
+    transform.position.x +
+    transform.transformOffset.x -
+    logicalSize.width / 2;
+  const y =
+    transform.position.y +
+    transform.transformOffset.y -
+    logicalSize.height / 2;
+  context.translate(x, y);
+  context.translate(transform.anchor.x, transform.anchor.y);
+  context.rotate((transform.rotation * Math.PI) / 180);
+  context.scale(
+    transform.scale.x / 100,
+    transform.scale.y / 100
+  );
+  context.translate(-transform.anchor.x, -transform.anchor.y);
 }
 
-function createAlphaEntry(
+function createEntry(
   visualFingerprint: string,
   width: number,
   height: number,
@@ -37,8 +58,6 @@ function createAlphaEntry(
       const pixelX = Math.floor(x);
       const pixelY = Math.floor(y);
       if (
-        !Number.isFinite(pixelX) ||
-        !Number.isFinite(pixelY) ||
         pixelX < 0 ||
         pixelY < 0 ||
         pixelX >= width ||
@@ -46,61 +65,11 @@ function createAlphaEntry(
       ) {
         return 0;
       }
-      return alphaBytes[pixelY * width + pixelX] ?? 0;
+      return (
+        alphaBytes[pixelY * width + pixelX] ?? 0
+      );
     },
   };
-}
-
-function applyTransform(
-  context: CanvasRenderingContext2D,
-  child: SelectionSubCompositionAlphaChild
-) {
-  const { logicalSize } = child.source;
-  const { transform } = child;
-  const origin = {
-    x:
-      transform.position.x +
-      transform.transformOffset.x -
-      logicalSize.width / 2,
-    y:
-      transform.position.y +
-      transform.transformOffset.y -
-      logicalSize.height / 2,
-  };
-  context.translate(origin.x, origin.y);
-  context.translate(transform.anchor.x, transform.anchor.y);
-  context.rotate((transform.rotation * Math.PI) / 180);
-  context.scale(transform.scale.x / 100, transform.scale.y / 100);
-  context.translate(-transform.anchor.x, -transform.anchor.y);
-}
-
-function applySurfaceOpacity(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  opacity: number
-) {
-  const normalized = normalizeOpacity(opacity);
-  if (normalized >= 1) return;
-  context.save();
-  context.globalCompositeOperation = "destination-in";
-  context.globalAlpha = normalized;
-  context.fillStyle = "#fff";
-  context.fillRect(0, 0, width, height);
-  context.restore();
-}
-
-function get2dContext(canvas: HTMLCanvasElement) {
-  return (
-    canvas.getContext("2d", { willReadFrequently: true }) ??
-    canvas.getContext("2d")
-  );
-}
-
-function classifyBuildError(error: unknown) {
-  return error instanceof DOMException && error.name === "SecurityError"
-    ? "readback-blocked" as const
-    : "draw-failed" as const;
 }
 
 export function createCanvasSelectionAlphaBrowserAdapter(
@@ -109,26 +78,33 @@ export function createCanvasSelectionAlphaBrowserAdapter(
 ): SelectionAlphaBrowserAdapter {
   const buildSurface = (
     descriptor: SelectionSourceAlphaDescriptor,
-    temporaryCanvases: HTMLCanvasElement[],
+    temporary: HTMLCanvasElement[],
     isRoot = false
-  ): { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D } | null => {
-    const width = toPixelDimension(descriptor.logicalSize.width);
-    const height = toPixelDimension(descriptor.logicalSize.height);
-    if (!descriptor.visible || width <= 0 || height <= 0 || descriptor.opacity <= 0) {
+  ): HTMLCanvasElement | null => {
+    const width = dimension(descriptor.logicalSize.width);
+    const height = dimension(descriptor.logicalSize.height);
+    if (
+      !descriptor.visible ||
+      descriptor.opacity <= 0 ||
+      width <= 0 ||
+      height <= 0
+    ) {
       return null;
     }
-
     const canvas = createCanvas();
     canvas.width = width;
     canvas.height = height;
-    temporaryCanvases.push(canvas);
-    const context = get2dContext(canvas);
+    temporary.push(canvas);
+    const context =
+      canvas.getContext("2d", {
+        willReadFrequently: true,
+      }) ?? canvas.getContext("2d");
     if (!context) return null;
     context.clearRect(0, 0, width, height);
-
     if (descriptor.kind === "layer") {
-      context.save();
-      context.globalAlpha = isRoot ? 1 : normalizeOpacity(descriptor.opacity);
+      context.globalAlpha = isRoot
+        ? 1
+        : opacity(descriptor.opacity);
       context.drawImage(
         descriptor.sourceCanvas,
         0,
@@ -136,23 +112,24 @@ export function createCanvasSelectionAlphaBrowserAdapter(
         descriptor.logicalSize.width,
         descriptor.logicalSize.height
       );
-      context.restore();
-      return { canvas, context };
+      return canvas;
     }
-
     if (descriptor.kind === "solid") {
-      context.globalAlpha = isRoot ? 1 : normalizeOpacity(descriptor.opacity);
+      context.globalAlpha = isRoot
+        ? 1
+        : opacity(descriptor.opacity);
       context.fillStyle = "#fff";
       context.fillRect(0, 0, width, height);
-      return { canvas, context };
+      return canvas;
     }
-
     descriptor.orderedChildren.forEach((child) => {
-      if (!child.source.visible || child.source.opacity <= 0) return;
+      if (!child.source.visible || child.source.opacity <= 0) {
+        return;
+      }
       context.save();
       applyTransform(context, child);
       if (child.source.kind === "layer") {
-        context.globalAlpha = normalizeOpacity(child.source.opacity);
+        context.globalAlpha = opacity(child.source.opacity);
         context.drawImage(
           child.source.sourceCanvas,
           0,
@@ -161,7 +138,7 @@ export function createCanvasSelectionAlphaBrowserAdapter(
           child.source.logicalSize.height
         );
       } else if (child.source.kind === "solid") {
-        context.globalAlpha = normalizeOpacity(child.source.opacity);
+        context.globalAlpha = opacity(child.source.opacity);
         context.fillStyle = "#fff";
         context.fillRect(
           0,
@@ -170,10 +147,13 @@ export function createCanvasSelectionAlphaBrowserAdapter(
           child.source.logicalSize.height
         );
       } else {
-        const childSurface = buildSurface(child.source, temporaryCanvases);
+        const childSurface = buildSurface(
+          child.source,
+          temporary
+        );
         if (childSurface) {
           context.drawImage(
-            childSurface.canvas,
+            childSurface,
             0,
             0,
             child.source.logicalSize.width,
@@ -183,40 +163,52 @@ export function createCanvasSelectionAlphaBrowserAdapter(
       }
       context.restore();
     });
-    if (!isRoot) applySurfaceOpacity(context, width, height, descriptor.opacity);
-    return { canvas, context };
+    if (!isRoot && descriptor.opacity < 100) {
+      context.save();
+      context.globalCompositeOperation = "destination-in";
+      context.globalAlpha = opacity(descriptor.opacity);
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, width, height);
+      context.restore();
+    }
+    return canvas;
   };
 
   return {
-    build: (descriptor, visualFingerprint): SelectionSourceAlphaResult => {
-      const width = toPixelDimension(descriptor.logicalSize.width);
-      const height = toPixelDimension(descriptor.logicalSize.height);
-      if (!descriptor.visible || width <= 0 || height <= 0 || descriptor.opacity <= 0) {
-        return {
-          status: "unavailable",
-          visualFingerprint,
-          reason: "invalid-descriptor",
-        };
-      }
-
-      const temporaryCanvases: HTMLCanvasElement[] = [];
+    build: (descriptor, visualFingerprint) => {
+      const width = dimension(descriptor.logicalSize.width);
+      const height = dimension(descriptor.logicalSize.height);
+      const temporary: HTMLCanvasElement[] = [];
       try {
-        const surface = buildSurface(descriptor, temporaryCanvases, true);
-        if (!surface) {
+        const surface = buildSurface(
+          descriptor,
+          temporary,
+          true
+        );
+        const context =
+          surface?.getContext("2d", {
+            willReadFrequently: true,
+          }) ?? surface?.getContext("2d");
+        if (!surface || !context) {
           return {
             status: "unavailable",
             visualFingerprint,
             reason: "context-unavailable",
           };
         }
-        const rgba = surface.context.getImageData(0, 0, width, height).data;
+        const rgba = context.getImageData(
+          0,
+          0,
+          width,
+          height
+        ).data;
         const alphaBytes = new Uint8Array(width * height);
         for (let index = 0; index < alphaBytes.length; index += 1) {
           alphaBytes[index] = rgba[index * 4 + 3] ?? 0;
         }
         return {
           status: "ready",
-          entry: createAlphaEntry(
+          entry: createEntry(
             visualFingerprint,
             width,
             height,
@@ -227,10 +219,17 @@ export function createCanvasSelectionAlphaBrowserAdapter(
         return {
           status: "unavailable",
           visualFingerprint,
-          reason: classifyBuildError(error),
+          reason:
+            error instanceof DOMException &&
+            error.name === "SecurityError"
+              ? "readback-blocked"
+              : "draw-failed",
         };
       } finally {
-        temporaryCanvases.forEach(disposeCanvas);
+        temporary.forEach((canvas) => {
+          canvas.width = 1;
+          canvas.height = 1;
+        });
       }
     },
   };

@@ -79,15 +79,13 @@ const registered = sourceRuntime.register({
 assert.equal(registered.ok, true);
 const playback =
   createLayerDocumentTimelinePlaybackRuntime({
-    assembly: {
-      scope: {
-        read: () =>
-          buildLayerDocumentGroupScopeReadModel(
-            owner.state.currentProject,
-            owner.state.session
-              .activeGroupLayerDocumentId
-          ),
-      },
+    scope: {
+      read: () =>
+        buildLayerDocumentGroupScopeReadModel(
+          owner.state.currentProject,
+          owner.state.session
+            .activeGroupLayerDocumentId
+        ),
     },
     scheduler: {
       setRepeating: () => Symbol("clock"),

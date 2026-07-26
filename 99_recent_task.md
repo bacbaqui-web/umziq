@@ -1,39 +1,26 @@
-# Recent Task — Sprint B Task B3
+# Recent Task — 외부 그라데이션 스크린톤 Glow
 
-## 결과
+## 수정
 
-Task B3 `Drawing/Text/Audio Engine 명칭 제거`를 완료했다.
+- Source Alpha 직접 선택과 transparent fallthrough는 유지했다.
+- 원래 실루엣 내부에는 선택 표시를 그리지 않는다.
+- 실루엣 바로 바깥 2px는 빈틈없는 파란 외곽선으로 표시한다.
+- Alpha 바깥 14px를 세 구간으로 나누어 점 밀도를 50%, 25%, 12.5%로
+  줄이는 하프톤 Glow를 적용했다.
+- 하프톤 scratch를 원본 Alpha 해상도로 만들어 기존 1/2 해상도보다 점
+  크기를 절반으로 줄였다.
+- Blur 대신 고정 Bayer 디더 패턴을 사용한다.
+- Alpha fingerprint당 tone 결과를 한 번 생성하고 Draft 중에는 완성된
+  한 장을 Projection으로 이동한다.
+- Preview/Export와 Project/History 계약은 변경하지 않았다.
 
-- 독립 Panel이 없는 Drawing/Text/Audio를 active Engine 분류에서 제거했다.
-- 지원 기능은 `src/layer-types`의 단일 공개 진입점으로 재분류했다.
-- Drawing/Text의 기존 Project Owner transaction과 Audio의 unsupported
-  계약을 유지했다.
-- Properties Type section, cutover compatibility와 placeholder 표시가 같은
-  Layer Type 지원 API를 사용한다.
-- Render 구조, 파일, 이름, 책임과 공개 경로는 변경하지 않았다.
+## 성능 특성
 
-## 주요 파일
+최초 선택 시 Alpha readback과 선형 시간의 거리/tone 생성이 한 번 발생한다.
+이후에는 Blur나 거리 재계산 없이 `drawImage` 한 번으로 표시한다.
 
-- `src/layer-types/index.ts`
-- `src/layer-types/drawingSupport.ts`
-- `src/layer-types/textSupport.ts`
-- `src/layer-types/audioSupport.ts`
-- `src/engines/properties/adapters/layerDocumentPanelCommandAdapter.ts`
-- `src/cutover/layerDocumentConsumerCutoverModel.ts`
-- `scripts/verifyLayerTypeSupport.ts`
-- `20_src_map.md`
-- `56_layer_document_architecture.md`
-- `98_sprint_plan.md`
+## 검증
 
-## 정적 검증
-
-- `npm run lint`: PASS
-- `npm test`: PASS, 40 verification
-- `npm run build`: PASS
-- `git diff --check`: PASS
-- Browser QA: 미실행
-
-## 남은 범위
-
-- `src/cutover`의 책임 이전과 제거는 Sprint C 대상이다.
-- Render는 후속 Render Sprint까지 동결한다.
+- ESLint, Build, `git diff --check` 통과
+- 전체 Verification 42개 통과
+- Browser QA는 요청되지 않아 미실행

@@ -10,7 +10,10 @@ import type {
 
 export type LayerDocumentCanvasRuntimeResourceAdapter = (
   resource: LayerDocumentSourceRuntimeResource
-) => Omit<LayerDocumentCanvasRenderAsset, "sourceVisualIdentity"> | null;
+) => Omit<
+  LayerDocumentCanvasRenderAsset,
+  "sourceVisualIdentity"
+> | null;
 
 /**
  * Stateless typed view over the shared Source runtime cache. It owns neither

@@ -12,9 +12,11 @@ import {
   type PsdNodeSourceRecord,
 } from "@/models";
 import {
-  createLayerDocumentCanvasCutoverCommandPort,
-  createLayerDocumentConsumerCutoverAssembly,
-} from "@/cutover";
+  createLayerDocumentVerificationPorts,
+} from "./helpers/createLayerDocumentVerificationPorts";
+import {
+  createLayerDocumentCanvasCommandPort,
+} from "@/engines/canvas/adapters/layerDocumentCanvasCommandPortAdapter";
 import {
   createLayerDocumentCanvasCommands,
 } from "@/engines/canvas/adapters/layerDocumentCanvasCommandAdapter";
@@ -261,8 +263,8 @@ function projectFixture(): LayerDocumentProject {
   return {
     metadata: {
       schemaVersion: LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
-      projectId: "cutover-fixture",
-      name: "Cutover fixture",
+      projectId: "consumer-port-fixture",
+      name: "Consumer port fixture",
     },
     payload: {
       layerDocumentsById: layers,
@@ -279,7 +281,7 @@ function projectFixture(): LayerDocumentProject {
 function flattenRows(
   rows: ReturnType<
     ReturnType<
-      typeof createLayerDocumentConsumerCutoverAssembly
+      typeof createLayerDocumentVerificationPorts
     >["timeline"]["readViewProps"]
   >["rows"]
 ) {
@@ -340,7 +342,7 @@ const sourceResolution =
   createLayerDocumentSourceRuntimeResolutionStore();
 sourceResolution.setAvailable({ sourceId: "document" });
 sourceResolution.setAvailable({ sourceId: "node" });
-const assembly = createLayerDocumentConsumerCutoverAssembly({
+const ports = createLayerDocumentVerificationPorts({
   owner,
   panelPreparation:
     LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
@@ -373,7 +375,7 @@ const assembly = createLayerDocumentConsumerCutoverAssembly({
   metrics,
 });
 
-const initialTimeline = assembly.timeline.readViewProps();
+const initialTimeline = ports.timeline.readViewProps();
 assert.equal(initialTimeline.available, true);
 assert.equal(initialTimeline.selectedLayerDocumentId, "psd");
 assert.equal(
@@ -389,11 +391,11 @@ assert.equal(
   "available"
 );
 assert.equal(
-  assembly.properties.describe().status,
+  ports.properties.describe().status,
   "ready"
 );
 assert.equal(
-  assembly.sources.readTree().selectedSourceId,
+  ports.sources.readTree().selectedSourceId,
   "node"
 );
 let callsBefore = transitionCallCount;
@@ -423,7 +425,7 @@ const importedLayer: LayerDocument = {
   data: {},
 };
 callsBefore = transitionCallCount;
-const imported = assembly.sources.importSources({
+const imported = ports.sources.importSources({
   sources: [importDocument, importNode],
   layers: [importedLayer],
   selectSourceId: importNode.sourceId,
@@ -432,11 +434,11 @@ const imported = assembly.sources.importSources({
 assert.equal(imported.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(
-  assembly.sources.readTree().selectedSourceId,
+  ports.sources.readTree().selectedSourceId,
   importNode.sourceId
 );
 assert.equal(
-  assembly.sources.readTree().documents.some(
+  ports.sources.readTree().documents.some(
     (document) =>
       document.sourceId === importDocument.sourceId &&
       document.children.some(
@@ -447,7 +449,7 @@ assert.equal(
 );
 assert.equal(
   flattenRows(
-    assembly.timeline.readViewProps().rows
+    ports.timeline.readViewProps().rows
   ).some((row) => row.layerDocumentId === "import-layer"),
   true
 );
@@ -510,7 +512,7 @@ const confirmedPreparedInput = {
     }]),
   };
 const confirmedPrepared =
-  assembly.sources.confirmPreparedPsdImport(
+  ports.sources.confirmPreparedPsdImport(
     confirmedPreparedInput
   );
 assert.equal(confirmedPrepared.ok, true);
@@ -529,7 +531,7 @@ assert.ok(
 callsBefore = transitionCallCount;
 const historyBeforeDoubleConfirm = owner.state.undoStack.length;
 const confirmedAgain =
-  assembly.sources.confirmPreparedPsdImport(
+  ports.sources.confirmPreparedPsdImport(
     confirmedPreparedInput
   );
 assert.equal(confirmedAgain.ok, false);
@@ -537,7 +539,7 @@ assert.equal(transitionCallCount, callsBefore);
 assert.equal(owner.state.undoStack.length, historyBeforeDoubleConfirm);
 assert.equal(confirmedPreparedDisposeCount, 0);
 const cancelAfterSuccess =
-  assembly.sources.cancelPreparedPsdImport(
+  ports.sources.cancelPreparedPsdImport(
     confirmedPreparedInput
   );
 assert.equal(cancelAfterSuccess.changed, false);
@@ -549,9 +551,9 @@ assert.ok(
     sourceResourceCacheKey: confirmedRuntimeKey,
   })
 );
-assert.equal(findNonPlainDataPath(assembly.project.read()), null);
+assert.equal(findNonPlainDataPath(ports.project.read()), null);
 assert.doesNotMatch(
-  JSON.stringify(assembly.project.read()),
+  JSON.stringify(ports.project.read()),
   /runtimeOnlyCanvas|\bdraw\b/
 );
 
@@ -571,7 +573,7 @@ const failedRuntime = createLayerDocumentPreparedRuntimeLifecycle([{
   },
 }]);
 const failedPrepared =
-  assembly.sources.confirmPreparedPsdImport({
+  ports.sources.confirmPreparedPsdImport({
     fileName: "duplicate.psd",
     width: 1,
     height: 1,
@@ -597,7 +599,7 @@ assert.equal(failedPreparedDisposeCount, 1);
 
 let cancelledPreparedDisposeCount = 0;
 callsBefore = transitionCallCount;
-const projectBeforeCancel = assembly.project.read();
+const projectBeforeCancel = ports.project.read();
 const cancelledPreparedInput = {
   fileName: "cancelled.psd",
   width: 1,
@@ -645,18 +647,18 @@ const cancelledPreparedInput = {
   ]),
 };
 const firstCancel =
-  assembly.sources.cancelPreparedPsdImport(
+  ports.sources.cancelPreparedPsdImport(
     cancelledPreparedInput
   );
 const secondCancel =
-  assembly.sources.cancelPreparedPsdImport(
+  ports.sources.cancelPreparedPsdImport(
     cancelledPreparedInput
   );
 assert.equal(firstCancel.disposedCount, 2);
 assert.equal(secondCancel.disposedCount, 0);
 assert.equal(cancelledPreparedDisposeCount, 1);
 assert.equal(transitionCallCount, callsBefore);
-assert.strictEqual(assembly.project.read(), projectBeforeCancel);
+assert.strictEqual(ports.project.read(), projectBeforeCancel);
 
 const batchEntry = (
   sourceId: string,
@@ -762,7 +764,7 @@ const pendingOwner: LayerDocumentProjectOwnerPort = {
   },
 };
 const pendingAssembly =
-  createLayerDocumentConsumerCutoverAssembly({
+  createLayerDocumentVerificationPorts({
     owner: pendingOwner,
     panelPreparation: LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
     sourcePreparation: LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
@@ -1002,17 +1004,96 @@ const parsedNestedLeaf = parsedPrepared.command.layers.find(
 assert.equal(parsedGroup?.common.placement.order, 0);
 assert.equal(parsedRootLeaf?.common.placement.order, 1);
 assert.equal(parsedNestedLeaf?.common.placement.order, 0);
+assert.deepEqual(parsedGroup?.common.transform.position, {
+  x: 160,
+  y: 90,
+});
+assert.deepEqual(parsedGroup?.common.transform.anchor, {
+  x: 160,
+  y: 90,
+});
+const parsedComposition = parsedPrepared.command.layers.find(
+  (layer) =>
+    layer.layerDocumentId === parsedCompositionId
+);
+assert.deepEqual(parsedComposition?.common.transform.position, {
+  x: 160,
+  y: 90,
+});
+assert.deepEqual(parsedComposition?.common.transform.anchor, {
+  x: 160,
+  y: 90,
+});
 callsBefore = transitionCallCount;
 const historyBeforeParsedConfirm = owner.state.undoStack.length;
 const parsedConfirmed =
-  assembly.sources.confirmPreparedPsdImport(parsedPrepared);
+  ports.sources.confirmPreparedPsdImport(parsedPrepared);
 assert.equal(parsedConfirmed.ok, true);
-assert.equal(transitionCallCount, callsBefore + 1);
+assert.equal(transitionCallCount, callsBefore + 2);
 assert.equal(
   owner.state.undoStack.length,
   historyBeforeParsedConfirm + 1
 );
-const parsedCanvasView = assembly.canvas.readViewProps({
+const parsedTreeNodes = ports.sources.readTree()
+  .documents.flatMap((document) => {
+    const flatten = (
+      nodes: typeof document.children
+    ): typeof document.children[number][] =>
+      nodes.flatMap((node) => [
+        node,
+        ...flatten(node.children),
+      ]);
+    return flatten(document.children);
+  });
+const parsedDocumentChildren =
+  ports.sources.readTree().documents.find((document) =>
+    document.sourceId ===
+      parsedPrepared.resolution.documentSourceId
+  )?.children ?? [];
+assert.deepEqual(
+  parsedDocumentChildren.map((node) => node.sourceId),
+  [
+    parsedGroup?.common.source?.sourceId,
+    parsedRootLeaf?.common.source?.sourceId,
+  ]
+);
+const parsedGroupSourceId =
+  parsedGroup?.common.source?.sourceId;
+const parsedRootLeafSourceId =
+  parsedRootLeaf?.common.source?.sourceId;
+assert.equal(
+  parsedTreeNodes.find((node) =>
+    node.sourceId === parsedGroupSourceId
+  )?.entityKind,
+  "composition"
+);
+assert.equal(
+  parsedTreeNodes.find((node) =>
+    node.sourceId === parsedRootLeafSourceId
+  )?.entityKind,
+  "layer"
+);
+if (!parsedNestedLeaf?.common.source) {
+  throw new Error("Parsed nested PSD source unavailable");
+}
+ports.sources.selectSource({
+  kind: "psd-tree-source",
+  sourceId: parsedNestedLeaf.common.source.sourceId,
+});
+assert.equal(
+  owner.state.session.layerSelection?.layerDocumentId,
+  parsedNestedLeaf.layerDocumentId
+);
+const parsedProperties =
+  ports.properties.describe();
+assert.equal(parsedProperties.status, "ready");
+if (parsedProperties.status === "ready") {
+  assert.equal(
+    parsedProperties.descriptor.layerDocumentId,
+    parsedNestedLeaf.layerDocumentId
+  );
+}
+const parsedCanvasView = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "original",
   rendererMode: "full-render",
@@ -1033,7 +1114,7 @@ const parsedRuntimeInput =
   );
 assert.equal(parsedRuntimeInput?.content.kind, "drawable");
 assert.equal(parsedCanvas.width, 96);
-assert.deepEqual(validateLayerDocumentProject(assembly.project.read()), []);
+assert.deepEqual(validateLayerDocumentProject(ports.project.read()), []);
 const parsedDocumentSource =
   parsedPrepared.command.sources.find(
     (source) => source.kind === "psd-document"
@@ -1051,7 +1132,7 @@ const preparedRefresh = await prepareLayerDocumentPsdRefresh({
   file: parsedFile,
   documentSource: parsedDocumentSource,
   existingSources: Object.values(
-    assembly.project.read().payload.sourceRegistry.sourcesById
+    ports.project.read().payload.sourceRegistry.sourcesById
   ),
   parsePsd: async () => parsedPsdFixture(refreshCanvas),
 });
@@ -1059,7 +1140,7 @@ assert.equal(findNonPlainDataPath(preparedRefresh.command), null);
 assert.notEqual(findNonPlainDataPath(preparedRefresh), null);
 callsBefore = transitionCallCount;
 const refreshConfirmed =
-  assembly.sources.confirmPreparedPsdRefresh(
+  ports.sources.confirmPreparedPsdRefresh(
     preparedRefresh,
     {
       globalFrame: 20,
@@ -1074,10 +1155,10 @@ assert.equal(preparedRefresh.runtime.readState(), "transferred");
 assert.equal(parsedCanvas.width, 0);
 assert.equal(parsedCanvas.height, 0);
 const refreshCancelAfterSuccess =
-  assembly.sources.cancelPreparedPsdRefresh(preparedRefresh);
+  ports.sources.cancelPreparedPsdRefresh(preparedRefresh);
 assert.equal(refreshCancelAfterSuccess.disposedCount, 0);
 const refreshConfirmAgain =
-  assembly.sources.confirmPreparedPsdRefresh(
+  ports.sources.confirmPreparedPsdRefresh(
     preparedRefresh,
     {
       globalFrame: 20,
@@ -1090,7 +1171,7 @@ assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(refreshCanvas.width, 96);
 
 const latestParsedDocument =
-  assembly.project.read().payload.sourceRegistry.sourcesById[
+  ports.project.read().payload.sourceRegistry.sourcesById[
     parsedDocumentSource.sourceId
   ];
 assert.equal(latestParsedDocument?.kind, "psd-document");
@@ -1106,14 +1187,14 @@ const cancelledRefresh = await prepareLayerDocumentPsdRefresh({
   file: parsedFile,
   documentSource: latestParsedDocument,
   existingSources: Object.values(
-    assembly.project.read().payload.sourceRegistry.sourcesById
+    ports.project.read().payload.sourceRegistry.sourcesById
   ),
   parsePsd: async () => parsedPsdFixture(cancelledRefreshCanvas),
 });
 const firstRefreshCancel =
-  assembly.sources.cancelPreparedPsdRefresh(cancelledRefresh);
+  ports.sources.cancelPreparedPsdRefresh(cancelledRefresh);
 const secondRefreshCancel =
-  assembly.sources.cancelPreparedPsdRefresh(cancelledRefresh);
+  ports.sources.cancelPreparedPsdRefresh(cancelledRefresh);
 assert.equal(firstRefreshCancel.disposedCount, 2);
 assert.equal(secondRefreshCancel.disposedCount, 0);
 assert.equal(cancelledRefreshCanvas.width, 0);
@@ -1133,7 +1214,7 @@ const cancelledParsed = await prepareLayerDocumentPsdImport({
 });
 callsBefore = transitionCallCount;
 const historyBeforeParsedCancel = owner.state.undoStack.length;
-assembly.sources.cancelPreparedPsdImport(cancelledParsed);
+ports.sources.cancelPreparedPsdImport(cancelledParsed);
 assert.equal(transitionCallCount, callsBefore);
 assert.equal(owner.state.undoStack.length, historyBeforeParsedCancel);
 assert.equal(cancelledCanvas.width, 0);
@@ -1171,26 +1252,27 @@ assert.deepEqual(
 callsBefore = transitionCallCount;
 const historyBeforeParsedFailure = owner.state.undoStack.length;
 const parsedFailure =
-  assembly.sources.confirmPreparedPsdImport(duplicateParsed);
+  ports.sources.confirmPreparedPsdImport(duplicateParsed);
 assert.equal(parsedFailure.ok, false);
 assert.equal(transitionCallCount, callsBefore);
 assert.equal(owner.state.undoStack.length, historyBeforeParsedFailure);
 assert.equal(failedCanvas.width, 0);
 assert.equal(failedCanvas.height, 0);
 
-assert.equal(assembly.selection.selectLayer("psd").ok, true);
+assert.equal(ports.scope.enter("root").ok, true);
+assert.equal(ports.selection.selectLayer("psd").ok, true);
 const beforeDuplicateRevision =
-  assembly.project.read().payload.layerDocumentsById.psd
+  ports.project.read().payload.layerDocumentsById.psd
     .revision;
 callsBefore = transitionCallCount;
-const duplicated = assembly.timeline.dispatchIntent({
+const duplicated = ports.timeline.dispatchIntent({
   kind: "duplicate-layer",
   layerDocumentId: "psd",
   newLayerDocumentId: "psd-copy",
 });
 assert.equal(duplicated.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
-const duplicateProject = assembly.project.read();
+const duplicateProject = ports.project.read();
 assert.equal(
   duplicateProject.payload.layerDocumentsById.psd.common.source
     ?.sourceId,
@@ -1202,11 +1284,11 @@ assert.equal(
   "node"
 );
 assert.equal(
-  assembly.timeline.readViewProps().selectedLayerDocumentId,
+  ports.timeline.readViewProps().selectedLayerDocumentId,
   "psd-copy"
 );
 
-let canvas = assembly.canvas.readViewProps({
+let canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "fast-render",
@@ -1223,7 +1305,7 @@ let disposedResourceCount = 0;
 const canvasRuntimeResource = {
   runtimeOnly: true,
 };
-assembly.runtime.registrationBridge.registerResources([{
+ports.runtime.registrationBridge.registerResources([{
   sourceId: "node",
   sourceResourceCacheKey:
     copyInputBeforeDraft.sourceResourceCacheKey,
@@ -1249,7 +1331,7 @@ assert.doesNotMatch(
   JSON.stringify(owner.state),
   /runtimeOnly/
 );
-canvas = assembly.canvas.readViewProps({
+canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "fast-render",
@@ -1267,7 +1349,7 @@ assert.equal(
 );
 
 const historyBeforeDraft = owner.state.undoStack.length;
-const projectBeforeDraft = assembly.project.read();
+const projectBeforeDraft = ports.project.read();
 const copyTransformBeforeDraft = structuredClone(
   projectBeforeDraft.payload.layerDocumentsById["psd-copy"]
     .common.transform
@@ -1277,7 +1359,7 @@ const copyAnimationBeforeDraft = structuredClone(
     .common.animation
 );
 callsBefore = transitionCallCount;
-const pointerMove = assembly.canvas.pointerMove({
+const pointerMove = ports.canvas.pointerMove({
   layerDocumentId: "psd-copy",
   globalFrame: externalFrame,
   quality: "preview",
@@ -1292,11 +1374,11 @@ const pointerMove = assembly.canvas.pointerMove({
 });
 assert.equal(pointerMove?.kind, "pointer-move");
 assert.equal(transitionCallCount, callsBefore);
-assert.strictEqual(assembly.project.read(), projectBeforeDraft);
+assert.strictEqual(ports.project.read(), projectBeforeDraft);
 assert.equal(owner.state.undoStack.length, historyBeforeDraft);
 assert.equal(draftPublishCount, 1);
 assert.ok(draft);
-canvas = assembly.canvas.readViewProps({
+canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "fast-render",
@@ -1313,7 +1395,7 @@ assert.deepEqual(
 );
 
 callsBefore = transitionCallCount;
-const pointerUp = assembly.canvas.pointerUp();
+const pointerUp = ports.canvas.pointerUp();
 assert.equal(pointerUp.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(draft, null);
@@ -1322,7 +1404,7 @@ assert.equal(
   historyBeforeDraft + 1
 );
 const committedCopy =
-  assembly.project.read().payload.layerDocumentsById[
+  ports.project.read().payload.layerDocumentsById[
     "psd-copy"
   ];
 assert.deepEqual(committedCopy.common.transform, {
@@ -1359,7 +1441,7 @@ assert.deepEqual(
   ]
 );
 const canvasAfterAnimatedCommit =
-  assembly.canvas.readViewProps({
+  ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
@@ -1385,17 +1467,17 @@ assert.equal(
   27
 );
 assert.equal(committedRuntimeInput?.opacity, 55);
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 assert.deepEqual(
-  assembly.project.read().payload.layerDocumentsById[
+  ports.project.read().payload.layerDocumentsById[
     "psd-copy"
   ].common.animation,
   copyAnimationBeforeDraft
 );
 assert.equal(owner.state.undoStack.length, historyBeforeDraft);
-assert.equal(assembly.project.redo().ok, true);
+assert.equal(ports.project.redo().ok, true);
 assert.deepEqual(
-  assembly.project.read().payload.layerDocumentsById[
+  ports.project.read().payload.layerDocumentsById[
     "psd-copy"
   ].common.animation,
   committedCopy.common.animation
@@ -1413,19 +1495,32 @@ assert.ok(
 const historyBeforeMotionPathDraft =
   owner.state.undoStack.length;
 const projectBeforeMotionPathDraft =
-  assembly.project.read();
+  ports.project.read();
 const nativeCanvasCommands =
   createLayerDocumentCanvasCommands({
     selectedLayerDocumentId: "psd-copy",
     quality: "preview",
-    port: createLayerDocumentCanvasCutoverCommandPort({
-      assembly,
+    port: createLayerDocumentCanvasCommandPort({
+      draft: {
+        publish: ports.canvas.pointerMove,
+        commitTransform: ports.canvas.pointerUp,
+        publishMotionPath:
+          ports.canvas.motionPathPointerMove,
+        commitMotionPath:
+          ports.canvas.motionPathPointerUp,
+        cancel: ports.canvas.cancelDraft,
+      },
+      enterGroup: ports.scope.enter,
+      directSelect:
+        ports.canvas.directSelect,
+      selectMotionPathKeyframe:
+        ports.canvas.selectMotionPathKeyframe,
       playback: externalPlayback,
       quality: "preview",
     }),
   });
 const motionPathBeforeDraft =
-  assembly.canvas.readViewProps({
+  ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
@@ -1451,7 +1546,7 @@ assert.ok(originalFrameSevenSample);
 const historyBeforeKeyframeSelection =
   owner.state.undoStack.length;
 const projectBeforeKeyframeSelection =
-  assembly.project.read();
+  ports.project.read();
 callsBefore = transitionCallCount;
 const keyframeSelection =
   nativeCanvasCommands.selectMotionPathKeyframe({
@@ -1462,7 +1557,7 @@ const keyframeSelection =
 assert.equal(keyframeSelection.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.strictEqual(
-  assembly.project.read(),
+  ports.project.read(),
   projectBeforeKeyframeSelection
 );
 assert.equal(
@@ -1484,7 +1579,7 @@ assert.deepEqual(
   }
 );
 assert.deepEqual(
-  assembly.canvas.readViewProps({
+  ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
@@ -1507,7 +1602,7 @@ assert.equal(
 );
 assert.equal(transitionCallCount, callsBefore);
 assert.strictEqual(
-  assembly.project.read(),
+  ports.project.read(),
   projectBeforeMotionPathDraft
 );
 assert.equal(
@@ -1517,7 +1612,7 @@ assert.equal(
 assert.equal(draft?.globalFrame, 7);
 assert.equal(draft?.localFrame, 7);
 const motionPathDuringDraft =
-  assembly.canvas.readViewProps({
+  ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
@@ -1544,7 +1639,7 @@ assert.deepEqual(
 nativeCanvasCommands
   .cancelMotionPathKeyframeDraft();
 assert.strictEqual(
-  assembly.project.read(),
+  ports.project.read(),
   projectBeforeMotionPathDraft
 );
 assert.equal(
@@ -1552,7 +1647,7 @@ assert.equal(
   historyBeforeMotionPathDraft
 );
 const motionPathAfterCancel =
-  assembly.canvas.readViewProps({
+  ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
     rendererMode: "fast-render",
@@ -1595,7 +1690,7 @@ assert.equal(
   historyBeforeMotionPathDraft + 1
 );
 assert.deepEqual(
-  assembly.project.read().payload.layerDocumentsById[
+  ports.project.read().payload.layerDocumentsById[
     "psd-copy"
   ].common.animation.positionKeyframes.find(
     (keyframe) => keyframe.frame === 7
@@ -1612,11 +1707,11 @@ assert.doesNotMatch(
 );
 
 assert.equal(
-  assembly.selection.selectLayer("drawing").ok,
+  ports.selection.selectLayer("drawing").ok,
   true
 );
 const disabledTrackProjectBefore =
-  assembly.project.read();
+  ports.project.read();
 const disabledTrackLayerBefore =
   disabledTrackProjectBefore.payload
     .layerDocumentsById.drawing;
@@ -1642,8 +1737,21 @@ const disabledTrackCommands =
   createLayerDocumentCanvasCommands({
     selectedLayerDocumentId: "drawing",
     quality: "preview",
-    port: createLayerDocumentCanvasCutoverCommandPort({
-      assembly,
+    port: createLayerDocumentCanvasCommandPort({
+      draft: {
+        publish: ports.canvas.pointerMove,
+        commitTransform: ports.canvas.pointerUp,
+        publishMotionPath:
+          ports.canvas.motionPathPointerMove,
+        commitMotionPath:
+          ports.canvas.motionPathPointerUp,
+        cancel: ports.canvas.cancelDraft,
+      },
+      enterGroup: ports.scope.enter,
+      directSelect:
+        ports.canvas.directSelect,
+      selectMotionPathKeyframe:
+        ports.canvas.selectMotionPathKeyframe,
       playback: externalPlayback,
       quality: "preview",
     }),
@@ -1664,7 +1772,7 @@ assert.equal(
 );
 assert.equal(transitionCallCount, callsBefore);
 assert.strictEqual(
-  assembly.project.read(),
+  ports.project.read(),
   disabledTrackProjectBefore
 );
 assert.equal(
@@ -1674,7 +1782,7 @@ assert.equal(
 disabledTrackCommands
   .cancelMotionPathKeyframeDraft();
 assert.strictEqual(
-  assembly.project.read(),
+  ports.project.read(),
   disabledTrackProjectBefore
 );
 assert.equal(
@@ -1703,7 +1811,7 @@ assert.equal(
   historyBeforeDisabledTrackDraft + 1
 );
 const disabledTrackLayerCommitted =
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById.drawing;
 assert.deepEqual(
   disabledTrackLayerCommitted.common.transform.position,
@@ -1735,9 +1843,9 @@ assert.doesNotMatch(
   JSON.stringify(owner.state.undoStack.at(-1)),
   /runtimeSession|selectedTransformKeyframe/
 );
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 const disabledTrackLayerUndone =
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById.drawing;
 assert.deepEqual(
   disabledTrackLayerUndone.common.transform.position,
@@ -1752,9 +1860,9 @@ assert.equal(
     .selectedTransformKeyframe,
   null
 );
-assert.equal(assembly.project.redo().ok, true);
+assert.equal(ports.project.redo().ok, true);
 const disabledTrackLayerRedone =
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById.drawing;
 assert.deepEqual(
   disabledTrackLayerRedone.common.transform.position,
@@ -1778,12 +1886,12 @@ assert.equal(
   null
 );
 assert.equal(
-  assembly.selection.selectLayer("psd-copy").ok,
+  ports.selection.selectLayer("psd-copy").ok,
   true
 );
 
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "set-visibility",
     layerDocumentId: "psd-copy",
     visible: false,
@@ -1791,7 +1899,7 @@ assert.equal(
   true
 );
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "set-timing",
     layerDocumentId: "psd-copy",
     startFrame: 5,
@@ -1801,7 +1909,7 @@ assert.equal(
   true
 );
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "rename-layer",
     layerDocumentId: "psd-copy",
     name: "Renamed duplicate",
@@ -1809,7 +1917,7 @@ assert.equal(
   true
 );
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "set-alias",
     layerDocumentId: "psd-copy",
     alias: "Duplicate alias",
@@ -1817,7 +1925,7 @@ assert.equal(
   true
 );
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "split-layer",
     layerDocumentId: "psd-copy",
     newLayerDocumentId: "psd-split",
@@ -1826,14 +1934,14 @@ assert.equal(
   true
 );
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "delete-layer",
     layerDocumentId: "psd-split",
   }).ok,
   true
 );
 const editedRow = flattenRows(
-  assembly.timeline.readViewProps().rows
+  ports.timeline.readViewProps().rows
 ).find((row) => row.layerDocumentId === "psd-copy");
 assert.equal(editedRow?.name, "Renamed duplicate");
 assert.equal(editedRow?.alias, "Duplicate alias");
@@ -1842,19 +1950,19 @@ assert.equal(editedRow?.visible, false);
 assert.equal(editedRow?.startFrame, 5);
 assert.equal(editedRow?.durationFrames, 35);
 assert.equal(
-  assembly.project.read().payload.layerDocumentsById[
+  ports.project.read().payload.layerDocumentsById[
     "psd-split"
   ],
   undefined
 );
 
-assert.equal(assembly.canvas.directSelect("drawing").ok, true);
+assert.equal(ports.canvas.directSelect("drawing").ok, true);
 assert.equal(
-  assembly.properties.describe().status,
+  ports.properties.describe().status,
   "ready"
 );
 assert.equal(
-  assembly.domains.drawing.update({
+  ports.domains.drawing.update({
     layerDocumentId: "drawing",
     data: {
       documentVersion: 2,
@@ -1864,12 +1972,12 @@ assert.equal(
   true
 );
 assert.equal(
-  assembly.domains.drawing.query("drawing").status,
+  ports.domains.drawing.query("drawing").status,
   "ready"
 );
-assert.equal(assembly.selection.selectLayer("text").ok, true);
+assert.equal(ports.selection.selectLayer("text").ok, true);
 assert.equal(
-  assembly.domains.text.update({
+  ports.domains.text.update({
     layerDocumentId: "text",
     data: {
       text: "After",
@@ -1883,15 +1991,15 @@ assert.equal(
   true
 );
 assert.equal(
-  assembly.domains.text.query("text").status,
+  ports.domains.text.query("text").status,
   "ready"
 );
 assert.equal(
-  assembly.domains.audio.query("audio").status,
+  ports.domains.audio.query("audio").status,
   "ready"
 );
 assert.equal(
-  assembly.domains.audio.prepareFutureCommand({
+  ports.domains.audio.prepareFutureCommand({
     layerDocumentId: "audio",
     operation: "domain-update",
   }).status,
@@ -1899,13 +2007,13 @@ assert.equal(
 );
 
 callsBefore = transitionCallCount;
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(
-  assembly.domains.text.query("text").status,
+  ports.domains.text.query("text").status,
   "ready"
 );
-const undoneText = assembly.domains.text.query("text");
+const undoneText = ports.domains.text.query("text");
 assert.equal(
   undoneText.status === "ready"
     ? undoneText.data.text
@@ -1913,12 +2021,12 @@ assert.equal(
   "Before"
 );
 assert.equal(
-  assembly.timeline.readViewProps().selectedLayerDocumentId,
+  ports.timeline.readViewProps().selectedLayerDocumentId,
   "text"
 );
-assert.equal(assembly.properties.describe().status, "ready");
-assert.equal(assembly.project.redo().ok, true);
-const redoneText = assembly.domains.text.query("text");
+assert.equal(ports.properties.describe().status, "ready");
+assert.equal(ports.project.redo().ok, true);
+const redoneText = ports.domains.text.query("text");
 assert.equal(
   redoneText.status === "ready"
     ? redoneText.data.text
@@ -1926,11 +2034,11 @@ assert.equal(
   "After"
 );
 
-assert.equal(assembly.selection.selectLayer("psd").ok, true);
+assert.equal(ports.selection.selectLayer("psd").ok, true);
 const beforeRefreshLayer = structuredClone(
-  assembly.project.read().payload.layerDocumentsById.psd
+  ports.project.read().payload.layerDocumentsById.psd
 );
-canvas = assembly.canvas.readViewProps({
+canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "full-render",
@@ -1943,7 +2051,7 @@ const psdInputBeforeRefresh = canvas.runtime.model.inputs.find(
   (input) => input.layerDocumentId === "psd"
 );
 assert.ok(psdInputBeforeRefresh?.sourceResourceCacheKey);
-assembly.runtime.registrationBridge.registerResources([{
+ports.runtime.registrationBridge.registerResources([{
   sourceId: "node",
   sourceResourceCacheKey:
     psdInputBeforeRefresh.sourceResourceCacheKey,
@@ -1958,12 +2066,12 @@ assembly.runtime.registrationBridge.registerResources([{
   },
 }]);
 const currentNode =
-  assembly.project.read().payload.sourceRegistry.sourcesById.node;
+  ports.project.read().payload.sourceRegistry.sourcesById.node;
 assert.equal(currentNode?.kind, "psd-node");
 if (!currentNode || currentNode.kind !== "psd-node") {
   throw new Error("Expected node source");
 }
-const refreshResult = assembly.sources.refreshSource({
+const refreshResult = ports.sources.refreshSource({
   source: {
     ...currentNode,
     version: currentNode.version + 1,
@@ -1986,7 +2094,7 @@ assert.equal(refreshResult.ok, true);
 assert.equal(owner.state.undoStack.length, 0);
 assert.equal(owner.state.redoStack.length, 0);
 assert.deepEqual(
-  assembly.project.read().payload.layerDocumentsById.psd,
+  ports.project.read().payload.layerDocumentsById.psd,
   beforeRefreshLayer
 );
 assert.equal(
@@ -1998,7 +2106,7 @@ assert.equal(
   null
 );
 assert.equal(disposedResourceCount, 2);
-const afterRefreshCanvas = assembly.canvas.readViewProps({
+const afterRefreshCanvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
   rendererMode: "full-render",
@@ -2014,7 +2122,7 @@ assert.notEqual(
   psdInputBeforeRefresh.sourceResourceCacheKey
 );
 assert.deepEqual(
-  validateLayerDocumentProject(assembly.project.read()),
+  validateLayerDocumentProject(ports.project.read()),
   []
 );
 const orphanSource = psdNode({
@@ -2022,7 +2130,7 @@ const orphanSource = psdNode({
   documentSourceId: "document",
 });
 assert.equal(
-  assembly.sources.importSources({
+  ports.sources.importSources({
     sources: [orphanSource],
     layers: [],
     selectSourceId: orphanSource.sourceId,
@@ -2059,7 +2167,7 @@ assert.equal(resources.register({
   },
 }).ok, true);
 assert.equal(
-  assembly.sources.refreshSource({
+  ports.sources.refreshSource({
     source: {
       ...orphanSource,
       data: {
@@ -2096,7 +2204,7 @@ assert.equal(resources.register({
   },
 }).ok, true);
 assert.equal(
-  assembly.sources.deleteSource({
+  ports.sources.deleteSource({
     sourceId: orphanSource.sourceId,
   }).ok,
   true
@@ -2107,19 +2215,19 @@ assert.equal(resources.resolve({
   sourceId: orphanSource.sourceId,
   sourceResourceCacheKey: "orphan-key-2",
 }), null);
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 assert.ok(resources.resolve({
   sourceId: orphanSource.sourceId,
   sourceResourceCacheKey: "orphan-key-2",
 }));
-assert.equal(assembly.project.redo().ok, true);
+assert.equal(ports.project.redo().ok, true);
 assert.equal(resources.resolve({
   sourceId: orphanSource.sourceId,
   sourceResourceCacheKey: "orphan-key-2",
 }), null);
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 assert.equal(
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "rename-layer",
     layerDocumentId: "psd",
     name: "PSD after source branch",
@@ -2133,20 +2241,20 @@ assert.ok(resources.resolve({
   sourceResourceCacheKey: "orphan-key-2",
 }));
 assert.equal(
-  assembly.sources.deleteSource({
+  ports.sources.deleteSource({
     sourceId: orphanSource.sourceId,
   }).ok,
   true
 );
 assert.equal(orphanDisposed, 1);
 const clearHistoryNode =
-  assembly.project.read().payload.sourceRegistry.sourcesById.node;
+  ports.project.read().payload.sourceRegistry.sourcesById.node;
 assert.equal(clearHistoryNode?.kind, "psd-node");
 if (!clearHistoryNode || clearHistoryNode.kind !== "psd-node") {
   throw new Error("Expected clear-history PSD node");
 }
 assert.equal(
-  assembly.sources.refreshSource({
+  ports.sources.refreshSource({
     source: {
       ...clearHistoryNode,
       data: {
@@ -2177,36 +2285,28 @@ assert.equal(
   transitionCallCount
 );
 assert.equal(
-  metricCounts.get("layerDocumentCutoverOwnerTransition"),
+  metricCounts.get("layerDocumentOwnerTransition"),
   transitionCallCount
 );
 assert.equal(
-  metricCounts.get("layerDocumentCutoverDraftPublication"),
+  metricCounts.get("layerDocumentDraftPublication"),
   5
 );
 assert.ok(draftClearCount > 0);
 assert.equal(beforeDuplicateRevision, 2);
 
-const assemblySource = readFileSync(
-  "src/cutover/createLayerDocumentConsumerCutoverAssembly.ts",
-  "utf8"
-);
 const compositionRootSource = readFileSync(
   "src/editor/useEditorCompositionRoot.ts",
   "utf8"
 );
 assert.doesNotMatch(
-  assemblySource,
-  /ProjectSource|setComps|setTimelineItems|reconcileLegacy/
-);
-assert.doesNotMatch(
   compositionRootSource,
-  /createLayerDocumentConsumerCutoverAssembly|@\/cutover/
+  /createLayerDocumentVerificationPorts/
 );
 
 resources.dispose();
 assert.equal(orphanDisposed, 2);
 assert.equal(sentinelDisposed, 1);
 console.log(
-  "Layer Document consumer cutover assembly verification passed"
+  "Layer Document consumer ports verification passed"
 );

@@ -9,8 +9,8 @@ import {
   type SourceRegistryRecord,
 } from "@/models";
 import {
-  createLayerDocumentConsumerCutoverAssembly,
-} from "@/cutover";
+  createLayerDocumentVerificationPorts,
+} from "./helpers/createLayerDocumentVerificationPorts";
 import {
   createLayerDocumentProjectOwnerState,
   createLayerDocumentSourceRuntimeResolutionStore,
@@ -350,8 +350,8 @@ const sourceResolution =
 Object.keys(duplicateSources()).forEach((sourceId) => {
   sourceResolution.setAvailable({ sourceId });
 });
-const assembly =
-  createLayerDocumentConsumerCutoverAssembly({
+const ports =
+  createLayerDocumentVerificationPorts({
     owner,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
@@ -384,7 +384,7 @@ const assembly =
   });
 const playback =
   createLayerDocumentTimelinePlaybackRuntime({
-    assembly,
+    scope: ports.scope,
     scheduler: {
       setRepeating: () => "clock",
       clearRepeating: () => {},
@@ -408,7 +408,7 @@ let keyframePointer: {
 } | null = null;
 const interactions =
   createLayerDocumentTimelineInteractionController({
-    assembly,
+    owner: ports,
     playback,
     sourceStatus: {
       acknowledge: () => {},
@@ -471,7 +471,7 @@ LayerDocumentTransformProperty) {
 
 properties.forEach((property) => {
   const beforeMove = structuredClone(
-    assembly.project.read().payload
+    ports.project.read().payload
       .layerDocumentsById.a.common.animation
   );
   const historyBeforeMove =
@@ -487,7 +487,7 @@ properties.forEach((property) => {
   const transitionsBeforePointerUp =
     transitionCount;
   const activePointer = keyframePointer;
-  assembly.timeline.dispatchIntent({
+  ports.timeline.dispatchIntent({
     kind: "move-keyframe",
     layerDocumentId:
       activePointer.layerDocumentId,
@@ -518,7 +518,7 @@ properties.forEach((property) => {
     }
   );
   const afterMove =
-    assembly.project.read().payload
+    ports.project.read().payload
       .layerDocumentsById.a.common.animation;
   assert.deepEqual(
     afterMove[animationFor(property)].map(
@@ -556,7 +556,7 @@ properties.forEach((property) => {
     null
   );
   const afterRemove =
-    assembly.project.read().payload
+    ports.project.read().payload
       .layerDocumentsById.a.common.animation;
   assert.deepEqual(
     afterRemove[animationFor(property)].map(
@@ -577,7 +577,7 @@ properties.forEach((property) => {
 
 const sourceRegistryBeforeDuplicate =
   structuredClone(
-    assembly.project.read().payload.sourceRegistry
+    ports.project.read().payload.sourceRegistry
   );
 const duplicateOnceHistory =
   owner.state.undoStack.length;
@@ -591,7 +591,7 @@ assert.equal(
   owner.state.undoStack.length,
   duplicateOnceHistory + 1
 );
-let duplicateProject = assembly.project.read();
+let duplicateProject = ports.project.read();
 const background2 =
   duplicateProject.payload.layerDocumentsById[
     "background-copy-2"
@@ -620,7 +620,7 @@ assert.equal(
   owner.state.undoStack.length,
   duplicateTwiceHistory + 1
 );
-duplicateProject = assembly.project.read();
+duplicateProject = ports.project.read();
 assert.equal(
   duplicateProject.payload.layerDocumentsById[
     "background-copy-3"
@@ -634,9 +634,9 @@ assert.equal(
 );
 const historyAfterSecondDuplicate =
   owner.state.undoStack.length;
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["background-copy-3"],
   undefined
 );
@@ -645,9 +645,9 @@ assert.equal(
     .layerDocumentId,
   "root"
 );
-assert.equal(assembly.project.redo().ok, true);
+assert.equal(ports.project.redo().ok, true);
 assert.ok(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["background-copy-3"]
 );
 assert.equal(
@@ -661,7 +661,7 @@ assert.equal(
 );
 
 interactions.duplicateTimelineItem("background");
-duplicateProject = assembly.project.read();
+duplicateProject = ports.project.read();
 assert.equal(
   duplicateProject.payload.layerDocumentsById[
     "background-copy-7"
@@ -691,21 +691,21 @@ assert.equal(
 
 interactions.duplicateTimelineItem("suffix-source");
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["suffix-copy-3"].name,
   "plate_3",
   "an existing numeric duplicate suffix advances"
 );
 assert.deepEqual(
-  assembly.project.read().payload.sourceRegistry,
+  ports.project.read().payload.sourceRegistry,
   sourceRegistryBeforeDuplicate
 );
 assert.equal(
-  assembly.scope.enter("nested").ok,
+  ports.scope.enter("nested").ok,
   true
 );
 const duplicateRowLabels =
-  assembly.timeline.readViewProps().rows.map(
+  ports.timeline.readViewProps().rows.map(
     (row) => row.label
   );
 assert.ok(
@@ -722,7 +722,7 @@ assert.ok(
 );
 
 const background2BeforeTransform =
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["background-copy-2"];
 assert.equal(
   background2BeforeTransform.common.transform.position.x,
@@ -731,63 +731,63 @@ assert.equal(
 const transformHistoryBefore =
   owner.state.undoStack.length;
 assert.equal(
-  assembly.selection.selectLayer(
+  ports.selection.selectLayer(
     "background-copy-2"
   ).ok,
   true
 );
-const transformDraft = assembly.canvas.pointerMove({
+const transformDraft = ports.canvas.pointerMove({
   layerDocumentId: "background-copy-2",
   globalFrame: playback.read().currentFrame,
   patch: { position: { x: 700, y: 0 } },
   quality: "original",
 });
 assert.ok(transformDraft);
-const transformCommit = assembly.canvas.pointerUp();
+const transformCommit = ports.canvas.pointerUp();
 assert.equal(transformCommit.ok, true);
 assert.equal(
   owner.state.undoStack.length,
   transformHistoryBefore + 1
 );
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["background-copy-2"]
     .common.transform.position.x,
   700
 );
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById.background
     .common.transform.position.x,
   600
 );
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["background-copy-2"]
     .common.transform.position.x,
   600
 );
-assert.equal(assembly.project.redo().ok, true);
+assert.equal(ports.project.redo().ok, true);
 assert.equal(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["background-copy-2"]
     .common.transform.position.x,
   700
 );
 assert.equal(
-  assembly.scope.enter("root").ok,
+  ports.scope.enter("root").ok,
   true
 );
 
 const outsideBefore = structuredClone(
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById["nested-child"]
 );
 interactions.setDraggedTimelineItemId("b");
 interactions.reorderTimelineItem("a");
 const reordered =
-  assembly.project.read().payload
+  ports.project.read().payload
     .layerDocumentsById;
 const rootSiblingIds = Object.values(reordered)
   .filter(
@@ -824,7 +824,7 @@ assert.deepEqual(
   "reorder leaves Layers outside the active Group unchanged"
 );
 const invalidOrderProject =
-  structuredClone(assembly.project.read());
+  structuredClone(ports.project.read());
 invalidOrderProject.payload
   .layerDocumentsById.a.common.placement.order = 10;
 invalidOrderProject.payload

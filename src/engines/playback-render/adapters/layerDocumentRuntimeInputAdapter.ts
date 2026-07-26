@@ -31,13 +31,18 @@ import {
   evaluateLayerDocumentTransform,
 } from "@/engines/playback-render/helpers/layerDocumentRuntimeEvaluationHelpers";
 import {
-  buildLayerDocumentResultCacheKey,
+  buildLayerDocumentCompositionVisualResultCacheKey,
+  buildLayerDocumentEvaluationIdentity,
   buildLayerDocumentSourceResourceCacheKey,
+  buildLayerDocumentVisualResultCacheKey,
   layerDocumentSourceVisualKeyPolicy,
 } from "@/engines/playback-render/helpers/layerDocumentRuntimeCacheKeyHelpers";
 import {
   buildLayerDocumentRuntimeTargetReadModel,
 } from "@/engines/playback-render/helpers/layerDocumentRuntimeTargetHelpers";
+import type {
+  RuntimeMetricRecordPort,
+} from "@/engines/playback-render/models/runtimeMetricPortModel";
 import { validateLayerDocumentProject } from "@/models";
 
 interface RuntimeBuildContext {
@@ -220,6 +225,28 @@ function draftMatches(
   );
 }
 
+function contentVisualIdentity(
+  content: LayerDocumentRuntimeContentDescriptor
+): unknown {
+  switch (content.kind) {
+    case "drawable":
+      return [
+        content.kind,
+        content.resolution.renderItemId,
+        content.resolution.drawableId,
+        content.resolution.logicalSize,
+      ];
+    case "composition":
+      return [content.kind, content.size];
+    case "placeholder":
+      return [content.kind, content.placeholder];
+    case "unavailable":
+      return [content.kind, content.reason];
+    case "unsupported":
+      return [content.kind, content.layerType];
+  }
+}
+
 function buildRuntimeInput(options: {
   context: RuntimeBuildContext;
   layer: LayerDocument;
@@ -267,6 +294,28 @@ function buildRuntimeInput(options: {
     sourceResourceCacheKey,
   });
   const draftIdentity = matchingDraft?.identity ?? null;
+  const evaluationIdentity =
+    buildLayerDocumentEvaluationIdentity({
+      layerDocumentId: layer.layerDocumentId,
+      revision: layer.revision,
+      globalFrame: context.rootGlobalFrame,
+      localFrame,
+      quality: context.quality,
+      sourceResourceCacheKey,
+      draftIdentity,
+    });
+  const layerResultCacheKey =
+    buildLayerDocumentVisualResultCacheKey({
+      layerDocumentId: layer.layerDocumentId,
+      sourceType: layer.type,
+      sourceResourceCacheKey,
+      order: placement.order,
+      evaluatedTransform: evaluated.transform,
+      opacity: evaluated.opacity,
+      effects: layer.common.effects,
+      modifiers: layer.common.modifiers,
+      contentIdentity: contentVisualIdentity(content),
+    });
 
   return {
     target,
@@ -284,15 +333,8 @@ function buildRuntimeInput(options: {
     modifiers: layer.common.modifiers,
     content,
     sourceResourceCacheKey,
-    layerResultCacheKey: buildLayerDocumentResultCacheKey({
-      layerDocumentId: layer.layerDocumentId,
-      revision: layer.revision,
-      globalFrame: context.rootGlobalFrame,
-      localFrame,
-      quality: context.quality,
-      sourceResourceCacheKey,
-      draftIdentity,
-    }),
+    evaluationIdentity,
+    layerResultCacheKey,
     draftIdentity,
     draftApplied: Boolean(matchingDraft),
   };
@@ -365,6 +407,7 @@ function buildChildNodes(options: {
         placementFrame,
         frameRate: parent.data.frameRate,
       });
+      const inputIndex = context.inputs.length;
       context.inputs.push(input);
       context.localFrameByLayerDocumentId.set(
         layer.layerDocumentId,
@@ -387,19 +430,34 @@ function buildChildNodes(options: {
               placementFrame: input.localFrame,
             })
           : [];
+      const resolvedInput =
+        input.content.kind === "composition"
+          ? {
+              ...input,
+              layerResultCacheKey:
+                buildLayerDocumentCompositionVisualResultCacheKey(
+                  input.layerResultCacheKey,
+                  childNodes
+                ),
+            }
+          : input;
+      context.inputs[inputIndex] = resolvedInput;
       const targetReadModel =
         buildLayerDocumentRuntimeTargetReadModel({
-          input,
+          input: resolvedInput,
           layer,
           compositionDurationFrames: parent.data.durationFrames,
           frameRate: parent.data.frameRate,
           draft: context.draft,
         });
       context.targets.push(targetReadModel);
-      if (input.content.kind === "unsupported") {
+      if (resolvedInput.content.kind === "unsupported") {
         context.unsupportedLayerDocumentIds.push(layer.layerDocumentId);
       }
-      const node = buildNode({ input, children: childNodes });
+      const node = buildNode({
+        input: resolvedInput,
+        children: childNodes,
+      });
       return node ? [node] : [];
     }
   );
@@ -414,6 +472,7 @@ export function buildLayerDocumentRuntimeReadModel(options: {
   resolvePsdSource: LayerDocumentPsdSourceResolver;
   readSourceResolutionStatus:
     LayerDocumentSourceResolutionStatusReader;
+  runtimeMetrics?: RuntimeMetricRecordPort;
 }): LayerDocumentRuntimeReadModelResult {
   if (validateLayerDocumentProject(options.project).length > 0) {
     return { ok: false, reason: "invalid-project" };
@@ -425,6 +484,7 @@ export function buildLayerDocumentRuntimeReadModel(options: {
   if (!scope.ok) {
     return { ok: false, reason: scope.reason };
   }
+  options.runtimeMetrics?.increment("animationEvaluation");
   const root = scope.model.activeGroup;
 
   const context: RuntimeBuildContext = {

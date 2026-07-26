@@ -8,69 +8,258 @@ import {
   layerDocumentGlobalFrameToLocalFrame,
 } from "@/models";
 import {
-  createLayerDocumentCanvasCutoverCommandPort,
-  createLayerDocumentPropertiesCommandPort,
-  createLayerDocumentPsdTreeCommandPort,
-  type LayerDocumentConsumerCutoverAssembly,
-  type LayerDocumentCutoverDraftSessionPort,
-} from "@/cutover";
-import type {
-  LayerDocumentCanvasReadPort,
+  createLayerDocumentCanvasCommandPort,
+  createLayerDocumentCanvasDraftAdapter,
+  type LayerDocumentCanvasDraftPort,
+  type LayerDocumentCanvasReadPort,
 } from "@/engines/canvas";
 import {
+  createLayerDocumentPsdRuntimeRegistrationBridge,
+  type LayerDocumentSourceRuntimeResourcePort,
+} from "@/engines/playback-render";
+import {
   createLayerDocumentPsdTreeController,
+  LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
+  type LayerDocumentProjectOwnerPort,
+  type LayerDocumentSourceRuntimeResolutionPort,
 } from "@/engines/project";
 import {
+  createLayerDocumentPropertiesCommandPort,
+  createLayerDocumentPropertiesOwnerCommandAdapter,
+  LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
+} from "@/engines/properties";
+import {
+  createLayerDocumentPsdTreeSourceCommandAdapter,
+} from "@/engines/psd-tree";
+import {
+  createLayerDocumentTimelineCommandAdapter,
+  createLayerDocumentTimelineConsumerAdapter,
   createLayerDocumentTimelineSourceStatusAdapter,
+  type LayerDocumentTimelineOwnerPort,
   type LayerDocumentTimelinePlaybackPort,
 } from "@/engines/timeline";
+import {
+  createEditorProjectOwnerCommandAdapter,
+  readEditorOwnerGroupScope,
+} from "@/editor/project-owner";
+
+type OwnerCommands = ReturnType<
+  typeof createEditorProjectOwnerCommandAdapter
+>;
 
 export function useLayerDocumentPanelEnginePorts(
   options: {
-    assembly:
-      LayerDocumentConsumerCutoverAssembly;
-    draftSession:
-      LayerDocumentCutoverDraftSessionPort;
+    owner: LayerDocumentProjectOwnerPort;
+    ownerCommands: OwnerCommands;
+    resources:
+      LayerDocumentSourceRuntimeResourcePort;
+    sourceResolution:
+      LayerDocumentSourceRuntimeResolutionPort;
+    draftSession: LayerDocumentCanvasDraftPort;
     frameInput:
       LayerDocumentTimelinePlaybackPort;
     quality: string;
   }
 ) {
   const {
-    assembly,
+    owner,
+    ownerCommands,
+    resources,
+    sourceResolution,
     draftSession,
     frameInput,
     quality,
   } = options;
-  const [properties] = useState(() =>
-    createLayerDocumentPropertiesCommandPort({
-      assembly,
-      readDraft: draftSession.read,
-      readGlobalFrame: () =>
-        frameInput.read().currentFrame,
-      quality,
-    })
-  );
-  const [psdTreeController] = useState(() =>
-    createLayerDocumentPsdTreeController({
-      port:
-        createLayerDocumentPsdTreeCommandPort(
-          assembly
-        ),
-    })
-  );
+  const readProject = () =>
+    owner.state.currentProject;
+  const readSelectedLayerDocumentId = () =>
+    owner.state.session.layerSelection
+      ?.layerDocumentId ?? null;
+  const readActiveGroupLayerDocumentId = () =>
+    owner.state.session.activeGroupLayerDocumentId;
+  const readScope = () =>
+    readEditorOwnerGroupScope(owner);
+  const [ports] = useState(() => {
+    const timelineCommands =
+      createLayerDocumentTimelineCommandAdapter({
+        owner,
+        readProject,
+        commit:
+          ownerCommands.commitLayerPreparation,
+        deliver: ownerCommands.deliver,
+      });
+    const timelineConsumer =
+      createLayerDocumentTimelineConsumerAdapter({
+        owner,
+        readProject,
+        readActiveGroupLayerDocumentId,
+        readSelectedLayerDocumentId,
+        readScope,
+        resolution: sourceResolution,
+        selectLayer: ownerCommands.selectLayer,
+        dispatchIntent:
+          timelineCommands.dispatchIntent,
+      });
+    const propertiesOwner =
+      createLayerDocumentPropertiesOwnerCommandAdapter<
+        ReturnType<
+          OwnerCommands["commitLayerTransaction"]
+        >
+      >({
+        readProject,
+        readSelectedLayerDocumentId,
+        preparation:
+          LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
+        readSourceResolutionStatus: (sourceId) =>
+          sourceResolution.read(sourceId).status,
+        reject: ownerCommands.reject,
+        commit:
+          ownerCommands.commitLayerTransaction,
+      });
+    const canvasDraft =
+      createLayerDocumentCanvasDraftAdapter<
+        ReturnType<
+          OwnerCommands["commitLayerTransaction"]
+        >
+      >({
+        readProject,
+        readActiveGroupLayerDocumentId,
+        readSelectedLayerDocumentId,
+        readSelectedTransformKeyframe: () =>
+          owner.state.runtimeSession
+            .selectedTransformKeyframe,
+        readScope,
+        draft: draftSession,
+        resolvePsdSource:
+          resources.createPsdResolver(),
+        sourceResolution,
+        incrementMetric: () => {},
+        preparePointerMove:
+          LAYER_DOCUMENT_PANEL_PREPARATION_PORT
+            .draft.preparePointerMove,
+        preparePointerUp:
+          LAYER_DOCUMENT_PANEL_PREPARATION_PORT
+            .draft.preparePointerUp,
+        rejectCommit:
+          propertiesOwner.rejectCanvasDraft,
+        commitTransform:
+          propertiesOwner.commitTransformIntent,
+        commitMotionPath:
+          propertiesOwner.commitPositionKeyframe,
+      });
+    const registrationBridge =
+      createLayerDocumentPsdRuntimeRegistrationBridge(
+        resources
+      );
+    const sources =
+      createLayerDocumentPsdTreeSourceCommandAdapter({
+        readProject,
+        readSelectedLayerDocumentId,
+        readActiveGroupLayerDocumentId,
+        readSourceSelection: () =>
+          owner.state.session.sourceSelection,
+        selectLayer: ownerCommands.selectLayer,
+        selectSource: ownerCommands.selectSource,
+        enterGroup: ownerCommands.enterGroup,
+        preparation:
+          LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
+        commit:
+          ownerCommands.commitSourcePreparation,
+        bridge: registrationBridge,
+        sourceResolution,
+      });
+    const timelineOwner: LayerDocumentTimelineOwnerPort = {
+      project: { read: readProject },
+      scope: {
+        read: readScope,
+        enter: ownerCommands.enterGroup,
+      },
+      timeline: {
+        readViewProps:
+          timelineConsumer.readViewProps,
+        dispatchIntent:
+          timelineCommands.dispatchIntent,
+        selectTransformKeyframe:
+          timelineCommands.selectTransformKeyframe,
+        acknowledgeSourceStatus:
+          ownerCommands.acknowledgeSourceStatus,
+      },
+      runtime: {
+        resources,
+        resolutions: sourceResolution,
+      },
+    };
+    const properties =
+      createLayerDocumentPropertiesCommandPort({
+        readDescriptor: propertiesOwner.describe,
+        readProject,
+        readDraft: draftSession.read,
+        readGlobalFrame: () =>
+          frameInput.read().currentFrame,
+        previewDraft: canvasDraft.publish,
+        commitDraft: canvasDraft.commitTransform,
+        cancelDraft: canvasDraft.cancel,
+        dispatchPanel: propertiesOwner.dispatch,
+        dispatchTimeline:
+          timelineCommands.dispatchIntent,
+        selectKeyframe:
+          timelineCommands.selectTransformKeyframe,
+        readSelectedKeyframe: () =>
+          timelineConsumer.readViewProps()
+            .selectedTransformKeyframe,
+        quality,
+      });
+    const psdTreeController =
+      createLayerDocumentPsdTreeController({
+        port: {
+          readTree: sources.readTree,
+          readProject,
+          selectSource: sources.selectSource,
+          confirmImport:
+            sources.confirmPreparedPsdImport,
+          cancelImport:
+            sources.cancelPreparedPsdImport,
+          confirmRefresh:
+            sources.confirmPreparedPsdRefresh,
+          cancelRefresh:
+            sources.cancelPreparedPsdRefresh,
+          refreshSource: sources.refreshSource,
+          reconnect: sources.reconnect,
+          deleteSource: sources.deleteSource,
+        },
+      });
+    const canvasCommands =
+      createLayerDocumentCanvasCommandPort({
+        draft: canvasDraft,
+        enterGroup: ownerCommands.enterGroup,
+        directSelect:
+          ownerCommands.selectLayer,
+        selectMotionPathKeyframe:
+          timelineCommands.selectTransformKeyframe,
+        playback: frameInput,
+        quality,
+      });
+    return {
+      timelineOwner,
+      properties,
+      psdTreeController,
+      canvasDraft,
+      canvasCommands,
+    };
+  });
   const sourceStatus = useMemo(
     () =>
       createLayerDocumentTimelineSourceStatusAdapter({
-        assembly,
+        owner: ports.timelineOwner,
       }),
-    [assembly]
+    [ports.timelineOwner]
   );
   const allocatedIds = useRef(new Set<string>());
   const nextId = useRef(0);
   const allocateLayerDocumentId =
     useCallback(() => {
-      const project = assembly.project.read();
+      const project =
+        owner.state.currentProject;
       while (true) {
         nextId.current += 1;
         const candidate =
@@ -85,11 +274,13 @@ export function useLayerDocumentPanelEnginePorts(
           return candidate;
         }
       }
-    }, [assembly]);
+    }, [owner]);
   const nextPsdLayerOrder =
     useCallback(() => {
-      const project = assembly.project.read();
-      const scope = assembly.scope.read();
+      const project =
+        owner.state.currentProject;
+      const scope =
+        readEditorOwnerGroupScope(owner);
       if (!scope.ok) return 0;
       return Object.values(
         project.payload.layerDocumentsById
@@ -98,10 +289,11 @@ export function useLayerDocumentPanelEnginePorts(
           .parentLayerDocumentId ===
         scope.model.activeGroupLayerDocumentId
       ).length;
-    }, [assembly]);
+    }, [owner]);
   const readPsdCacheContext =
     useCallback(() => {
-      const project = assembly.project.read();
+      const project =
+        owner.state.currentProject;
       const globalFrame =
         frameInput.read().currentFrame;
       return {
@@ -120,27 +312,18 @@ export function useLayerDocumentPanelEnginePorts(
           ),
         quality,
       };
-    }, [assembly, frameInput, quality]);
-  const [canvasCommands] = useState(() =>
-    createLayerDocumentCanvasCutoverCommandPort({
-      assembly,
-      playback: frameInput,
-      quality,
-    })
-  );
+    }, [owner, frameInput, quality]);
   const canvasRead = useMemo<
     LayerDocumentCanvasReadPort
   >(
     () => ({
       read: (readOptions) => {
         const canvas =
-          assembly.canvas.readViewProps(
-            {
-              ...readOptions,
-              globalFrame:
-                frameInput.read().currentFrame,
-            }
-          );
+          ports.canvasDraft.readViewProps({
+            ...readOptions,
+            globalFrame:
+              frameInput.read().currentFrame,
+          });
         if (!canvas.scope.ok) {
           throw new Error(
             `Canvas scope unavailable: ` +
@@ -167,16 +350,22 @@ export function useLayerDocumentPanelEnginePorts(
         };
       },
     }),
-    [assembly, frameInput]
+    [ports.canvasDraft, frameInput]
   );
   return {
-    properties,
-    psdTreeController,
+    timelineOwner: ports.timelineOwner,
+    properties: ports.properties,
+    psdTreeController: ports.psdTreeController,
     sourceStatus,
     allocateLayerDocumentId,
     nextPsdLayerOrder,
     readPsdCacheContext,
-    canvasCommands,
+    canvasCommands: ports.canvasCommands,
     canvasRead,
+    scope: ports.timelineOwner.scope,
+    history: {
+      undo: ownerCommands.undo,
+      redo: ownerCommands.redo,
+    },
   };
 }

@@ -63,7 +63,10 @@ assert.match(
   /targetEntityKind: "layer" \| "composition" \| null/
 );
 assert.match(psdTreeSource, /<PsdFileIcon \/>/);
-assert.match(psdTreeSource, /LayerCompositionIcon kind="composition"/);
+assert.match(
+  psdTreeSource,
+  /kind=\{node\.entityKind \?\? "layer"\}/
+);
 assert.match(importPreviewSource, /node\.kind === "group" \? "▱"/);
 assert.match(importPreviewSource, /LayerCompositionIcon kind="layer"/);
 

@@ -1,7 +1,3 @@
-import { formatPreviewMemory } from "@/engines/canvas/helpers/previewMemoryHelpers";
-import type { PreviewAutomaticQualityResult } from "@/engines/canvas/models/previewAutomaticQualityModel";
-import type { PreviewBuildReadModel } from "@/engines/canvas/models/previewBuildModel";
-import type { PreviewMemoryEstimatesByQuality } from "@/engines/canvas/models/previewMemoryModel";
 import type {
   PreviewQualityControlViewModel,
   PreviewQualityOptionViewModel,
@@ -31,49 +27,26 @@ const PREVIEW_QUALITY_PREFERENCES: readonly PreviewQualityPreference[] = [
 
 function buildOption(
   preference: PreviewQualityPreference,
-  automaticQuality: PreviewAutomaticQualityResult,
-  memoryEstimates: PreviewMemoryEstimatesByQuality,
-  currentQuality: ResolvedPreviewQuality | null
+  currentQuality: ResolvedPreviewQuality
 ): PreviewQualityOptionViewModel {
-  const resolvedQuality =
-    preference === "auto" ? automaticQuality.resolvedQuality : preference;
-  const currentLabel = currentQuality
-    ? PREVIEW_QUALITY_LABELS[currentQuality]
-    : PREVIEW_QUALITY_LABELS.original;
-
   return {
     preference,
     label:
       preference === "auto"
-        ? `자동 (현재: ${currentLabel})`
+        ? `자동 (현재: ${PREVIEW_QUALITY_LABELS[currentQuality]})`
         : PREVIEW_QUALITY_LABELS[preference],
-    memoryLabel: formatPreviewMemory(
-      memoryEstimates[resolvedQuality].estimatedBytes
-    ),
   };
 }
 
 export function buildPreviewQualityControlViewModel(input: {
   readonly preference: PreviewQualityPreference;
-  readonly automaticQuality: PreviewAutomaticQualityResult;
-  readonly memoryEstimates: PreviewMemoryEstimatesByQuality;
-  readonly build: PreviewBuildReadModel;
+  readonly quality: ResolvedPreviewQuality;
 }): PreviewQualityControlViewModel {
-  const currentQuality = input.build.activeQuality;
   return {
     preference: input.preference,
-    currentQuality,
+    currentQuality: input.quality,
     options: PREVIEW_QUALITY_PREFERENCES.map((preference) =>
-      buildOption(
-        preference,
-        input.automaticQuality,
-        input.memoryEstimates,
-        currentQuality
-      )
+      buildOption(preference, input.quality)
     ),
-    status: input.build.status,
-    completedCount: input.build.completedCount,
-    totalCount: input.build.totalCount,
-    failedCount: input.build.failedCount,
   };
 }

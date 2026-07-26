@@ -1,7 +1,6 @@
 import { buildSelectionSourceAlphaFingerprint } from "@/engines/canvas/helpers/canvasSelectionAlphaFingerprintHelpers";
 import type {
   SelectionAlphaBrowserAdapter,
-  SelectionSourceAlphaDescriptor,
   SelectionSourceAlphaProvider,
   SelectionSourceAlphaProviderEvent,
   SelectionSourceAlphaResult,
@@ -16,84 +15,46 @@ type CreateSelectionSourceAlphaProviderOptions = {
   observe?: (event: SelectionSourceAlphaProviderEvent) => void;
 };
 
-function normalizeEntryLimit(value: number | undefined) {
-  if (!Number.isFinite(value) || value === undefined) {
-    return DEFAULT_MAX_RETAINED_ENTRIES;
-  }
-  return Math.max(1, Math.floor(value));
-}
-
 export function createSelectionSourceAlphaProvider({
   adapter,
-  maxRetainedEntries,
+  maxRetainedEntries = DEFAULT_MAX_RETAINED_ENTRIES,
   observe,
 }: CreateSelectionSourceAlphaProviderOptions): SelectionSourceAlphaProvider {
   const canvasTokens = new WeakMap<HTMLCanvasElement, number>();
   const entries = new Map<string, SelectionSourceAlphaResult>();
   const failures = new Map<string, SelectionSourceAlphaResult>();
   const retained = new Set<string>();
-  const entryLimit = normalizeEntryLimit(maxRetainedEntries);
+  const entryLimit = Math.max(1, Math.floor(maxRetainedEntries));
   let nextCanvasToken = 1;
   let disposed = false;
-
   const getCanvasToken = (canvas: HTMLCanvasElement) => {
-    const existing = canvasTokens.get(canvas);
-    if (existing !== undefined) return existing;
-    const token = nextCanvasToken;
-    nextCanvasToken += 1;
+    const cached = canvasTokens.get(canvas);
+    if (cached !== undefined) return cached;
+    const token = nextCanvasToken++;
     canvasTokens.set(canvas, token);
     return token;
   };
-
-  const getFingerprint = (descriptor: SelectionSourceAlphaDescriptor) =>
-    buildSelectionSourceAlphaFingerprint(descriptor, getCanvasToken);
-
   const notify = (
     type: SelectionSourceAlphaProviderEvent["type"],
     visualFingerprint: string
   ) => observe?.({ type, visualFingerprint });
-
-  const removeEntry = (visualFingerprint: string) => {
-    if (!entries.delete(visualFingerprint)) return;
-    notify("release", visualFingerprint);
-  };
-
-  const enforceEntryLimit = (incomingFingerprint: string) => {
-    while (
-      !entries.has(incomingFingerprint) &&
-      entries.size >= entryLimit
-    ) {
-      const unretained = Array.from(entries.keys()).find(
-        (fingerprint) => !retained.has(fingerprint)
-      );
-      const oldest = entries.keys().next().value as string | undefined;
-      const target = unretained ?? oldest;
-      if (!target) break;
-      retained.delete(target);
-      removeEntry(target);
+  const removeEntry = (fingerprint: string) => {
+    if (entries.delete(fingerprint)) {
+      notify("release", fingerprint);
     }
   };
-
-  const rememberFailure = (
-    visualFingerprint: string,
-    result: SelectionSourceAlphaResult
-  ) => {
-    if (failures.size >= MAX_FAILURE_MEMOS) {
-      const oldest = failures.keys().next().value as string | undefined;
-      if (oldest) failures.delete(oldest);
-    }
-    failures.set(visualFingerprint, result);
-  };
-
   const clear = () => {
     entries.clear();
     failures.clear();
     retained.clear();
   };
-
   return {
     get: (descriptor) => {
-      const visualFingerprint = getFingerprint(descriptor);
+      const visualFingerprint =
+        buildSelectionSourceAlphaFingerprint(
+          descriptor,
+          getCanvasToken
+        );
       if (disposed) {
         return {
           status: "unavailable",
@@ -101,37 +62,50 @@ export function createSelectionSourceAlphaProvider({
           reason: "disposed",
         };
       }
-
-      const cached = entries.get(visualFingerprint) ?? failures.get(visualFingerprint);
+      const cached =
+        entries.get(visualFingerprint) ??
+        failures.get(visualFingerprint);
       if (cached) {
         notify("reuse", visualFingerprint);
         return cached;
       }
-
       notify("build", visualFingerprint);
-      const result = adapter.build(descriptor, visualFingerprint);
+      const result = adapter.build(
+        descriptor,
+        visualFingerprint
+      );
       if (result.status === "unavailable") {
-        rememberFailure(visualFingerprint, result);
+        if (failures.size >= MAX_FAILURE_MEMOS) {
+          const oldest = failures.keys().next().value;
+          if (oldest) failures.delete(oldest);
+        }
+        failures.set(visualFingerprint, result);
         notify("failure", visualFingerprint);
         return result;
       }
-
-      enforceEntryLimit(visualFingerprint);
+      while (entries.size >= entryLimit) {
+        const target =
+          Array.from(entries.keys()).find(
+            (fingerprint) => !retained.has(fingerprint)
+          ) ?? entries.keys().next().value;
+        if (!target) break;
+        retained.delete(target);
+        removeEntry(target);
+      }
       entries.set(visualFingerprint, result);
       return result;
     },
-    retain: (visualFingerprints) => {
+    retain: (fingerprints) => {
       retained.clear();
-      visualFingerprints.slice(-entryLimit).forEach((fingerprint) => {
+      fingerprints.slice(-entryLimit).forEach((fingerprint) => {
         if (entries.has(fingerprint)) retained.add(fingerprint);
       });
       Array.from(entries.keys()).forEach((fingerprint) => {
         if (!retained.has(fingerprint)) removeEntry(fingerprint);
       });
     },
-    release: (visualFingerprint) => {
-      if (retained.has(visualFingerprint)) return;
-      removeEntry(visualFingerprint);
+    release: (fingerprint) => {
+      if (!retained.has(fingerprint)) removeEntry(fingerprint);
     },
     clear,
     dispose: () => {

@@ -1,6 +1,5 @@
 import type {
-  LayerDocumentProjectOwnerAction,
-  LayerDocumentProjectOwnerState,
+  LayerDocumentProjectOwnerPort,
   LayerDocumentProjectOwnerTransitionResult,
 } from "@/engines/project/models/layerDocumentProjectOwnerModel";
 
@@ -11,9 +10,26 @@ import type {
  * consumers apply that effect through injected Runtime ports. Panel Runtime
  * is deliberately not part of this boundary.
  */
-export interface EditorProjectOwnerPort {
-  readonly read: () => LayerDocumentProjectOwnerState;
-  readonly command: (
-    action: LayerDocumentProjectOwnerAction
-  ) => LayerDocumentProjectOwnerTransitionResult;
-}
+export type EditorProjectOwnerPort =
+  LayerDocumentProjectOwnerPort;
+
+export type EditorOwnerCommandResult<
+  TPreparation = unknown,
+> =
+  | {
+      readonly ok: true;
+      readonly transition: Extract<
+        LayerDocumentProjectOwnerTransitionResult,
+        { ok: true }
+      >;
+    }
+  | {
+      readonly ok: false;
+      readonly stage: "preparation" | "owner";
+      readonly message: string;
+      readonly preparation?: TPreparation;
+      readonly transition?: Extract<
+        LayerDocumentProjectOwnerTransitionResult,
+        { ok: false }
+      >;
+    };

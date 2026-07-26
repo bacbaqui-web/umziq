@@ -3,10 +3,11 @@
 ## 1. 목적과 문서 경계
 
 이 문서는 `LayerDocumentProject`의 `.sfep` 저장/불러오기와 앱 실행 중
-Project lifecycle 계약을 설명한다. Project Owner, Layer, Source와 Panel
-Engine 전체 구조는 `56_layer_document_architecture.md`가 기준이며, 여기서는
-persistence envelope, 외부 Source 복구, lifecycle command의 원자성만
-상세화한다.
+Project lifecycle 계약을 설명한다. Layer/Source 저장 모델은
+`56_layer_document_architecture.md`, Editor Project Owner와 Panel Engine
+구조는 `58_editor_project_owner_panel_engine_architecture.md`가 기준이며,
+여기서는 persistence envelope, 외부 Source 복구, lifecycle command의
+원자성만 상세화한다.
 
 핵심 목표는 다음과 같다.
 
@@ -83,7 +84,8 @@ Dirty는 object identity나 UI flag가 아니라 canonical Project digest와 sav
 
 비동기 Save/Open은 증가하는 operation token을 사용한다. 더 최신 작업이
 시작된 뒤 도착한 stale 결과는 Project나 savepoint를 교체하지 않는다.
-검증된 New/Open candidate의 `replace-project`만 Project Owner를 바꾸며,
+검증된 New/Open candidate의 `replace-project`만 Editor Project Owner의
+Project를 바꾸며,
 성공 시 History와 project-scoped Runtime을 초기화하고 playback 정지,
 Draft/local UI reset, Source Resolution reset과 Runtime cache invalidation을
 기존 Owner effect 경계로 수행한다.
@@ -133,8 +135,9 @@ Mismatch와 legacy fingerprint는 자동 승인하지 않는다. descriptor를 �
 
 ## 9. Editor UI 경계
 
-Shell의 lifecycle bar는 lifecycle/save/open/reconnect 공개 port만 사용한다.
-Project Owner state, Draft, playback, Runtime cache를 직접 변경하지 않는다.
+Shell의 lifecycle bar는 `useLayerDocumentEditorRuntime`이 제공하는
+lifecycle/save/open/reconnect 공개 port만 사용한다. Project Owner state,
+Draft, playback, Runtime cache를 직접 변경하지 않는다.
 
 - New/Open/Close: dirty이면 discard confirmation
 - Cancel: 현재 Project와 Save target 보존

@@ -53,7 +53,6 @@ function buildDescriptorSignature(
     buildOpacitySignature(descriptor.opacity, isRoot),
     descriptor.visible,
   ];
-
   if (descriptor.kind === "layer") {
     return [
       "layer-alpha-v1",
@@ -63,11 +62,9 @@ function buildDescriptorSignature(
       ...common,
     ];
   }
-
   if (descriptor.kind === "solid") {
     return ["solid-alpha-v1", ...common];
   }
-
   return [
     "subcomp-alpha-v1",
     ...common,
@@ -82,5 +79,7 @@ export function buildSelectionSourceAlphaFingerprint(
   descriptor: SelectionSourceAlphaDescriptor,
   getCanvasToken: SelectionAlphaCanvasTokenResolver
 ) {
-  return JSON.stringify(buildDescriptorSignature(descriptor, getCanvasToken, true));
+  return JSON.stringify(
+    buildDescriptorSignature(descriptor, getCanvasToken, true)
+  );
 }

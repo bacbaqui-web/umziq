@@ -64,12 +64,16 @@ EditorShellLayoutProps {
     useLayerDocumentEditorRuntime(owner);
   const panelPorts =
     useLayerDocumentPanelEnginePorts({
-      assembly: runtime.assembly,
+      owner: runtime.owner,
+      ownerCommands: runtime.ownerCommands,
+      resources: runtime.resources,
+      sourceResolution:
+        runtime.sourceResolution,
       draftSession: runtime.draftSession,
       frameInput: runtime.playback,
       quality: "original",
     });
-  const scope = runtime.assembly.scope.read();
+  const scope = panelPorts.scope.read();
   if (!scope.ok) {
     throw new Error(
       `LayerDocument scope unavailable: ${scope.reason}`
@@ -77,7 +81,7 @@ EditorShellLayoutProps {
   }
   const timeline =
     useLayerDocumentTimelineEngine({
-      assembly: runtime.assembly,
+      owner: panelPorts.timelineOwner,
       playback: runtime.playback,
       nameColumnWidth:
         TIMELINE_NAME_COL_WIDTH,
@@ -196,8 +200,8 @@ EditorShellLayoutProps {
         canvasState.isPreviewPanning,
     });
   useEditorHistoryShortcuts({
-    undo: runtime.assembly.project.undo,
-    redo: runtime.assembly.project.redo,
+    undo: panelPorts.history.undo,
+    redo: panelPorts.history.redo,
   });
   return {
     leftPanelWidth: shell.leftPanelWidth,

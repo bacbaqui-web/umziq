@@ -1,69 +1,20 @@
-import { useEffect, type RefObject, type WheelEvent, type MouseEvent } from "react";
+import { useEffect } from "react";
 import PreviewInteractionOverlay from "@/features/preview/components/PreviewInteractionOverlay";
+import PreviewCanvasFpsBadge from "@/features/preview/components/PreviewCanvasFpsBadge";
 import PreviewViewportLayers from "@/features/preview/components/PreviewViewportLayers";
 import PreviewWorkspaceControls from "@/features/preview/components/PreviewWorkspaceControls";
-import type { Position } from "@/models";
 import { resolveCanvasPreviewCursor } from "@/engines/canvas";
 import {
   isCanvasTransformDragActive,
   shouldRunCanvasDirectSelectionHover,
 } from "@/engines/canvas";
 import type {
-  CanvasGuideViewModel,
-  CanvasDirectSelectionHoverViewModel,
-  CanvasGizmoViewModel,
-  CanvasInteractionCommands,
-  CanvasSelectionGlowViewModel,
-  PreviewQualityControlCommands,
-  PreviewQualityControlViewModel,
-  RendererMode,
+  CanvasPreviewPaneProps,
 } from "@/engines/canvas";
 
-type PreviewWorkspacePaneProps = {
-  activeScene:
-    | {
-        readonly identity: string;
-        readonly width: number;
-        readonly height: number;
-      }
-    | null;
-  previewWorkspaceRef: RefObject<HTMLDivElement | null>;
-  previewViewportRef: RefObject<HTMLDivElement | null>;
-  previewCanvasRef: RefObject<HTMLCanvasElement | null>;
-  previewOverlayRef: RefObject<HTMLDivElement | null>;
-  previewBaseOffset: Position;
-  previewPan: Position;
-  previewZoom: number;
-  previewZoomPercent: number;
-  rendererMode: RendererMode;
-  setRendererMode: (mode: RendererMode) => void;
-  previewQuality: PreviewQualityControlViewModel;
-  previewQualityCommands: PreviewQualityControlCommands;
-  previewSize: {
-    width: number;
-    height: number;
-  };
-  previewViewportWidth: number;
-  previewViewportHeight: number;
-  guide: CanvasGuideViewModel;
-  toggleShortformFrame: () => void;
-  toggleSafeZone: () => void;
-  showSelectionGlow: boolean;
-  toggleSelectionGlow: () => void;
-  resetPreviewView: () => void;
-  setOneToOnePreviewView: () => void;
-  centerPreviewView: () => void;
-  handlePreviewViewportWheel: (event: WheelEvent<HTMLDivElement>) => void;
-  handlePreviewViewportMouseDownCapture: (event: MouseEvent<HTMLDivElement>) => void;
-  isPreviewPanning: boolean;
-  isPreviewPanModifierActive: boolean;
-  interactionViewModel: CanvasGizmoViewModel;
-  selectionGlow: CanvasSelectionGlowViewModel;
-  directSelectionHover: CanvasDirectSelectionHoverViewModel;
-  interactionCommands: CanvasInteractionCommands;
-};
-
 export default function PreviewWorkspacePane({
+  selectedLayerDocumentId,
+  selectedSourceId,
   activeScene,
   previewWorkspaceRef,
   previewViewportRef,
@@ -77,6 +28,7 @@ export default function PreviewWorkspacePane({
   setRendererMode,
   previewQuality,
   previewQualityCommands,
+  canvasFpsRuntime,
   previewSize,
   previewViewportWidth,
   previewViewportHeight,
@@ -96,7 +48,7 @@ export default function PreviewWorkspacePane({
   selectionGlow,
   directSelectionHover,
   interactionCommands,
-}: PreviewWorkspacePaneProps) {
+}: CanvasPreviewPaneProps) {
   const isTransformDragging = isCanvasTransformDragActive(interactionViewModel);
   useEffect(() => {
     if (isTransformDragging) directSelectionHover.leaveTarget();
@@ -108,6 +60,8 @@ export default function PreviewWorkspacePane({
         gridColumn: "3",
         gridRow: "1",
         position: "relative",
+        width: "100%",
+        height: "100%",
         minWidth: 0,
         minHeight: 0,
         background:
@@ -210,7 +164,12 @@ export default function PreviewWorkspacePane({
               previewQuality={previewQuality}
               previewQualityCommands={previewQualityCommands}
             />
+            <PreviewCanvasFpsBadge runtime={canvasFpsRuntime} />
             <PreviewViewportLayers
+              selectedLayerDocumentId={
+                selectedLayerDocumentId
+              }
+              selectedSourceId={selectedSourceId}
               previewCanvasRef={previewCanvasRef}
               previewBaseOffset={previewBaseOffset}
               previewPan={previewPan}

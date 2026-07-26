@@ -77,7 +77,7 @@ const EMPTY_PLAYBACK_SNAPSHOT = {
 } as const;
 
 export type UseLayerDocumentTimelineEngineOptions = {
-  assembly: LayerDocumentTimelineOwnerPort;
+  owner: LayerDocumentTimelineOwnerPort;
   playback: LayerDocumentTimelinePlaybackPort;
   nameColumnWidth: number;
   defaultPxPerFrame: number;
@@ -128,8 +128,8 @@ export function useLayerDocumentTimelineEngine(
       null
     );
   const timeline =
-    options.assembly.timeline.readViewProps();
-  const project = options.assembly.project.read();
+    options.owner.timeline.readViewProps();
+  const project = options.owner.project.read();
   const scope = timeline.scope;
   const metadata = useMemo(
     () =>
@@ -184,14 +184,14 @@ export function useLayerDocumentTimelineEngine(
   const updateTimelineDuration = useCallback(
     (durationFrames: number) => {
       if (!scope.ok) return;
-      options.assembly.timeline.dispatchIntent({
+      options.owner.timeline.dispatchIntent({
         kind: "set-group-duration",
         layerDocumentId:
           scope.model.activeGroupLayerDocumentId,
         durationFrames,
       });
     },
-    [options.assembly.timeline, scope]
+    [options.owner.timeline, scope]
   );
   const playbackUi =
     useTimelinePlaybackUIController({
@@ -296,7 +296,7 @@ export function useLayerDocumentTimelineEngine(
           session.localFrame !==
           session.originLocalFrame
         ) {
-          options.assembly.timeline.dispatchIntent({
+          options.owner.timeline.dispatchIntent({
             kind: "move-keyframe",
             layerDocumentId:
               session.layerDocumentId,
@@ -311,14 +311,14 @@ export function useLayerDocumentTimelineEngine(
         return;
       }
       if (session.draft) {
-        options.assembly.timeline.dispatchIntent({
+        options.owner.timeline.dispatchIntent({
           kind: "set-timing",
           ...session.draft,
         });
       }
       setTimingDraft(null);
     },
-    [options.assembly.timeline]
+    [options.owner.timeline]
   );
   const pointer = useTimelinePointerController({
     scrollContainerRef,
@@ -413,7 +413,7 @@ export function useLayerDocumentTimelineEngine(
   const interactions = useMemo(
     () =>
       createLayerDocumentTimelineInteractionController({
-        assembly: options.assembly,
+        owner: options.owner,
         playback: playbackPort,
         sourceStatus: options.sourceStatus,
         allocateLayerDocumentId:
@@ -466,7 +466,7 @@ export function useLayerDocumentTimelineEngine(
   const navigation = useCallback(
     () =>
       createLayerDocumentTimelineNavigationController({
-        assembly: options.assembly,
+        owner: options.owner,
         ui: {
           readIsOpen: () => isSwitcherOpen,
           setIsOpen: setIsSwitcherOpen,
@@ -476,7 +476,7 @@ export function useLayerDocumentTimelineEngine(
       }),
     [
       isSwitcherOpen,
-      options.assembly,
+      options.owner,
       restoreSwitcherTriggerFocus,
     ]
   );

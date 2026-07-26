@@ -376,7 +376,8 @@ Fast Preview와 Accurate Renderer는 같은 Evaluated Scene을 입력으로 사�
 - Animation 결과는 Renderer별로 갈라지지 않는다.
 - Accurate Renderer는 Evaluated Scene을 RenderFrame으로 바꾼다.
 - Fast Preview Renderer는 Evaluated Scene을 Preview Scene으로 바꾼다.
-- Preview Quality는 source pixel size와 image 선택만 바꾸며 logical Animation 결과를 바꾸지 않는다.
+- Preview Quality는 원본 Source image를 교체하지 않고 Canvas backing scale만
+  바꾸며 logical Animation 결과를 바꾸지 않는다.
 - Resolver가 없거나 null이면 original source fallback이 유지된다.
 
 ## 18. 최종 구조

@@ -12,7 +12,7 @@ export type LayerDocumentTimelineSourceStatusResult =
  */
 export function createLayerDocumentTimelineSourceStatusAdapter(
   options: {
-    assembly: LayerDocumentTimelineOwnerPort;
+    owner: LayerDocumentTimelineOwnerPort;
   }
 ): LayerDocumentTimelineSourceStatusPort<
   LayerDocumentTimelineSourceStatusResult
@@ -20,7 +20,7 @@ export function createLayerDocumentTimelineSourceStatusAdapter(
   const sourceForLayer = (
     layerDocumentId: string
   ) => {
-    const project = options.assembly.project.read();
+    const project = options.owner.project.read();
     const layer =
       project.payload.layerDocumentsById[
         layerDocumentId
@@ -39,7 +39,7 @@ export function createLayerDocumentTimelineSourceStatusAdapter(
     const source =
       sourceForLayer(layerDocumentId);
     if (!source) return null;
-    return options.assembly.timeline
+    return options.owner.timeline
       .acknowledgeSourceStatus(
         source.sourceId
       );
@@ -59,11 +59,11 @@ export function createLayerDocumentTimelineSourceStatusAdapter(
        * references it, and Layer subtree deletion is a separate context
        * command.
        */
-      options.assembly.runtime.resources.invalidate({
+      options.owner.runtime.resources.invalidate({
         kind: "source",
         sourceId: source.sourceId,
       });
-      return options.assembly.runtime.resolutions.setMissing(
+      return options.owner.runtime.resolutions.setMissing(
         source.sourceId
       );
     },

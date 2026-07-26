@@ -1,6 +1,5 @@
 import { getRenderTransformBounds } from "@/engines/playback-render/helpers/renderTransformHelpers";
 import type {
-  BasePreviewNode,
   PreviewNode,
   PreviewScene,
 } from "@/engines/playback-render/models/previewSceneModel";
@@ -103,69 +102,6 @@ function inflateBounds(bounds: PreviewNodeBounds, amount: number): PreviewNodeBo
   };
 }
 
-function isSamePreviewNodeTransform(
-  left: BasePreviewNode["transform"],
-  right: BasePreviewNode["transform"]
-): boolean {
-  return (
-    left.position.x === right.position.x &&
-    left.position.y === right.position.y &&
-    left.anchor.x === right.anchor.x &&
-    left.anchor.y === right.anchor.y &&
-    left.transformOffset.x === right.transformOffset.x &&
-    left.transformOffset.y === right.transformOffset.y &&
-    left.scale.x === right.scale.x &&
-    left.scale.y === right.scale.y &&
-    left.rotation === right.rotation
-  );
-}
-
-function isSamePreviewNodeLogicalSize(
-  left: BasePreviewNode["logicalSize"],
-  right: BasePreviewNode["logicalSize"]
-): boolean {
-  return left.width === right.width && left.height === right.height;
-}
-
-function hasCompositionRenderStateChange(
-  previousScene: PreviewScene,
-  nextScene: PreviewScene
-): boolean {
-  const previousNodeById = buildPreviewNodeMap(previousScene.nodes);
-  const nextNodeById = buildPreviewNodeMap(nextScene.nodes);
-
-  for (const [id, nextNode] of nextNodeById) {
-    if (nextNode.kind !== "composition") continue;
-    const previousNode = previousNodeById.get(id);
-    if (!previousNode || previousNode.kind !== "composition") return true;
-    if (previousNode === nextNode) continue;
-    if (
-      previousNode.visible !== nextNode.visible ||
-      previousNode.opacity !== nextNode.opacity ||
-      previousNode.order !== nextNode.order ||
-      previousNode.localFrame !== nextNode.localFrame ||
-      previousNode.globalFrame !== nextNode.globalFrame ||
-      previousNode.sourceId !== nextNode.sourceId ||
-      previousNode.targetCompId !== nextNode.targetCompId ||
-      !isSamePreviewNodeLogicalSize(
-        previousNode.logicalSize,
-        nextNode.logicalSize
-      ) ||
-      !isSamePreviewNodeTransform(previousNode.transform, nextNode.transform)
-    ) {
-      return true;
-    }
-  }
-
-  for (const [id, previousNode] of previousNodeById) {
-    if (previousNode.kind === "composition" && !nextNodeById.has(id)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function getDirtyBounds({
   previousScene,
   nextScene,
@@ -235,8 +171,7 @@ export function buildPreviewSceneDrawPlan({
     previousScene.compositionId === previewScene.compositionId &&
     previousScene.logicalSize.width === previewScene.logicalSize.width &&
     previousScene.logicalSize.height === previewScene.logicalSize.height &&
-    drawState.previousPixelScale === pixelScale &&
-    !hasCompositionRenderStateChange(previousScene, previewScene);
+    drawState.previousPixelScale === pixelScale;
 
   if (!canDrawIncrementally) {
     return { mode: "full", nextNodeBoundsById };

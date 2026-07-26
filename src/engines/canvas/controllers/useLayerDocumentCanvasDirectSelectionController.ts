@@ -12,14 +12,14 @@ import {
   createCanvasSelectionGlowRenderer,
 } from "@/engines/canvas/adapters/canvasSelectionGlowBrowserAdapter";
 import {
+  createSelectionSourceAlphaProvider,
+} from "@/engines/canvas/helpers/selectionSourceAlphaProvider";
+import {
   buildLayerDocumentCanvasGlowSelectionKey,
   drawLayerDocumentCanvasGlow,
   hitLayerDocumentCanvasDirectSelection,
   resolveLayerDocumentCanvasDirectSelectionIntent,
 } from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
-import {
-  createSelectionSourceAlphaProvider,
-} from "@/engines/canvas/helpers/selectionSourceAlphaProvider";
 import type {
   LayerDocumentCanvasCommands,
   LayerDocumentCanvasModeReadModel,

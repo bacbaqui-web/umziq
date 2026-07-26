@@ -1,19 +1,12 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
-import {
-  createLayerDocumentConsumerCutoverAssembly,
-} from "@/cutover";
-import {
-  LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
-} from "@/layer-types";
-import {
-  LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
-} from "@/layer-types";
+import type {
+  LayerDocumentCanvasDraftPort,
+} from "@/engines/canvas";
 import {
   createLayerDocumentProjectBrowserOpenAdapter,
   createLayerDocumentProjectBrowserWriteAdapter,
@@ -24,7 +17,6 @@ import {
   createLayerDocumentProjectSaveController,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
-  LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   type LayerDocumentProjectOwnerEffect,
   type LayerDocumentProjectLinkedSourceAccess,
 } from "@/engines/project";
@@ -32,12 +24,6 @@ import {
   createLayerDocumentSourceRuntimeResourceCache,
   type LayerDocumentTransformDraftSnapshot,
 } from "@/engines/playback-render";
-import {
-  LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-} from "@/engines/properties";
-import {
-  LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
-} from "@/layer-types";
 import {
   createLayerDocumentTimelinePlaybackRuntime,
   type LayerDocumentTimelineRuntimePort,
@@ -51,7 +37,8 @@ import {
   createProjectLifecycleUiCommandPort,
 } from "@/editor/projectLifecycleUi";
 import {
-  createLayerDocumentProjectOwnerCompatibilityPort,
+  createEditorProjectOwnerCommandAdapter,
+  readEditorOwnerGroupScope,
   type EditorProjectOwnerPort,
 } from "@/editor/project-owner";
 
@@ -78,13 +65,7 @@ function createTimelineValidityBridge() {
 export function useLayerDocumentEditorRuntime(
   projectOwner: EditorProjectOwnerPort
 ) {
-  const owner = useMemo(
-    () =>
-      createLayerDocumentProjectOwnerCompatibilityPort(
-        projectOwner
-      ),
-    [projectOwner]
-  );
+  const owner = projectOwner;
   const [resources] = useState(
     createLayerDocumentSourceRuntimeResourceCache
   );
@@ -161,37 +142,27 @@ export function useLayerDocumentEditorRuntime(
     },
     []
   );
-  const [draftSession] = useState(() => ({
+  const [draftSession] = useState<
+    LayerDocumentCanvasDraftPort
+  >(() => ({
     read: () => draftRef.current,
     publish: (
       draft: LayerDocumentTransformDraftSnapshot
     ) => publishDraft(draft),
     clear: () => publishDraft(null),
   }));
-  const [assembly] = useState(() =>
-    createLayerDocumentConsumerCutoverAssembly({
+  const [ownerCommands] = useState(() =>
+    createEditorProjectOwnerCommandAdapter({
       owner,
-      panelPreparation:
-        LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-      sourcePreparation:
-        LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
-      drawingPreparation:
-        LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
-      textPreparation:
-        LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
-      audioPreparation:
-        LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
       sourceRuntime: resources,
-      sourceResolution,
-      draftSession,
-      effects: {
-        applyOwnerEffect: (effect) =>
-          applyOwnerEffect(effect),
-      },
-      metrics: NOOP_METRICS,
+      clearDraft: draftSession.clear,
+      applyOwnerEffect,
+      incrementMetric: NOOP_METRICS.increment,
     })
   );
-  const scope = assembly.scope.read();
+  const readScope = () =>
+    readEditorOwnerGroupScope(owner);
+  const scope = readScope();
   if (!scope.ok) {
     throw new Error(
       `LayerDocument scope unavailable: ${scope.reason}`
@@ -200,7 +171,10 @@ export function useLayerDocumentEditorRuntime(
   const activeGroup = scope.model.activeGroup;
   const [playback] = useState(() =>
     createLayerDocumentTimelinePlaybackRuntime({
-      assembly,
+      scope: {
+        read: readScope,
+        enter: ownerCommands.enterGroup,
+      },
       scheduler:
         WINDOW_TIMELINE_PLAYBACK_SCHEDULER,
       clearDraft: draftSession.clear,
@@ -369,8 +343,10 @@ export function useLayerDocumentEditorRuntime(
       })
     );
   return {
-    assembly,
+    owner,
+    ownerCommands,
     resources,
+    sourceResolution,
     draftSession,
     playback,
     projectLifecycleProps: {

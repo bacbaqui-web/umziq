@@ -128,6 +128,7 @@ function treeNode(
       | "new"
       | "deletePending"
       | "missing";
+    readonly entityKind?: "layer" | "composition";
     readonly children?: readonly unknown[];
   },
   selectedSourceId: string | null,
@@ -138,6 +139,8 @@ function treeNode(
   return {
     id: source.sourceId,
     type: depth === 0 ? "main" : "sub",
+    entityKind:
+      depth === 0 ? null : source.entityKind ?? "layer",
     name: source.displayName,
     depth,
     selected: source.sourceId === selectedSourceId,

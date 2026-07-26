@@ -176,19 +176,17 @@ function drawCompositionPreviewNodeToContext({
 
   if (!surface) return;
 
-  node.children.forEach((child) =>
-    drawPreviewNodeToContext({
-      context: surface.context,
-      node: child,
-      resolveNodeVisual,
-      createSurface,
-      pixelScale,
-      runtimeMetrics,
-      compositionCache,
-      previewQuality,
-      surfaceCache,
-    })
-  );
+  drawPreviewNodesToContext({
+    context: surface.context,
+    nodes: node.children,
+    resolveNodeVisual,
+    createSurface,
+    pixelScale,
+    runtimeMetrics,
+    compositionCache,
+    previewQuality,
+    surfaceCache,
+  });
   compositionCache?.storeSurface(cacheInput, surface);
   if (compositionCache) runtimeMetrics?.increment("compositionCacheCreate");
 
@@ -274,15 +272,18 @@ export function drawPreviewNodesToContext({
   shouldDrawNode?: (node: PreviewNode) => boolean;
 }): number {
   let skippedCount = 0;
-  nodes.forEach((node) => {
+  for (let index = nodes.length - 1; index >= 0; index -= 1) {
+    const node = nodes[index];
+    if (!node) continue;
+    options.runtimeMetrics?.increment("painterTraversal");
     if (!shouldDrawNode || shouldDrawNode(node)) {
       drawPreviewNodeToContext({
         ...options,
         node,
       });
-      return;
+      continue;
     }
     skippedCount += countPreviewNodes(node);
-  });
+  }
   return skippedCount;
 }

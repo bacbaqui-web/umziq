@@ -4,38 +4,25 @@ export {
 } from "@/engines/canvas/useLayerDocumentCanvasComposition";
 export type { RendererMode } from "@/engines/playback-render";
 export { useCanvasPreviewRuntime } from "@/engines/canvas/useCanvasPreviewRuntime";
+export type {
+  CanvasPreviewPaneProps,
+} from "@/engines/canvas/models/canvasPreviewPaneModel";
+export type {
+  CanvasFpsRuntime,
+  CanvasFpsSnapshot,
+  CanvasFpsStatus,
+} from "@/engines/canvas/models/canvasFpsModel";
 export {
-  PREVIEW_DEVICE_MEMORY_TIER_POLICIES,
-  PREVIEW_FALLBACK_MEMORY_BUDGET_BYTES,
-} from "@/engines/canvas/constants/previewAutomaticQualityConstants";
-export type {
-  PreviewBuildReadModel,
-} from "@/engines/canvas/models/previewBuildModel";
-export type {
-  PreviewDeviceMemoryTier,
-  PreviewDeviceMemoryTierPolicy,
-} from "@/engines/canvas/constants/previewAutomaticQualityConstants";
+  createCanvasFpsRuntime,
+} from "@/engines/canvas/state/canvasFpsRuntimeStore";
 export {
   PREVIEW_QUALITY_SCALE,
   RESOLVED_PREVIEW_QUALITIES,
 } from "@/engines/canvas/constants/previewQualityConstants";
 export type {
-  PreviewAutomaticQualityInput,
-  PreviewAutomaticQualityReason,
-  PreviewAutomaticQualityResult,
-  PreviewMemoryBudgetReason,
-  PreviewMemoryBudgetResult,
-} from "@/engines/canvas/models/previewAutomaticQualityModel";
-export type {
   PreviewQualityPreference,
   ResolvedPreviewQuality,
 } from "@/engines/canvas/models/previewQualityModel";
-export type {
-  PreviewMemoryEstimate,
-  PreviewMemoryEstimatesByQuality,
-  PreviewMemorySource,
-  PreviewMemorySourceEstimate,
-} from "@/engines/canvas/models/previewMemoryModel";
 export type {
   PreviewQualityControlCommands,
   PreviewQualityControlViewModel,
@@ -45,19 +32,8 @@ export {
   buildPreviewQualityControlViewModel,
   PREVIEW_QUALITY_LABELS,
 } from "@/engines/canvas/helpers/previewQualityControlHelpers";
-export {
-  estimatePreviewMemory,
-  estimatePreviewMemoryByQuality,
-  estimatePreviewSourceMemory,
-  formatPreviewMemory,
-  getPreviewMemorySourceKey,
-  scalePreviewPixelSize,
-} from "@/engines/canvas/helpers/previewMemoryHelpers";
+export { resolvePreviewQuality } from "@/engines/canvas/helpers/previewQualityHelpers";
 export { collectRenderFrameSourceIds } from "@/engines/canvas/helpers/previewRenderFrameHelpers";
-export {
-  resolveAutomaticPreviewQuality,
-  resolvePreviewMemoryBudget,
-} from "@/engines/canvas/helpers/previewAutomaticQualityHelpers";
 export { createDirtyState } from "@/engines/canvas/state/dirtyStateStore";
 export { createCompositionPreviewCacheRuntime } from "@/engines/canvas/state/compositionPreviewCacheStore";
 export { createPreviewSurfaceCacheRuntime } from "@/engines/canvas/state/previewSurfaceCacheStore";
@@ -75,7 +51,10 @@ export {
   applyPreviewNodeCache,
   applyPreviewNodeCacheFromScenes,
 } from "@/engines/canvas/helpers/nodeCacheHelpers";
-export { buildCompositionPreviewCacheKey } from "@/engines/canvas/helpers/compositionCacheKeyHelpers";
+export {
+  buildCompositionPreviewCacheKey,
+  isCompositionPreviewSurfaceContentEqual,
+} from "@/engines/canvas/helpers/compositionCacheKeyHelpers";
 export { buildPreviewSurfaceCacheKey } from "@/engines/canvas/helpers/surfaceCacheKeyHelpers";
 export {
   DIRTY_KINDS,
@@ -161,6 +140,13 @@ export {
   createLayerDocumentCanvasCommands,
 } from "@/engines/canvas/adapters/layerDocumentCanvasCommandAdapter";
 export {
+  createLayerDocumentCanvasDraftAdapter,
+  type LayerDocumentCanvasDraftPort,
+} from "@/engines/canvas/adapters/layerDocumentCanvasDraftAdapter";
+export {
+  createLayerDocumentCanvasCommandPort,
+} from "@/engines/canvas/adapters/layerDocumentCanvasCommandPortAdapter";
+export {
   createLayerDocumentCanvasNodeVisualResolver,
   createLayerDocumentCanvasRenderAssetPort,
 } from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
@@ -182,7 +168,6 @@ export {
   drawLayerDocumentCanvasGlow,
   hitLayerDocumentCanvasDirectSelection,
   resolveLayerDocumentCanvasDirectSelectionIntent,
-  resolveLayerDocumentCanvasGlowSource,
 } from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
 export type {
   LayerDocumentCanvasCommandPort,

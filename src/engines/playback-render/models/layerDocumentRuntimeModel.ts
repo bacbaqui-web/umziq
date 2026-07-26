@@ -54,6 +54,18 @@ export interface LayerDocumentResultCacheKeyInput {
   readonly draftIdentity: string | null;
 }
 
+export interface LayerDocumentVisualResultCacheKeyInput {
+  readonly layerDocumentId: string;
+  readonly sourceType: LayerDocumentType;
+  readonly sourceResourceCacheKey: string | null;
+  readonly order: number;
+  readonly evaluatedTransform: EvaluatedSceneTransform;
+  readonly opacity: number;
+  readonly effects: readonly LayerEffect[];
+  readonly modifiers: readonly LayerModifier[];
+  readonly contentIdentity: unknown;
+}
+
 export interface LayerDocumentPsdSourceResolution {
   readonly renderItemId: string;
   readonly drawableId: string;
@@ -122,6 +134,7 @@ export interface LayerDocumentRuntimeInput {
   readonly modifiers: readonly LayerModifier[];
   readonly content: LayerDocumentRuntimeContentDescriptor;
   readonly sourceResourceCacheKey: string | null;
+  readonly evaluationIdentity: string;
   readonly layerResultCacheKey: string;
   readonly draftIdentity: string | null;
   readonly draftApplied: boolean;

@@ -75,6 +75,8 @@ export default function TimelineItemTrackRow({
   return (
     <div style={{ display: "contents" }}>
       <div
+        data-layer-document-id={item.id}
+        data-timeline-selected={viewModel.selected ? "true" : "false"}
         draggable={!isEditingName}
         onDragStart={() => {
           if (!isEditingName) {

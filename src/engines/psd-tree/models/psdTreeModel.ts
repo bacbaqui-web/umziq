@@ -13,6 +13,7 @@ export type PsdTreeDropTarget = {
 export type PsdTreeNodeViewModel = {
   id: string;
   type: "main" | "sub";
+  entityKind: "layer" | "composition" | null;
   name: string;
   depth: number;
   selected: boolean;

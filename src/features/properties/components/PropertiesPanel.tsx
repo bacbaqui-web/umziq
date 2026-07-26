@@ -2,12 +2,17 @@ import PropertiesKeyframeSection from "@/features/properties/sections/Properties
 import PropertiesModifierLibrarySection from "@/features/properties/sections/PropertiesModifierLibrarySection";
 import PropertiesModifierSection from "@/features/properties/sections/PropertiesModifierSection";
 import PropertiesTransformSection from "@/features/properties/sections/PropertiesTransformSection";
-import type { PropertiesPanelProps } from "@/features/properties/types/propertiesPanelTypes";
+import type {
+  PropertiesEngineViewProps,
+} from "@/engines/properties";
 import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 import PropertiesSourceDetails from "@/features/properties/components/PropertiesSourceDetails";
 import PropertiesSourceHeader from "@/features/properties/components/PropertiesSourceHeader";
 
-export default function PropertiesPanel({ readModel, commands }: PropertiesPanelProps) {
+export default function PropertiesPanel({
+  readModel,
+  commands,
+}: PropertiesEngineViewProps) {
   return (
     <div className="editor-panel-scroll" style={{ height: "100%" }}>
       {readModel.hasSelectedComposition ? (

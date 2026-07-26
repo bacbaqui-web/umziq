@@ -1,0 +1,78 @@
+{
+  "containerVersion": 1,
+  "format": "shortform-editor-project",
+  "project": {
+    "metadata": {
+      "name": "Shortform Editor Project",
+      "projectId": "shortform-project:c22b358f-b2ed-4ed0-a3c5-e23fe8e7996b",
+      "schemaVersion": 2
+    },
+    "payload": {
+      "layerDocumentsById": {
+        "layer-document:project-root": {
+          "common": {
+            "animation": {
+              "enabledProperties": {
+                "opacity": false,
+                "position": false,
+                "rotation": false,
+                "scale": false
+              },
+              "opacityKeyframes": [],
+              "positionKeyframes": [],
+              "rotationKeyframes": [],
+              "scaleKeyframes": []
+            },
+            "effects": [],
+            "modifiers": [],
+            "placement": {
+              "alias": null,
+              "durationFrames": 300,
+              "order": 0,
+              "parentLayerDocumentId": null,
+              "sourceOffsetFrames": 0,
+              "startFrame": 0,
+              "visible": true
+            },
+            "source": null,
+            "transform": {
+              "anchor": {
+                "x": 540,
+                "y": 960
+              },
+              "opacity": 100,
+              "position": {
+                "x": 540,
+                "y": 960
+              },
+              "rotation": 0,
+              "scale": {
+                "x": 100,
+                "y": 100
+              },
+              "scaleLinked": true,
+              "transformOffset": {
+                "x": 0,
+                "y": 0
+              }
+            }
+          },
+          "data": {
+            "durationFrames": 300,
+            "frameRate": 30,
+            "height": 1920,
+            "role": "project-root",
+            "width": 1080
+          },
+          "layerDocumentId": "layer-document:project-root",
+          "name": "Master",
+          "revision": 0,
+          "type": "group"
+        }
+      },
+      "sourceRegistry": {
+        "sourcesById": {}
+      }
+    }
+  }
+}

@@ -1,8 +1,13 @@
 # Source Map
 
-> 현재 기준: LayerDocument cutover 이후
+> 현재 기준: Editor Project Owner와 네 Panel Engine의 최종 구조
 >
-> 아키텍처 설명은 `56_layer_document_architecture.md`, 저장/불러오기와 Project lifecycle 상세는 `57_layer_document_persistence_project_lifecycle.md`를 함께 본다. 이 문서는 현재 존재하는 소스와 책임만 설명하며 삭제된 이전 구현은 나열하지 않는다.
+> 데이터/도메인 구조는 `56_layer_document_architecture.md`, 저장/불러오기와
+> Project lifecycle은 `57_layer_document_persistence_project_lifecycle.md`,
+> Editor Owner/Panel Engine 구조는
+> `58_editor_project_owner_panel_engine_architecture.md`를 함께 본다. 이
+> 문서는 현재 존재하는 소스와 책임만 설명하며 삭제된 이전 구현은 나열하지
+> 않는다.
 
 ## 1. 현재 실행 흐름
 
@@ -14,11 +19,11 @@ main.tsx
       → useLayerDocumentEditorOwner
       → LayerDocument Project Owner
       → useLayerDocumentEditorRuntime
-      → LayerDocument Consumer Assembly
       → Project Lifecycle / Save / Open / Reconnect ports
       → Source Runtime Resolution / Resource Registry
       → shared Transform Draft / Timeline Runtime
       → useLayerDocumentPanelEnginePorts
+      → Owner / Panel Engine / Render public port wiring
       → Canvas / Timeline / Properties / PSD Tree Engine
   → EditorShellLayout
       → Project Lifecycle Bar / PSD Tree / Canvas / Properties / Timeline UI
@@ -80,10 +85,20 @@ Duplicate는 같은 Source를 참조하는 새 LayerDocument를 만들고 공통
 - `project-owner/index.ts`: Editor Project Owner의 단일 public entry
 - `project-owner/useEditorProjectOwner.ts`: Project Owner 인스턴스 1개와 안정적인 read/command(effect result) port 생성
 - `project-owner/models/editorProjectOwnerModel.ts`: Panel Runtime을 포함하지 않는 Owner 공개 port 계약
-- `project-owner/helpers/editorProjectOwnerPortHelpers.ts`: Owner port factory와 기존 Project Engine/cutover용 무상태 compatibility adapter
+- `project-owner/helpers/editorProjectOwnerPortHelpers.ts`: canonical Editor
+  Project Owner port factory
+- `project-owner/helpers/editorProjectOwnerCommandHelpers.ts`: Layer/Source
+  transaction과 selection/history intent를 Owner raw command로 전달
+- `project-owner/helpers/editorProjectOwnerCommandAdapter.ts`: preparation
+  rejection, Owner transition/effect 전달, Source Runtime cache effect와
+  Layer/Source preparation commit을 소유하는 최종 Owner command adapter
 - `useLayerDocumentEditorOwner.ts`: 단일 Editor Project Owner 인스턴스 생성
-- `useLayerDocumentEditorRuntime.ts`: consumer assembly, lifecycle/save/open/reconnect, Source Runtime, shared Draft와 Timeline Runtime 수명 관리
-- `useLayerDocumentPanelEnginePorts.ts`: 동일 Owner/Runtime을 Canvas/Timeline/Properties/PSD Tree의 최소 입력 port로 변환
+- `useLayerDocumentEditorRuntime.ts`: 단일 Owner command adapter,
+  lifecycle/save/open/reconnect, Source Runtime, shared Draft와 Timeline
+  Runtime의 StrictMode-safe 수명 관리
+- `useLayerDocumentPanelEnginePorts.ts`: 최종 Owner/Panel Engine/동결된
+  Render public port를 직접 연결하고 Canvas/Timeline/Properties/PSD Tree의
+  최소 입력 port로 변환
 - `useEditorCompositionRoot.ts`: 네 Panel Engine 생성과 ViewProps 연결만 수행하는 Editor Composition Root
 - `projectLifecycleUi.ts`: lifecycle 공개 포트만 사용하는 New/Open/Save/Save As/Close/Reconnect UI command와 구조화 ViewModel
 - `ProjectLifecycleBar.tsx`: clean/dirty/saving/loading, 오류, Missing Source와 Reconnect entry를 표시하는 Shell 상단 UI
@@ -101,11 +116,15 @@ playback range/current frame/isPlaying/clock/transport는 Timeline Runtime
 PointerMove Transform은 `LayerDocumentTransformDraftSnapshot`만 바꾸며
 PointerUp에서 transaction과 History 한 건으로 commit한다.
 
-## 4. Project Owner 내부 구현과 compatibility
+## 4. Project domain과 Owner 내부 구현
 
 ### `src/engines/project`
 
-- `useLayerDocumentProjectOwner.ts`: Editor Project Owner를 위임하는 임시 React compatibility entry
+디렉터리명은 유지되지만 Editor의 Project state authority는
+`src/editor/project-owner`의 Owner 하나다. 이 디렉터리는 reducer,
+transaction preparation, persistence/lifecycle controller와 Source Runtime
+adapter를 제공한다.
+
 - `actions/layerDocumentProjectOwnerReducer.ts`: owner action dispatch
 - `actions/layerDocumentProjectOwnerLayerCommitReducer.ts`: Layer transaction commit
 - `actions/layerDocumentProjectOwnerSourceCommitReducer.ts`: Source lifecycle commit
@@ -139,23 +158,7 @@ PointerUp에서 transaction과 History 한 건으로 commit한다.
 
 Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure에서 dispose된다. PSD import는 한 번 읽은 ArrayBuffer를 parse와 SHA-256 계산에 함께 사용한다. Confirm 성공 시 Plain Data transaction과 runtime registration이 일관되게 적용된다.
 
-## 5. Active consumer assembly
-
-### `src/cutover`
-
-이 디렉터리는 이름과 달리 현재 실행 경로의 active wiring이다.
-
-- `createLayerDocumentConsumerCutoverAssembly.ts`: Project/selection/scope/runtime/source command 및 read port 조립
-- `layerDocumentConsumerCutoverModel.ts`: 조립 port 계약
-- `layerDocumentCanvasCommandPortAdapter.ts`: Canvas semantic command 연결
-- `layerDocumentTimelineConsumerAdapter.ts`: Timeline projection
-- `layerDocumentTimelineIntentCommitAdapter.ts`: Timeline intent commit
-- `layerDocumentUiControllerPortAdapters.ts`: Properties/PSD Tree UI port
-- `applyLayerDocumentRuntimeCacheEffect.ts`: owner effect에 따른 targeted runtime invalidation/GC
-
-Engine은 이 디렉터리를 import하지 않는다. Editor owner가 assembly를 생성하고 필요한 port를 각 Engine에 주입한다.
-
-## 6. Playback/Render Core Engine
+## 5. Playback/Render
 
 ### `src/engines/playback-render`
 
@@ -173,14 +176,27 @@ Engine은 이 디렉터리를 import하지 않는다. Editor owner가 assembly�
 
 Full/fast renderer 모두 `layerDocumentId`, `sourceId`, `sourceResourceCacheKey`, `layerResultCacheKey`를 전달한다. 저장 Project는 Canvas/ImageBitmap/decoded resource를 소유하지 않는다.
 
-## 7. Canvas Core Engine과 cache
+현재 Evaluated Scene과 Renderer output은 Placement/UI의 위→아래 순서를
+유지한다. Canvas2D Preview/Full painter가 canonical 배열과 node reference를
+복제하지 않고 각 깊이를 뒤에서 앞으로 순회해 아래→위 painter order를 만든다.
+Direct Selection은 canonical 위→아래 순서를 그대로 사용한다. identity/cache
+복구와 LayerDocument 전환 후 최적화 wiring 상태는
+`59_render_runtime_optimization_architecture_audit.md`에 기록한다.
+
+## 6. Canvas Panel Engine과 cache
 
 ### `src/engines/canvas`
 
 - `useLayerDocumentCanvasComposition.ts`: Canvas controller composer와 공개 view props
 - `adapters/layerDocumentCanvasModeAdapter.ts`: owner read model을 Canvas mode로 변환
 - `adapters/layerDocumentCanvasRenderAssetAdapter.ts`: Source runtime을 renderer visual로 변환
+- `models/canvasPreviewPaneModel.ts`: Feature Preview pane가 소비하는 Canvas
+  public view props 계약
 - `adapters/layerDocumentCanvasCommandAdapter.ts`: select/draft/commit semantic command
+- `adapters/layerDocumentCanvasCommandPortAdapter.ts`: Canvas command를
+  Draft/Owner selection/Timeline playback 공개 port에 연결
+- `adapters/layerDocumentCanvasDraftAdapter.ts`: shared Draft port를 통한
+  Canvas pointer/motion-path Draft publication, rejection과 commit 전달
 - `controllers/usePreviewUpdatePipeline.ts`: immutable base scene와 active Draft scene
 - `controllers/useCanvasRenderController.ts`: full/fast draw와 Draft cache bypass
 - `controllers/useLayerDocumentCanvasDirectSelectionController.ts`: direct selection
@@ -189,18 +205,31 @@ Full/fast renderer 모두 `layerDocumentId`, `sourceId`, `sourceResourceCacheKey
 - `state/compositionPreviewCacheStore.ts`: fast composition surface cache
 - `state/previewSurfaceCacheStore.ts`: quality/scale/size key surface pool과 LRU
 - `state/runtimeMetricsStore.ts`: runtime counter
-- `useCanvasPreviewRuntime.ts`: quality, memory estimate, cache/runtime resource 조립
+- `state/canvasFpsRuntimeStore.ts`: 실제 Canvas paint 시각의 rolling FPS와
+  낮은 빈도의 UI 구독값
+- `useCanvasPreviewRuntime.ts`: backing-scale-only quality와 cache/runtime resource 조립
 
 Cache는 다음 네 층으로 분리된다.
 
 1. Source runtime cache: Source 원본 resource
 2. Layer result key: frame/revision/Draft별 evaluated result identity
-3. Composition preview cache: fast renderer composition surface
+3. Composition preview cache: Group 내부 content identity 기반 fast surface
 4. Surface pool: quality/scale/logical/pixel size별 재사용 Canvas
 
-Draft 중에는 composition cache 전체를 우회해 immutable committed snapshot을 오염시키지 않는다.
+Preview 품질은 Source bitmap 복사본을 만들지 않고 root/offscreen Canvas의
+backing scale만 변경한다. Source resource 수명은 LayerDocument Source Runtime
+Cache가 단독으로 관리하며 UI는 존재하지 않는 bitmap cache memory를 표시하지 않는다.
 
-## 8. Timeline, Properties, PSD Tree
+Group의 바깥 Transform Draft는 자식 content reference가 같으면 기존
+Composition surface를 재사용한다. 자식 visual이 바뀐 경우에만 surface를
+무효화하고 다시 합성하며, root Canvas는 이전/다음 Bounds의 Dirty Region만
+다시 그린다. Canvas 직접 선택은 Source Alpha Mask를 유지하고 선택 강조는
+같은 Mask 바깥에 2px 선과 거리에 따라 밀도가 줄어드는 점 스크린톤을 그린다. Group 외부 Transform에서는
+Alpha/tone scratch를 재사용하고 Projection만 갱신하며 Blur Glow는
+사용하지 않는다.
+갱신한다.
+
+## 7. Timeline, Properties, PSD Tree
 
 ### `src/engines/timeline`
 
@@ -209,6 +238,10 @@ Draft 중에는 composition cache 전체를 우회해 immutable committed snapsh
 - `adapters/layerDocumentTimelineInteractionController.ts`: move/trim/reorder/keyframe Draft와 commit intent
 - `adapters/layerDocumentTimelineNavigationController.ts`: active Group/selection navigation
 - `adapters/layerDocumentTimelinePlaybackAdapter.ts`: current frame/range, isPlaying, clock, scheduler와 transport를 단독 소유하는 Timeline Runtime 및 validity command
+- `adapters/layerDocumentTimelineConsumerAdapter.ts`: placement/Source
+  resolution을 Timeline consumer row로 projection
+- `adapters/layerDocumentTimelineIntentCommitAdapter.ts`: Timeline intent의
+  transaction과 keyframe selection commit 준비
 
 Timeline은 Layer를 저장하지 않고 LayerDocument placement/animation을 표시한다.
 
@@ -218,16 +251,24 @@ Timeline은 Layer를 저장하지 않고 LayerDocument placement/animation을 �
 - `adapters/useLayerDocumentPropertiesEngine.ts`: React facade
 - `adapters/layerDocumentPanelPreparationAdapter.ts`: Type별 panel descriptor
 - `adapters/layerDocumentPanelCommandAdapter.ts`: Transform/Animation/Effect/Modifier commit
+- `adapters/layerDocumentPropertiesCommandPortAdapter.ts`: 현재 frame과
+  matching Draft를 반영한 Properties 표시 평가와 command port 구성
+- `adapters/layerDocumentPropertiesOwnerCommandAdapter.ts`: panel
+  preparation/commit, Canvas Draft rejection, transform/motion-path commit 조합
 
 Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Draft를 읽고, 외부 Source 가용성은 주입된 runtime resolution에서 읽는다.
 
 ### `src/engines/psd-tree`
 
 - `useLayerDocumentPsdTreeEngine.ts`: PSD Tree UI Engine
-- Project Engine의 controller/port를 받아 import/refresh/delete/reorder/select intent를 연결
+- `adapters/layerDocumentPsdPreparedSourceAdapter.ts`: PSD Owner Source
+  preparation/commit과 Runtime registration의 confirm/retry 원자성 및
+  PSD Tree Source command port 조합
+- 주입된 Project domain controller/port로
+  import/refresh/delete/reorder/select intent를 연결
 - Source Registry와 Group LayerDocument graph를 Tree read model로 표시하며 Source 가용성은 runtime resolution에서 읽음
 
-## 9. Pure Animation과 Layer Type 지원
+## 8. Pure Animation과 Layer Type 지원
 
 - `src/animation/index.ts`: keyframe 조회/불변 갱신, 보간 평가, global/local
   frame 변환, Modifier 정규화/결정적 계산, motion-path sampling의 단일 pure
@@ -248,23 +289,28 @@ import 경로를 compatibility entry를 통해 사용한다.
   domain transaction 준비
 - `src/layer-types/audioSupport.ts`: 빈 Audio domain query와 변경 없는
   unsupported preparation
+- `src/layer-types/ownerCommandSupport.ts`: Drawing/Text query와
+  preparation/Owner commit, Audio capability를 조합하는 최종 adapter
 
 Drawing/Text/Audio는 독립 Panel과 Runtime authority가 없으므로 Engine이
-아니다. Properties Type section과 cutover compatibility가 이 단일 entry를
+아니다. Properties Type section이 이 단일 entry를
 소비하며 실제 변경은 Owner transaction으로 commit한다. Drawing/Text의
 placeholder render와 최소 데이터 준비는 유지하고 Audio 편집/재생은 future
 work다. Video/Shape는 schema와 extension point만 있다.
 
-## 10. Feature UI
+## 9. Feature UI
 
 - `src/features/preview`: Canvas, overlay, gizmo, quality UI
 - `src/features/timeline`: Timeline rows, ruler, keyframes, interaction hooks
 - `src/features/properties`: Properties sections와 controlled input UI
 - `src/features/psdtree`: PSD Tree, import dialog, refresh status UI
 
-Feature UI는 Project object를 직접 mutation하지 않고 Engine view props와 command를 사용한다.
+Feature UI는 Project object를 직접 mutation하지 않고 Engine view props와
+command를 사용한다. Engine barrel은 Feature component를 re-export하지
+않으며 `src/editor/EditorShellLayout.tsx`가 네 Feature component를 직접
+import해 배치한다.
 
-## 11. Offline migration boundary
+## 10. Offline migration boundary
 
 `src/models/offlineMigration/index.ts`만 이전 ProjectSource 문서를 LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 
@@ -275,7 +321,7 @@ Feature UI는 Project object를 직접 mutation하지 않고 Engine view props�
 
 이 경계는 bootstrap이나 active UI/Engine에서 import하지 않는다. `src/models/index.ts`의 active public barrel도 이전 모델을 export하지 않는다.
 
-## 12. Verification
+## 11. Verification
 
 `scripts/runVerificationSuite.mjs`는 `scripts/verify*.ts`를 이름순 실행한다. LayerDocument 관련 핵심 fixture:
 
@@ -285,22 +331,25 @@ Feature UI는 Project object를 직접 mutation하지 않고 Engine view props�
 - PSD import/refresh/source lifecycle/runtime GC
 - `.sfep` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
-- Canvas/Timeline/Properties/PSD Tree consumer cutover
+- Canvas/Timeline/Properties/PSD Tree public port integration
 - pure Animation public entry의 keyframe/evaluation/frame conversion/modifier/motion-path 계산
 - Drawing/Text Owner transaction, Audio unsupported capability와 기존
   placeholder descriptor
-- engine import boundary와 active public barrel removal
+- Engine import boundary와 최종 public barrel/Editor wiring
 - full/fast render, previous-scene reuse, dirty region, composition/surface/source cache
 
 `verifyLayerDocumentPreviewRuntimeCache.ts`가 runtime cache A-F 계약을 한 곳에서 검증한다.
+`verifyLayerDocumentRenderObservationBaseline.ts`는 현재 LayerDocument
+profiling identity와 painter clone, Dirty Region, Composition/Surface
+Cache의 최적화 전 정적 Baseline을 고정한다.
 
 정적 종료 검증은 `npm test`, `npm run lint`, `npm run build`, `git diff --check`다. Browser QA와 실제 조작 QA는 별도 요청이 있을 때만 수행한다.
 
-## 13. 영구 문서 지도
+## 12. 영구 문서 지도
 
 - `40_modifier_library.md`: Modifier Library
 - `41_psd_import_workflow.md`: PSD import/refresh의 역사와 당시 구현
-- `42_preview_quality_and_memory_cache.md`: preview quality/memory
+- `42_preview_quality_and_memory_cache.md`: backing-scale-only preview quality와 resource lifecycle
 - `43_dual_renderer_architecture.md`: dual renderer 역사
 - `44_preview_runtime_optimization.md`: preview runtime optimization
 - `45_editor_draft_runtime_integration.md`: Draft runtime 도입
@@ -315,3 +364,10 @@ Feature UI는 Project object를 직접 mutation하지 않고 Engine view props�
 - `54_editor_shared_state_cross_engine_synchronization_investigation.md`: cutover 전 정적 조사
 - `55_layer_type_future_engine_foundation.md`: 이전 Foundation 기록, 현재 구조로 superseded
 - `56_layer_document_architecture.md`: 현재 canonical LayerDocument architecture
+- `57_layer_document_persistence_project_lifecycle.md`: `.sfep` persistence,
+  Save/Open/Reconnect와 Project lifecycle
+- `58_editor_project_owner_panel_engine_architecture.md`: Editor Project Owner,
+  Composition Root와 네 Panel Engine의 최종 architecture
+- `59_render_runtime_optimization_architecture_audit.md`: 현재 Render/Canvas
+  최적화 wiring, painter order identity 회귀, cache/metrics/quality 복구
+  우선순위 조사

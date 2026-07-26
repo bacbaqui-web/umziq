@@ -33,6 +33,7 @@ export type {
   LayerDocumentSourceVisualKeyPolicy,
   LayerDocumentTransformCommitIntent,
   LayerDocumentTransformDraftSnapshot,
+  LayerDocumentVisualResultCacheKeyInput,
 } from "@/engines/playback-render/models/layerDocumentRuntimeModel";
 export type { EditorPlaceholderDescriptor } from "@/engines/playback-render/models/editorPlaceholderModel";
 export type {
@@ -86,9 +87,12 @@ export {
   buildLayerDocumentRuntimeReadModel,
 } from "@/engines/playback-render/adapters/layerDocumentRuntimeInputAdapter";
 export {
+  buildLayerDocumentCompositionVisualResultCacheKey,
   buildLayerDocumentDraftIdentity,
+  buildLayerDocumentEvaluationIdentity,
   buildLayerDocumentResultCacheKey,
   buildLayerDocumentSourceResourceCacheKey,
+  buildLayerDocumentVisualResultCacheKey,
   layerDocumentSourceVisualKeyPolicy,
 } from "@/engines/playback-render/helpers/layerDocumentRuntimeCacheKeyHelpers";
 export {

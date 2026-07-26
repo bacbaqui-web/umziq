@@ -1,5 +1,5 @@
 import {
-  renderAccurateFrame,
+  renderAccurateRenderer,
   renderFastPreviewRenderer,
   type LayerDocumentRuntimeReadModel,
   type PreviewScene,
@@ -18,14 +18,16 @@ import type {
 export function buildLayerDocumentCanvasRenderFrame(options: {
   runtime: LayerDocumentRuntimeReadModel;
   renderAssets: LayerDocumentCanvasRenderAssetPort;
+  runtimeMetrics?: RuntimeMetricRecordPort;
 }): RenderFrame {
-  return renderAccurateFrame({
+  return renderAccurateRenderer({
     evaluatedScene: options.runtime.scene,
     resolveNodeVisual:
       createLayerDocumentCanvasNodeVisualResolver(
         options.renderAssets
       ),
-  });
+    runtimeMetrics: options.runtimeMetrics,
+  }).frame;
 }
 
 export function buildLayerDocumentCanvasRendererReadModel(options: {
@@ -45,6 +47,7 @@ export function buildLayerDocumentCanvasRendererReadModel(options: {
       renderFrame: buildLayerDocumentCanvasRenderFrame({
         runtime: options.runtime,
         renderAssets: options.renderAssets,
+        runtimeMetrics: options.runtimeMetrics,
       }),
       previewScene: null,
       resolveNodeVisual,

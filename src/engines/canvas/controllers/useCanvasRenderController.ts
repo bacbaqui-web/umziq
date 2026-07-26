@@ -23,36 +23,34 @@ import {
 
 export function resolvePreviewCompositionCacheForRender({
   compositionCache,
-  isPreviewDraftActive,
 }: {
   compositionCache?: CompositionPreviewCacheRuntime;
-  isPreviewDraftActive: boolean;
 }): CompositionPreviewCacheRuntime | undefined {
-  return isPreviewDraftActive ? undefined : compositionCache;
+  return compositionCache;
 }
 
 export function useCanvasRenderController({
   canvasRef,
   renderFrame,
   previewScene,
-  isPreviewDraftActive = false,
   resolveNodeVisual,
   pixelScale,
   previewQuality,
   metrics,
   compositionCache,
   surfaceCache,
+  onCanvasPainted,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   renderFrame: RenderFrame | null;
   previewScene?: PreviewScene | null;
-  isPreviewDraftActive?: boolean;
   resolveNodeVisual?: RenderNodeVisualResolver;
   pixelScale: number;
   previewQuality: ResolvedPreviewQuality;
   metrics?: RuntimeMetricsResource;
   compositionCache?: CompositionPreviewCacheRuntime;
   surfaceCache?: PreviewSurfaceCacheRuntime;
+  onCanvasPainted?: (timestamp?: number) => void;
 }) {
   const metricRecordPort = useMemo(
     () => createRuntimeMetricRecordPort(metrics),
@@ -78,9 +76,7 @@ export function useCanvasRenderController({
 
   const activeCompositionCache = resolvePreviewCompositionCacheForRender({
     compositionCache,
-    isPreviewDraftActive,
   });
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -100,6 +96,9 @@ export function useCanvasRenderController({
         });
       } finally {
         activeCompositionCache?.endFrame();
+      }
+      if (metrics?.getFrameSnapshot().dirtySkip !== 1) {
+        onCanvasPainted?.();
       }
       return;
     }
@@ -122,17 +121,18 @@ export function useCanvasRenderController({
     } finally {
       surfaceFactory.endFrame();
     }
+    onCanvasPainted?.();
   }, [
     canvasRef,
     pixelScale,
     previewQuality,
     previewScene,
-    isPreviewDraftActive,
     renderFrame,
     resolveNodeVisual,
     metrics,
     metricRecordPort,
     activeCompositionCache,
     surfaceCache,
+    onCanvasPainted,
   ]);
 }

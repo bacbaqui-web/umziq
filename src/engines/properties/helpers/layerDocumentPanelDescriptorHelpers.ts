@@ -101,7 +101,7 @@ function buildCapabilities(
         type: "shape",
         ...capability(
           "future",
-          "Shape domain editing is intentionally blocked for this cutover."
+          "Shape domain editing is not implemented."
         ),
       };
       break;

@@ -4,6 +4,8 @@ import type { CanvasGuideViewModel } from "@/engines/canvas";
 import type { Position } from "@/models";
 
 type PreviewViewportLayersProps = {
+  selectedLayerDocumentId: string | null;
+  selectedSourceId: string | null;
   previewCanvasRef: RefObject<HTMLCanvasElement | null>;
   previewBaseOffset: Position;
   previewPan: Position;
@@ -16,6 +18,8 @@ type PreviewViewportLayersProps = {
 };
 
 export default function PreviewViewportLayers({
+  selectedLayerDocumentId,
+  selectedSourceId,
   previewCanvasRef,
   previewBaseOffset,
   previewPan,
@@ -39,6 +43,12 @@ export default function PreviewViewportLayers({
     <>
       <div style={previewStageStyle}>
         <canvas
+          data-selected-layer-document-id={
+            selectedLayerDocumentId ?? undefined
+          }
+          data-selected-source-id={
+            selectedSourceId ?? undefined
+          }
           ref={previewCanvasRef}
           style={{
             position: "absolute",

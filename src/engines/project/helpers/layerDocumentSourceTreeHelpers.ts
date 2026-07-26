@@ -78,6 +78,11 @@ function buildPsdNodeHierarchy(options: {
   sources: readonly PsdNodeSourceRecord[];
   document: PsdDocumentSourceRecord | null;
   resolution: LayerDocumentSourceRuntimeResolutionReadPort;
+  entityKindBySourceId: ReadonlyMap<
+    string,
+    "layer" | "composition"
+  >;
+  placementOrderBySourceId: ReadonlyMap<string, number>;
 }): PsdNodeHierarchy {
   const documentExists = options.document !== null;
   const documentRootPaths = documentRootSourcePaths(options.document);
@@ -130,16 +135,38 @@ function buildPsdNodeHierarchy(options: {
   ): PsdSourceTreeNode => ({
     ...metadata(source, options.resolution),
     kind: "psd-node",
+    entityKind:
+      options.entityKindBySourceId.get(source.sourceId) ?? "layer",
     documentSourceId: source.data.documentSourceId,
     sourcePath: source.data.sourcePath,
     children: (childrenByParentId.get(source.sourceId) ?? [])
       .map(buildNode)
-      .sort(compareTreeMetadata),
+      .sort((left, right) => {
+        const leftOrder =
+          options.placementOrderBySourceId.get(left.sourceId);
+        const rightOrder =
+          options.placementOrderBySourceId.get(right.sourceId);
+        return leftOrder !== undefined &&
+          rightOrder !== undefined &&
+          leftOrder !== rightOrder
+          ? leftOrder - rightOrder
+          : compareTreeMetadata(left, right);
+      }),
     orphanReason: orphanReasonBySourceId.get(source.sourceId) ?? null,
   });
   const builtRoots = rootSources
     .map(buildNode)
-    .sort(compareTreeMetadata);
+    .sort((left, right) => {
+      const leftOrder =
+        options.placementOrderBySourceId.get(left.sourceId);
+      const rightOrder =
+        options.placementOrderBySourceId.get(right.sourceId);
+      return leftOrder !== undefined &&
+        rightOrder !== undefined &&
+        leftOrder !== rightOrder
+        ? leftOrder - rightOrder
+        : compareTreeMetadata(left, right);
+    });
 
   if (!documentExists) {
     return { roots: [], orphans: builtRoots };
@@ -175,6 +202,35 @@ export function buildPsdSourceTreeReadModel(options: {
     options.project.payload.sourceRegistry.sourcesById
   );
   const nodesByDocumentId = new Map<string, PsdNodeSourceRecord[]>();
+  const entityKindBySourceId = new Map<
+    string,
+    "layer" | "composition"
+  >();
+  const placementOrderBySourceId = new Map<string, number>();
+  Object.values(options.project.payload.layerDocumentsById)
+    .forEach((layer) => {
+      const sourceId = layer.common.source?.sourceId;
+      if (!sourceId) return;
+      const entityKind =
+        layer.type === "group" ? "composition" : "layer";
+      if (
+        entityKind === "composition" ||
+        !entityKindBySourceId.has(sourceId)
+      ) {
+        entityKindBySourceId.set(sourceId, entityKind);
+      }
+      const currentOrder =
+        placementOrderBySourceId.get(sourceId);
+      if (
+        currentOrder === undefined ||
+        layer.common.placement.order < currentOrder
+      ) {
+        placementOrderBySourceId.set(
+          sourceId,
+          layer.common.placement.order
+        );
+      }
+    });
   sources.forEach((source) => {
     if (source.kind !== "psd-node") return;
     const nodes = nodesByDocumentId.get(source.data.documentSourceId);
@@ -196,6 +252,8 @@ export function buildPsdSourceTreeReadModel(options: {
       sources: nodes,
       document: documentsById.get(documentSourceId) ?? null,
       resolution: options.resolution,
+      entityKindBySourceId,
+      placementOrderBySourceId,
     });
     hierarchyByDocumentId.set(documentSourceId, hierarchy);
     orphanNodes.push(...hierarchy.orphans);

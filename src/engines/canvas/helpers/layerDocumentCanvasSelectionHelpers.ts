@@ -6,9 +6,6 @@ import type {
   LayerDocumentRuntimeTargetReadModel,
 } from "@/engines/playback-render";
 import {
-  STATIC_PSD_SELECTION_FRAME_VISUAL_KEY,
-} from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
-import {
   getTransformGeometry,
 } from "@/engines/canvas/helpers/canvasCoordinateHelpers";
 import {
@@ -22,12 +19,17 @@ import type {
   LayerDocumentCanvasRenderAssetPort,
   LayerDocumentCanvasViewportInput,
 } from "@/engines/canvas/models/layerDocumentCanvasModeModel";
-import type {
-  CanvasSelectionReadModel,
-} from "@/engines/canvas/models/canvasEngineModel";
+import {
+  STATIC_PSD_SELECTION_FRAME_VISUAL_KEY,
+  SUBCOMPOSITION_SELECTION_CONTENT_REVISION,
+  SUBCOMPOSITION_SELECTION_FRAME_VISUAL_KEY,
+} from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
 import type {
   SelectionSourceAlphaDescriptor,
 } from "@/engines/canvas/models/canvasSelectionAlphaModel";
+import type {
+  CanvasSelectionReadModel,
+} from "@/engines/canvas/models/canvasEngineModel";
 import type {
   PreviewMotionPathPoint,
   PreviewOverlay,
@@ -194,76 +196,87 @@ function descriptorForNode(options: {
   >;
   renderAssets: LayerDocumentCanvasRenderAssetPort;
 }): SelectionSourceAlphaDescriptor | null {
-  const node = options.node;
-  const layerDocumentId = node.layerDocumentId;
+  const layerDocumentId =
+    options.node.layerDocumentId;
   if (!layerDocumentId) return null;
   const input =
-    options.inputsByLayerDocumentId.get(layerDocumentId);
+    options.inputsByLayerDocumentId.get(
+      layerDocumentId
+    );
   if (!input) return null;
-  if (node.type === "placeholder") {
+  if (options.node.type === "placeholder") {
     return {
       kind: "solid",
-      logicalSize: node.logicalSize,
+      logicalSize: options.node.logicalSize,
       sourceFingerprint:
-        `layer-document:${layerDocumentId}:${node.sourceType}`,
+        `layer-document:${layerDocumentId}:` +
+        options.node.sourceType,
       sourceRevision: input.revision,
       frameVisualKey:
         STATIC_PSD_SELECTION_FRAME_VISUAL_KEY,
-      opacity: node.opacity,
-      visible: node.visible,
+      opacity: options.node.opacity,
+      visible: options.node.visible,
     };
   }
-  if (node.type === "composition") {
-    const orderedChildren = node.children.map((child) => {
-      const source = descriptorForNode({
-        ...options,
-        node: child,
+  if (options.node.type === "composition") {
+    const orderedChildren =
+      options.node.children.map((child) => {
+        const source = descriptorForNode({
+          ...options,
+          node: child,
+        });
+        return source
+          ? { source, transform: child.transform }
+          : null;
       });
-      return source
-        ? { source, transform: child.transform }
-        : null;
-    });
     if (orderedChildren.some((child) => child === null)) {
       return null;
     }
     return {
       kind: "subComp",
-      logicalSize: node.size,
+      logicalSize: options.node.size,
       sourceFingerprint:
         `layer-document:${layerDocumentId}`,
-      sourceRevision: input.layerResultCacheKey,
-      frameVisualKey: input.localFrame,
-      opacity: node.opacity,
-      visible: node.visible,
+      sourceRevision:
+        SUBCOMPOSITION_SELECTION_CONTENT_REVISION,
+      frameVisualKey:
+        SUBCOMPOSITION_SELECTION_FRAME_VISUAL_KEY,
+      opacity: options.node.opacity,
+      visible: options.node.visible,
       orderedChildren: orderedChildren.filter(
-        (child): child is NonNullable<typeof child> =>
+        (
+          child
+        ): child is NonNullable<typeof child> =>
           child !== null
       ),
     };
   }
-  if (!node.sourceId || !input.sourceResourceCacheKey) {
+  if (
+    !options.node.sourceId ||
+    !input.sourceResourceCacheKey
+  ) {
     return null;
   }
   const asset = options.renderAssets.resolve({
     layerDocumentId,
-    sourceId: node.sourceId,
+    sourceId: options.node.sourceId,
     sourceResourceCacheKey:
       input.sourceResourceCacheKey,
-    renderItemId: node.renderItemId,
-    drawableId: node.drawableId,
-    logicalSize: node.logicalSize,
+    renderItemId: options.node.renderItemId,
+    drawableId: options.node.drawableId,
+    logicalSize: options.node.logicalSize,
   });
   if (!asset?.alphaCanvas) return null;
   return {
     kind: "layer",
     sourceCanvas: asset.alphaCanvas,
-    logicalSize: node.logicalSize,
+    logicalSize: options.node.logicalSize,
     sourceFingerprint: asset.sourceVisualIdentity,
     sourceRevision: input.sourceResourceCacheKey,
     frameVisualKey:
       STATIC_PSD_SELECTION_FRAME_VISUAL_KEY,
-    opacity: node.opacity,
-    visible: node.visible,
+    opacity: options.node.opacity,
+    visible: options.node.visible,
   };
 }
 

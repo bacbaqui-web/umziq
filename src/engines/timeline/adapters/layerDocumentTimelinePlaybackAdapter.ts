@@ -27,17 +27,14 @@ LayerDocumentTimelinePlaybackScheduler = {
  */
 export function createLayerDocumentTimelinePlaybackRuntime(
   options: {
-    assembly: Pick<
-      LayerDocumentTimelineOwnerPort,
-      "scope"
-    >;
+    scope: LayerDocumentTimelineOwnerPort["scope"];
     scheduler:
       LayerDocumentTimelinePlaybackScheduler;
     clearDraft?: () => void;
   }
 ): LayerDocumentTimelineRuntimePort {
   const metadata = () => {
-    const scope = options.assembly.scope.read();
+    const scope = options.scope.read();
     return scope.ok
       ? {
           durationFrames:

@@ -4,7 +4,7 @@ import type {
 
 export function createLayerDocumentTimelineNavigationController(
   options: {
-    assembly: LayerDocumentTimelineOwnerPort;
+    owner: LayerDocumentTimelineOwnerPort;
     ui: {
       readIsOpen: () => boolean;
       setIsOpen: (isOpen: boolean) => void;
@@ -24,7 +24,7 @@ export function createLayerDocumentTimelineNavigationController(
     selectComposition: (
       layerDocumentId: string
     ) => {
-      options.assembly.scope.enter(
+      options.owner.scope.enter(
         layerDocumentId
       );
       closeAndRestoreFocus();

@@ -1,4 +1,5 @@
 import type { CompositionPreviewCacheKeyInput } from "@/engines/canvas/models/compositionCacheModel";
+import type { CompositionPreviewNode } from "@/engines/playback-render";
 
 function normalizeScale(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
@@ -22,4 +23,19 @@ export function buildCompositionPreviewCacheKey(
     "runtime",
     input.runtimeId ?? "default",
   ].join(":");
+}
+
+export function isCompositionPreviewSurfaceContentEqual(
+  previous: CompositionPreviewNode,
+  next: CompositionPreviewNode
+): boolean {
+  return (
+    previous.targetCompId === next.targetCompId &&
+    previous.logicalSize.width === next.logicalSize.width &&
+    previous.logicalSize.height === next.logicalSize.height &&
+    previous.children.length === next.children.length &&
+    previous.children.every(
+      (child, index) => child === next.children[index]
+    )
+  );
 }

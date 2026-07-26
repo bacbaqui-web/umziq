@@ -27,14 +27,16 @@ export type ProfilingFixtureProfile = {
   readonly import: {
     readonly projectState: "fresh-empty-project";
     readonly fileIndex: 0;
-    readonly compositionId: string;
+    readonly layerDocumentIdPrefix: "layer-document:";
     readonly compositionName: string;
   };
   readonly target: {
     readonly kind: "layer" | "subComp";
     readonly name: string;
-    readonly sourceId: string;
-    readonly timelineItemId: string;
+    readonly identity: {
+      readonly layerDocumentIdPrefix: "layer-document:";
+      readonly sourceIdPrefix: "psd-source:";
+    };
     readonly frame: 0;
     readonly startFrame: 0;
     readonly durationFrames: 150;
@@ -51,12 +53,6 @@ export type ProfilingFixtureProfile = {
   readonly previewQuality: "medium";
 };
 
-const DRAG_MAIN_ID = "main-0-drag-test";
-const DRAG_LAYER_ID = `${DRAG_MAIN_ID}-layer-0-drag-test`;
-const LAYER_MAIN_ID = "main-0-layer-test";
-const NESTED_COMP_ID = `${LAYER_MAIN_ID}-sub-1`;
-const GLOW_LAYER_ID = `${LAYER_MAIN_ID}-layer-0-untitled`;
-
 export const PROFILING_FIXTURES = {
   flat: {
     id: "flat",
@@ -67,14 +63,16 @@ export const PROFILING_FIXTURES = {
     import: {
       projectState: "fresh-empty-project",
       fileIndex: 0,
-      compositionId: DRAG_MAIN_ID,
-      compositionName: "drag_test.psd",
+      layerDocumentIdPrefix: "layer-document:",
+      compositionName: "drag_test",
     },
     target: {
       kind: "layer",
       name: "drag_test",
-      sourceId: DRAG_LAYER_ID,
-      timelineItemId: `${DRAG_MAIN_ID}-timeline-layer-${DRAG_LAYER_ID}`,
+      identity: {
+        layerDocumentIdPrefix: "layer-document:",
+        sourceIdPrefix: "psd-source:",
+      },
       frame: 0,
       startFrame: 0,
       durationFrames: 150,
@@ -106,14 +104,16 @@ export const PROFILING_FIXTURES = {
     import: {
       projectState: "fresh-empty-project",
       fileIndex: 0,
-      compositionId: LAYER_MAIN_ID,
-      compositionName: "layer_test.psd",
+      layerDocumentIdPrefix: "layer-document:",
+      compositionName: "layer_test",
     },
     target: {
       kind: "subComp",
       name: "아빠",
-      sourceId: NESTED_COMP_ID,
-      timelineItemId: `${LAYER_MAIN_ID}-timeline-sub-1`,
+      identity: {
+        layerDocumentIdPrefix: "layer-document:",
+        sourceIdPrefix: "psd-source:",
+      },
       frame: 0,
       startFrame: 0,
       durationFrames: 150,
@@ -150,14 +150,16 @@ export const PROFILING_FIXTURES = {
     import: {
       projectState: "fresh-empty-project",
       fileIndex: 0,
-      compositionId: LAYER_MAIN_ID,
-      compositionName: "layer_test.psd",
+      layerDocumentIdPrefix: "layer-document:",
+      compositionName: "layer_test",
     },
     target: {
       kind: "layer",
       name: "같이자요...",
-      sourceId: GLOW_LAYER_ID,
-      timelineItemId: `${LAYER_MAIN_ID}-timeline-layer-${GLOW_LAYER_ID}`,
+      identity: {
+        layerDocumentIdPrefix: "layer-document:",
+        sourceIdPrefix: "psd-source:",
+      },
       frame: 0,
       startFrame: 0,
       durationFrames: 150,
@@ -321,36 +323,42 @@ export const PROFILING_SCENARIOS: readonly ProfilingScenario[] = [
 ];
 
 export const PROFILING_ENVIRONMENT_FREEZE = {
-  status: "frozen-from-first-valid-production-pilot",
+  status:
+    "frozen-from-first-valid-layer-document-production-headless-pilot",
   sourceScenarioId: "D-seed-flat-off-fast",
   sourceLane: "browser-performance-production",
-  captureMethod: "external-edge-cdp",
+  captureMethod: "headless-chromium-cdp",
   captureDriver: "scripts/previewInteractionProfilingCdpDriver.mjs",
-  browser: "Edg/150.0.4078.80",
+  browser: "HeadlessChrome/149.0.7827.55",
   protocolVersion: "1.3",
   productionUrl: "http://127.0.0.1:4174/",
   productionCommand:
     "npm run build && npm run preview -- --host 127.0.0.1 --port 4174 --strictPort",
   validityPrerequisites: [
-    "create the exact production root URL in the dedicated Edge QA profile through Browser CDP",
+    "create a fresh headless Chromium target for the exact production root URL through CDP",
     "import drag_test.psd into a fresh empty project and reach the frozen flat target at frame 0",
     "set medium Preview quality, fast-render, glow off, browser zoom 100%, and finish the declared Preview viewport setup",
-    "use no CPU or network throttling and keep the app as the only non-DevTools tab",
+    "use no CPU or network throttling and capture only the dedicated app target",
   ],
   measurementProcedure: [
-    "use Runtime.evaluate through the external CDP driver only after every validity prerequisite passes",
+    "use Runtime.evaluate through the headless Chromium CDP driver only after every validity prerequisite passes",
     "read window.innerWidth, window.innerHeight, window.outerWidth, window.outerHeight and window.devicePixelRatio",
     "read the Preview viewport DOMRect from document.querySelector('canvas')?.parentElement?.parentElement?.getBoundingClientRect()",
-    "record that DevTools was not opened because docking changes the measured application viewport",
+    "record that no visible browser or docked DevTools participates in the headless capture",
     "freeze the measured values in the baseline artifact; every later run must match them before capture",
   ],
   frozenValues: {
-    capturedAtUtc: "2026-07-21T16:27:53Z",
-    devToolsDocking: "not-opened-external-cdp",
+    capturedAtUtc: "2026-07-25T21:33:09Z",
+    devToolsDocking: "not-applicable-headless-cdp",
     windowInnerCss: { width: 1792, height: 1012 },
-    windowOuterCss: { width: 1800, height: 1130 },
+    windowOuterCss: { width: 1792, height: 1012 },
     devicePixelRatio: 2,
-    previewViewportDomRectCss: { x: 286, y: 0, width: 1180, height: 726 },
+    previewViewportDomRectCss: {
+      x: 286,
+      y: 42,
+      width: 1180,
+      height: 684,
+    },
   },
 } as const;
 
@@ -372,7 +380,7 @@ export const PROFILING_LANES: Readonly<Record<ProfilingLane, {
       "UTC timestamp and local timezone",
       "git HEAD and git diff hash/status",
       "Node/npm/Vite version and production asset hash",
-      "OS version/build, browser name/version and DevTools version",
+      "OS version/build, headless Chromium name/version and CDP protocol version",
       "CPU model/core count, physical memory and GPU",
       "power source, low-power mode and thermal state",
       "display refresh rate, display scaling and devicePixelRatio",
@@ -382,7 +390,7 @@ export const PROFILING_LANES: Readonly<Record<ProfilingLane, {
       "trace start/end timestamps and actual playback/pointer event counts",
     ],
     rules: [
-      "use a fresh Edge window with extensions disabled and no unrelated tabs",
+      "use a fresh dedicated headless Chromium target with no unrelated capture targets",
       "freeze viewport and Preview DOMRect from the first valid production pilot rather than a repository literal",
       "use no CPU or network throttling unless the recorded environment deliberately fixes it",
       "run Browser Performance separately from React Profiler",
@@ -478,7 +486,7 @@ export const PROFILING_REPLAY_CAPABILITY = {
   deterministicExternalReplayAvailable: true,
   evidence: [
     "package.json has no Playwright, Puppeteer, WebDriver or equivalent browser automation dependency",
-    "scripts/previewInteractionProfilingCdpDriver.mjs implements trusted Input.dispatchMouseEvent replay through the dedicated Edge CDP endpoint",
+    "scripts/previewInteractionProfilingCdpDriver.mjs implements trusted Input.dispatchMouseEvent replay through the dedicated headless Chromium CDP endpoint",
     "the high-frequency steady lane dispatches 100 raw mousemove inputs against absolute monotonic deadlines over 1000 ms",
     "Runtime Metrics are hook-local and have no product UI/export port for browser capture",
   ],

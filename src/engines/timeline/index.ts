@@ -1,4 +1,3 @@
-export { default as TimelinePanel } from "@/features/timeline/components/TimelinePanel";
 export {
   useLayerDocumentTimelineEngine,
   type UseLayerDocumentTimelineEngineOptions,
@@ -22,6 +21,23 @@ export {
 export {
   buildLayerDocumentTimelineUiReadModel,
 } from "@/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers";
+export {
+  buildLayerDocumentTimelineConsumerRows,
+  createLayerDocumentTimelineConsumerAdapter,
+} from "@/engines/timeline/adapters/layerDocumentTimelineConsumerAdapter";
+export type {
+  LayerDocumentTimelineConsumerRow,
+  LayerDocumentTimelineConsumerRowsResult,
+} from "@/engines/timeline/models/layerDocumentTimelineConsumerModel";
+export type {
+  LayerDocumentTimelineOwnerPort,
+} from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
+export {
+  createLayerDocumentTimelineCommandAdapter,
+  prepareLayerDocumentTimelineOwnerCommit,
+  transitionLayerDocumentTimelineKeyframeSelection,
+  type LayerDocumentTimelineOwnerCommitPreparation,
+} from "@/engines/timeline/adapters/layerDocumentTimelineIntentCommitAdapter";
 export {
   layerDocumentTimelineTimingChanged,
   resolveLayerDocumentTimelineTimingDraft,

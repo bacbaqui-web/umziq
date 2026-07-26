@@ -253,7 +253,10 @@ export default function PsdTreeNode({
                 flex: "0 0 auto",
               }}
             >
-              <LayerCompositionIcon kind="composition" size={16} />
+              <LayerCompositionIcon
+                kind={node.entityKind ?? "layer"}
+                size={16}
+              />
             </span>
           )}
 

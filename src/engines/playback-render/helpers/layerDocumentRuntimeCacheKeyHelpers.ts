@@ -2,6 +2,7 @@ import type {
   LayerDocumentResultCacheKeyInput,
   LayerDocumentSourceResourceCacheKeyInput,
   LayerDocumentTransformDraftSnapshot,
+  LayerDocumentVisualResultCacheKeyInput,
 } from "@/engines/playback-render/models/layerDocumentRuntimeModel";
 import type { SourceRegistryKind } from "@/models";
 
@@ -87,7 +88,7 @@ export function buildLayerDocumentDraftIdentity(
   ]);
 }
 
-export function buildLayerDocumentResultCacheKey(
+export function buildLayerDocumentEvaluationIdentity(
   input: LayerDocumentResultCacheKeyInput
 ): string {
   return JSON.stringify([
@@ -99,5 +100,55 @@ export function buildLayerDocumentResultCacheKey(
     input.quality,
     input.sourceResourceCacheKey,
     input.draftIdentity,
+  ]);
+}
+
+/**
+ * Compatibility name used by Source transaction invalidation descriptors.
+ * Runtime display reuse must use buildLayerDocumentVisualResultCacheKey.
+ */
+export function buildLayerDocumentResultCacheKey(
+  input: LayerDocumentResultCacheKeyInput
+): string {
+  return buildLayerDocumentEvaluationIdentity(input);
+}
+
+/**
+ * Displayed-result identity deliberately excludes evaluation frame/revision.
+ * Static sources can therefore reuse the same visual result across frame-only
+ * evaluation changes, while every value that changes painted output remains
+ * part of the key.
+ */
+export function buildLayerDocumentVisualResultCacheKey(
+  input: LayerDocumentVisualResultCacheKeyInput
+): string {
+  return JSON.stringify([
+    "layer-document-visual-result-v1",
+    input.layerDocumentId,
+    input.sourceType,
+    input.sourceResourceCacheKey,
+    input.order,
+    input.evaluatedTransform,
+    normalizeNumber(input.opacity),
+    input.effects,
+    input.modifiers,
+    input.contentIdentity,
+  ]);
+}
+
+export function buildLayerDocumentCompositionVisualResultCacheKey(
+  ownVisualResultCacheKey: string,
+  children: readonly {
+    readonly layerResultCacheKey?: string;
+    readonly order: number;
+  }[]
+): string {
+  return JSON.stringify([
+    "layer-document-composition-visual-result-v1",
+    ownVisualResultCacheKey,
+    children.map((child) => [
+      child.order,
+      child.layerResultCacheKey ?? null,
+    ]),
   ]);
 }

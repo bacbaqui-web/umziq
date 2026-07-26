@@ -1,6 +1,5 @@
 import type {
   LayerDocumentProjectOwnerAction,
-  LayerDocumentProjectOwnerPort,
   LayerDocumentProjectOwnerState,
   LayerDocumentProjectOwnerTransitionResult,
 } from "@/engines/project/models/layerDocumentProjectOwnerModel";
@@ -18,8 +17,10 @@ export function createEditorProjectOwnerPort(
 ): EditorProjectOwnerPort {
   let state = initialState;
   return {
-    read: () => state,
-    command: (action) => {
+    get state() {
+      return state;
+    },
+    transition: (action) => {
       const result = reduce(state, action);
       if (result.ok && result.changed) {
         state = result.state;
@@ -27,20 +28,5 @@ export function createEditorProjectOwnerPort(
       }
       return result;
     },
-  };
-}
-
-/**
- * Temporary A3 compatibility for Project Engine/cutover consumers.
- * The adapter owns no state and delegates to the Editor Project Owner.
- */
-export function createLayerDocumentProjectOwnerCompatibilityPort(
-  owner: EditorProjectOwnerPort
-): LayerDocumentProjectOwnerPort {
-  return {
-    get state() {
-      return owner.read();
-    },
-    transition: owner.command,
   };
 }

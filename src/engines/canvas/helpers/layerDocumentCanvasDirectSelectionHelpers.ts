@@ -1,10 +1,10 @@
 import {
-  SELECTION_ALPHA_THRESHOLD,
-} from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
-import {
   applyCanvasSelectionMatrix,
   isPointInCanvasSelectionProjection,
 } from "@/engines/canvas/helpers/canvasDirectSelectionGeometryHelpers";
+import {
+  SELECTION_ALPHA_THRESHOLD,
+} from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
 import type {
   CanvasSelectionPoint,
 } from "@/engines/canvas/models/canvasDirectSelectionModel";
@@ -54,9 +54,9 @@ export function hitLayerDocumentCanvasDirectSelection(options: {
     return { status: "none" };
   }
   for (
-    let index = options.candidates.length - 1;
-    index >= 0;
-    index -= 1
+    let index = 0;
+    index < options.candidates.length;
+    index += 1
   ) {
     const candidate = options.candidates[index];
     if (
@@ -102,6 +102,28 @@ export function hitLayerDocumentCanvasDirectSelection(options: {
   return { status: "none" };
 }
 
+function resolveLayerDocumentCanvasGlowSource(
+  candidate:
+    | Extract<
+        LayerDocumentCanvasDirectSelectionCandidate,
+        { status: "ready" }
+      >
+    | null,
+  provider: SelectionSourceAlphaProvider
+): {
+  candidate: Extract<
+    LayerDocumentCanvasDirectSelectionCandidate,
+    { status: "ready" }
+  >;
+  entry: SelectionSourceAlphaEntry;
+} | null {
+  if (!candidate) return null;
+  const alpha = provider.get(candidate.descriptor);
+  return alpha.status === "ready"
+    ? { candidate, entry: alpha.entry }
+    : null;
+}
+
 export function resolveLayerDocumentCanvasDirectSelectionIntent(
   hit: LayerDocumentCanvasDirectSelectionHit,
   selectedLayerDocumentId: string | null
@@ -131,28 +153,6 @@ export function buildLayerDocumentCanvasGlowSelectionKey(
     : null;
 }
 
-export function resolveLayerDocumentCanvasGlowSource(
-  candidate:
-    | Extract<
-        LayerDocumentCanvasDirectSelectionCandidate,
-        { status: "ready" }
-      >
-    | null,
-  provider: SelectionSourceAlphaProvider
-): {
-  candidate: Extract<
-    LayerDocumentCanvasDirectSelectionCandidate,
-    { status: "ready" }
-  >;
-  entry: SelectionSourceAlphaEntry;
-} | null {
-  if (!candidate) return null;
-  const alpha = provider.get(candidate.descriptor);
-  return alpha.status === "ready"
-    ? { candidate, entry: alpha.entry }
-    : null;
-}
-
 export function drawLayerDocumentCanvasGlow(options: {
   enabled: boolean;
   target: HTMLCanvasElement | null;
@@ -174,7 +174,6 @@ export function drawLayerDocumentCanvasGlow(options: {
     return false;
   }
   if (!target || !provider || !renderer) {
-    provider?.retain([]);
     renderer?.clearSelection(target);
     return false;
   }

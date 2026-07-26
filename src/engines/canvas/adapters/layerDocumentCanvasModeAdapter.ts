@@ -81,6 +81,7 @@ export function buildLayerDocumentCanvasModeReadModel(
           renderAssets: input.renderAssets,
           previousPreviewScene:
             input.previousPreviewScene,
+          runtimeMetrics: input.runtimeMetrics,
         }),
       selection:
         buildLayerDocumentCanvasSelectionReadModel({

@@ -11,6 +11,7 @@ import type {
   RenderFrame,
   RenderNodeVisualResolver,
   RendererMode,
+  RuntimeMetricRecordPort,
 } from "@/engines/playback-render";
 import type {
   CanvasSelectionProjection,
@@ -29,10 +30,6 @@ import type {
 export interface LayerDocumentCanvasRenderAsset {
   readonly source: RenderDrawableSource;
   readonly alphaCanvas: HTMLCanvasElement | null;
-  /**
-   * Source visual identity only. It must not contain a Layer result frame or
-   * Draft identity.
-   */
   readonly sourceVisualIdentity: string;
 }
 
@@ -65,7 +62,9 @@ export type LayerDocumentCanvasDirectSelectionCandidate =
     }
   | {
       readonly status: "blocked";
-      readonly reason: "missing-runtime-target" | "missing-render-asset";
+      readonly reason:
+        | "missing-runtime-target"
+        | "missing-render-asset";
       readonly sceneNodeIndex: number;
       readonly layerDocumentId: string;
       readonly targetKind: "layer" | "group";
@@ -120,6 +119,7 @@ export interface LayerDocumentCanvasModeInput {
   readonly viewport: LayerDocumentCanvasViewportInput;
   readonly renderAssets: LayerDocumentCanvasRenderAssetPort;
   readonly previousPreviewScene?: PreviewScene | null;
+  readonly runtimeMetrics?: RuntimeMetricRecordPort;
 }
 
 export interface LayerDocumentCanvasRendererReadModel {
@@ -249,7 +249,7 @@ export interface LayerDocumentCanvasCommandPort<
   ) => TSelectionResult;
   /**
    * Required Canvas-native semantic boundary. A caller must not route this
-   * through Legacy animation commands.
+   * through deprecated animation commands.
    */
   readonly publishMotionPathKeyframeDraft:
     (command: LayerDocumentCanvasSemanticKeyframeCommand) =>

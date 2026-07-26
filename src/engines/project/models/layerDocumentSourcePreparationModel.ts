@@ -39,6 +39,7 @@ export interface SourceRegistryTreeMetadata {
 
 export interface PsdSourceTreeNode extends SourceRegistryTreeMetadata {
   readonly kind: "psd-node";
+  readonly entityKind: "layer" | "composition";
   readonly documentSourceId: string;
   readonly sourcePath: string;
   readonly children: readonly PsdSourceTreeNode[];

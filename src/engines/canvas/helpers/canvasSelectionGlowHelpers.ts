@@ -1,8 +1,13 @@
 import {
-  CANVAS_SELECTION_GLOW_BLUR_CSS_PIXELS,
-  CANVAS_SELECTION_GLOW_RGBA,
+  CANVAS_SELECTION_SCREEN_TONE_DENSITIES,
+  CANVAS_SELECTION_SCREEN_TONE_OUTLINE_SOURCE_PIXELS,
+  CANVAS_SELECTION_SCREEN_TONE_RADIUS_SOURCE_PIXELS,
+  CANVAS_SELECTION_SCREEN_TONE_RGBA,
+  CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE,
 } from "@/engines/canvas/constants/canvasSelectionGlowConstants";
-import { SELECTION_ALPHA_THRESHOLD } from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
+import {
+  SELECTION_ALPHA_THRESHOLD,
+} from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
 import type {
   CanvasSelectionGlowDrawInput,
 } from "@/engines/canvas/models/canvasSelectionGlowModel";
@@ -10,26 +15,218 @@ import type {
   SelectionSourceAlphaEntry,
 } from "@/engines/canvas/models/canvasSelectionAlphaModel";
 
-export function buildCanvasSelectionGlowMaskRgba(
-  entry: SelectionSourceAlphaEntry
-): Uint8ClampedArray | null {
-  const pixelCount = entry.width * entry.height;
-  if (!Number.isInteger(entry.width) || !Number.isInteger(entry.height) ||
-      entry.width <= 0 || entry.height <= 0 || entry.alphaBytes.length !== pixelCount) {
-    return null;
+const BAYER_8X8 = [
+  0, 48, 12, 60, 3, 51, 15, 63,
+  32, 16, 44, 28, 35, 19, 47, 31,
+  8, 56, 4, 52, 11, 59, 7, 55,
+  40, 24, 36, 20, 43, 27, 39, 23,
+  2, 50, 14, 62, 1, 49, 13, 61,
+  34, 18, 46, 30, 33, 17, 45, 29,
+  10, 58, 6, 54, 9, 57, 5, 53,
+  42, 26, 38, 22, 41, 25, 37, 21,
+] as const;
+
+export type CanvasSelectionScreenToneGlow = {
+  readonly width: number;
+  readonly height: number;
+  readonly padding: number;
+  readonly offsetSourcePixels: number;
+  readonly widthSourcePixels: number;
+  readonly heightSourcePixels: number;
+  readonly rgba: Uint8ClampedArray;
+};
+
+function buildOutsideDistance(
+  entry: SelectionSourceAlphaEntry,
+  padding: number,
+  width: number,
+  height: number,
+  sampleScale: number
+) {
+  const far = padding + 1;
+  const distance = new Uint8Array(width * height);
+  distance.fill(far);
+  for (let y = 0; y < entry.height; y += 1) {
+    for (let x = 0; x < entry.width; x += 1) {
+      if (
+        (entry.alphaBytes[y * entry.width + x] ?? 0) <=
+        SELECTION_ALPHA_THRESHOLD
+      ) {
+        continue;
+      }
+      distance[
+        (Math.floor(y * sampleScale) + padding) *
+          width +
+          Math.floor(x * sampleScale) +
+          padding
+      ] = 0;
+    }
   }
-  const rgba = new Uint8ClampedArray(pixelCount * 4);
-  for (let index = 0; index < pixelCount; index += 1) {
-    if ((entry.alphaBytes[index] ?? 0) <= SELECTION_ALPHA_THRESHOLD) continue;
-    rgba[index * 4] = CANVAS_SELECTION_GLOW_RGBA[0];
-    rgba[index * 4 + 1] = CANVAS_SELECTION_GLOW_RGBA[1];
-    rgba[index * 4 + 2] = CANVAS_SELECTION_GLOW_RGBA[2];
-    rgba[index * 4 + 3] = 255;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      if (distance[index] === 0) continue;
+      let nearest = distance[index] ?? far;
+      if (x > 0) {
+        nearest = Math.min(
+          nearest,
+          (distance[index - 1] ?? far) + 1
+        );
+      }
+      if (y > 0) {
+        nearest = Math.min(
+          nearest,
+          (distance[index - width] ?? far) + 1
+        );
+        if (x > 0) {
+          nearest = Math.min(
+            nearest,
+            (distance[index - width - 1] ?? far) + 1
+          );
+        }
+        if (x + 1 < width) {
+          nearest = Math.min(
+            nearest,
+            (distance[index - width + 1] ?? far) + 1
+          );
+        }
+      }
+      distance[index] = nearest;
+    }
   }
-  return rgba;
+  for (let y = height - 1; y >= 0; y -= 1) {
+    for (let x = width - 1; x >= 0; x -= 1) {
+      const index = y * width + x;
+      if (distance[index] === 0) continue;
+      let nearest = distance[index] ?? far;
+      if (x + 1 < width) {
+        nearest = Math.min(
+          nearest,
+          (distance[index + 1] ?? far) + 1
+        );
+      }
+      if (y + 1 < height) {
+        nearest = Math.min(
+          nearest,
+          (distance[index + width] ?? far) + 1
+        );
+        if (x > 0) {
+          nearest = Math.min(
+            nearest,
+            (distance[index + width - 1] ?? far) + 1
+          );
+        }
+        if (x + 1 < width) {
+          nearest = Math.min(
+            nearest,
+            (distance[index + width + 1] ?? far) + 1
+          );
+        }
+      }
+      distance[index] = nearest;
+    }
+  }
+  return distance;
 }
 
-export function buildCanvasSelectionGlowDrawPlan(
+function densityForDistance(
+  distance: number,
+  radius: number
+) {
+  const third = radius / 3;
+  if (distance <= third) {
+    return CANVAS_SELECTION_SCREEN_TONE_DENSITIES[0];
+  }
+  if (distance <= third * 2) {
+    return CANVAS_SELECTION_SCREEN_TONE_DENSITIES[1];
+  }
+  return CANVAS_SELECTION_SCREEN_TONE_DENSITIES[2];
+}
+
+export function buildCanvasSelectionScreenToneGlow(
+  entry: SelectionSourceAlphaEntry
+): CanvasSelectionScreenToneGlow {
+  const padding =
+    Math.ceil(
+      CANVAS_SELECTION_SCREEN_TONE_RADIUS_SOURCE_PIXELS *
+        CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE
+    );
+  const width =
+    Math.ceil(
+      entry.width *
+        CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE
+    ) +
+    padding * 2;
+  const height =
+    Math.ceil(
+      entry.height *
+        CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE
+    ) +
+    padding * 2;
+  const distance = buildOutsideDistance(
+    entry,
+    padding,
+    width,
+    height,
+    CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE
+  );
+  const rgba = new Uint8ClampedArray(width * height * 4);
+  const [red, green, blue, alpha] =
+    CANVAS_SELECTION_SCREEN_TONE_RGBA;
+  const outlineDistance = Math.max(
+    1,
+    Math.ceil(
+      CANVAS_SELECTION_SCREEN_TONE_OUTLINE_SOURCE_PIXELS *
+        CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE
+    )
+  );
+  const toneRadius = Math.max(
+    1,
+    padding - outlineDistance
+  );
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      const value = distance[index] ?? padding + 1;
+      if (value <= 0 || value > padding) continue;
+      const isOutline = value <= outlineDistance;
+      if (!isOutline) {
+        const density = densityForDistance(
+          value - outlineDistance,
+          toneRadius
+        );
+        const threshold =
+          BAYER_8X8[(y % 8) * 8 + (x % 8)] ?? 64;
+        if (threshold >= density * 64) continue;
+      }
+      const rgbaIndex = index * 4;
+      rgba[rgbaIndex] = red;
+      rgba[rgbaIndex + 1] = green;
+      rgba[rgbaIndex + 2] = blue;
+      rgba[rgbaIndex + 3] = isOutline
+        ? 255
+        : alpha;
+    }
+  }
+  return {
+    width,
+    height,
+    padding,
+    offsetSourcePixels:
+      CANVAS_SELECTION_SCREEN_TONE_RADIUS_SOURCE_PIXELS,
+    widthSourcePixels:
+      entry.width +
+      CANVAS_SELECTION_SCREEN_TONE_RADIUS_SOURCE_PIXELS *
+        2,
+    heightSourcePixels:
+      entry.height +
+      CANVAS_SELECTION_SCREEN_TONE_RADIUS_SOURCE_PIXELS *
+        2,
+    rgba,
+  };
+}
+
+export function buildCanvasSelectionScreenToneDrawPlan(
   input: CanvasSelectionGlowDrawInput
 ) {
   const dpr = Number.isFinite(input.devicePixelRatio)
@@ -38,8 +235,14 @@ export function buildCanvasSelectionGlowDrawPlan(
   const matrix = input.projection.sourceToViewport;
   return {
     backingSize: {
-      width: Math.max(1, Math.ceil(input.viewportSize.width * dpr)),
-      height: Math.max(1, Math.ceil(input.viewportSize.height * dpr)),
+      width: Math.max(
+        1,
+        Math.ceil(input.viewportSize.width * dpr)
+      ),
+      height: Math.max(
+        1,
+        Math.ceil(input.viewportSize.height * dpr)
+      ),
     },
     sourceToDevice: {
       a: matrix.a * dpr,
@@ -49,12 +252,5 @@ export function buildCanvasSelectionGlowDrawPlan(
       e: matrix.e * dpr,
       f: matrix.f * dpr,
     },
-    blurDevicePixels: CANVAS_SELECTION_GLOW_BLUR_CSS_PIXELS * dpr,
-    glowAlpha: CANVAS_SELECTION_GLOW_RGBA[3] / 255,
-    compositeSequence: [
-      "clear-viewport",
-      "draw-blurred-selected-mask",
-      "destination-out-selected-interior",
-    ] as const,
   };
 }

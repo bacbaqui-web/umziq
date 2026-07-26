@@ -2,7 +2,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  type ComponentProps,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -12,6 +11,7 @@ import type {
   LayerDocumentSourceRuntimeResourcePort,
   PreviewScene,
   RendererMode,
+  RuntimeMetricRecordPort,
 } from "@/engines/playback-render";
 import {
   createLayerDocumentCanvasCommands,
@@ -41,6 +41,9 @@ import {
   PREVIEW_QUALITY_SCALE,
 } from "@/engines/canvas/constants/previewQualityConstants";
 import {
+  createRuntimeMetricRecordPort,
+} from "@/engines/canvas/helpers/runtimeMetricsHelpers";
+import {
   buildPreviewQualityControlViewModel,
 } from "@/engines/canvas/helpers/previewQualityControlHelpers";
 import type {
@@ -53,13 +56,15 @@ import type {
   LayerDocumentCanvasCommandPort,
   LayerDocumentCanvasSceneDescriptor,
 } from "@/engines/canvas/models/layerDocumentCanvasModeModel";
-import type PreviewWorkspacePane
-  from "@/features/preview/components/PreviewWorkspacePane";
+import type {
+  CanvasPreviewPaneProps,
+} from "@/engines/canvas/models/canvasPreviewPaneModel";
 
 export interface LayerDocumentCanvasReadPort {
   readonly read: (options: {
     quality: string;
     rendererMode: RendererMode;
+    runtimeMetrics?: RuntimeMetricRecordPort;
   }) => {
     readonly selectedLayerDocumentId: string | null;
     readonly runtime: LayerDocumentRuntimeReadModelResult;
@@ -123,13 +128,19 @@ export function useLayerDocumentCanvasComposition<
 }) {
   const previewRuntime =
     useCanvasPreviewRuntime();
+  const runtimeMetrics = useMemo(
+    () =>
+      createRuntimeMetricRecordPort(
+        previewRuntime.metrics
+      ),
+    [previewRuntime.metrics]
+  );
   const quality =
-    previewRuntime.build.activeQuality ??
-    previewRuntime.automaticQuality
-      .resolvedQuality;
+    previewRuntime.quality;
   const consumer = options.readPort.read({
     quality,
     rendererMode: options.rendererMode,
+    runtimeMetrics,
   });
   const selectedMeta = {
     width: consumer.activeScene.width,
@@ -189,6 +200,7 @@ export function useLayerDocumentCanvasComposition<
       // not application state.
       // eslint-disable-next-line react-hooks/refs
       previousPreviewScene.current,
+    runtimeMetrics,
   });
   if (!mode.ok) {
     throw new Error(
@@ -203,11 +215,13 @@ export function useLayerDocumentCanvasComposition<
           consumer.selectedLayerDocumentId,
         quality,
         port: commandPort,
+        runtimeMetrics,
       }),
     [
       commandPort,
       consumer.selectedLayerDocumentId,
       quality,
+      runtimeMetrics,
     ]
   );
   const overlayRef =
@@ -250,18 +264,12 @@ export function useLayerDocumentCanvasComposition<
       options.viewportState
         .setShowSafeZoneGuides,
   });
-  const isDraftActive =
-    consumer.runtime.ok &&
-    consumer.runtime.model.inputs.some(
-      (input) => input.draftApplied
-    );
   useCanvasRenderController({
     canvasRef,
     renderFrame:
       bridge.renderer.renderFrame,
     previewScene:
       bridge.renderer.previewScene,
-    isPreviewDraftActive: isDraftActive,
     resolveNodeVisual:
       bridge.renderer.resolveNodeVisual,
     pixelScale:
@@ -271,6 +279,8 @@ export function useLayerDocumentCanvasComposition<
     compositionCache:
       previewRuntime.compositionCache,
     surfaceCache: previewRuntime.surfaceCache,
+    onCanvasPainted:
+      previewRuntime.fps.recordFrame,
   });
   useEffect(() => {
     previousPreviewScene.current =
@@ -279,23 +289,20 @@ export function useLayerDocumentCanvasComposition<
   const previewQuality = useMemo(
     () =>
       buildPreviewQualityControlViewModel({
-        preference:
-          previewRuntime.preference,
-        automaticQuality:
-          previewRuntime.automaticQuality,
-        memoryEstimates:
-          previewRuntime.memoryEstimates,
-        build: previewRuntime.build,
+        preference: previewRuntime.preference,
+        quality,
       }),
     [
-      previewRuntime.build,
-      previewRuntime.automaticQuality,
-      previewRuntime.memoryEstimates,
       previewRuntime.preference,
+      quality,
     ]
   );
   const viewProps:
-  ComponentProps<typeof PreviewWorkspacePane> = {
+  CanvasPreviewPaneProps = {
+    selectedLayerDocumentId:
+      mode.model.selectedLayerDocumentId,
+    selectedSourceId:
+      mode.model.selectedInput?.sourceId ?? null,
     activeScene:
       bridge.previewWorkspaceScene,
     previewWorkspaceRef: viewport.workspaceRef,
@@ -315,6 +322,7 @@ export function useLayerDocumentCanvasComposition<
     previewQuality,
     previewQualityCommands:
       previewRuntime.commands,
+    canvasFpsRuntime: previewRuntime.fps,
     previewSize:
       viewport.readModel.previewSize,
     previewViewportWidth:

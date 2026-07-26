@@ -100,9 +100,9 @@ assert.doesNotMatch(
   read("src/features/preview/components/PreviewWorkspacePane.tsx"),
   /"legacy"\s*\|\s*"layer-document"/
 );
-assert.doesNotMatch(
-  read("src/engines/canvas/helpers/previewMemoryHelpers.ts"),
-  /\["legacy"|sourceIdentity/
+assert.equal(
+  existsSync("src/engines/canvas/helpers/previewMemoryHelpers.ts"),
+  false
 );
 assert.doesNotMatch(
   read("src/engines/properties/models/propertiesEngineModel.ts"),

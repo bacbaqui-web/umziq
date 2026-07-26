@@ -85,6 +85,15 @@
   - 독립적인 Command와 Query 흐름으로 성장할 수 있다.
   - Engine 추가가 중복이나 직접 연결을 늘리지 않고 전체 구조를 더 단순하게 만든다.
 - Engine 간 연결과 의존성 주입은 Composition Root에서 수행한다.
+- 제품 Composition Root는 `src/editor/useEditorCompositionRoot.ts`이며
+  Owner/Editor Runtime의 port 변환은
+  `src/editor/useLayerDocumentPanelEnginePorts.ts`에서 수행한다.
+- Panel Engine은 다른 Panel Engine, Feature UI, Project Owner 내부 구현을
+  import하지 않는다. 필요한 read/command/runtime port는 Composition
+  Root에서 주입받는다.
+- Feature UI는 Engine public barrel의 구현 export가 아니다.
+  `EditorShellLayout`이 Feature component를 직접 배치하고 Engine은
+  serializable view props와 command 계약만 제공한다.
 - 여러 영역을 함께 변경하는 새 Layer 생성, Duplicate, 삭제, Group 이동, Source 교체는 Project Transaction으로 조합한다.
 - 사용자 Action 한 번은 History 한 번만 생성한다.
 - 위 조건을 충족하지 않는 작은 기능은 기존 담당 Engine 또는 Controller에 둔다.
@@ -112,12 +121,19 @@
 
 ### Render 동결
 
-- Render 구조, 명칭, 파일 위치, public export와 책임은 별도 후속
-  Render Sprint 전까지 변경하지 않는다.
+- Render 구조, 명칭, 파일 위치, public export와 책임은
+  `98_sprint_plan.md`의 Render Optimization Sprint에서 명시적으로
+  승인한 범위 외에는 변경하지 않는다.
 - Full/Fast Render, Canvas2D Draw, Dirty Region, Composition/Surface/
   Source Runtime Cache와 Preview/Export 경계는 현재 계약을 유지한다.
+- 현재 Render Optimization Sprint는 기존 최적화의 LayerDocument 연결,
+  관찰용 Metrics, painter identity와 Preview Quality/Memory 정책 복구만
+  허용하며 새 Render 생성이나 출력 의미 변경은 허용하지 않는다.
 - Playback/Animation 소유권을 정리하더라도 Render가 소비하는 기존
   compatibility export와 import 경로는 후속 Render Sprint까지 유지한다.
+- 위 예외를 제외한 Editor/Owner/Panel Engine에는 migration, cutover,
+  compatibility 조립 계층을 두지 않는다. 최종 public port와 파일을
+  직접 연결한다.
 
 3. 데이터 규칙
 

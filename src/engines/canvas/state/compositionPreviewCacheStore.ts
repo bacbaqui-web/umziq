@@ -1,4 +1,7 @@
-import { buildCompositionPreviewCacheKey } from "@/engines/canvas/helpers/compositionCacheKeyHelpers";
+import {
+  buildCompositionPreviewCacheKey,
+  isCompositionPreviewSurfaceContentEqual,
+} from "@/engines/canvas/helpers/compositionCacheKeyHelpers";
 import type {
   CompositionPreviewCacheEntry,
   CompositionPreviewCacheRuntimeOptions,
@@ -47,7 +50,12 @@ export function createCompositionPreviewCacheRuntime(
       const key = buildCompositionPreviewCacheKey(input);
       const entry = entries.get(key);
       if (!entry) return null;
-      if (entry.node !== input.node) {
+      if (
+        !isCompositionPreviewSurfaceContentEqual(
+          entry.node,
+          input.node
+        )
+      ) {
         deleteEntry(key);
         return null;
       }

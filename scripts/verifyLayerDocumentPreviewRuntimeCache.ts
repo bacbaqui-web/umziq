@@ -238,18 +238,20 @@ const renderAssets: LayerDocumentCanvasRenderAssetPort = {
         pixelSize: request.logicalSize,
       },
       alphaCanvas: null,
-      sourceVisualIdentity: request.sourceResourceCacheKey,
+      sourceVisualIdentity:
+        request.sourceResourceCacheKey,
     };
   },
 };
 function runtimeFor(
   project: LayerDocumentProject,
-  draft: LayerDocumentTransformDraftSnapshot | null = null
+  draft: LayerDocumentTransformDraftSnapshot | null = null,
+  globalFrame = 0
 ) {
   return buildLayerDocumentRuntimeReadModel({
     project,
     activeGroupLayerDocumentId: "root",
-    globalFrame: 0,
+    globalFrame,
     quality: "original",
     draft,
     resolvePsdSource: (request) => ({
@@ -377,6 +379,44 @@ assert.strictEqual(unchangedFast, previewScene);
 assert.strictEqual(unchangedFast.nodes[0], previewScene.nodes[0]);
 assert.strictEqual(unchangedFast.nodes[1], previewScene.nodes[1]);
 
+const frameOnlyRuntime = runtimeFor(project, null, 1);
+assert.equal(frameOnlyRuntime.ok, true);
+if (!frameOnlyRuntime.ok) {
+  throw new Error(frameOnlyRuntime.reason);
+}
+const frameOnlyInput =
+  frameOnlyRuntime.model.inputs.find(
+    (input) => input.layerDocumentId === "layer-a"
+  );
+const baseInput =
+  publicRuntime.model.inputs.find(
+    (input) => input.layerDocumentId === "layer-a"
+  );
+assert.ok(frameOnlyInput);
+assert.ok(baseInput);
+assert.notEqual(
+  frameOnlyInput?.evaluationIdentity,
+  baseInput?.evaluationIdentity
+);
+assert.equal(
+  frameOnlyInput?.layerResultCacheKey,
+  baseInput?.layerResultCacheKey
+);
+const frameOnlyPreview = renderFastPreviewRenderer(
+  frameOnlyRuntime.model.scene,
+  undefined,
+  previewScene
+).previewScene;
+assert.notStrictEqual(frameOnlyPreview, previewScene);
+assert.strictEqual(
+  frameOnlyPreview.nodes[0],
+  previewScene.nodes[0]
+);
+assert.strictEqual(
+  frameOnlyPreview.nodes[1],
+  previewScene.nodes[1]
+);
+
 const visualProject = structuredClone(project);
 visualProject.payload.layerDocumentsById[
   "layer-a"
@@ -413,7 +453,7 @@ assert.equal(
   fastWithChangedChild.nodes[0]?.sourceResourceCacheKey,
   previewScene.nodes[0]?.sourceResourceCacheKey
 );
-assert.equal(
+assert.notEqual(
   fastWithChangedChild.nodes[0]?.layerResultCacheKey,
   previewScene.nodes[0]?.layerResultCacheKey
 );
@@ -494,10 +534,24 @@ assert.equal(
     ?.sourceResourceCacheKey,
   refreshInvalidation?.sourceResourceCacheKeyAfter
 );
+const refreshedRuntime = runtimeFor(
+  preparedRefresh.transaction.after
+);
+assert.equal(refreshedRuntime.ok, true);
+if (!refreshedRuntime.ok) {
+  throw new Error(refreshedRuntime.reason);
+}
+const refreshedInput = refreshedRuntime.model.inputs.find(
+  (input) => input.layerDocumentId === "layer-a"
+);
+assert.equal(
+  refreshedInput?.evaluationIdentity,
+  refreshInvalidation?.layerResultCacheKeyAfter
+);
 assert.equal(
   refreshedPreview.nodes[0]?.children[0]
     ?.layerResultCacheKey,
-  refreshInvalidation?.layerResultCacheKeyAfter
+  refreshedInput?.layerResultCacheKey
 );
 
 const resultKeyProject = structuredClone(project);
@@ -519,11 +573,11 @@ assert.ok(resultKeyPreview);
 if (!resultKeyPreview) {
   throw new Error("Expected result-key preview scene");
 }
-assert.notStrictEqual(
+assert.strictEqual(
   resultKeyPreview.nodes[0],
   previewScene.nodes[0]
 );
-assert.notStrictEqual(
+assert.strictEqual(
   resultKeyPreview.nodes[0]?.children[0],
   previewScene.nodes[0]?.children[0]
 );
@@ -541,11 +595,22 @@ assert.equal(
   previewScene.nodes[0]?.children[0]
     ?.sourceResourceCacheKey
 );
-assert.notEqual(
+assert.equal(
   resultKeyPreview.nodes[0]?.children[0]
     ?.layerResultCacheKey,
   previewScene.nodes[0]?.children[0]
     ?.layerResultCacheKey
+);
+const resultKeyRuntime = runtimeFor(resultKeyProject);
+assert.equal(resultKeyRuntime.ok, true);
+if (!resultKeyRuntime.ok) {
+  throw new Error(resultKeyRuntime.reason);
+}
+assert.notEqual(
+  resultKeyRuntime.model.inputs.find(
+    (input) => input.layerDocumentId === "layer-a"
+  )?.evaluationIdentity,
+  baseInput?.evaluationIdentity
 );
 
 let surfaceCreateCount = 0;
@@ -614,8 +679,8 @@ compositionCache.endFrame();
 assert.equal(surfaceCreateCount, 2);
 assert.equal(compositionCache.getSnapshot().size, 2);
 assert.deepEqual(resolvedLayerDocuments, [
-  "layer-a",
   "layer-b",
+  "layer-a",
 ]);
 
 compositionCache.beginFrame();
@@ -656,8 +721,8 @@ drawPreviewSceneToContext(
 compositionCache.endFrame();
 assert.equal(surfaceCreateCount, 2);
 assert.deepEqual(resolvedLayerDocuments, [
-  "layer-a",
   "layer-b",
+  "layer-a",
   "layer-a",
 ]);
 assert.equal(compositionCache.getSnapshot().size, 2);
@@ -694,9 +759,8 @@ const cacheSnapshotBeforeDraft = compositionCache.getSnapshot();
 assert.equal(
   resolvePreviewCompositionCacheForRender({
     compositionCache,
-    isPreviewDraftActive: true,
   }),
-  undefined
+  compositionCache
 );
 drawPreviewSceneToContext(
   rootContext,
@@ -706,7 +770,6 @@ drawPreviewSceneToContext(
   undefined,
   resolvePreviewCompositionCacheForRender({
     compositionCache,
-    isPreviewDraftActive: true,
   }),
   "original",
   surfaceCache,
@@ -719,7 +782,6 @@ assert.deepEqual(
 assert.strictEqual(
   resolvePreviewCompositionCacheForRender({
     compositionCache,
-    isPreviewDraftActive: false,
   }),
   compositionCache
 );
@@ -973,9 +1035,9 @@ renderPreviewSceneToCanvas({
   drawState,
 });
 assert.deepEqual(directResolveCalls, [
-  "layer-document-mover",
-  "layer-document-separated",
   "layer-document-foreground",
+  "layer-document-separated",
+  "layer-document-mover",
 ]);
 assert.deepEqual(clearCalls[0], [0, 0, 200, 100]);
 directResolveCalls.length = 0;
@@ -1000,8 +1062,8 @@ renderPreviewSceneToCanvas({
   drawState,
 });
 assert.deepEqual(directResolveCalls, [
-  "layer-document-mover",
   "layer-document-foreground",
+  "layer-document-mover",
 ]);
 assert.deepEqual(clearCalls.at(-1), [8, 8, 35, 25]);
 

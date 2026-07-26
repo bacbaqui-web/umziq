@@ -407,9 +407,21 @@ async function importFixture(client, sessionId, fixturePath, fixture = PROFILING
   await waitForCondition(
     client,
     sessionId,
-    fixture.id === "flat"
-      ? `document.body.innerText.includes(${JSON.stringify(fixture.file)}) && document.querySelector('button[aria-label="위치 이동"]') !== null`
-      : `document.body.innerText.includes(${JSON.stringify(fixture.file)}) && [...document.querySelectorAll("button")].some((button) => button.title === ${JSON.stringify(fixture.import.compositionName)})`,
+    `(() => {
+      const importDialog = document.querySelector('[aria-label="PSD Import Preview"]');
+      const sourceCard = [...document.querySelectorAll("button")]
+        .some((button) => button.textContent.trim() === ${JSON.stringify(`PSD${fixture.file}PSD`)});
+      const currentGroup = document.querySelector(
+        '[aria-label="현재 그룹 위치"] button[aria-current="page"]'
+      );
+      const targetRow = [...document.querySelectorAll(
+        '[data-layer-document-id][draggable="true"]'
+      )].some((row) => row.textContent.trim() === ${JSON.stringify(fixture.target.name)});
+      return !importDialog
+        && sourceCard
+        && currentGroup?.title === ${JSON.stringify(fixture.import.compositionName)}
+        && targetRow;
+    })()`,
     `${fixture.id} fixture import completion`,
     fixture.id === "flat" ? 30_000 : 120_000
   );
@@ -422,68 +434,114 @@ async function importFixture(client, sessionId, fixturePath, fixture = PROFILING
 }
 
 async function enterImportedCompositionTarget(client, sessionId, fixture) {
-  process.stderr.write(`[composition] ${fixture.id}: opening switcher\n`);
+  process.stderr.write(`[composition] ${fixture.id}: resolving imported group\n`);
   const before = await evaluate(
     client,
     sessionId,
     `(() => {
-      const breadcrumb = [...document.querySelectorAll("button")]
-        .find((button) => button.title === ${JSON.stringify(fixture.import.compositionName)}
-          || button.title.startsWith(${JSON.stringify(`${fixture.import.compositionName} > `)}));
-      if (!breadcrumb) return { ok: false, reason: "timeline-breadcrumb-missing" };
-      const evidence = { title: breadcrumb.title, text: breadcrumb.textContent.trim(), disabled: breadcrumb.disabled };
-      breadcrumb.click();
-      return { ok: true, breadcrumb: evidence };
+      const current = document.querySelector(
+        '[aria-label="현재 그룹 위치"] button[aria-current="page"]'
+      );
+      if (current?.title === ${JSON.stringify(fixture.import.compositionName)}) {
+        return {
+          ok: true,
+          alreadyCurrent: true,
+          breadcrumb: {
+            title: current.title,
+            text: current.textContent.trim(),
+            disabled: current.disabled,
+          },
+        };
+      }
+      const trigger = [...document.querySelectorAll(
+        '[aria-label="현재 그룹 위치"] button'
+      )].find((button) =>
+        button.title === ${JSON.stringify(fixture.import.compositionName)}
+        || button.getAttribute("aria-current") === "page"
+      );
+      if (!trigger) return { ok: false, reason: "timeline-breadcrumb-missing" };
+      const evidence = {
+        title: trigger.title,
+        text: trigger.textContent.trim(),
+        disabled: trigger.disabled,
+      };
+      trigger.click();
+      return { ok: true, alreadyCurrent: false, breadcrumb: evidence };
     })()`,
     { userGesture: true }
   );
   if (!before?.ok) throw new Error(`Composition breadcrumb open failed: ${before?.reason}`);
+  let selected = {
+    ok: true,
+    entry: {
+      title: fixture.import.compositionName,
+      text: fixture.import.compositionName,
+      disabled: false,
+      navigation: "already-current",
+    },
+  };
+  if (!before.alreadyCurrent) {
+    await waitForCondition(
+      client,
+      sessionId,
+      `(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-label="그룹 전환"]');
+        const entries = [...(dialog?.querySelectorAll("button") ?? [])];
+        return entries.some((button) =>
+          button.title === ${JSON.stringify(fixture.import.compositionName)}
+          && !button.disabled
+        );
+      })()`,
+      "Composition switcher entry"
+    );
+    process.stderr.write(`[composition] ${fixture.id}: switcher ready\n`);
+    selected = await evaluate(
+      client,
+      sessionId,
+      `(() => {
+        const dialog = document.querySelector('[role="dialog"][aria-label="그룹 전환"]');
+        const button = [...(dialog?.querySelectorAll("button") ?? [])]
+          .find((candidate) =>
+            candidate.title === ${JSON.stringify(fixture.import.compositionName)}
+            && !candidate.disabled
+          );
+        if (!button) return { ok: false, reason: "enabled-switcher-child-missing" };
+        const evidence = {
+          title: button.title,
+          text: button.textContent.trim(),
+          disabled: button.disabled,
+          navigation: "switcher",
+        };
+        button.click();
+        return { ok: true, entry: evidence };
+      })()`,
+      { userGesture: true }
+    );
+    if (!selected?.ok) throw new Error(`Composition switcher selection failed: ${JSON.stringify(selected)}`);
+  }
   await waitForCondition(
     client,
     sessionId,
     `(() => {
-      const entries = [...document.querySelectorAll('button[title=${JSON.stringify(fixture.import.compositionName)}]')];
-      return entries.some((button) => button.textContent.trim() === ${JSON.stringify(fixture.import.compositionName)}
-        && !button.disabled && getComputedStyle(button).pointerEvents !== "none"
-        && button.closest('div[style*="position: absolute"]'));
-    })()`,
-    "Composition switcher entry"
-  );
-  process.stderr.write(`[composition] ${fixture.id}: switcher ready\n`);
-  const selected = await evaluate(
-    client,
-    sessionId,
-    `(() => {
-      const entries = [...document.querySelectorAll('button[title=${JSON.stringify(fixture.import.compositionName)}]')];
-      const button = entries.find((candidate) => candidate.textContent.trim() === ${JSON.stringify(fixture.import.compositionName)}
-        && !candidate.disabled
-        && candidate.closest('div[style*="position: absolute"]'));
-      if (!button) return { ok: false, reason: "enabled-switcher-child-missing", count: entries.length };
-      const popup = button.closest('div[style*="position: absolute"]');
-      const evidence = {
-        title: button.title,
-        text: button.textContent.trim(),
-        disabled: button.disabled,
-        popupTitle: popup?.getAttribute("title") ?? null,
-      };
-      button.click();
-      return { ok: true, entry: evidence };
-    })()`,
-    { userGesture: true }
-  );
-  if (!selected?.ok) throw new Error(`Composition switcher selection failed: ${JSON.stringify(selected)}`);
-  process.stderr.write(`[composition] ${fixture.id}: entry selected\n`);
-  await waitForCondition(
-    client,
-    sessionId,
-    `(() => {
-      return [...document.querySelectorAll('div[draggable="true"]')]
-        .some((row) => row.textContent.includes(${JSON.stringify(fixture.target.name)}));
+      const current = document.querySelector(
+        '[aria-label="현재 그룹 위치"] button[aria-current="page"]'
+      );
+      return current?.title === ${JSON.stringify(fixture.import.compositionName)}
+        && [...document.querySelectorAll(
+          '[data-layer-document-id][draggable="true"]'
+        )].some((row) =>
+          row.textContent.trim() === ${JSON.stringify(fixture.target.name)}
+        );
     })()`,
     "Imported composition Timeline"
   );
   process.stderr.write(`[composition] ${fixture.id}: timeline ready\n`);
-  return { ...before, ...selected, compositionBreadcrumb: fixture.import.compositionName };
+  return {
+    ...before,
+    ...selected,
+    compositionBreadcrumb: fixture.import.compositionName,
+    expectedBreadcrumb: fixture.import.compositionName,
+  };
 }
 
 async function selectTimelineTarget(client, sessionId, fixture) {
@@ -495,12 +553,36 @@ async function selectTimelineTarget(client, sessionId, fixture) {
     return { ok: true, name: ${JSON.stringify(fixture.target.name)}, kind: ${JSON.stringify(fixture.target.kind)} };
   })()`, { userGesture: true });
   if (!selected?.ok) throw new Error(`Timeline target selection failed: ${JSON.stringify(selected)}`);
-  const expectedBreadcrumb = `${fixture.import.compositionName} > ${fixture.target.name}`;
+  const expectedBreadcrumb = fixture.import.compositionName;
+  const expectedSelectionLabel = fixture.target.name;
   await waitForCondition(client, sessionId, `(() => {
-    const breadcrumb = [...document.querySelectorAll("button")].find((button) => button.title === ${JSON.stringify(expectedBreadcrumb)});
-    return Boolean(breadcrumb && document.querySelectorAll('button[aria-label="위치 이동"]').length === 1);
+    const breadcrumb = document.querySelector(
+      '[aria-label="현재 그룹 위치"] button[aria-current="page"]'
+    );
+    const selectionLabel = [...document.querySelectorAll(
+      '[aria-label="현재 그룹 위치"] span[title]'
+    )].find((element) => element.title === ${JSON.stringify(expectedSelectionLabel)});
+    const timelineRow = document.querySelector(
+      '[data-timeline-selected="true"][data-layer-document-id]'
+    );
+    const canvas = document.querySelector(
+      'canvas[data-selected-layer-document-id]'
+    );
+    return Boolean(
+      breadcrumb?.title === ${JSON.stringify(expectedBreadcrumb)}
+      && selectionLabel
+      && timelineRow
+      && canvas
+      && timelineRow.getAttribute("data-layer-document-id")
+        === canvas.getAttribute("data-selected-layer-document-id")
+      && document.querySelectorAll('button[aria-label="위치 이동"]').length === 1
+    );
   })()`, "exact Timeline target selection");
-  return { ...selected, expectedBreadcrumb };
+  return {
+    ...selected,
+    expectedBreadcrumb,
+    expectedSelectionLabel,
+  };
 }
 
 async function applyPilotSetup(client, sessionId, fixture, rendererMode = "fast-render", glowMode = "off") {
@@ -628,8 +710,17 @@ async function readPilotState(client, sessionId, fixture) {
       const scaleFields = readRow("크기");
       const rotationFields = readRow("회전");
       const opacityFields = readRow("투명");
-      const breadcrumb = [...document.querySelectorAll("button")]
-        .find((button) => button.title?.includes(" > "));
+      const breadcrumb = document.querySelector(
+        '[aria-label="현재 그룹 위치"] button[aria-current="page"]'
+      );
+      const selectionLabel = [...document.querySelectorAll(
+        '[aria-label="현재 그룹 위치"] span[title]'
+      )].find((element) =>
+        element.title === ${JSON.stringify(fixture.target.name)}
+      );
+      const selectedTimelineRow = document.querySelector(
+        '[data-timeline-selected="true"][data-layer-document-id]'
+      );
       const buttons = [...document.querySelectorAll("button")]
         .map((button) => ({ text: button.textContent.trim(), ariaLabel: button.getAttribute("aria-label") }))
         .filter((button) => button.text || button.ariaLabel);
@@ -650,8 +741,14 @@ async function readPilotState(client, sessionId, fixture) {
         fixtureCardCount: buttons.filter((button) => button.text === ${JSON.stringify(`PSD${fixture.file}PSD`)}).length,
         target: {
           expectedName: ${JSON.stringify(fixture.target.name)},
-          expectedSourceId: ${JSON.stringify(fixture.target.sourceId)},
-          expectedTimelineItemId: ${JSON.stringify(fixture.target.timelineItemId)},
+          expectedLayerDocumentIdPrefix: ${JSON.stringify(fixture.target.identity.layerDocumentIdPrefix)},
+          expectedSourceIdPrefix: ${JSON.stringify(fixture.target.identity.sourceIdPrefix)},
+          observedLayerDocumentId:
+            canvas?.getAttribute("data-selected-layer-document-id") ?? null,
+          observedTimelineLayerDocumentId:
+            selectedTimelineRow?.getAttribute("data-layer-document-id") ?? null,
+          observedSourceId:
+            canvas?.getAttribute("data-selected-source-id") ?? null,
           positionHandleRect: rectValue(handleRect),
           positionHandleCount: document.querySelectorAll('button[aria-label="위치 이동"]').length,
           whScaleHandleRect: rectValue(whScaleHandleRect),
@@ -670,8 +767,11 @@ async function readPilotState(client, sessionId, fixture) {
             opacity: opacityFields[0] ?? null,
           },
           breadcrumb: breadcrumb ? { title: breadcrumb.title, text: breadcrumb.textContent.trim() } : null,
-          sourceIdExposedInDom: document.querySelector('[data-source-id="${fixture.target.sourceId}"]') !== null,
-          timelineItemIdExposedInDom: document.querySelector('[data-timeline-item-id="${fixture.target.timelineItemId}"]') !== null,
+          selectionLabel: selectionLabel?.title ?? null,
+          layerDocumentIdentityExposedInDom:
+            Boolean(selectedTimelineRow?.getAttribute("data-layer-document-id")),
+          sourceIdentityExposedInDom:
+            Boolean(canvas?.getAttribute("data-selected-source-id")),
           fields,
           relevantButtons: buttons.filter((button) => button.text.includes("drag_test") || button.ariaLabel === "위치 이동"),
         },
@@ -1931,6 +2031,7 @@ async function runFlatMatrix(options, matrixKind = "flat") {
             && fixture.import.fileIndex === 0
             && navigation.entry?.disabled === false
             && initialState.target.breadcrumb?.title === targetSelection.expectedBreadcrumb
+            && initialState.target.selectionLabel === targetSelection.expectedSelectionLabel
             && initialState.target.positionHandleCount === 1
             && JSON.stringify(transform) === JSON.stringify({
               anchor: expected.anchor, position: expected.position, scale: expected.scale,
@@ -2264,6 +2365,11 @@ async function main() {
       page.sessionId,
       fixture
     );
+    const targetSelection = await selectTimelineTarget(
+      client,
+      page.sessionId,
+      fixture
+    );
     await applyPilotSetup(client, page.sessionId, fixture);
     const initialState = await readPilotState(client, page.sessionId, fixture);
     const viewportComparison = compareFrozenViewport(initialState.viewport);
@@ -2283,20 +2389,41 @@ async function main() {
       && numericMatch(observedInitialTransform.scale.y, expectedInitialTransform.scale.y)
       && numericMatch(observedInitialTransform.rotation, expectedInitialTransform.rotation)
       && numericMatch(observedInitialTransform.opacity, expectedInitialTransform.opacity));
-    const expectedBreadcrumb = compositionNavigation.expectedBreadcrumb;
+    const expectedBreadcrumb = targetSelection.expectedBreadcrumb;
     const breadcrumbMatches = initialState.target.breadcrumb?.title === expectedBreadcrumb;
+    const selectionLabelMatches =
+      initialState.target.selectionLabel ===
+      targetSelection.expectedSelectionLabel;
     const targetIdentityEvidence = {
       freshEmptyProject: true,
       fixtureSha256,
       fixtureSha256MatchesManifest: fixtureSha256 === fixture.sha256,
       importIndex: fixture.import.fileIndex,
-      deterministicManifestIdsVerifiedBy: "verifyPreviewInteractionProfilingManifest.ts",
-      expectedSourceId: fixture.target.sourceId,
-      expectedTimelineItemId: fixture.target.timelineItemId,
+      identityContractVerifiedBy: "verifyLayerDocumentRenderObservationBaseline.ts",
+      expectedIdentity: fixture.target.identity,
+      observedLayerDocumentId:
+        initialState.target.observedLayerDocumentId,
+      observedSourceId:
+        initialState.target.observedSourceId,
+      observedTimelineLayerDocumentId:
+        initialState.target.observedTimelineLayerDocumentId,
+      layerDocumentIdentityMatches:
+        initialState.target.observedLayerDocumentId?.startsWith(
+          fixture.target.identity.layerDocumentIdPrefix
+        ) === true,
+      sourceIdentityMatches:
+        initialState.target.observedSourceId?.startsWith(
+          fixture.target.identity.sourceIdPrefix
+        ) === true,
+      timelineAndCanvasLayerIdentityMatch:
+        initialState.target.observedTimelineLayerDocumentId ===
+        initialState.target.observedLayerDocumentId,
       compositionNavigation,
+      targetSelection,
       expectedBreadcrumb,
       observedBreadcrumb: initialState.target.breadcrumb,
       breadcrumbMatches,
+      selectionLabelMatches,
       singleSelectedPositionTarget: initialState.target.positionHandleCount === 1,
       expectedInitialTransform,
       observedInitialTransform,
@@ -2305,8 +2432,12 @@ async function main() {
     const targetIdentityVerified = targetIdentityEvidence.freshEmptyProject
       && targetIdentityEvidence.fixtureSha256MatchesManifest
       && targetIdentityEvidence.importIndex === 0
+      && targetIdentityEvidence.layerDocumentIdentityMatches
+      && targetIdentityEvidence.sourceIdentityMatches
+      && targetIdentityEvidence.timelineAndCanvasLayerIdentityMatch
       && targetIdentityEvidence.compositionNavigation.entry?.disabled === false
       && targetIdentityEvidence.breadcrumbMatches
+      && targetIdentityEvidence.selectionLabelMatches
       && targetIdentityEvidence.singleSelectedPositionTarget
       && targetIdentityEvidence.initialTransformFieldsMatch;
     result.importPilot = {

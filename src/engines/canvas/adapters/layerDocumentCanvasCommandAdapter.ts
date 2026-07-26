@@ -1,5 +1,6 @@
 import type {
   PreviewSceneTransformPatch,
+  RuntimeMetricRecordPort,
 } from "@/engines/playback-render";
 import type {
   LayerDocumentCanvasCommandPort,
@@ -31,6 +32,27 @@ function patchForHandle(
   }
 }
 
+function recordCommittedProjectChange(
+  result: unknown,
+  runtimeMetrics?: RuntimeMetricRecordPort
+) {
+  if (
+    !result ||
+    typeof result !== "object" ||
+    !("ok" in result) ||
+    result.ok !== true ||
+    !("transition" in result) ||
+    !result.transition ||
+    typeof result.transition !== "object" ||
+    !("changed" in result.transition) ||
+    result.transition.changed !== true
+  ) {
+    return;
+  }
+  runtimeMetrics?.increment("projectUpdate");
+  runtimeMetrics?.increment("historyCommit");
+}
+
 export function createLayerDocumentCanvasCommands<
   TCommitResult,
   TSelectionResult,
@@ -43,6 +65,7 @@ export function createLayerDocumentCanvasCommands<
     TSelectionResult,
     TKeyframeResult
   >;
+  runtimeMetrics?: RuntimeMetricRecordPort;
 }): LayerDocumentCanvasCommands<
   TCommitResult,
   TSelectionResult,
@@ -59,14 +82,28 @@ export function createLayerDocumentCanvasCommands<
         quality: options.quality,
       });
     },
-    commitDraft: options.port.pointerUp,
+    commitDraft: () => {
+      const result = options.port.pointerUp();
+      recordCommittedProjectChange(
+        result,
+        options.runtimeMetrics
+      );
+      return result;
+    },
     cancelDraft: options.port.cancelDraft,
     directSelect: options.port.directSelect,
     enterGroup: options.port.enterGroup,
     publishMotionPathKeyframeDraft:
       options.port.publishMotionPathKeyframeDraft,
-    commitMotionPathKeyframeDraft:
-      options.port.commitMotionPathKeyframeDraft,
+    commitMotionPathKeyframeDraft: () => {
+      const result =
+        options.port.commitMotionPathKeyframeDraft();
+      recordCommittedProjectChange(
+        result,
+        options.runtimeMetrics
+      );
+      return result;
+    },
     cancelMotionPathKeyframeDraft:
       options.port.cancelMotionPathKeyframeDraft,
     selectMotionPathKeyframe:

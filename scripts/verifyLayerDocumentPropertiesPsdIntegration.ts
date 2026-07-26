@@ -8,10 +8,8 @@ import {
   type LayerDocumentProject,
 } from "@/models";
 import {
-  createLayerDocumentConsumerCutoverAssembly,
-  createLayerDocumentPropertiesCommandPort,
-  createLayerDocumentPsdTreeCommandPort,
-} from "@/cutover";
+  createLayerDocumentVerificationPorts,
+} from "./helpers/createLayerDocumentVerificationPorts";
 import {
   createLayerDocumentPsdTreeController,
   createLayerDocumentProjectOwnerState,
@@ -29,6 +27,9 @@ import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesRuntimeState,
 } from "@/engines/properties/adapters/layerDocumentPropertiesController";
+import {
+  createLayerDocumentPropertiesCommandPort,
+} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
@@ -205,8 +206,8 @@ const sourceResolution =
   createLayerDocumentSourceRuntimeResolutionStore();
 sourceResolution.setAvailable({ sourceId: "document" });
 sourceResolution.setAvailable({ sourceId: "node" });
-const assembly =
-  createLayerDocumentConsumerCutoverAssembly({
+const ports =
+  createLayerDocumentVerificationPorts({
     owner,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
@@ -239,9 +240,22 @@ const assembly =
 
 const propertiesPort =
   createLayerDocumentPropertiesCommandPort({
-    assembly,
+    readDescriptor:
+      ports.properties.describe,
+    readProject: ports.project.read,
     readDraft: () => draft,
     readGlobalFrame: () => 7,
+    previewDraft: ports.canvas.pointerMove,
+    commitDraft: ports.canvas.pointerUp,
+    cancelDraft: ports.canvas.cancelDraft,
+    dispatchPanel: ports.properties.dispatch,
+    dispatchTimeline:
+      ports.timeline.dispatchIntent,
+    selectKeyframe:
+      ports.timeline.selectTransformKeyframe,
+    readSelectedKeyframe: () =>
+      ports.timeline.readViewProps()
+        .selectedTransformKeyframe,
   });
 let runtime: LayerDocumentPropertiesRuntimeState = {
   selectedLayerDocumentId: null,
@@ -298,7 +312,25 @@ assert.equal(
 
 const psdController =
   createLayerDocumentPsdTreeController({
-    port: createLayerDocumentPsdTreeCommandPort(assembly),
+    port: {
+      readTree: ports.sources.readTree,
+      readProject: ports.project.read,
+      selectSource:
+        ports.selection.selectSource,
+      confirmImport:
+        ports.sources.confirmPreparedPsdImport,
+      cancelImport:
+        ports.sources.cancelPreparedPsdImport,
+      confirmRefresh:
+        ports.sources.confirmPreparedPsdRefresh,
+      cancelRefresh:
+        ports.sources.cancelPreparedPsdRefresh,
+      refreshSource:
+        ports.sources.refreshSource,
+      reconnect: ports.sources.reconnect,
+      deleteSource:
+        ports.sources.deleteSource,
+    },
   });
 const selectedLayerBeforeSource =
   ownerState.session.layerSelection?.layerDocumentId;
@@ -369,7 +401,7 @@ const firstPsdLayer =
     (layer) => layer.type === "psd"
   );
 assert.ok(firstPsdLayer?.common.source);
-const firstRuntime = assembly.canvas.readViewProps({
+const firstRuntime = ports.canvas.readViewProps({
   globalFrame: 7,
   quality: "preview",
   rendererMode: "full-render",
@@ -424,9 +456,9 @@ assert.ok(
 );
 const historyAfterSecondImport =
   ownerState.undoStack.length;
-assert.equal(assembly.project.undo().ok, true);
+assert.equal(ports.project.undo().ok, true);
 assert.ok(resources.resolve(firstResourceRequest));
-assert.equal(assembly.project.redo().ok, true);
+assert.equal(ports.project.redo().ok, true);
 assert.equal(
   ownerState.undoStack.length,
   historyAfterSecondImport
@@ -471,5 +503,5 @@ assert.doesNotMatch(
 );
 
 console.log(
-  "LayerDocument Properties/PSD cutover integration verified"
+  "LayerDocument Properties/PSD integration verified"
 );

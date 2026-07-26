@@ -17,7 +17,7 @@ import type {
 
 /**
  * The Editor instantiates one Project Owner. Reducers keep Project state,
- * replace, transactions, History and current compatibility Runtime session
+ * replace, transactions, History and current Runtime session
  * in their existing small modules; lifecycle/persistence and Source Runtime
  * remain separately composed behind the Editor boundary.
  */

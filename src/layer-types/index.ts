@@ -23,6 +23,9 @@ export {
   prepareLayerDocumentAudioFutureCommand,
   queryLayerDocumentAudio,
 } from "@/layer-types/audioSupport";
+export {
+  createLayerTypeOwnerCommandAdapter,
+} from "@/layer-types/ownerCommandSupport";
 export type {
   LayerDocumentAudioFutureCommand,
   LayerDocumentAudioPreparationPort,
