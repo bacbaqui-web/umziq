@@ -6,8 +6,6 @@ import type {
 } from "@/engines/playback-render/models/renderSourceModel";
 import type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
 
-export type RendererMode = "full-render" | "fast-render";
-
 export type RenderAccurateFrameOptions = {
   evaluatedScene: EvaluatedScene;
   resolveNodeVisual?: RenderNodeVisualResolver;
@@ -15,20 +13,9 @@ export type RenderAccurateFrameOptions = {
 };
 
 export type AccurateRendererResult = {
-  mode: "full-render";
   frame: RenderFrame;
 };
 
-export type FastPreviewRendererResult = {
-  mode: "fast-render";
+export type PreviewRendererResult = {
   previewScene: PreviewScene;
-};
-
-export type RendererModeResult =
-  | AccurateRendererResult
-  | FastPreviewRendererResult;
-
-export type RenderWithRendererModeOptions = RenderAccurateFrameOptions & {
-  mode: RendererMode;
-  previousPreviewScene?: PreviewScene | null;
 };

@@ -24,8 +24,6 @@ export default function PreviewWorkspacePane({
   previewPan,
   previewZoom,
   previewZoomPercent,
-  rendererMode,
-  setRendererMode,
   previewQuality,
   previewQualityCommands,
   canvasFpsRuntime,
@@ -159,8 +157,6 @@ export default function PreviewWorkspacePane({
               resetPreviewView={resetPreviewView}
               setOneToOnePreviewView={setOneToOnePreviewView}
               centerPreviewView={centerPreviewView}
-              rendererMode={rendererMode}
-              setRendererMode={setRendererMode}
               previewQuality={previewQuality}
               previewQualityCommands={previewQualityCommands}
             />

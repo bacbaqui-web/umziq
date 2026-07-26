@@ -1,5 +1,5 @@
 import {
-  buildLayerDocumentCanvasRendererReadModel,
+  buildLayerDocumentCanvasPreviewReadModel,
 } from "@/engines/canvas/helpers/layerDocumentCanvasRendererHelpers";
 import {
   buildLayerDocumentCanvasDirectSelectionCandidates,
@@ -75,9 +75,8 @@ export function buildLayerDocumentCanvasModeReadModel(
       selectedInput,
       selectedTarget,
       renderer:
-        buildLayerDocumentCanvasRendererReadModel({
+        buildLayerDocumentCanvasPreviewReadModel({
           runtime,
-          rendererMode: input.rendererMode,
           renderAssets: input.renderAssets,
           previousPreviewScene:
             input.previousPreviewScene,

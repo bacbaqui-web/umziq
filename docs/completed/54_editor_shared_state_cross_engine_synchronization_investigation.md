@@ -1,6 +1,6 @@
 # Editor Shared State & Cross-Engine Synchronization Investigation
 
-> **현재 상태:** 이 문서는 LayerDocument cutover 전 문제를 조사한 역사 문서다. 아래의 이전 identity/state 진단은 당시 코드에 대한 결과이며, 현재 canonical identity는 `layerDocumentId`, Timeline 저장 의미는 `LayerDocument.common.placement`, 현재 owner/command/history 구조는 `56_layer_document_architecture.md`를 따른다.
+> **현재 상태:** 이 문서는 LayerDocument cutover 전 문제를 조사한 역사 문서다. 아래의 이전 identity/state 진단은 당시 코드에 대한 결과이며, 현재 canonical identity는 `layerDocumentId`, Timeline 저장 의미는 `LayerDocument.common.placement`, 현재 owner/command/history 구조는 `docs/architecture/10_project_architecture.md`, `docs/architecture/12_timeline_playback_architecture.md`, `docs/architecture/13_history_draft_architecture.md`를 따른다.
 
 ## 현재 Addendum
 
@@ -14,13 +14,13 @@
 | Runtime render data가 History snapshot에 포함 | Project/History는 Plain Data, resource는 Source runtime cache |
 | Panel별 선택 사본 | Project owner session의 LayerDocument selection |
 
-아래에서 제안하거나 평가한 이전 Engine 이름, state hook, record와 파일 경로는 현재 구현 안내가 아니다. `20_src_map.md`와 `56_layer_document_architecture.md`가 현재 기준이다.
+아래에서 제안하거나 평가한 이전 Engine 이름, state hook, record와 파일 경로는 현재 구현 안내가 아니다. `docs/20_src_map.md`와 `docs/architecture/10_project_architecture.md`가 현재 기준이다.
 
 ## 1. 문서 목적
 
 이 문서는 Canvas, Timeline, Properties, PSD Tree가 서로를 직접 수정하지 않고 같은 편집 상태를 읽어 함께 갱신되는 구조가 현재 프로젝트에 얼마나 마련되어 있는지 정적 코드로 조사한 결과다.
 
-이번 조사에서는 제품 코드, `98_sprint_plan.md`, 기존 문서를 수정하지 않았다. 브라우저 QA, 실제 조작 QA, build, lint, verification도 실행하지 않았다.
+이번 조사에서는 제품 코드, `docs/98_sprint_plan.md`, 기존 문서를 수정하지 않았다. 브라우저 QA, 실제 조작 QA, build, lint, verification도 실행하지 않았다.
 
 조사 기준은 다음과 같다.
 

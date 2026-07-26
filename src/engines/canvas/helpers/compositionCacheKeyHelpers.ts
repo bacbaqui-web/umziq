@@ -9,8 +9,6 @@ export function buildCompositionPreviewCacheKey(
   input: CompositionPreviewCacheKeyInput
 ): string {
   return [
-    "renderer",
-    input.rendererMode,
     "quality",
     input.previewQuality,
     "scale",

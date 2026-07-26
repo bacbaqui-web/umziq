@@ -1,16 +1,21 @@
 # LayerDocument Architecture
 
+> **상태:** LayerDocument 전환 완료 당시 기록
+>
+> 현재 canonical 설계는 `docs/architecture/10_project_architecture.md`를
+> 따른다.
+
 ## 1. 문서 경계
 
-이 문서는 현재 `LayerDocumentProject`의 저장 authority, identity, domain
+이 문서는 전환 완료 당시 `LayerDocumentProject`의 저장 authority, identity, domain
 transaction, Runtime 분리와 Render projection 계약을 정의한다.
 
 - Editor Project Owner, Composition Root와 네 Panel Engine의 최종 경계:
-  `58_editor_project_owner_panel_engine_architecture.md`
+  `docs/completed/58_editor_project_owner_panel_engine_architecture.md`
 - `.sfep`, Save/Open/Reconnect와 Project lifecycle:
-  `57_layer_document_persistence_project_lifecycle.md`
+  `docs/completed/57_layer_document_persistence_project_lifecycle.md`
 - 현재 파일 위치와 책임:
-  `20_src_map.md`
+  `docs/20_src_map.md`
 
 삭제된 이전 구조나 전환 단계는 현재 architecture로 취급하지 않는다.
 

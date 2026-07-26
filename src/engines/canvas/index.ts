@@ -2,7 +2,6 @@ export {
   useLayerDocumentCanvasComposition,
   type LayerDocumentCanvasReadPort,
 } from "@/engines/canvas/useLayerDocumentCanvasComposition";
-export type { RendererMode } from "@/engines/playback-render";
 export { useCanvasPreviewRuntime } from "@/engines/canvas/useCanvasPreviewRuntime";
 export type {
   CanvasPreviewPaneProps,
@@ -155,7 +154,7 @@ export type {
 } from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
 export {
   buildLayerDocumentCanvasRenderFrame,
-  buildLayerDocumentCanvasRendererReadModel,
+  buildLayerDocumentCanvasPreviewReadModel,
 } from "@/engines/canvas/helpers/layerDocumentCanvasRendererHelpers";
 export {
   buildLayerDocumentCanvasDirectSelectionCandidates,

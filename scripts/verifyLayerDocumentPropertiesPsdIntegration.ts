@@ -404,7 +404,6 @@ assert.ok(firstPsdLayer?.common.source);
 const firstRuntime = ports.canvas.readViewProps({
   globalFrame: 7,
   quality: "preview",
-  rendererMode: "full-render",
 });
 assert.equal(firstRuntime.runtime.ok, true);
 if (!firstRuntime.runtime.ok || !firstPsdLayer) {

@@ -26,7 +26,7 @@ import {
   type EvaluatedSceneDrawableNode,
   type EvaluatedSceneTransform,
   type LayerDocumentRuntimeInput,
-  type LayerDocumentRuntimeReadModel,
+  type LayerDocumentEditorFrameReadModel,
   type LayerDocumentRuntimeTargetReadModel,
   type LayerDocumentTransformDraftSnapshot,
   type PreviewSceneTransformPatch,
@@ -206,7 +206,7 @@ function node(
 function runtime(
   quality: string,
   draftApplied = false
-): LayerDocumentRuntimeReadModel {
+): LayerDocumentEditorFrameReadModel {
   const inputA = input(
     "layer-a",
     0,
@@ -255,25 +255,24 @@ const viewport = {
   viewportOffset: { x: 0, y: 0 },
 };
 
-const full = buildLayerDocumentCanvasModeReadModel({
+const preview = buildLayerDocumentCanvasModeReadModel({
   mode: "layer-document",
   activeScene,
   runtime: { ok: true, model: runtime("preview", true) },
   selectedLayerDocumentId: "layer-a",
-  rendererMode: "full-render",
   quality: "preview",
   viewport,
   renderAssets,
 });
-assert.equal(full.ok, true);
-if (!full.ok) throw new Error(full.reason);
-assert.equal(full.model.mode, "layer-document");
+assert.equal(preview.ok, true);
+if (!preview.ok) throw new Error(preview.reason);
+assert.equal(preview.model.mode, "layer-document");
 assert.equal(
-  full.model.activeScene.layerDocumentId,
+  preview.model.activeScene.layerDocumentId,
   "active-group"
 );
 assert.deepEqual(
-  full.model.previewWorkspaceScene,
+  preview.model.previewWorkspaceScene,
   {
     identity: "active-group",
     width: 200,
@@ -281,57 +280,49 @@ assert.deepEqual(
   }
 );
 assert.deepEqual(
-  full.model.renderer.renderFrame?.commands.map(
-    (command) => command.layerDocumentId
+  preview.model.renderer.previewScene.nodes.map(
+    (node) => node.layerDocumentId
   ),
   ["layer-a", "layer-b"]
 );
 assert.equal(
-  full.model.renderer.renderFrame?.commands.every(
-    (command) =>
-      command.type !== "drawable" ||
-      command.source.image === canvas
-  ),
-  true
-);
-assert.equal(
-  full.model.selectedTarget?.target.layerDocumentId,
+  preview.model.selectedTarget?.target.layerDocumentId,
   "layer-a"
 );
 assert.strictEqual(
-  full.model.selectedTarget?.target,
-  full.model.selectedTarget?.gizmo.target
+  preview.model.selectedTarget?.target,
+  preview.model.selectedTarget?.gizmo.target
 );
 assert.strictEqual(
-  full.model.selectedTarget?.target,
-  full.model.selectedTarget?.motionPath.target
+  preview.model.selectedTarget?.target,
+  preview.model.selectedTarget?.motionPath.target
 );
 assert.equal(
-  full.model.hoverSuppressedDuringTransform,
+  preview.model.hoverSuppressedDuringTransform,
   true
 );
 assert.equal(
-  full.model.sourceResourceCacheKey,
+  preview.model.sourceResourceCacheKey,
   sourceResourceCacheKey
 );
 assert.notEqual(
-  full.model.sourceResourceCacheKey,
-  full.model.layerResultCacheKey
+  preview.model.sourceResourceCacheKey,
+  preview.model.layerResultCacheKey
 );
 
 const currentPoint =
-  full.model.motionPathCurrentPoint;
+  preview.model.motionPathCurrentPoint;
 assert.ok(currentPoint);
 assert.deepEqual(
   {
     x: currentPoint.x,
     y: currentPoint.y,
   },
-  full.model.selection.previewAnchor
+  preview.model.selection.previewAnchor
 );
 
 const candidates =
-  full.model.directSelectionCandidates;
+  preview.model.directSelectionCandidates;
 assert.deepEqual(
   candidates.map((candidate) => ({
     layerDocumentId: candidate.layerDocumentId,
@@ -373,7 +364,7 @@ assert.notEqual(
   )
 );
 assert.equal(
-  full.model.selectedGlowCandidate
+  preview.model.selectedGlowCandidate
     ?.layerDocumentId,
   "layer-a"
 );
@@ -420,20 +411,19 @@ assert.deepEqual(
   { type: "drag", layerDocumentId: "layer-a" }
 );
 
-const fast = buildLayerDocumentCanvasModeReadModel({
+const originalQuality = buildLayerDocumentCanvasModeReadModel({
   mode: "layer-document",
   activeScene,
   runtime: { ok: true, model: runtime("original") },
   selectedLayerDocumentId: "layer-b",
-  rendererMode: "fast-render",
   quality: "original",
   viewport,
   renderAssets,
 });
-assert.equal(fast.ok, true);
-if (!fast.ok) throw new Error(fast.reason);
+assert.equal(originalQuality.ok, true);
+if (!originalQuality.ok) throw new Error(originalQuality.reason);
 assert.deepEqual(
-  fast.model.renderer.previewScene?.nodes.map(
+  originalQuality.model.renderer.previewScene.nodes.map(
     (previewNode) => ({
       layerDocumentId:
         previewNode.layerDocumentId,
@@ -453,16 +443,11 @@ assert.deepEqual(
   ]
 );
 assert.notEqual(
-  full.model.layerResultCacheKey,
-  fast.model.layerResultCacheKey
+  preview.model.layerResultCacheKey,
+  originalQuality.model.layerResultCacheKey
 );
-const modeQualityMatrix = [
-  ["full-render", "preview"],
-  ["full-render", "original"],
-  ["fast-render", "preview"],
-  ["fast-render", "original"],
-] as const;
-modeQualityMatrix.forEach(([rendererMode, quality]) => {
+const qualityMatrix = ["preview", "original"] as const;
+qualityMatrix.forEach((quality) => {
   const result =
     buildLayerDocumentCanvasModeReadModel({
       mode: "layer-document",
@@ -472,7 +457,6 @@ modeQualityMatrix.forEach(([rendererMode, quality]) => {
         model: runtime(quality),
       },
       selectedLayerDocumentId: "layer-a",
-      rendererMode,
       quality,
       viewport,
       renderAssets,
@@ -484,14 +468,10 @@ modeQualityMatrix.forEach(([rendererMode, quality]) => {
     sourceResourceCacheKey
   );
   const layerDocumentIds =
-    rendererMode === "full-render"
-      ? result.model.renderer.renderFrame?.commands.map(
-          (command) => command.layerDocumentId
-        )
-      : result.model.renderer.previewScene?.nodes.map(
-          (previewNode) =>
-            previewNode.layerDocumentId
-        );
+    result.model.renderer.previewScene.nodes.map(
+      (previewNode) =>
+        previewNode.layerDocumentId
+    );
   assert.deepEqual(layerDocumentIds, [
     "layer-a",
     "layer-b",
@@ -523,14 +503,14 @@ const context = {
 };
 drawPreviewSceneToContext(
   context,
-  fast.model.renderer.previewScene!,
+  originalQuality.model.renderer.previewScene,
   undefined,
   1,
   undefined,
   undefined,
   "original",
   undefined,
-  fast.model.renderer.resolveNodeVisual
+  originalQuality.model.renderer.resolveNodeVisual
 );
 assert.equal(drawCount, 2);
 assert.equal(

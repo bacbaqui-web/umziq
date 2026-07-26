@@ -585,7 +585,7 @@ async function selectTimelineTarget(client, sessionId, fixture) {
   };
 }
 
-async function applyPilotSetup(client, sessionId, fixture, rendererMode = "fast-render", glowMode = "off") {
+async function applyPilotSetup(client, sessionId, fixture, _rendererPath = "preview", glowMode = "off") {
   const setupResult = await evaluate(
     client,
     sessionId,
@@ -595,10 +595,6 @@ async function applyPilotSetup(client, sessionId, fixture, rendererMode = "fast-
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set;
       valueSetter.call(select, "medium");
       select.dispatchEvent(new Event("change", { bubbles: true }));
-
-      const renderer = document.querySelector('input[name="preview-renderer-mode"][value=${JSON.stringify(rendererMode)}]');
-      if (!(renderer instanceof HTMLInputElement)) return { ok: false, reason: "renderer-radio-missing" };
-      renderer.click();
 
       const glow = [...document.querySelectorAll("button")]
         .find((button) => button.textContent.trim() === "선택 강조");
@@ -653,8 +649,8 @@ async function applyPilotSetup(client, sessionId, fixture, rendererMode = "fast-
   await waitForCondition(
     client,
     sessionId,
-    `document.querySelector("#preview-quality")?.value === "medium" && document.querySelector('input[name="preview-renderer-mode"][value=${JSON.stringify(rendererMode)}]')?.checked === true && [...document.querySelectorAll("button")].find((button) => button.textContent.trim() === "선택 강조")?.getAttribute("aria-pressed") === ${JSON.stringify(glowMode === "on" ? "true" : "false")} && !document.body.innerText.includes("생성 중...")`,
-    `medium ${rendererMode} setup`,
+    `document.querySelector("#preview-quality")?.value === "medium" && [...document.querySelectorAll("button")].find((button) => button.textContent.trim() === "선택 강조")?.getAttribute("aria-pressed") === ${JSON.stringify(glowMode === "on" ? "true" : "false")} && !document.body.innerText.includes("생성 중...")`,
+    "medium Preview setup",
     30_000
   );
   await waitForCondition(
@@ -777,7 +773,7 @@ async function readPilotState(client, sessionId, fixture) {
         },
         setup: {
           quality: document.querySelector("#preview-quality")?.value ?? null,
-          rendererMode: document.querySelector('input[name="preview-renderer-mode"]:checked')?.value ?? null,
+          rendererPath: "preview",
           glow: [...document.querySelectorAll("button")]
             .find((button) => button.textContent.trim() === "선택 강조")?.getAttribute("aria-pressed") ?? null,
           zoomText: [...document.querySelectorAll("div")]
@@ -2041,7 +2037,7 @@ async function runFlatMatrix(options, matrixKind = "flat") {
           const setupValid = viewportComparison.matches
             && identityValid
             && initialState.setup.quality === "medium"
-            && initialState.setup.rendererMode === scenario.mode
+            && initialState.setup.rendererPath === scenario.mode
             && initialState.setup.glow === String(scenario.glow === "on")
             && initialState.setup.zoomText === `${Math.round(fixture.viewport.previewZoom * 100)}%`
             && frame === 0;

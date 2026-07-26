@@ -1096,7 +1096,6 @@ if (parsedProperties.status === "ready") {
 const parsedCanvasView = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "original",
-  rendererMode: "full-render",
 });
 assert.equal(parsedCanvasView.runtime.ok, true);
 if (!parsedCanvasView.runtime.ok) {
@@ -1291,7 +1290,6 @@ assert.equal(
 let canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
-  rendererMode: "fast-render",
 });
 assert.equal(canvas.runtime.ok, true);
 if (!canvas.runtime.ok) {
@@ -1334,7 +1332,6 @@ assert.doesNotMatch(
 canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
-  rendererMode: "fast-render",
 });
 assert.equal(canvas.selectedLayerDocumentId, "psd-copy");
 assert.equal(canvas.runtime.ok, true);
@@ -1381,7 +1378,6 @@ assert.ok(draft);
 canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
-  rendererMode: "fast-render",
 });
 assert.equal(canvas.runtime.ok, true);
 if (!canvas.runtime.ok) {
@@ -1444,7 +1440,6 @@ const canvasAfterAnimatedCommit =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
-    rendererMode: "fast-render",
   });
 assert.equal(canvasAfterAnimatedCommit.runtime.ok, true);
 if (!canvasAfterAnimatedCommit.runtime.ok) {
@@ -1523,7 +1518,6 @@ const motionPathBeforeDraft =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
-    rendererMode: "fast-render",
   });
 assert.equal(motionPathBeforeDraft.runtime.ok, true);
 if (!motionPathBeforeDraft.runtime.ok) {
@@ -1582,7 +1576,6 @@ assert.deepEqual(
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
-    rendererMode: "fast-render",
   }).selectedTransformKeyframe,
   owner.state.runtimeSession
     .selectedTransformKeyframe
@@ -1615,7 +1608,6 @@ const motionPathDuringDraft =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
-    rendererMode: "fast-render",
   });
 assert.equal(motionPathDuringDraft.runtime.ok, true);
 if (!motionPathDuringDraft.runtime.ok) {
@@ -1650,7 +1642,6 @@ const motionPathAfterCancel =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
     quality: "preview",
-    rendererMode: "fast-render",
   });
 assert.equal(motionPathAfterCancel.runtime.ok, true);
 if (!motionPathAfterCancel.runtime.ok) {
@@ -2041,7 +2032,6 @@ const beforeRefreshLayer = structuredClone(
 canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
-  rendererMode: "full-render",
 });
 assert.equal(canvas.runtime.ok, true);
 if (!canvas.runtime.ok) {
@@ -2109,7 +2099,6 @@ assert.equal(disposedResourceCount, 2);
 const afterRefreshCanvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
   quality: "preview",
-  rendererMode: "full-render",
 });
 assert.equal(afterRefreshCanvas.runtime.ok, true);
 if (!afterRefreshCanvas.runtime.ok) {

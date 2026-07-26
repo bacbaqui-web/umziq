@@ -140,7 +140,6 @@ function drawCompositionPreviewNodeToContext({
     node,
     previewQuality,
     previewScale: pixelScale,
-    rendererMode: "fast-render",
   };
   const cachedSurface = compositionCache?.getSurface(cacheInput) ?? null;
   if (cachedSurface) {

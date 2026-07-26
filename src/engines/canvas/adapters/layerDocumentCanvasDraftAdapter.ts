@@ -4,12 +4,11 @@ import type {
   Position,
 } from "@/models";
 import {
-  buildLayerDocumentRuntimeReadModel,
+  buildLayerDocumentEditorFrameReadModel,
   type LayerDocumentDraftInteractionPreparation,
   type LayerDocumentRuntimeInput,
   type LayerDocumentTransformDraftSnapshot,
   type PreviewSceneTransformPatch,
-  type RendererMode,
   type RuntimeMetricRecordPort,
 } from "@/engines/playback-render";
 import type {
@@ -74,7 +73,7 @@ export function createLayerDocumentCanvasDraftAdapter<
     draft: LayerDocumentCanvasDraftPort;
     resolvePsdSource:
       Parameters<
-        typeof buildLayerDocumentRuntimeReadModel
+        typeof buildLayerDocumentEditorFrameReadModel
       >[0]["resolvePsdSource"];
     sourceResolution:
       LayerDocumentSourceRuntimeResolutionReadPort;
@@ -111,7 +110,7 @@ export function createLayerDocumentCanvasDraftAdapter<
     globalFrame: number;
     expectedLocalFrame?: number;
   }) => {
-    const runtime = buildLayerDocumentRuntimeReadModel({
+    const runtime = buildLayerDocumentEditorFrameReadModel({
       project: options.readProject(),
       activeGroupLayerDocumentId:
         options.readActiveGroupLayerDocumentId(),
@@ -167,7 +166,6 @@ export function createLayerDocumentCanvasDraftAdapter<
     });
   const readViewProps = (command: {
     quality: string;
-    rendererMode: RendererMode;
     globalFrame: number;
     runtimeMetrics?: RuntimeMetricRecordPort;
   }) => ({
@@ -175,10 +173,9 @@ export function createLayerDocumentCanvasDraftAdapter<
       options.readSelectedLayerDocumentId(),
     selectedTransformKeyframe:
       options.readSelectedTransformKeyframe(),
-    rendererMode: command.rendererMode,
     quality: command.quality,
     scope: options.readScope(),
-    runtime: buildLayerDocumentRuntimeReadModel({
+    runtime: buildLayerDocumentEditorFrameReadModel({
       project: options.readProject(),
       activeGroupLayerDocumentId:
         options.readActiveGroupLayerDocumentId(),

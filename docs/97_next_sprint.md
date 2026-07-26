@@ -3,7 +3,7 @@
 > 상태: 사용자 검토용 계획 제안
 > 구현: 시작하지 않음
 > QA: 미실행
-> 현재 Sprint 승격: 사용자 승인 후 `98_sprint_plan.md`로 이동
+> 현재 Sprint 승격: 사용자 승인 후 `docs/98_sprint_plan.md`로 이동
 
 ## 제안 방향
 

@@ -1,4 +1,4 @@
-export type ProfilingRendererMode = "fast-render" | "full-render";
+export type ProfilingRendererMode = "preview";
 export type ProfilingLane = "browser-performance-production" | "react-profiler-dev";
 export type ProfilingScenarioFamily =
   | "P"
@@ -203,9 +203,9 @@ function forModes(
   idPrefix: string,
   input: Omit<ProfilingScenario, "id" | "mode">
 ): ProfilingScenario[] {
-  return (["fast-render", "full-render"] as const).map((mode) => ({
+  return (["preview"] as const).map((mode) => ({
     ...input,
-    id: `${idPrefix}-${mode === "fast-render" ? "fast" : "full"}`,
+    id: `${idPrefix}-preview`,
     mode,
   }));
 }
@@ -294,7 +294,7 @@ export const PROFILING_SCENARIOS: readonly ProfilingScenario[] = [
     id: "D-wh-scale-nested-off-fast",
     family: "D-wh-scale",
     fixture: "nested",
-    mode: "fast-render",
+    mode: "preview",
     glow: "off",
     captureWindow:
       "outside capture seed the verified WH linked-scale handle 4 CSS px radially outward and wait two frames; record 100 absolute-deadline moves over 1000 ms before commit and Undo",
@@ -304,7 +304,7 @@ export const PROFILING_SCENARIOS: readonly ProfilingScenario[] = [
     id: "D-wh-scale-glow-off-fast",
     family: "D-wh-scale",
     fixture: "glow",
-    mode: "fast-render",
+    mode: "preview",
     glow: "off",
     captureWindow:
       "outside capture seed the verified WH linked-scale handle 4 CSS px radially outward and wait two frames; record 100 absolute-deadline moves over 1000 ms before commit and Undo",
@@ -314,7 +314,7 @@ export const PROFILING_SCENARIOS: readonly ProfilingScenario[] = [
     id: "D-wh-scale-glow-on-fast",
     family: "D-wh-scale",
     fixture: "glow",
-    mode: "fast-render",
+    mode: "preview",
     glow: "on",
     captureWindow:
       "outside capture seed the verified WH linked-scale handle 4 CSS px radially outward and wait two frames; record 100 absolute-deadline moves over 1000 ms before commit and Undo",
@@ -337,7 +337,7 @@ export const PROFILING_ENVIRONMENT_FREEZE = {
   validityPrerequisites: [
     "create a fresh headless Chromium target for the exact production root URL through CDP",
     "import drag_test.psd into a fresh empty project and reach the frozen flat target at frame 0",
-    "set medium Preview quality, fast-render, glow off, browser zoom 100%, and finish the declared Preview viewport setup",
+    "set medium Preview quality, Preview Renderer, glow off, browser zoom 100%, and finish the declared Preview viewport setup",
     "use no CPU or network throttling and capture only the dedicated app target",
   ],
   measurementProcedure: [
@@ -473,7 +473,7 @@ export const PROFILING_RUN_PROTOCOL = {
     ],
   },
   doNotPool: [
-    "fast-render with full-render",
+    "the previous dual-mode baseline with the single Preview product path",
     "production Browser Performance with dev React Profiler",
     "flat with nested or glow",
     "seed, steady and commit windows",

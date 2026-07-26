@@ -62,7 +62,6 @@ function retainSkippedCompositionSurfaces(
       node,
       previewQuality,
       previewScale,
-      rendererMode: "fast-render",
     });
     retainSkippedCompositionSurfaces(
       node.children,

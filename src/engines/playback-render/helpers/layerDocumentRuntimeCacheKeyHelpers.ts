@@ -97,7 +97,6 @@ export function buildLayerDocumentEvaluationIdentity(
     input.revision,
     normalizeNumber(input.globalFrame),
     normalizeNumber(input.localFrame),
-    input.quality,
     input.sourceResourceCacheKey,
     input.draftIdentity,
   ]);

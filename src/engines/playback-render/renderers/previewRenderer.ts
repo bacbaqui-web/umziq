@@ -9,7 +9,7 @@ import type {
   PreviewNode,
   PreviewScene,
 } from "@/engines/playback-render/models/previewSceneModel";
-import type { FastPreviewRendererResult } from "@/engines/playback-render/models/rendererModeModel";
+import type { PreviewRendererResult } from "@/engines/playback-render/models/rendererResultModel";
 import type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
 
 function createLayerPreviewNodeId(node: Extract<EvaluatedSceneNode, { type: "drawable" }>) {
@@ -494,13 +494,13 @@ export function buildPreviewSceneFromEvaluatedScene(
   };
 }
 
-export function renderFastPreviewRenderer(
+export function renderPreviewRenderer(
   evaluatedScene: EvaluatedScene,
   runtimeMetrics?: RuntimeMetricRecordPort,
   previousPreviewScene?: PreviewScene | null
-): FastPreviewRendererResult {
+): PreviewRendererResult {
   const startTime = performance.now();
-  runtimeMetrics?.increment("fastPreviewRenderer");
+  runtimeMetrics?.increment("previewRenderer");
   if (
     previousPreviewScene &&
     previousPreviewScene.compositionId === evaluatedScene.compositionId
@@ -515,14 +515,12 @@ export function renderFastPreviewRenderer(
       performance.now() - startTime
     );
     return {
-      mode: "fast-render",
       previewScene: result.previewScene,
     };
   }
 
   runtimeMetrics?.increment("previewSceneGeneration");
   return {
-    mode: "fast-render",
     previewScene: buildPreviewSceneFromEvaluatedScene(evaluatedScene),
   };
 }

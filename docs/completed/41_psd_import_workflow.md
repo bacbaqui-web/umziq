@@ -3,7 +3,7 @@
 > 문서 번호: 41
 > 범위: Import Preview, Refresh 계층 유지, Stable Source Identity와 Import Settings의 실제 구현 상태 및 후속 설계를 기록한다.
 >
-> **현재 상태:** 이 문서는 cutover 전 구현 역사와 제품 의도를 보존한다. 현재 저장/command authority는 Composition/Timeline/Render records가 아니라 `LayerDocumentProject`, `Source Registry`, LayerDocument transaction이며, 현재 구조는 `56_layer_document_architecture.md`를 따른다.
+> **현재 상태:** 이 문서는 cutover 전 구현 역사와 제품 의도를 보존한다. 현재 저장/command authority는 Composition/Timeline/Render records가 아니라 `LayerDocumentProject`, `Source Registry`, LayerDocument transaction이며, 현재 구조는 `docs/architecture/10_project_architecture.md`와 `docs/architecture/15_source_architecture.md`를 따른다.
 
 ## 현재 Addendum
 
@@ -17,7 +17,7 @@
 | Composition History 초기화/복원 | LayerDocument Project owner History 정책 |
 | runtime canvas/render binding | Source runtime resource cache |
 
-따라서 아래 과거 섹션의 파일명·record명·검증 개수는 현재 소스 지도가 아니다. 현재 파일 책임은 `20_src_map.md`, 현재 데이터/command/cache 계약은 `56_layer_document_architecture.md`가 우선한다.
+따라서 아래 과거 섹션의 파일명·record명·검증 개수는 현재 소스 지도가 아니다. 현재 파일 책임은 `docs/20_src_map.md`, 현재 데이터/command/cache 계약은 `docs/architecture/10_project_architecture.md`와 `docs/architecture/15_source_architecture.md`가 우선한다.
 
 ## 1. 결론
 
@@ -634,7 +634,7 @@ Import Settings를 나중에 바꾸는 기능은 Refresh에 암묵적으로 섞�
 | `PsdTreeNode.tsx` 구현 | Group source status에 따른 `NEW` 배지 렌더와 실제 선택 intent 전달 |
 | `PsdRefreshSummaryCard.tsx` 신규·구현 | 여섯 개 결과 수치/무변경 상태, 수동 닫기와 8초 자동 닫기 비모달 UI |
 | `useEditorCompositionRoot.ts` | Project prepare/confirm/cancel façade를 PSD Tree port에 연결만 함 |
-| `20_src_map.md` | 실제 파일 추가 및 책임 변경 후 지도 갱신 |
+| `docs/20_src_map.md` | 실제 파일 추가 및 책임 변경 후 지도 갱신 |
 
 ## 10. 추천 구현 순서
 

@@ -1,6 +1,6 @@
 export const RUNTIME_METRIC_COUNTER_NAMES = [
   "animationEvaluation",
-  "fastPreviewRenderer",
+  "previewRenderer",
   "accurateRenderer",
   "previewUpdate",
   "previewSceneGeneration",

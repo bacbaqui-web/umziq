@@ -1,10 +1,9 @@
 import {
   renderAccurateRenderer,
-  renderFastPreviewRenderer,
-  type LayerDocumentRuntimeReadModel,
+  renderPreviewRenderer,
+  type LayerDocumentEditorFrameReadModel,
   type PreviewScene,
   type RenderFrame,
-  type RendererMode,
   type RuntimeMetricRecordPort,
 } from "@/engines/playback-render";
 import {
@@ -16,7 +15,7 @@ import type {
 } from "@/engines/canvas/models/layerDocumentCanvasModeModel";
 
 export function buildLayerDocumentCanvasRenderFrame(options: {
-  runtime: LayerDocumentRuntimeReadModel;
+  runtime: LayerDocumentEditorFrameReadModel;
   renderAssets: LayerDocumentCanvasRenderAssetPort;
   runtimeMetrics?: RuntimeMetricRecordPort;
 }): RenderFrame {
@@ -30,9 +29,8 @@ export function buildLayerDocumentCanvasRenderFrame(options: {
   }).frame;
 }
 
-export function buildLayerDocumentCanvasRendererReadModel(options: {
-  runtime: LayerDocumentRuntimeReadModel;
-  rendererMode: RendererMode;
+export function buildLayerDocumentCanvasPreviewReadModel(options: {
+  runtime: LayerDocumentEditorFrameReadModel;
   renderAssets: LayerDocumentCanvasRenderAssetPort;
   previousPreviewScene?: PreviewScene | null;
   runtimeMetrics?: RuntimeMetricRecordPort;
@@ -41,22 +39,8 @@ export function buildLayerDocumentCanvasRendererReadModel(options: {
     createLayerDocumentCanvasNodeVisualResolver(
       options.renderAssets
     );
-  if (options.rendererMode === "full-render") {
-    return {
-      mode: "full-render",
-      renderFrame: buildLayerDocumentCanvasRenderFrame({
-        runtime: options.runtime,
-        renderAssets: options.renderAssets,
-        runtimeMetrics: options.runtimeMetrics,
-      }),
-      previewScene: null,
-      resolveNodeVisual,
-    };
-  }
   return {
-    mode: "fast-render",
-    renderFrame: null,
-    previewScene: renderFastPreviewRenderer(
+    previewScene: renderPreviewRenderer(
       options.runtime.scene,
       options.runtimeMetrics,
       options.previousPreviewScene

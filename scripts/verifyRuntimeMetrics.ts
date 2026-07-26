@@ -33,7 +33,7 @@ assert.equal(metrics.getGlobalSnapshot().drawImage, 3);
 assert.equal(metrics.getFrameSnapshot().drawImage, 0);
 assert.equal(metrics.getFrameSnapshot().animationEvaluation, 0);
 
-metrics.increment("fastPreviewRenderer");
+metrics.increment("previewRenderer");
 metrics.increment("previewSceneGeneration");
 metrics.increment("projectUpdate");
 metrics.increment("historyCommit");
@@ -98,7 +98,7 @@ assert.equal(improvementDifference?.percent, 99);
 const expectedGlobal: ExpectedRuntimeMetrics = {
   animationEvaluation: 100,
   drawImage: { min: 5, max: 5 },
-  fastPreviewRenderer: { equals: 1 },
+  previewRenderer: { equals: 1 },
   previewSceneGeneration: { min: 1 },
   projectUpdate: 2,
   historyCommit: 1,
@@ -113,7 +113,7 @@ assert.equal(globalComparison.results.length, 6);
 const expectedFrame: ExpectedRuntimeMetrics = {
   animationEvaluation: 99,
   drawImage: 2,
-  fastPreviewRenderer: 1,
+  previewRenderer: 1,
   previewSceneGeneration: 1,
   projectUpdate: 2,
   historyCommit: 1,

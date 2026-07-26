@@ -2,7 +2,7 @@ import type {
   EvaluatedSceneNode,
   EvaluatedSceneSize,
   LayerDocumentRuntimeInput,
-  LayerDocumentRuntimeReadModel,
+  LayerDocumentEditorFrameReadModel,
   LayerDocumentRuntimeTargetReadModel,
 } from "@/engines/playback-render";
 import {
@@ -105,7 +105,7 @@ function emptySelection(): CanvasSelectionReadModel {
 }
 
 export function buildLayerDocumentCanvasSelectionReadModel(options: {
-  runtime: LayerDocumentRuntimeReadModel;
+  runtime: LayerDocumentEditorFrameReadModel;
   selectedInput: LayerDocumentRuntimeInput | null;
   selectedTarget: LayerDocumentRuntimeTargetReadModel | null;
   viewport: LayerDocumentCanvasViewportInput;
@@ -282,7 +282,7 @@ function descriptorForNode(options: {
 
 export function buildLayerDocumentCanvasDirectSelectionCandidates(
   options: {
-    runtime: LayerDocumentRuntimeReadModel;
+    runtime: LayerDocumentEditorFrameReadModel;
     viewport: LayerDocumentCanvasViewportInput;
     renderAssets: LayerDocumentCanvasRenderAssetPort;
   }

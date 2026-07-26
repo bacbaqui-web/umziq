@@ -9,7 +9,7 @@ import type {
 import type {
   RenderAccurateFrameOptions,
   AccurateRendererResult,
-} from "@/engines/playback-render/models/rendererModeModel";
+} from "@/engines/playback-render/models/rendererResultModel";
 import type {
   RenderNodeVisualResolver,
 } from "@/engines/playback-render/models/renderSourceModel";
@@ -149,7 +149,6 @@ export function renderAccurateRenderer(
 ): AccurateRendererResult {
   options.runtimeMetrics?.increment("accurateRenderer");
   return {
-    mode: "full-render",
     frame: renderAccurateFrame(options),
   };
 }

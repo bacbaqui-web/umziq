@@ -200,17 +200,27 @@ export interface LayerDocumentRuntimeTargetReadModel {
   };
 }
 
-export interface LayerDocumentRuntimeReadModel {
+export interface LayerDocumentEditorFrameReadModel {
   readonly scene: EvaluatedScene;
   readonly inputs: readonly LayerDocumentRuntimeInput[];
   readonly targets: readonly LayerDocumentRuntimeTargetReadModel[];
   readonly unsupportedLayerDocumentIds: readonly string[];
 }
 
-export type LayerDocumentRuntimeReadModelResult =
+export type LayerDocumentEditorFrameReadModelResult =
   | {
       readonly ok: true;
-      readonly model: LayerDocumentRuntimeReadModel;
+      readonly model: LayerDocumentEditorFrameReadModel;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: "invalid-project" | "root-not-found";
+    };
+
+export type LayerDocumentFrameEvaluationResult =
+  | {
+      readonly ok: true;
+      readonly scene: EvaluatedScene;
     }
   | {
       readonly ok: false;
@@ -240,7 +250,7 @@ export interface LayerDocumentRuntimeCutoverPreparationPort {
     resolvePsdSource: LayerDocumentPsdSourceResolver;
     readSourceResolutionStatus:
       LayerDocumentSourceResolutionStatusReader;
-  }) => LayerDocumentRuntimeReadModelResult;
+  }) => LayerDocumentEditorFrameReadModelResult;
   readonly preparePointerMove: (
     input: LayerDocumentRuntimeInput,
     patch: PreviewSceneTransformPatch

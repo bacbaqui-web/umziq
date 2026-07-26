@@ -2,15 +2,13 @@ import type { Position, Scale } from "@/models";
 import type {
   LayerDocumentDraftInteractionPreparation,
   LayerDocumentRuntimeInput,
-  LayerDocumentRuntimeReadModelResult,
+  LayerDocumentEditorFrameReadModelResult,
   LayerDocumentRuntimeTarget,
   LayerDocumentRuntimeTargetReadModel,
   PreviewScene,
   PreviewSceneTransformPatch,
   RenderDrawableSource,
-  RenderFrame,
   RenderNodeVisualResolver,
-  RendererMode,
   RuntimeMetricRecordPort,
 } from "@/engines/playback-render";
 import type {
@@ -112,9 +110,8 @@ export interface LayerDocumentCanvasSceneDescriptor {
 export interface LayerDocumentCanvasModeInput {
   readonly mode: "layer-document";
   readonly activeScene: LayerDocumentCanvasSceneDescriptor;
-  readonly runtime: LayerDocumentRuntimeReadModelResult;
+  readonly runtime: LayerDocumentEditorFrameReadModelResult;
   readonly selectedLayerDocumentId: string | null;
-  readonly rendererMode: RendererMode;
   readonly quality: string;
   readonly viewport: LayerDocumentCanvasViewportInput;
   readonly renderAssets: LayerDocumentCanvasRenderAssetPort;
@@ -123,9 +120,7 @@ export interface LayerDocumentCanvasModeInput {
 }
 
 export interface LayerDocumentCanvasRendererReadModel {
-  readonly mode: RendererMode;
-  readonly renderFrame: RenderFrame | null;
-  readonly previewScene: PreviewScene | null;
+  readonly previewScene: PreviewScene;
   readonly resolveNodeVisual: RenderNodeVisualResolver;
 }
 

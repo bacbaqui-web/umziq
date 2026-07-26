@@ -1,7 +1,6 @@
 import {
   useEffect,
   useEffectEvent,
-  useState,
 } from "react";
 import {
   PREVIEW_MIN_WORKSPACE_HEIGHT,
@@ -12,7 +11,6 @@ import {
 } from "@/engines/canvas";
 import {
   formatCompactTime,
-  type RendererMode,
 } from "@/engines/playback-render";
 import {
   useLayerDocumentPropertiesEngine,
@@ -57,8 +55,6 @@ EditorShellLayoutProps {
     PREVIEW_MIN_WORKSPACE_WIDTH,
     PREVIEW_MIN_WORKSPACE_HEIGHT
   );
-  const [rendererMode, setRendererMode] =
-    useState<RendererMode>("full-render");
   const owner = useLayerDocumentEditorOwner();
   const runtime =
     useLayerDocumentEditorRuntime(owner);
@@ -122,8 +118,6 @@ EditorShellLayoutProps {
       resources: runtime.resources,
       viewportState: canvasState,
       interactionState: canvasState,
-      rendererMode,
-      setRendererMode,
       isPreviewPanning:
         canvasState.isPreviewPanning,
       isPreviewPanModifierActive:

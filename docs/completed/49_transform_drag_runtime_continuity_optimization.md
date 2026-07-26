@@ -301,8 +301,8 @@ Scale/Rotation/Opacity의 작은 radial hit target은 Computer Use 좌표 자동
 
 ## 15. 관련 문서
 
-- `44_preview_runtime_optimization.md`: Dirty/Node/Composition/Surface Cache와 Preview Runtime 기준
-- `45_editor_draft_runtime_integration.md`: PointerMove Draft와 PointerUp Commit 경계
-- `46_transform_origin_editing.md`: Anchor/Transform Offset와 Properties 양방향 Draft
-- `47_canvas_engine_responsibility_refactoring.md`: Transform Composer/Controller와 Preview Render 책임
-- `48_canvas_visual_layer_selection.md`: Direct Selection, 공용 Alpha와 outer glow 계약
+- `docs/completed/44_preview_runtime_optimization.md`: Dirty/Node/Composition/Surface Cache와 Preview Runtime 기준
+- `docs/completed/45_editor_draft_runtime_integration.md`: PointerMove Draft와 PointerUp Commit 경계
+- `docs/completed/46_transform_origin_editing.md`: Anchor/Transform Offset와 Properties 양방향 Draft
+- `docs/completed/47_canvas_engine_responsibility_refactoring.md`: Transform Composer/Controller와 Preview Render 책임
+- `docs/completed/48_canvas_visual_layer_selection.md`: Direct Selection, 공용 Alpha와 outer glow 계약

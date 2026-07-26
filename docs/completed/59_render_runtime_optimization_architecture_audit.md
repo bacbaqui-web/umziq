@@ -5,6 +5,8 @@
 > 기준일: 2026-07-26
 > 목적: LayerDocument 전환과 PSD 적층 순서 복구 이후 Render/Canvas
 > 최적화의 실제 연결 상태, 회귀 위험과 복구 우선순위를 기록한다.
+> 현재 canonical Render 설계는
+> `docs/architecture/11_render_architecture.md`를 따른다.
 
 ## 1. 결론
 
@@ -45,16 +47,16 @@
 
 ### 영구 문서
 
-- `42_preview_quality_and_memory_cache.md`
-- `43_dual_renderer_architecture.md`
-- `44_preview_runtime_optimization.md`
-- `45_editor_draft_runtime_integration.md`
-- `47_canvas_engine_responsibility_refactoring.md`
-- `48_canvas_visual_layer_selection.md`
-- `49_transform_drag_runtime_continuity_optimization.md`
-- `50_measured_preview_interaction_runtime_optimization.md`
-- `56_layer_document_architecture.md`
-- `58_editor_project_owner_panel_engine_architecture.md`
+- `docs/completed/42_preview_quality_and_memory_cache.md`
+- `docs/completed/43_dual_renderer_architecture.md`
+- `docs/completed/44_preview_runtime_optimization.md`
+- `docs/completed/45_editor_draft_runtime_integration.md`
+- `docs/completed/47_canvas_engine_responsibility_refactoring.md`
+- `docs/completed/48_canvas_visual_layer_selection.md`
+- `docs/completed/49_transform_drag_runtime_continuity_optimization.md`
+- `docs/completed/50_measured_preview_interaction_runtime_optimization.md`
+- `docs/completed/56_layer_document_architecture.md`
+- `docs/completed/58_editor_project_owner_panel_engine_architecture.md`
 
 ### 현재 코드 경계
 
@@ -363,7 +365,7 @@ Canvas2D painter traversal
 - painter만 back→front
 
 이 수정은 현재 동결된 Render adapter 경계를 건드린다. 구현하려면
-별도 Render Sprint에서 `00_rule.md`의 동결을 명시적으로 해제하거나
+별도 Render Sprint에서 `docs/00_rule.md`의 동결을 명시적으로 해제하거나
 이번 순서 계약에 한정된 예외를 먼저 승인해야 한다.
 
 대안으로 Canvas에 persistent WeakMap projector를 둘 수 있다. 기존

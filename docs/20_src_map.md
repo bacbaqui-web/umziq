@@ -2,12 +2,10 @@
 
 > 현재 기준: Editor Project Owner와 네 Panel Engine의 최종 구조
 >
-> 데이터/도메인 구조는 `56_layer_document_architecture.md`, 저장/불러오기와
-> Project lifecycle은 `57_layer_document_persistence_project_lifecycle.md`,
-> Editor Owner/Panel Engine 구조는
-> `58_editor_project_owner_panel_engine_architecture.md`를 함께 본다. 이
-> 문서는 현재 존재하는 소스와 책임만 설명하며 삭제된 이전 구현은 나열하지
-> 않는다.
+> 영구 설계는 `docs/architecture/10_project_architecture.md`부터
+> `docs/architecture/17_persistence_lifecycle_architecture.md`까지의
+> Architecture 법전을 따른다. 이 문서는 현재 존재하는 소스와 책임만
+> 설명하며 삭제된 이전 구현은 나열하지 않는다.
 
 ## 1. 현재 실행 흐름
 
@@ -162,26 +160,33 @@ Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure�
 
 ### `src/engines/playback-render`
 
-- `adapters/layerDocumentRuntimeInputAdapter.ts`: Project + Source descriptor + runtime resolution + frame + Draft를 node-native runtime input으로 평가
+- `adapters/layerDocumentRuntimeInputAdapter.ts`: Project + Source descriptor + runtime resolution + frame + Draft를 `EvaluatedScene`으로 평가하고, Editor Overlay projection을 평가 후 별도로 조합
 - `helpers/layerDocumentRuntimeEvaluationHelpers.ts`: Transform/Animation/Modifier/Draft 평가
 - `helpers/layerDocumentRuntimeCacheKeyHelpers.ts`: Source resource key와 Layer result key 분리
 - `models/evaluatedSceneModel.ts`: `layerDocumentId`를 보존하는 evaluated scene
-- `renderers/accurateRenderer.ts`: full-render command 생성
-- `renderers/fastPreviewRenderer.ts`: PreviewScene 생성과 previous-scene node reuse
-- `adapters/canvas2dPreviewNodeRenderer.ts`: node-native visual resolver로 fast draw
+- `models/rendererResultModel.ts`: Preview/Accurate 결과와 Accurate 호출 계약
+- `renderers/accurateRenderer.ts`: 현재 Frame 전체 `RenderFrame` command 생성
+- `renderers/previewRenderer.ts`: PreviewScene 생성과 previous-scene node reuse
+- `adapters/canvas2dPreviewNodeRenderer.ts`: node-native visual resolver로 Preview draw
 - `adapters/canvas2dPreviewSceneAdapter.ts`: full/skip/dirty region Canvas2D 실행
 - `helpers/previewSceneDirtyRegionHelpers.ts`: dirty bounds와 incremental draw plan
 - `helpers/previewSceneUpdateHelpers.ts`: Draft/commit preview transform 갱신
 - `adapters/layerDocumentSourceRuntimeResourceCache.ts`: Source별 runtime registration, suspend/restore, targeted invalidation, dispose-once
 
-Full/fast renderer 모두 `layerDocumentId`, `sourceId`, `sourceResourceCacheKey`, `layerResultCacheKey`를 전달한다. 저장 Project는 Canvas/ImageBitmap/decoded resource를 소유하지 않는다.
+Preview/Accurate Renderer 모두 같은 `EvaluatedScene`을 입력으로 사용하고
+`layerDocumentId`, `sourceId`, `sourceResourceCacheKey`,
+`layerResultCacheKey`를 전달한다. Editor 제품 Canvas는 Preview Renderer만
+사용하며 Accurate Renderer는 전체 Frame 생성용 direct callable로 유지한다.
+저장 Project는 Canvas/ImageBitmap/decoded resource를 소유하지 않는다.
 
 현재 Evaluated Scene과 Renderer output은 Placement/UI의 위→아래 순서를
-유지한다. Canvas2D Preview/Full painter가 canonical 배열과 node reference를
+유지한다. Canvas2D Preview/Accurate painter가 canonical 배열과 node reference를
 복제하지 않고 각 깊이를 뒤에서 앞으로 순회해 아래→위 painter order를 만든다.
 Direct Selection은 canonical 위→아래 순서를 그대로 사용한다. identity/cache
 복구와 LayerDocument 전환 후 최적화 wiring 상태는
-`59_render_runtime_optimization_architecture_audit.md`에 기록한다.
+`docs/completed/59_render_runtime_optimization_architecture_audit.md`에 기록한다.
+Preview/Accurate 역할 전환 완료 기록은
+`docs/completed/62_preview_accurate_renderer_architecture.md`를 따른다.
 
 ## 6. Canvas Panel Engine과 cache
 
@@ -345,29 +350,54 @@ Cache의 최적화 전 정적 Baseline을 고정한다.
 
 정적 종료 검증은 `npm test`, `npm run lint`, `npm run build`, `git diff --check`다. Browser QA와 실제 조작 QA는 별도 요청이 있을 때만 수행한다.
 
-## 12. 영구 문서 지도
+## 12. 영구 Architecture 지도
 
-- `40_modifier_library.md`: Modifier Library
-- `41_psd_import_workflow.md`: PSD import/refresh의 역사와 당시 구현
-- `42_preview_quality_and_memory_cache.md`: backing-scale-only preview quality와 resource lifecycle
-- `43_dual_renderer_architecture.md`: dual renderer 역사
-- `44_preview_runtime_optimization.md`: preview runtime optimization
-- `45_editor_draft_runtime_integration.md`: Draft runtime 도입
-- `46_transform_origin_editing.md`: transform origin
-- `47_canvas_engine_responsibility_refactoring.md`: Canvas 책임 분리
-- `48_canvas_visual_layer_selection.md`: visual selection
-- `49_transform_drag_runtime_continuity_optimization.md`: drag continuity
-- `50_measured_preview_interaction_runtime_optimization.md`: measured optimization
-- `51_timeline_navigation_ui_improvement.md`: Timeline navigation
-- `52_radial_transform_handle_size_adjustment.md`: transform handle
-- `53_layer_composition_icon_system.md`: icon system
-- `54_editor_shared_state_cross_engine_synchronization_investigation.md`: cutover 전 정적 조사
-- `55_layer_type_future_engine_foundation.md`: 이전 Foundation 기록, 현재 구조로 superseded
-- `56_layer_document_architecture.md`: 현재 canonical LayerDocument architecture
-- `57_layer_document_persistence_project_lifecycle.md`: `.sfep` persistence,
-  Save/Open/Reconnect와 Project lifecycle
-- `58_editor_project_owner_panel_engine_architecture.md`: Editor Project Owner,
-  Composition Root와 네 Panel Engine의 최종 architecture
-- `59_render_runtime_optimization_architecture_audit.md`: 현재 Render/Canvas
+- `docs/architecture/10_project_architecture.md`: Project, Layer Document,
+  Project Owner, Panel Engine과 Composition Root
+- `docs/architecture/11_render_architecture.md`: Frame Evaluation, Preview,
+  Accurate, Canvas Draw와 Editor Overlay
+- `docs/architecture/12_timeline_playback_architecture.md`: Placement, Timeline
+  UI와 playback Runtime
+- `docs/architecture/13_history_draft_architecture.md`: Transaction, History,
+  Undo/Redo와 Draft/Commit
+- `docs/architecture/14_canvas_overlay_architecture.md`: Canvas interaction,
+  Selection, Handle, Motion Path와 선택 강조
+- `docs/architecture/15_source_architecture.md`: Source Registry, Runtime
+  resource, Refresh와 Reconnect
+- `docs/architecture/16_animation_architecture.md`: Animation, Keyframe,
+  Modifier, Evaluation과 Motion Path sampling
+- `docs/architecture/17_persistence_lifecycle_architecture.md`: Save/Open,
+  Project Replace, Migration과 Missing Source lifecycle
+
+## 13. 완료 문서 지도
+
+- `docs/completed/40_modifier_library.md`: Modifier Library
+- `docs/completed/41_psd_import_workflow.md`: PSD import/refresh의 역사와 당시 구현
+- `docs/completed/42_preview_quality_and_memory_cache.md`: backing-scale-only preview quality와 resource lifecycle
+- `docs/completed/43_dual_renderer_architecture.md`: dual renderer 역사
+- `docs/completed/44_preview_runtime_optimization.md`: preview runtime optimization
+- `docs/completed/45_editor_draft_runtime_integration.md`: Draft runtime 도입
+- `docs/completed/46_transform_origin_editing.md`: transform origin
+- `docs/completed/47_canvas_engine_responsibility_refactoring.md`: Canvas 책임 분리
+- `docs/completed/48_canvas_visual_layer_selection.md`: visual selection
+- `docs/completed/49_transform_drag_runtime_continuity_optimization.md`: drag continuity
+- `docs/completed/50_measured_preview_interaction_runtime_optimization.md`: measured optimization
+- `docs/completed/51_timeline_navigation_ui_improvement.md`: Timeline navigation
+- `docs/completed/52_radial_transform_handle_size_adjustment.md`: transform handle
+- `docs/completed/53_layer_composition_icon_system.md`: icon system
+- `docs/completed/54_editor_shared_state_cross_engine_synchronization_investigation.md`: cutover 전 정적 조사
+- `docs/completed/55_layer_type_future_engine_foundation.md`: 이전 Foundation 기록, 현재 구조로 superseded
+- `docs/completed/56_layer_document_architecture.md`: LayerDocument 전환 완료
+  당시 Architecture 기록. 현재 기준은 `docs/architecture/10_project_architecture.md`
+- `docs/completed/57_layer_document_persistence_project_lifecycle.md`: `.sfep` persistence,
+  Save/Open/Reconnect 완료 기록. 현재 기준은
+  `docs/architecture/17_persistence_lifecycle_architecture.md`
+- `docs/completed/58_editor_project_owner_panel_engine_architecture.md`: Editor Project Owner,
+  Composition Root와 네 Panel Engine 전환 완료 기록
+- `docs/completed/59_render_runtime_optimization_architecture_audit.md`: 현재 Render/Canvas
   최적화 wiring, painter order identity 회귀, cache/metrics/quality 복구
   우선순위 조사
+- `docs/completed/60_render_runtime_architecture_inventory.md`: 현재 Full/Fast Render의
+  실제 Runtime, 소유권, Cache 계층, 비활성 잔여 경로와 후속 정리 경계
+- `docs/completed/61_render_runtime_bible.md`: 비개발자도 이해할 수 있도록 정리한 Render
+  전체 흐름, 모든 관련 Runtime의 소유권·수명·사용 관계·용어·사용 여부

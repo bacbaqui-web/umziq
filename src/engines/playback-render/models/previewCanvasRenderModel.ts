@@ -32,7 +32,6 @@ export type PreviewCompositionCacheKeyInput = {
   readonly node: CompositionPreviewNode;
   readonly previewQuality: string;
   readonly previewScale: number;
-  readonly rendererMode: "fast-render";
   readonly runtimeId?: string;
 };
 

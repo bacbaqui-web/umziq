@@ -2,7 +2,7 @@
 
 > **상태: Superseded**
 >
-> 이 문서는 LayerDocument 전환 전에 도입한 Foundation의 당시 결과를 보존한다. 현재 canonical 구조는 `56_layer_document_architecture.md`다. 아래의 과거 검증 결과는 당시 결과이며 현재 검증 개수나 active architecture를 뜻하지 않는다.
+> 이 문서는 LayerDocument 전환 전에 도입한 Foundation의 당시 결과를 보존한다. 현재 canonical 구조는 `docs/architecture/10_project_architecture.md`다. 아래의 과거 검증 결과는 당시 결과이며 현재 검증 개수나 active architecture를 뜻하지 않는다.
 
 ## 현재 해석
 

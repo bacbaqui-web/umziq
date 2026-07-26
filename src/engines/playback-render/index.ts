@@ -23,8 +23,9 @@ export type {
   LayerDocumentRuntimeCutoverPreparationPort,
   LayerDocumentRuntimeInput,
   LayerDocumentRuntimePreparationQueryPort,
-  LayerDocumentRuntimeReadModel,
-  LayerDocumentRuntimeReadModelResult,
+  LayerDocumentEditorFrameReadModel,
+  LayerDocumentEditorFrameReadModelResult,
+  LayerDocumentFrameEvaluationResult,
   LayerDocumentRuntimeTarget,
   LayerDocumentRuntimeTargetConsumerReadModel,
   LayerDocumentRuntimeTargetReadModel,
@@ -63,12 +64,9 @@ export type {
 } from "@/engines/playback-render/models/renderSourceModel";
 export type {
   AccurateRendererResult,
-  FastPreviewRendererResult,
+  PreviewRendererResult,
   RenderAccurateFrameOptions,
-  RendererMode,
-  RendererModeResult,
-  RenderWithRendererModeOptions,
-} from "@/engines/playback-render/models/rendererModeModel";
+} from "@/engines/playback-render/models/rendererResultModel";
 export type { RuntimeMetricRecordPort } from "@/engines/playback-render/models/runtimeMetricPortModel";
 export type {
   LayerDocumentPsdRuntimeRegistrationBridge,
@@ -84,7 +82,8 @@ export {
   createLayerDocumentSourceRuntimeResourceCache,
 } from "@/engines/playback-render/adapters/layerDocumentSourceRuntimeResourceCache";
 export {
-  buildLayerDocumentRuntimeReadModel,
+  buildLayerDocumentEditorFrameReadModel,
+  evaluateLayerDocumentFrame,
 } from "@/engines/playback-render/adapters/layerDocumentRuntimeInputAdapter";
 export {
   buildLayerDocumentCompositionVisualResultCacheKey,
@@ -125,9 +124,8 @@ export {
 export { renderAccurateFrame, renderAccurateRenderer } from "@/engines/playback-render/renderers/accurateRenderer";
 export {
   buildPreviewSceneFromEvaluatedScene,
-  renderFastPreviewRenderer,
-} from "@/engines/playback-render/renderers/fastPreviewRenderer";
-export { renderWithRendererMode } from "@/engines/playback-render/renderers/rendererMode";
+  renderPreviewRenderer,
+} from "@/engines/playback-render/renderers/previewRenderer";
 export {
   createReusableRenderSurfaceFactory,
   renderFrameToCanvas,

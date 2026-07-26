@@ -129,4 +129,4 @@ Timeline UI는 Project state를 직접 수정하지 않고 History를 추가하�
 - Popover 검색은 제공하지 않는다. 현재 프로젝트 규모에서는 전체 hierarchy 목록을 우선 사용한다.
 - 키보드 방향키 기반 menu navigation과 focus trap은 제공하지 않는다. Tab, Escape와 기본 button focus를 사용한다.
 - Breadcrumb 폭이 매우 좁으면 CSS ellipsis로 segment와 selection context가 축약될 수 있다.
-- 다음 Timeline Layer Stack & Time Viewport Foundation 계획은 별도 `97_next_sprint.md`에 있으며 이번 작업에는 포함하지 않았다.
+- 다음 Timeline Layer Stack & Time Viewport Foundation 계획은 별도 `docs/97_next_sprint.md`에 있으며 이번 작업에는 포함하지 않았다.

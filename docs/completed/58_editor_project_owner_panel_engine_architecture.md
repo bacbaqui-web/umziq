@@ -1,12 +1,17 @@
 # Editor Project Owner와 Panel Engine Architecture
 
+> **상태:** Project Owner와 Panel Engine 전환 완료 기록
+>
+> 현재 canonical 설계는 `docs/architecture/10_project_architecture.md`를
+> 따른다.
+
 ## 1. 목적과 문서 경계
 
 이 문서는 Editor의 최종 runtime topology를 기록한다. 저장 데이터 구조와
-transaction 규칙은 `56_layer_document_architecture.md`, `.sfep`와
+transaction 규칙은 `docs/completed/56_layer_document_architecture.md`, `.sfep`와
 Project lifecycle은
-`57_layer_document_persistence_project_lifecycle.md`, 파일별 지도는
-`20_src_map.md`를 기준으로 한다.
+`docs/completed/57_layer_document_persistence_project_lifecycle.md`, 파일별 지도는
+`docs/20_src_map.md`를 기준으로 한다.
 
 핵심 결과는 하나의 Editor Project Owner, 하나의 Composition Root, 네 Panel
 Engine과 동결된 Render boundary다. 전환용 조립 계층은 최종 실행 경로에서

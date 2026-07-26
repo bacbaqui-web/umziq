@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, type RefObject } from "react";
 import type {
   PreviewScene,
   RenderNodeVisualResolver,
-  RenderFrame,
 } from "@/engines/playback-render";
 import { createRuntimeMetricRecordPort } from "@/engines/canvas/helpers/runtimeMetricsHelpers";
 import type { RuntimeMetricsResource } from "@/engines/canvas/models/runtimeMetricsModel";
@@ -14,11 +13,8 @@ import type {
 } from "@/engines/canvas/models/surfaceCacheModel";
 import type { ResolvedPreviewQuality } from "@/engines/canvas/models/previewQualityModel";
 import {
-  createReusableRenderSurfaceFactory,
-  renderFrameToCanvas,
   renderPreviewSceneToCanvas,
   type PreviewCanvasDrawState,
-  type ReusableRenderSurfaceFactory,
 } from "@/engines/playback-render";
 
 export function resolvePreviewCompositionCacheForRender({
@@ -31,7 +27,6 @@ export function resolvePreviewCompositionCacheForRender({
 
 export function useCanvasRenderController({
   canvasRef,
-  renderFrame,
   previewScene,
   resolveNodeVisual,
   pixelScale,
@@ -42,8 +37,7 @@ export function useCanvasRenderController({
   onCanvasPainted,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
-  renderFrame: RenderFrame | null;
-  previewScene?: PreviewScene | null;
+  previewScene: PreviewScene;
   resolveNodeVisual?: RenderNodeVisualResolver;
   pixelScale: number;
   previewQuality: ResolvedPreviewQuality;
@@ -56,78 +50,41 @@ export function useCanvasRenderController({
     () => createRuntimeMetricRecordPort(metrics),
     [metrics]
   );
-  const surfaceFactoryRef = useRef<ReusableRenderSurfaceFactory | null>(null);
   const previewDrawStateRef = useRef<PreviewCanvasDrawState>({
     previousScene: null,
     previousNodeBoundsById: new Map(),
     previousPixelScale: null,
   });
-  if (!surfaceFactoryRef.current) {
-    surfaceFactoryRef.current = createReusableRenderSurfaceFactory(
-      undefined,
-      metricRecordPort
-    );
-  }
-
-  useEffect(() => {
-    const surfaceFactory = surfaceFactoryRef.current;
-    return () => surfaceFactory?.dispose();
-  }, []);
-
   const activeCompositionCache = resolvePreviewCompositionCacheForRender({
     compositionCache,
   });
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (previewScene) {
-      activeCompositionCache?.beginFrame();
-      try {
-        renderPreviewSceneToCanvas({
-          canvas,
-          previewScene,
-          resolveNodeVisual,
-          pixelScale,
-          runtimeMetrics: metricRecordPort,
-          compositionCache: activeCompositionCache,
-          surfaceCache,
-          previewQuality,
-          drawState: previewDrawStateRef.current,
-        });
-      } finally {
-        activeCompositionCache?.endFrame();
-      }
-      if (metrics?.getFrameSnapshot().dirtySkip !== 1) {
-        onCanvasPainted?.();
-      }
-      return;
-    }
-
-    if (!renderFrame) return;
-    previewDrawStateRef.current.previousScene = null;
-    previewDrawStateRef.current.previousNodeBoundsById = new Map();
-    previewDrawStateRef.current.previousPixelScale = null;
-    const surfaceFactory = surfaceFactoryRef.current;
-    if (!surfaceFactory) return;
-    surfaceFactory.beginFrame();
+    activeCompositionCache?.beginFrame();
     try {
-      renderFrameToCanvas(
+      renderPreviewSceneToCanvas({
         canvas,
-        renderFrame,
-        surfaceFactory.createSurface,
+        previewScene,
+        resolveNodeVisual,
         pixelScale,
-        metricRecordPort
-      );
+        runtimeMetrics: metricRecordPort,
+        compositionCache: activeCompositionCache,
+        surfaceCache,
+        previewQuality,
+        drawState: previewDrawStateRef.current,
+      });
     } finally {
-      surfaceFactory.endFrame();
+      activeCompositionCache?.endFrame();
     }
-    onCanvasPainted?.();
+    if (metrics?.getFrameSnapshot().dirtySkip !== 1) {
+      onCanvasPainted?.();
+    }
   }, [
     canvasRef,
     pixelScale,
     previewQuality,
     previewScene,
-    renderFrame,
     resolveNodeVisual,
     metrics,
     metricRecordPort,

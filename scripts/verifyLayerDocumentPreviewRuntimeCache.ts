@@ -10,11 +10,12 @@ import {
 } from "@/engines/canvas";
 import {
   buildLayerDocumentTransformDraftSnapshot,
-  buildLayerDocumentRuntimeReadModel,
+  buildLayerDocumentEditorFrameReadModel,
   createLayerDocumentSourceRuntimeResourceCache,
   drawPreviewSceneToContext,
   renderPreviewSceneToCanvas,
-  renderFastPreviewRenderer,
+  renderAccurateRenderer,
+  renderPreviewRenderer,
   updatePreviewSceneNodeTransform,
   type EvaluatedScene,
   type EvaluatedSceneDrawableNode,
@@ -248,7 +249,7 @@ function runtimeFor(
   draft: LayerDocumentTransformDraftSnapshot | null = null,
   globalFrame = 0
 ) {
-  return buildLayerDocumentRuntimeReadModel({
+  return buildLayerDocumentEditorFrameReadModel({
     project,
     activeGroupLayerDocumentId: "root",
     globalFrame,
@@ -264,7 +265,6 @@ function runtimeFor(
 }
 function canvasFor(
   project: LayerDocumentProject,
-  rendererMode: "full-render" | "fast-render",
   previousPreviewScene = null,
   draft: LayerDocumentTransformDraftSnapshot | null = null
 ) {
@@ -280,7 +280,6 @@ function canvasFor(
     },
     runtime: runtimeFor(project, draft),
     selectedLayerDocumentId: "layer-a",
-    rendererMode,
     quality: "original",
     viewport: {
       previewSize: { width: 200, height: 100 },
@@ -323,14 +322,13 @@ const resolveNodeVisual: RenderNodeVisualResolver = (request) => {
   };
 };
 
-const fullCanvas = canvasFor(project, "full-render");
-assert.equal(fullCanvas.ok, true);
-if (!fullCanvas.ok) throw new Error(fullCanvas.reason);
-const accurate = fullCanvas.model.renderer.renderFrame;
-assert.ok(accurate);
-assert.equal(accurate?.commands.length, 2);
+const accurate = renderAccurateRenderer({
+  evaluatedScene,
+  resolveNodeVisual,
+}).frame;
+assert.equal(accurate.commands.length, 2);
 assert.deepEqual(
-  accurate?.commands.map((command) =>
+  accurate.commands.map((command) =>
     command.type === "composition"
       ? command.children[0]?.type
       : command.type
@@ -343,7 +341,7 @@ assert.deepEqual(resolvedLayerDocuments.slice(0, 2), [
 ]);
 
 resolvedLayerDocuments.length = 0;
-const fastCanvas = canvasFor(project, "fast-render");
+const fastCanvas = canvasFor(project);
 assert.equal(fastCanvas.ok, true);
 if (!fastCanvas.ok) throw new Error(fastCanvas.reason);
 const previewScene = fastCanvas.model.renderer.previewScene;
@@ -362,7 +360,6 @@ assert.deepEqual(
 
 const unchangedCanvas = canvasFor(
   project,
-  "fast-render",
   previewScene
 );
 assert.equal(unchangedCanvas.ok, true);
@@ -402,7 +399,7 @@ assert.equal(
   frameOnlyInput?.layerResultCacheKey,
   baseInput?.layerResultCacheKey
 );
-const frameOnlyPreview = renderFastPreviewRenderer(
+const frameOnlyPreview = renderPreviewRenderer(
   frameOnlyRuntime.model.scene,
   undefined,
   previewScene
@@ -423,7 +420,6 @@ visualProject.payload.layerDocumentsById[
 ]!.common.transform.position = { x: 12, y: 4 };
 const visualCanvas = canvasFor(
   visualProject,
-  "fast-render",
   previewScene
 );
 assert.equal(visualCanvas.ok, true);
@@ -500,7 +496,6 @@ assert.notEqual(
 );
 const refreshedCanvas = canvasFor(
   preparedRefresh.transaction.after,
-  "fast-render",
   previewScene
 );
 assert.equal(refreshedCanvas.ok, true);
@@ -560,7 +555,6 @@ resultKeyProject.payload.layerDocumentsById[
 ]!.revision += 1;
 const resultKeyCanvas = canvasFor(
   resultKeyProject,
-  "fast-render",
   previewScene
 );
 assert.equal(resultKeyCanvas.ok, true);
@@ -737,7 +731,6 @@ const publicDraft = buildLayerDocumentTransformDraftSnapshot(
 );
 const publicDraftCanvas = canvasFor(
   project,
-  "fast-render",
   previewScene,
   publicDraft
 );
@@ -1000,7 +993,7 @@ const directScene: EvaluatedScene = {
   ],
 };
 const directPreview =
-  renderFastPreviewRenderer(directScene).previewScene;
+  renderPreviewRenderer(directScene).previewScene;
 const directResolveCalls: string[] = [];
 const directResolver: RenderNodeVisualResolver = (request) => {
   directResolveCalls.push(request.layerDocumentId);

@@ -1,9 +1,7 @@
 import PreviewQualityControl from "@/features/preview/components/PreviewQualityControl";
-import PreviewRendererModeControl from "@/features/preview/components/PreviewRendererModeControl";
 import type {
   PreviewQualityControlCommands,
   PreviewQualityControlViewModel,
-  RendererMode,
 } from "@/engines/canvas";
 
 type PreviewWorkspaceControlsProps = {
@@ -17,8 +15,6 @@ type PreviewWorkspaceControlsProps = {
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
   centerPreviewView: () => void;
-  rendererMode: RendererMode;
-  setRendererMode: (mode: RendererMode) => void;
   previewQuality: PreviewQualityControlViewModel;
   previewQualityCommands: PreviewQualityControlCommands;
 };
@@ -44,8 +40,6 @@ export default function PreviewWorkspaceControls({
   resetPreviewView,
   setOneToOnePreviewView,
   centerPreviewView,
-  rendererMode,
-  setRendererMode,
   previewQuality,
   previewQualityCommands,
 }: PreviewWorkspaceControlsProps) {
@@ -114,11 +108,6 @@ export default function PreviewWorkspaceControls({
         <PreviewQualityControl
           viewModel={previewQuality}
           commands={previewQualityCommands}
-        />
-        <span className="preview-toolbar__divider" aria-hidden="true" />
-        <PreviewRendererModeControl
-          rendererMode={rendererMode}
-          setRendererMode={setRendererMode}
         />
       </div>
 

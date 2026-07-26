@@ -6,11 +6,10 @@ import {
   type SetStateAction,
 } from "react";
 import type {
-  LayerDocumentRuntimeReadModelResult,
+  LayerDocumentEditorFrameReadModelResult,
   LayerDocumentSourceRuntimeResource,
   LayerDocumentSourceRuntimeResourcePort,
   PreviewScene,
-  RendererMode,
   RuntimeMetricRecordPort,
 } from "@/engines/playback-render";
 import {
@@ -63,11 +62,10 @@ import type {
 export interface LayerDocumentCanvasReadPort {
   readonly read: (options: {
     quality: string;
-    rendererMode: RendererMode;
     runtimeMetrics?: RuntimeMetricRecordPort;
   }) => {
     readonly selectedLayerDocumentId: string | null;
-    readonly runtime: LayerDocumentRuntimeReadModelResult;
+    readonly runtime: LayerDocumentEditorFrameReadModelResult;
     readonly activeScene:
       LayerDocumentCanvasSceneDescriptor;
   };
@@ -112,8 +110,6 @@ export function useLayerDocumentCanvasComposition<
     CanvasViewportStatePort;
   interactionState:
     CanvasInteractionStatePort;
-  rendererMode: RendererMode;
-  setRendererMode: (mode: RendererMode) => void;
   isPreviewPanning: boolean;
   isPreviewPanModifierActive: boolean;
   setIsPreviewPanning:
@@ -139,7 +135,6 @@ export function useLayerDocumentCanvasComposition<
     previewRuntime.quality;
   const consumer = options.readPort.read({
     quality,
-    rendererMode: options.rendererMode,
     runtimeMetrics,
   });
   const selectedMeta = {
@@ -184,7 +179,6 @@ export function useLayerDocumentCanvasComposition<
     runtime: consumer.runtime,
     selectedLayerDocumentId:
       consumer.selectedLayerDocumentId,
-    rendererMode: options.rendererMode,
     quality,
     viewport: {
       previewSize:
@@ -266,8 +260,6 @@ export function useLayerDocumentCanvasComposition<
   });
   useCanvasRenderController({
     canvasRef,
-    renderFrame:
-      bridge.renderer.renderFrame,
     previewScene:
       bridge.renderer.previewScene,
     resolveNodeVisual:
@@ -317,8 +309,6 @@ export function useLayerDocumentCanvasComposition<
       options.viewportState.previewZoom,
     previewZoomPercent:
       viewport.readModel.previewZoomPercent,
-    rendererMode: options.rendererMode,
-    setRendererMode: options.setRendererMode,
     previewQuality,
     previewQualityCommands:
       previewRuntime.commands,

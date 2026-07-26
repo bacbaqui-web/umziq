@@ -465,7 +465,7 @@ Sprint 98은 구조 분리를 완료했지만 최적화를 구현하지 않았�
 
 ## 22. 다음 최적화 Sprint와의 경계
 
-다음 Sprint는 `97_next_sprint.md`의 Preview Runtime Optimization이다.
+다음 Sprint는 `docs/97_next_sprint.md`의 Preview Runtime Optimization이다.
 
 다음 Sprint에서 하지 말아야 할 것:
 

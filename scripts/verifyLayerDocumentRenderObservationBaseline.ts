@@ -4,7 +4,7 @@ import {
   createLayerDocumentCanvasCommands,
 } from "@/engines/canvas/adapters/layerDocumentCanvasCommandAdapter";
 import {
-  buildLayerDocumentCanvasRendererReadModel,
+  buildLayerDocumentCanvasRenderFrame,
 } from "@/engines/canvas/helpers/layerDocumentCanvasRendererHelpers";
 import {
   createRuntimeMetricRecordPort,
@@ -21,7 +21,7 @@ import {
 import {
   buildLayerDocumentCompositionVisualResultCacheKey,
   buildLayerDocumentVisualResultCacheKey,
-  renderFastPreviewRenderer,
+  renderPreviewRenderer,
   renderPreviewSceneToCanvas,
   type EvaluatedScene,
   type EvaluatedSceneCompositionNode,
@@ -109,7 +109,7 @@ const evaluatedScene: EvaluatedScene = {
 
 const metrics = createRuntimeMetricsResource();
 const metricPort = createRuntimeMetricRecordPort(metrics);
-const firstPreview = renderFastPreviewRenderer(
+const firstPreview = renderPreviewRenderer(
   evaluatedScene,
   metricPort
 ).previewScene;
@@ -117,15 +117,14 @@ const frameOnlyEvaluatedScene: EvaluatedScene = {
   ...evaluatedScene,
   globalFrame: 1,
 };
-const accurateReadModel =
-  buildLayerDocumentCanvasRendererReadModel({
+const accurateFrame =
+  buildLayerDocumentCanvasRenderFrame({
     runtime: {
       scene: evaluatedScene,
       inputs: [],
       targets: [],
       unsupportedLayerDocumentIds: [],
     },
-    rendererMode: "full-render",
     renderAssets: {
       resolve: (request) => ({
         source: {
@@ -142,9 +141,7 @@ const accurateReadModel =
     },
     runtimeMetrics: metricPort,
   });
-assert.equal(accurateReadModel.mode, "full-render");
-assert.ok(accurateReadModel.renderFrame);
-const secondPreview = renderFastPreviewRenderer(
+const secondPreview = renderPreviewRenderer(
   frameOnlyEvaluatedScene,
   metricPort,
   firstPreview
@@ -241,7 +238,7 @@ const resolveNodeVisual: RenderNodeVisualResolver = (request) => ({
 });
 drawRenderCommandsToContext(
   context(),
-  accurateReadModel.renderFrame!.commands,
+  accurateFrame.commands,
   (width, height, pixelScale) =>
     createSurface(width, height, pixelScale),
   1
@@ -289,7 +286,7 @@ const changedEvaluatedScene: EvaluatedScene = {
       : node
   ),
 };
-const changedPreview = renderFastPreviewRenderer(
+const changedPreview = renderPreviewRenderer(
   changedEvaluatedScene,
   metricPort,
   secondPreview
@@ -346,7 +343,7 @@ assert.equal(metrics.getGlobalSnapshot().historyCommit, 0);
 assert.strictEqual(commands.commitDraft(), commitResult);
 
 const BEFORE_PAINTER_IDENTITY_BASELINE = Object.freeze({
-  fastPreviewRenderer: 2,
+  previewRenderer: 2,
   accurateRenderer: 1,
   previewSceneGeneration: 1,
   playbackNodeReused: 4,
@@ -365,7 +362,7 @@ const BEFORE_PAINTER_IDENTITY_BASELINE = Object.freeze({
   historyCommit: 1,
 });
 const after = metrics.getGlobalSnapshot();
-assert.equal(after.fastPreviewRenderer, 3);
+assert.equal(after.previewRenderer, 3);
 assert.equal(after.accurateRenderer, 1);
 assert.equal(after.previewSceneGeneration, 1);
 assert.equal(after.playbackNodeReused, 6);

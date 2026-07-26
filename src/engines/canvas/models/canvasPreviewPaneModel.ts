@@ -7,9 +7,6 @@ import type {
   Position,
 } from "@/models";
 import type {
-  RendererMode,
-} from "@/engines/playback-render";
-import type {
   CanvasGuideViewModel,
 } from "@/engines/canvas/models/canvasEngineModel";
 import type {
@@ -53,8 +50,6 @@ export interface CanvasPreviewPaneProps {
   previewPan: Position;
   previewZoom: number;
   previewZoomPercent: number;
-  rendererMode: RendererMode;
-  setRendererMode: (mode: RendererMode) => void;
   previewQuality: PreviewQualityControlViewModel;
   previewQualityCommands:
     PreviewQualityControlCommands;

@@ -22,7 +22,8 @@ import type {
   LayerDocumentPsdSourceResolver,
   LayerDocumentRuntimeContentDescriptor,
   LayerDocumentRuntimeInput,
-  LayerDocumentRuntimeReadModelResult,
+  LayerDocumentEditorFrameReadModelResult,
+  LayerDocumentFrameEvaluationResult,
   LayerDocumentSourceResolutionStatusReader,
   LayerDocumentTransformDraftSnapshot,
 } from "@/engines/playback-render/models/layerDocumentRuntimeModel";
@@ -58,9 +59,12 @@ interface RuntimeBuildContext {
     LayerDocumentPsdSourceResolution | null
   >;
   readonly inputs: LayerDocumentRuntimeInput[];
-  readonly targets: ReturnType<
-    typeof buildLayerDocumentRuntimeTargetReadModel
-  >[];
+  readonly overlayInputs: {
+    readonly inputIndex: number;
+    readonly layer: LayerDocument;
+    readonly compositionDurationFrames: number;
+    readonly frameRate: number;
+  }[];
   readonly unsupportedLayerDocumentIds: string[];
   readonly localFrameBySourceId: Map<string, number>;
   readonly localFrameByLayerDocumentId: Map<string, number>;
@@ -442,15 +446,12 @@ function buildChildNodes(options: {
             }
           : input;
       context.inputs[inputIndex] = resolvedInput;
-      const targetReadModel =
-        buildLayerDocumentRuntimeTargetReadModel({
-          input: resolvedInput,
-          layer,
-          compositionDurationFrames: parent.data.durationFrames,
-          frameRate: parent.data.frameRate,
-          draft: context.draft,
-        });
-      context.targets.push(targetReadModel);
+      context.overlayInputs.push({
+        inputIndex,
+        layer,
+        compositionDurationFrames: parent.data.durationFrames,
+        frameRate: parent.data.frameRate,
+      });
       if (resolvedInput.content.kind === "unsupported") {
         context.unsupportedLayerDocumentIds.push(layer.layerDocumentId);
       }
@@ -463,7 +464,7 @@ function buildChildNodes(options: {
   );
 }
 
-export function buildLayerDocumentRuntimeReadModel(options: {
+type LayerDocumentFrameEvaluationOptions = {
   project: LayerDocumentProject;
   activeGroupLayerDocumentId?: string | null;
   globalFrame: number;
@@ -473,7 +474,20 @@ export function buildLayerDocumentRuntimeReadModel(options: {
   readSourceResolutionStatus:
     LayerDocumentSourceResolutionStatusReader;
   runtimeMetrics?: RuntimeMetricRecordPort;
-}): LayerDocumentRuntimeReadModelResult {
+};
+
+function buildLayerDocumentFrameArtifacts(
+  options: LayerDocumentFrameEvaluationOptions
+):
+  | {
+      readonly ok: true;
+      readonly scene: import("@/engines/playback-render/models/evaluatedSceneModel").EvaluatedScene;
+      readonly context: RuntimeBuildContext;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: "invalid-project" | "root-not-found";
+    } {
   if (validateLayerDocumentProject(options.project).length > 0) {
     return { ok: false, reason: "invalid-project" };
   }
@@ -497,7 +511,7 @@ export function buildLayerDocumentRuntimeReadModel(options: {
       options.readSourceResolutionStatus,
     resolutionBySourceKey: new Map(),
     inputs: [],
-    targets: [],
+    overlayInputs: [],
     unsupportedLayerDocumentIds: [],
     localFrameBySourceId: new Map(),
     localFrameByLayerDocumentId: new Map(),
@@ -508,22 +522,54 @@ export function buildLayerDocumentRuntimeReadModel(options: {
     placementFrame: options.globalFrame,
   });
 
+  const scene = {
+    compositionId: root.layerDocumentId,
+    globalFrame: options.globalFrame,
+    size: {
+      width: root.data.width,
+      height: root.data.height,
+    },
+    localFrameBySourceId: context.localFrameBySourceId,
+    localFrameByItemId: context.localFrameByLayerDocumentId,
+    nodes,
+  };
+  return {
+    ok: true,
+    scene,
+    context,
+  };
+}
+
+export function evaluateLayerDocumentFrame(
+  options: LayerDocumentFrameEvaluationOptions
+): LayerDocumentFrameEvaluationResult {
+  const artifacts = buildLayerDocumentFrameArtifacts(options);
+  return artifacts.ok
+    ? { ok: true, scene: artifacts.scene }
+    : artifacts;
+}
+
+export function buildLayerDocumentEditorFrameReadModel(
+  options: LayerDocumentFrameEvaluationOptions
+): LayerDocumentEditorFrameReadModelResult {
+  const artifacts = buildLayerDocumentFrameArtifacts(options);
+  if (!artifacts.ok) return artifacts;
+  const { context } = artifacts;
   return {
     ok: true,
     model: {
-      scene: {
-        compositionId: root.layerDocumentId,
-        globalFrame: options.globalFrame,
-        size: {
-          width: root.data.width,
-          height: root.data.height,
-        },
-        localFrameBySourceId: context.localFrameBySourceId,
-        localFrameByItemId: context.localFrameByLayerDocumentId,
-        nodes,
-      },
+      scene: artifacts.scene,
       inputs: context.inputs,
-      targets: context.targets,
+      targets: context.overlayInputs.map((overlayInput) =>
+        buildLayerDocumentRuntimeTargetReadModel({
+          input: context.inputs[overlayInput.inputIndex],
+          layer: overlayInput.layer,
+          compositionDurationFrames:
+            overlayInput.compositionDurationFrames,
+          frameRate: overlayInput.frameRate,
+          draft: context.draft,
+        })
+      ),
       unsupportedLayerDocumentIds:
         context.unsupportedLayerDocumentIds,
     },

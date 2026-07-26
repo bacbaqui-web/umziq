@@ -1,11 +1,16 @@
 # LayerDocument Persistence와 Project Lifecycle
 
+> **상태:** Persistence Sprint 완료 기록
+>
+> 현재 canonical 설계는
+> `docs/architecture/17_persistence_lifecycle_architecture.md`를 따른다.
+
 ## 1. 목적과 문서 경계
 
 이 문서는 `LayerDocumentProject`의 `.sfep` 저장/불러오기와 앱 실행 중
 Project lifecycle 계약을 설명한다. Layer/Source 저장 모델은
-`56_layer_document_architecture.md`, Editor Project Owner와 Panel Engine
-구조는 `58_editor_project_owner_panel_engine_architecture.md`가 기준이며,
+`docs/completed/56_layer_document_architecture.md`, Editor Project Owner와 Panel Engine
+구조는 `docs/completed/58_editor_project_owner_panel_engine_architecture.md`가 기준이며,
 여기서는 persistence envelope, 외부 Source 복구, lifecycle command의
 원자성만 상세화한다.
 
