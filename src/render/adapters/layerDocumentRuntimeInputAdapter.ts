@@ -10,7 +10,7 @@ import {
 } from "@/models";
 import {
   globalFrameToLocalFrame,
-} from "@/engines/animation";
+} from "@/animation";
 import {
   getEditorPlaceholderDescriptorForLayerType,
 } from "@/render/adapters/editorPlaceholderInputAdapter";

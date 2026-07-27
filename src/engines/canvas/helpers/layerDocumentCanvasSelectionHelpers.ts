@@ -361,7 +361,7 @@ export function buildLayerDocumentCanvasDirectSelectionCandidates(
   );
 }
 
-export function resolveLayerDocumentCanvasGlowCandidate(
+export function resolveLayerDocumentCanvasHighlightCandidate(
   candidates:
     readonly LayerDocumentCanvasDirectSelectionCandidate[],
   selectedLayerDocumentId: string | null

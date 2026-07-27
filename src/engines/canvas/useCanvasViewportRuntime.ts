@@ -15,7 +15,7 @@ import type {
   CanvasViewportCoreStatePort,
 } from "@/engines/canvas/models/canvasEngineModel";
 
-export function useCanvasViewportEngine({
+export function useCanvasViewportRuntime({
   minWorkspaceWidth,
   minWorkspaceHeight,
   shortformFrameWidth,

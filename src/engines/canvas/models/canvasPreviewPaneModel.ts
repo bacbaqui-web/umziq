@@ -21,8 +21,8 @@ import type {
   PreviewQualityControlViewModel,
 } from "@/engines/canvas/models/previewQualityControlModel";
 import type {
-  CanvasSelectionGlowViewModel,
-} from "@/engines/canvas/models/canvasSelectionGlowModel";
+  CanvasSelectionHighlightViewModel,
+} from "@/engines/canvas/models/canvasSelectionHighlightModel";
 import type {
   CanvasFpsRuntime,
 } from "@/engines/canvas/models/canvasFpsModel";
@@ -63,8 +63,8 @@ export interface CanvasPreviewPaneProps {
   guide: CanvasGuideViewModel;
   toggleShortformFrame: () => void;
   toggleSafeZone: () => void;
-  showSelectionGlow: boolean;
-  toggleSelectionGlow: () => void;
+  showSelectionHighlight: boolean;
+  toggleSelectionHighlight: () => void;
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
   centerPreviewView: () => void;
@@ -75,7 +75,7 @@ export interface CanvasPreviewPaneProps {
   isPreviewPanning: boolean;
   isPreviewPanModifierActive: boolean;
   interactionViewModel: CanvasGizmoViewModel;
-  selectionGlow: CanvasSelectionGlowViewModel;
+  selectionHighlight: CanvasSelectionHighlightViewModel;
   directSelectionHover:
     CanvasDirectSelectionHoverViewModel;
   interactionCommands: CanvasInteractionCommands;

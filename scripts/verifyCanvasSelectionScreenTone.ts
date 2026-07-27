@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import {
-  createCanvasSelectionGlowRenderer,
-} from "@/engines/canvas/adapters/canvasSelectionGlowBrowserAdapter";
+  createCanvasSelectionHighlightRenderer,
+} from "@/engines/canvas/adapters/canvasSelectionHighlightBrowserAdapter";
 import {
   buildCanvasSelectionScreenToneDrawPlan,
   buildCanvasSelectionScreenToneGlow,
-} from "@/engines/canvas/helpers/canvasSelectionGlowHelpers";
+} from "@/engines/canvas/helpers/canvasSelectionHighlightHelpers";
 
 const entry = {
   visualFingerprint: "alpha:single-pixel",
@@ -124,7 +124,7 @@ const scratchContext = {
   }),
   putImageData: () => undefined,
 } as unknown as CanvasRenderingContext2D;
-const renderer = createCanvasSelectionGlowRenderer({
+const renderer = createCanvasSelectionHighlightRenderer({
   createCanvas: () => ({
     width: 1,
     height: 1,

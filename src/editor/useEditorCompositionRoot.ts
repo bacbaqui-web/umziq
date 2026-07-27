@@ -7,7 +7,7 @@ import {
   PREVIEW_MIN_WORKSPACE_WIDTH,
   SHORTFORM_FRAME_HEIGHT,
   SHORTFORM_FRAME_WIDTH,
-  useLayerDocumentCanvasComposition,
+  useLayerDocumentCanvasEngine,
 } from "@/engines/canvas";
 import {
   useLayerDocumentPropertiesEngine,
@@ -110,7 +110,7 @@ EditorShellLayoutProps {
         panelPorts.readPsdCacheContext,
     });
   const canvas =
-    useLayerDocumentCanvasComposition({
+    useLayerDocumentCanvasEngine({
       readPort: panelPorts.canvasRead,
       commandPort: panelPorts.canvasCommands,
       resources: runtime.resources,

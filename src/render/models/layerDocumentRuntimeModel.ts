@@ -1,5 +1,4 @@
 import type {
-  LayerDocumentProject,
   LayerDocumentType,
   LayerEffect,
   LayerModifier,
@@ -18,7 +17,7 @@ import type {
 } from "@/render/models/editorPlaceholderModel";
 import type {
   MotionPathSample,
-} from "@/engines/animation";
+} from "@/animation";
 
 export interface LayerDocumentRuntimeTarget {
   readonly kind: "layer-document";
@@ -204,7 +203,7 @@ export interface LayerDocumentRuntimeTargetReadModel {
   readonly evaluatedTransform: EvaluatedSceneTransform;
   readonly opacity: number;
   readonly directSelection: LayerDocumentRuntimeTargetConsumerReadModel;
-  readonly glow: LayerDocumentRuntimeTargetConsumerReadModel & {
+  readonly highlight: LayerDocumentRuntimeTargetConsumerReadModel & {
     readonly sourceResourceCacheKey: string | null;
   };
   readonly gizmo: LayerDocumentRuntimeTargetConsumerReadModel;
@@ -239,37 +238,3 @@ export type LayerDocumentFrameEvaluationResult =
       readonly ok: false;
       readonly reason: "invalid-project" | "root-not-found";
     };
-
-export interface LayerDocumentRuntimePreparationQueryPort {
-  readonly readProject: () => LayerDocumentProject;
-  readonly readDraft: () => LayerDocumentTransformDraftSnapshot | null;
-  readonly resolvePsdSource: LayerDocumentPsdSourceResolver;
-  readonly readSourceResolutionStatus:
-    LayerDocumentSourceResolutionStatusReader;
-}
-
-/**
- * Task 9 preparation contract only. No State owner, draft publication,
- * transaction commit, History implementation, or Legacy projection exists.
- */
-export interface LayerDocumentRuntimeCutoverPreparationPort {
-  readonly query: LayerDocumentRuntimePreparationQueryPort;
-  readonly buildReadModel: (options: {
-    project: LayerDocumentProject;
-    activeGroupLayerDocumentId?: string | null;
-    globalFrame: number;
-    sourceSamplingQuality:
-      LayerDocumentSourceSamplingQuality;
-    draft?: LayerDocumentTransformDraftSnapshot | null;
-    resolvePsdSource: LayerDocumentPsdSourceResolver;
-    readSourceResolutionStatus:
-      LayerDocumentSourceResolutionStatusReader;
-  }) => LayerDocumentEditorFrameReadModelResult;
-  readonly preparePointerMove: (
-    input: LayerDocumentRuntimeInput,
-    patch: PreviewSceneTransformPatch
-  ) => LayerDocumentDraftInteractionPreparation;
-  readonly preparePointerUp: (
-    draft: LayerDocumentTransformDraftSnapshot
-  ) => LayerDocumentDraftInteractionPreparation;
-}

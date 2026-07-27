@@ -2,9 +2,20 @@
 
 ## 상태
 
-- 계획 수정 완료
-- 구현 미시작
-- Build/Verification 미실행
+- Task 0 PASS — Manifest와 caller/export 범위 확정
+- Task 1 PASS — Selection Highlight 책임 명칭 정렬
+- Task 2 PASS — Canvas Viewport Runtime 명칭 정렬
+- Task 3 PASS — Canvas Engine 공개 이름 정렬
+- Task 4 PASS — 미사용 Cutover 계약 제거
+- Task 5 PASS — Animation compatibility 제거
+- Task 6 PASS — 현재 문서 동기화
+- Task 7 PASS — Old Name Audit
+- Task 8 PASS — 최종 Build / Verification
+- Sprint 완료
+- Old Name Audit PASS
+- Verification 41/41 PASS
+- Build PASS
+- Browser QA 미실행
 
 ## 기준
 
@@ -377,6 +388,17 @@ active code와 current docs에서 다음 이름을 검색한다.
 - Build PASS
 - 제품 동작과 Architecture 변경 0
 - Manifest 밖 변경 0건
+
+### 실행 결과
+
+- 첫 Verification은 삭제된 `src/engines/animation/index.ts`를 계속 읽는
+  `verifyEngineImportBoundaries.ts` 때문에 중단됐다.
+- M5/M6 범위에서 verification을 canonical `src/animation` 경계 검사로
+  동기화했다.
+- Old Name Audit: PASS
+- `npm run test`: 41/41 PASS
+- `npm run build`: PASS
+- 기존 Node experimental loader 경고와 500kB 초과 bundle 경고는 남았다.
 
 ## 성공 조건
 

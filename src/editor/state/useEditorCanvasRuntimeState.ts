@@ -21,7 +21,7 @@ export function useEditorCanvasRuntimeState(
     useState(true);
   const [showSafeZoneGuides, setShowSafeZoneGuides] =
     useState(false);
-  const [showSelectionGlow, setShowSelectionGlow] =
+  const [showSelectionHighlight, setShowSelectionHighlight] =
     useState(true);
   const [isDraggingAnchor, setIsDraggingAnchor] = useState(false);
   const [isDraggingPosition, setIsDraggingPosition] = useState(false);
@@ -75,7 +75,7 @@ export function useEditorCanvasRuntimeState(
     previewWorkspaceSize, setPreviewWorkspaceSize,
     showShortformFrameOverlay, setShowShortformFrameOverlay,
     showSafeZoneGuides, setShowSafeZoneGuides,
-    showSelectionGlow, setShowSelectionGlow,
+    showSelectionHighlight, setShowSelectionHighlight,
     isDraggingAnchor, setIsDraggingAnchor,
     isDraggingPosition, setIsDraggingPosition,
     isDraggingScale, setIsDraggingScale,

@@ -1,7 +1,7 @@
 export {
-  useLayerDocumentCanvasComposition,
+  useLayerDocumentCanvasEngine,
   type LayerDocumentCanvasReadPort,
-} from "@/engines/canvas/useLayerDocumentCanvasComposition";
+} from "@/engines/canvas/useLayerDocumentCanvasEngine";
 export { useCanvasPreviewRuntime } from "@/engines/canvas/useCanvasPreviewRuntime";
 export type {
   CanvasPreviewPaneProps,
@@ -42,7 +42,7 @@ export type {
   PreviewOverlayCorners,
   ScaleHandleDirection,
 } from "@/engines/canvas/models/canvasViewModel";
-export type { CanvasSelectionGlowViewModel } from "@/engines/canvas/models/canvasSelectionGlowModel";
+export type { CanvasSelectionHighlightViewModel } from "@/engines/canvas/models/canvasSelectionHighlightModel";
 export type { CanvasDirectSelectionHoverViewModel } from "@/engines/canvas/models/canvasDirectSelectionModel";
 export { resolveCanvasPreviewCursor } from "@/engines/canvas/helpers/canvasDirectSelectionCursorHelpers";
 export {
@@ -84,11 +84,11 @@ export {
   buildLayerDocumentCanvasDirectSelectionCandidates,
   buildLayerDocumentCanvasMotionPath,
   buildLayerDocumentCanvasSelectionReadModel,
-  resolveLayerDocumentCanvasGlowCandidate,
+  resolveLayerDocumentCanvasHighlightCandidate,
 } from "@/engines/canvas/helpers/layerDocumentCanvasSelectionHelpers";
 export {
-  buildLayerDocumentCanvasGlowSelectionKey,
-  drawLayerDocumentCanvasGlow,
+  buildLayerDocumentCanvasHighlightSelectionKey,
+  drawLayerDocumentCanvasHighlight,
   hitLayerDocumentCanvasDirectSelection,
   resolveLayerDocumentCanvasDirectSelectionIntent,
 } from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
@@ -114,9 +114,9 @@ export type {
   LayerDocumentCanvasViewportInput,
 } from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 export {
-  CANVAS_SELECTION_GLOW_POINTER_EVENTS,
+  CANVAS_SELECTION_HIGHLIGHT_POINTER_EVENTS,
   CANVAS_SELECTION_OVERLAY_LAYER_ORDER,
-} from "@/engines/canvas/constants/canvasSelectionGlowConstants";
+} from "@/engines/canvas/constants/canvasSelectionHighlightConstants";
 export type {
   CanvasGuideCommands,
   CanvasGuideViewModel,

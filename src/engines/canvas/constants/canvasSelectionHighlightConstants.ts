@@ -5,10 +5,10 @@ export const CANVAS_SELECTION_SCREEN_TONE_OUTLINE_SOURCE_PIXELS = 2;
 export const CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE = 1;
 export const CANVAS_SELECTION_SCREEN_TONE_DENSITIES =
   [0.5, 0.25, 0.125] as const;
-export const CANVAS_SELECTION_GLOW_POINTER_EVENTS = "none";
+export const CANVAS_SELECTION_HIGHLIGHT_POINTER_EVENTS = "none";
 
 export const CANVAS_SELECTION_OVERLAY_LAYER_ORDER = [
-  "glow",
+  "highlight",
   "motion-path",
   "selection-gizmo",
 ] as const;

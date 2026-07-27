@@ -4,13 +4,13 @@ import {
   CANVAS_SELECTION_SCREEN_TONE_RADIUS_SOURCE_PIXELS,
   CANVAS_SELECTION_SCREEN_TONE_RGBA,
   CANVAS_SELECTION_SCREEN_TONE_SAMPLE_SCALE,
-} from "@/engines/canvas/constants/canvasSelectionGlowConstants";
+} from "@/engines/canvas/constants/canvasSelectionHighlightConstants";
 import {
   SELECTION_ALPHA_THRESHOLD,
 } from "@/engines/canvas/constants/canvasSelectionAlphaConstants";
 import type {
-  CanvasSelectionGlowDrawInput,
-} from "@/engines/canvas/models/canvasSelectionGlowModel";
+  CanvasSelectionHighlightDrawInput,
+} from "@/engines/canvas/models/canvasSelectionHighlightModel";
 import type {
   SelectionSourceAlphaEntry,
 } from "@/engines/canvas/models/canvasSelectionAlphaModel";
@@ -227,7 +227,7 @@ export function buildCanvasSelectionScreenToneGlow(
 }
 
 export function buildCanvasSelectionScreenToneDrawPlan(
-  input: CanvasSelectionGlowDrawInput
+  input: CanvasSelectionHighlightDrawInput
 ) {
   const dpr = Number.isFinite(input.devicePixelRatio)
     ? Math.max(1, input.devicePixelRatio)

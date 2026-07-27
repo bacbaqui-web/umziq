@@ -9,14 +9,14 @@ import {
   createCanvasSelectionAlphaBrowserAdapter,
 } from "@/engines/canvas/adapters/canvasSelectionAlphaBrowserAdapter";
 import {
-  createCanvasSelectionGlowRenderer,
-} from "@/engines/canvas/adapters/canvasSelectionGlowBrowserAdapter";
+  createCanvasSelectionHighlightRenderer,
+} from "@/engines/canvas/adapters/canvasSelectionHighlightBrowserAdapter";
 import {
   createSelectionSourceAlphaProvider,
 } from "@/engines/canvas/helpers/selectionSourceAlphaProvider";
 import {
-  buildLayerDocumentCanvasGlowSelectionKey,
-  drawLayerDocumentCanvasGlow,
+  buildLayerDocumentCanvasHighlightSelectionKey,
+  drawLayerDocumentCanvasHighlight,
   hitLayerDocumentCanvasDirectSelection,
   resolveLayerDocumentCanvasDirectSelectionIntent,
 } from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
@@ -46,7 +46,7 @@ export function useLayerDocumentCanvasDirectSelectionController<
     TSelectionResult,
     TKeyframeResult
   >;
-  isGlowEnabled: boolean;
+  isHighlightEnabled: boolean;
   isTransformDragging: boolean;
   viewportSize: { width: number; height: number };
   startPositionDrag: (
@@ -60,57 +60,57 @@ export function useLayerDocumentCanvasDirectSelectionController<
   if (providerRef.current == null) {
     providerRef.current = createProvider();
   }
-  const glowCanvasRef =
+  const highlightCanvasRef =
     useRef<HTMLCanvasElement | null>(null);
-  const glowRendererRef =
+  const highlightRendererRef =
     useRef<ReturnType<
-      typeof createCanvasSelectionGlowRenderer
+      typeof createCanvasSelectionHighlightRenderer
     > | null>(null);
-  if (glowRendererRef.current == null) {
-    glowRendererRef.current =
-      createCanvasSelectionGlowRenderer();
+  if (highlightRendererRef.current == null) {
+    highlightRendererRef.current =
+      createCanvasSelectionHighlightRenderer();
   }
   const previousSelectionKeyRef =
     useRef<string | null>(null);
 
   useEffect(() => () => {
-    glowRendererRef.current?.dispose(
-      glowCanvasRef.current
+    highlightRendererRef.current?.dispose(
+      highlightCanvasRef.current
     );
     providerRef.current?.dispose();
     providerRef.current = null;
   }, []);
 
-  const attachGlowCanvas = useCallback(
+  const attachHighlightCanvas = useCallback(
     (canvas: HTMLCanvasElement | null) => {
-      glowCanvasRef.current = canvas;
-      if (!options.isGlowEnabled) {
-        glowRendererRef.current?.clearSelection(canvas);
+      highlightCanvasRef.current = canvas;
+      if (!options.isHighlightEnabled) {
+        highlightRendererRef.current?.clearSelection(canvas);
       }
     },
-    [options.isGlowEnabled]
+    [options.isHighlightEnabled]
   );
 
   useEffect(() => {
     const selectionKey =
-      buildLayerDocumentCanvasGlowSelectionKey(
-        options.readModel.selectedGlowCandidate
+      buildLayerDocumentCanvasHighlightSelectionKey(
+        options.readModel.selectedHighlightCandidate
       );
     if (
       previousSelectionKeyRef.current !== selectionKey
     ) {
-      glowRendererRef.current?.clearSelection(
-        glowCanvasRef.current
+      highlightRendererRef.current?.clearSelection(
+        highlightCanvasRef.current
       );
       previousSelectionKeyRef.current = selectionKey;
     }
-    drawLayerDocumentCanvasGlow({
-      enabled: options.isGlowEnabled,
-      target: glowCanvasRef.current,
+    drawLayerDocumentCanvasHighlight({
+      enabled: options.isHighlightEnabled,
+      target: highlightCanvasRef.current,
       provider: providerRef.current,
-      renderer: glowRendererRef.current,
+      renderer: highlightRendererRef.current,
       candidate:
-        options.readModel.selectedGlowCandidate,
+        options.readModel.selectedHighlightCandidate,
       viewportSize: options.viewportSize,
       devicePixelRatio:
         typeof window === "undefined"
@@ -118,8 +118,8 @@ export function useLayerDocumentCanvasDirectSelectionController<
           : window.devicePixelRatio || 1,
     });
   }, [
-    options.isGlowEnabled,
-    options.readModel.selectedGlowCandidate,
+    options.isHighlightEnabled,
+    options.readModel.selectedHighlightCandidate,
     options.viewportSize,
   ]);
 
@@ -225,6 +225,6 @@ export function useLayerDocumentCanvasDirectSelectionController<
       leaveTarget,
       doubleClickTarget,
     },
-    glow: { attachCanvas: attachGlowCanvas },
+    highlight: { attachCanvas: attachHighlightCanvas },
   };
 }

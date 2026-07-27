@@ -10,7 +10,7 @@ import {
   createLayerDocumentCanvasRenderAssetPort,
 } from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
 import {
-  buildLayerDocumentCanvasGlowSelectionKey,
+  buildLayerDocumentCanvasHighlightSelectionKey,
   hitLayerDocumentCanvasDirectSelection,
   resolveLayerDocumentCanvasDirectSelectionIntent,
 } from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
@@ -147,7 +147,7 @@ function target(
     globalFrame: runtimeInput.globalFrame,
     localFrame: runtimeInput.localFrame,
     directSelection: shared,
-    glow: {
+    highlight: {
       ...shared,
       sourceResourceCacheKey:
         runtimeInput.sourceResourceCacheKey,
@@ -356,15 +356,15 @@ assert.deepEqual(
   ["layer-a", "layer-b"]
 );
 assert.notEqual(
-  buildLayerDocumentCanvasGlowSelectionKey(
+  buildLayerDocumentCanvasHighlightSelectionKey(
     candidates[0]
   ),
-  buildLayerDocumentCanvasGlowSelectionKey(
+  buildLayerDocumentCanvasHighlightSelectionKey(
     candidates[1]
   )
 );
 assert.equal(
-  preview.model.selectedGlowCandidate
+  preview.model.selectedHighlightCandidate
     ?.layerDocumentId,
   "layer-a"
 );
@@ -709,17 +709,17 @@ const editorShell = readFileSync(
   "src/editor/EditorShellLayout.tsx",
   "utf8"
 );
-const canvasComposition = readFileSync(
-  "src/engines/canvas/useLayerDocumentCanvasComposition.ts",
+const canvasEngine = readFileSync(
+  "src/engines/canvas/useLayerDocumentCanvasEngine.ts",
   "utf8"
 );
 assert.match(editorShell, /PreviewWorkspacePane/);
 assert.match(
-  canvasComposition,
+  canvasEngine,
   /CanvasPreviewPaneProps/
 );
 assert.doesNotMatch(
-  canvasComposition,
+  canvasEngine,
   /@\/features/
 );
 const previewWorkspacePane = readFileSync(
@@ -761,7 +761,7 @@ assert.match(
 );
 assert.match(
   previewBridge,
-  /selectionGlow:\s*direct\.glow/
+  /selectionHighlight:\s*direct\.highlight/
 );
 const nativeInteractionAdapter = readFileSync(
   "src/engines/canvas/adapters/useLayerDocumentCanvasInteractionAdapter.ts",

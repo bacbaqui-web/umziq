@@ -9,8 +9,8 @@ import type {
   CanvasSelectionPoint,
 } from "@/engines/canvas/models/canvasDirectSelectionModel";
 import type {
-  CanvasSelectionGlowRenderer,
-} from "@/engines/canvas/models/canvasSelectionGlowModel";
+  CanvasSelectionHighlightRenderer,
+} from "@/engines/canvas/models/canvasSelectionHighlightModel";
 import type {
   SelectionSourceAlphaEntry,
   SelectionSourceAlphaProvider,
@@ -102,7 +102,7 @@ export function hitLayerDocumentCanvasDirectSelection(options: {
   return { status: "none" };
 }
 
-function resolveLayerDocumentCanvasGlowSource(
+function resolveLayerDocumentCanvasHighlightSource(
   candidate:
     | Extract<
         LayerDocumentCanvasDirectSelectionCandidate,
@@ -139,7 +139,7 @@ export function resolveLayerDocumentCanvasDirectSelectionIntent(
     : { type: "select", layerDocumentId };
 }
 
-export function buildLayerDocumentCanvasGlowSelectionKey(
+export function buildLayerDocumentCanvasHighlightSelectionKey(
   candidate:
     | Extract<
         LayerDocumentCanvasDirectSelectionCandidate,
@@ -153,11 +153,11 @@ export function buildLayerDocumentCanvasGlowSelectionKey(
     : null;
 }
 
-export function drawLayerDocumentCanvasGlow(options: {
+export function drawLayerDocumentCanvasHighlight(options: {
   enabled: boolean;
   target: HTMLCanvasElement | null;
   provider: SelectionSourceAlphaProvider | null;
-  renderer: CanvasSelectionGlowRenderer | null;
+  renderer: CanvasSelectionHighlightRenderer | null;
   candidate:
     | Extract<
         LayerDocumentCanvasDirectSelectionCandidate,
@@ -177,7 +177,7 @@ export function drawLayerDocumentCanvasGlow(options: {
     renderer?.clearSelection(target);
     return false;
   }
-  const source = resolveLayerDocumentCanvasGlowSource(
+  const source = resolveLayerDocumentCanvasHighlightSource(
     options.candidate,
     provider
   );

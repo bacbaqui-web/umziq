@@ -22,7 +22,7 @@ const panelPorts = source(
   "src/editor/useLayerDocumentPanelEnginePorts.ts"
 );
 const canvas = source(
-  "src/engines/canvas/useLayerDocumentCanvasComposition.ts"
+  "src/engines/canvas/useLayerDocumentCanvasEngine.ts"
 );
 const timeline = source(
   "src/engines/timeline/useLayerDocumentTimelineEngine.ts"
@@ -99,7 +99,7 @@ for (const nativePath of [
   /useLayerDocumentTimelineEngine\(\{/,
   /useLayerDocumentPropertiesEngine\(\{/,
   /useLayerDocumentPsdTreeEngine\(\{/,
-  /useLayerDocumentCanvasComposition\(\{/,
+  /useLayerDocumentCanvasEngine\(\{/,
 ]) {
   assert.match(root, nativePath);
   assert.equal(

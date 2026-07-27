@@ -5,7 +5,7 @@ import {
   buildLayerDocumentCanvasDirectSelectionCandidates,
   buildLayerDocumentCanvasMotionPath,
   buildLayerDocumentCanvasSelectionReadModel,
-  resolveLayerDocumentCanvasGlowCandidate,
+  resolveLayerDocumentCanvasHighlightCandidate,
 } from "@/engines/canvas/helpers/layerDocumentCanvasSelectionHelpers";
 import type {
   LayerDocumentCanvasReadInput,
@@ -105,8 +105,8 @@ export function buildLayerDocumentCanvasReadModel(
         motionPath.find((point) => point.isCurrent) ??
         null,
       directSelectionCandidates,
-      selectedGlowCandidate:
-        resolveLayerDocumentCanvasGlowCandidate(
+      selectedHighlightCandidate:
+        resolveLayerDocumentCanvasHighlightCandidate(
           directSelectionCandidates,
           input.selectedLayerDocumentId
         ),

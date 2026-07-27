@@ -145,7 +145,7 @@ export interface LayerDocumentCanvasReadModel {
   readonly motionPathCurrentPoint: PreviewMotionPathPoint | null;
   readonly directSelectionCandidates:
     readonly LayerDocumentCanvasDirectSelectionCandidate[];
-  readonly selectedGlowCandidate:
+  readonly selectedHighlightCandidate:
     Extract<
       LayerDocumentCanvasDirectSelectionCandidate,
       { status: "ready" }

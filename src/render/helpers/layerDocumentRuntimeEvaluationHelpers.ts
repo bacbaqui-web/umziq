@@ -10,7 +10,7 @@ import {
   evaluateScalarKeyframes,
   evaluateScaleKeyframes,
   upsertKeyframeValue,
-} from "@/engines/animation";
+} from "@/animation";
 import type {
   EvaluatedSceneTransform,
 } from "@/render/models/evaluatedSceneModel";

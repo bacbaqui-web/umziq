@@ -40,7 +40,7 @@ export function useLayerDocumentCanvasPreviewBridge<
     TKeyframeResult
   >;
   state: CanvasInteractionStatePort;
-  isGlowEnabled: boolean;
+  isHighlightEnabled: boolean;
   viewportSize: { width: number; height: number };
   resetRevision?: number;
 }) {
@@ -63,7 +63,7 @@ export function useLayerDocumentCanvasPreviewBridge<
       overlayRef: options.overlayRef,
       readModel: options.readModel,
       commands: options.commands,
-      isGlowEnabled: options.isGlowEnabled,
+      isHighlightEnabled: options.isHighlightEnabled,
       isTransformDragging:
         options.readModel
           .hoverSuppressedDuringTransform,
@@ -87,6 +87,6 @@ export function useLayerDocumentCanvasPreviewBridge<
     interactionViewModel: overlay.viewModel,
     interactionCommands: overlay.commands,
     directSelectionHover: direct.hover,
-    selectionGlow: direct.glow,
+    selectionHighlight: direct.highlight,
   };
 }

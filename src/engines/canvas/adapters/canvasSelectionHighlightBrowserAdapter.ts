@@ -1,10 +1,10 @@
 import {
   buildCanvasSelectionScreenToneDrawPlan,
   buildCanvasSelectionScreenToneGlow,
-} from "@/engines/canvas/helpers/canvasSelectionGlowHelpers";
+} from "@/engines/canvas/helpers/canvasSelectionHighlightHelpers";
 import type {
-  CanvasSelectionGlowRenderer,
-} from "@/engines/canvas/models/canvasSelectionGlowModel";
+  CanvasSelectionHighlightRenderer,
+} from "@/engines/canvas/models/canvasSelectionHighlightModel";
 
 function clearTarget(target: HTMLCanvasElement | null) {
   if (!target) return;
@@ -13,11 +13,11 @@ function clearTarget(target: HTMLCanvasElement | null) {
     ?.clearRect(0, 0, target.width, target.height);
 }
 
-export function createCanvasSelectionGlowRenderer({
+export function createCanvasSelectionHighlightRenderer({
   createCanvas = () => document.createElement("canvas"),
 }: {
   createCanvas?: () => HTMLCanvasElement;
-} = {}): CanvasSelectionGlowRenderer {
+} = {}): CanvasSelectionHighlightRenderer {
   let scratch: HTMLCanvasElement | null = null;
   let scratchFingerprint: string | null = null;
   let scratchOffsetSourcePixels = 0;
@@ -38,7 +38,7 @@ export function createCanvasSelectionGlowRenderer({
 
   const ensureScratch = (
     input: Parameters<
-      CanvasSelectionGlowRenderer["draw"]
+      CanvasSelectionHighlightRenderer["draw"]
     >[1]
   ) => {
     if (

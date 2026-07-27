@@ -162,19 +162,11 @@ for (const file of pureAnimationFiles) {
     `${label}: pure Animation이 state/Runtime authority를 생성`
   );
 }
-for (const file of files.filter((candidate) =>
-  !candidate.startsWith(
-    join(sourceRoot, "render")
-  ) &&
-  candidate !== join(
-    sourceRoot,
-    "engines/animation/index.ts"
-  )
-)) {
+for (const file of files) {
   assert.doesNotMatch(
     readFileSync(file, "utf8"),
     /@\/engines\/animation/,
-    `${relative(root, file)}: 비-Render 소비자는 @/animation을 사용`
+    `${relative(root, file)}: Panel 없는 Animation Engine 경계 대신 @/animation을 사용`
   );
 }
 for (const file of files.filter((candidate) =>
@@ -186,15 +178,20 @@ for (const file of files.filter((candidate) =>
     `${relative(root, file)}: Animation 소비자는 단일 public entry를 사용`
   );
 }
-assert.match(
-  readFileSync(
-    join(
-      sourceRoot,
-      "engines/animation/index.ts"
-    ),
-    "utf8"
+assert.equal(
+  files.some((file) =>
+    relative(sourceRoot, file)
+      .split(sep)
+      .join("/")
+      .startsWith("engines/animation/")
   ),
-  /export \* from ["']@\/animation["']/
+  false,
+  "Animation은 독립 Panel이 없어 Engine 경로를 가질 수 없습니다."
+);
+assert.match(
+  readFileSync(join(animationRoot, "index.ts"), "utf8"),
+  /from ["']@\/animation\//,
+  "pure Animation canonical public entry가 없습니다."
 );
 for (const file of collectSourceFiles(
   join(sourceRoot, "models")
@@ -270,7 +267,7 @@ assert.match(
 );
 assert.match(
   compositionRoot,
-  /useLayerDocumentCanvasComposition/
+  /useLayerDocumentCanvasEngine/
 );
 assert.doesNotMatch(
   compositionRoot,
@@ -288,7 +285,7 @@ for (const nativeHook of [
   "useLayerDocumentTimelineEngine",
   "useLayerDocumentPropertiesEngine",
   "useLayerDocumentPsdTreeEngine",
-  "useLayerDocumentCanvasComposition",
+  "useLayerDocumentCanvasEngine",
 ]) {
   assert.match(
     compositionRoot,
@@ -380,13 +377,6 @@ for (const file of files.filter((candidate) =>
     `${relative(root, file)}: 비-Render legacy 명칭이 남았습니다.`
   );
 }
-assert.match(
-  readFileSync(
-    join(sourceRoot, "engines/animation/index.ts"),
-    "utf8"
-  ),
-  /Render compatibility entry/
-);
 assert.match(
   readFileSync(
     join(

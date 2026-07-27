@@ -52,7 +52,7 @@ assert.match(runtime, /createPreviewSurfaceCacheRuntime/);
 assert.doesNotMatch(runtime, /memoryEstimates|PreviewBuild|ImageBitmap/);
 
 const composition = readFileSync(
-  "src/engines/canvas/useLayerDocumentCanvasComposition.ts",
+  "src/engines/canvas/useLayerDocumentCanvasEngine.ts",
   "utf8"
 );
 assert.match(

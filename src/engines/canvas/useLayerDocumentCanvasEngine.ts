@@ -33,8 +33,8 @@ import {
   useCanvasRenderController,
 } from "@/engines/canvas/controllers/useCanvasRenderController";
 import {
-  useCanvasViewportEngine,
-} from "@/engines/canvas/useCanvasViewportEngine";
+  useCanvasViewportRuntime,
+} from "@/engines/canvas/useCanvasViewportRuntime";
 import {
   useCanvasPreviewRuntime,
 } from "@/engines/canvas/useCanvasPreviewRuntime";
@@ -96,7 +96,7 @@ function adaptRuntimeResource(
   };
 }
 
-export function useLayerDocumentCanvasComposition<
+export function useLayerDocumentCanvasEngine<
   TCommitResult,
   TSelectionResult,
   TKeyframeResult,
@@ -148,7 +148,7 @@ export function useLayerDocumentCanvasComposition<
     width: consumer.activeScene.width,
     height: consumer.activeScene.height,
   };
-  const viewport = useCanvasViewportEngine({
+  const viewport = useCanvasViewportRuntime({
     minWorkspaceWidth:
       options.minWorkspaceWidth,
     minWorkspaceHeight:
@@ -232,8 +232,8 @@ export function useLayerDocumentCanvasComposition<
       readModel: readResult.model,
       commands,
       state: options.interactionState,
-      isGlowEnabled:
-        options.viewportState.showSelectionGlow,
+      isHighlightEnabled:
+        options.viewportState.showSelectionHighlight,
       viewportSize: {
         width:
           viewport.readModel.previewViewportWidth,
@@ -330,11 +330,11 @@ export function useLayerDocumentCanvasComposition<
       guide.commands.toggleShortformFrame,
     toggleSafeZone:
       guide.commands.toggleSafeZone,
-    showSelectionGlow:
-      options.viewportState.showSelectionGlow,
-    toggleSelectionGlow: () =>
+    showSelectionHighlight:
+      options.viewportState.showSelectionHighlight,
+    toggleSelectionHighlight: () =>
       options.viewportState
-        .setShowSelectionGlow(
+        .setShowSelectionHighlight(
           (current) => !current
         ),
     resetPreviewView:
@@ -353,7 +353,7 @@ export function useLayerDocumentCanvasComposition<
       options.isPreviewPanModifierActive,
     interactionViewModel:
       bridge.interactionViewModel,
-    selectionGlow: bridge.selectionGlow,
+    selectionHighlight: bridge.selectionHighlight,
     directSelectionHover:
       bridge.directSelectionHover,
     interactionCommands:

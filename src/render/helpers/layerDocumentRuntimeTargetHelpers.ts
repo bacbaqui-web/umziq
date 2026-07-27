@@ -32,7 +32,7 @@ export function buildLayerDocumentRuntimeTargetReadModel(options: {
     evaluatedTransform,
     opacity: input.opacity,
     directSelection: shared,
-    glow: {
+    highlight: {
       ...shared,
       sourceResourceCacheKey: input.sourceResourceCacheKey,
     },

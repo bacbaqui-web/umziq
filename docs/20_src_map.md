@@ -166,6 +166,8 @@ Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure�
 - `adapters/layerDocumentRuntimeInputAdapter.ts`: Project + Source descriptor + runtime resolution + frame + Draft를 `EvaluatedScene`으로 평가하고, Editor Overlay projection을 평가 후 별도로 조합
 - `helpers/layerDocumentRuntimeEvaluationHelpers.ts`: Transform/Animation/Modifier/Draft 평가
 - `helpers/layerDocumentRuntimeCacheKeyHelpers.ts`: Source resource key와 Layer result key 분리
+- `models/layerDocumentRuntimeModel.ts`: Runtime target, Draft preparation,
+  Frame Evaluation과 Editor frame read model의 현재 계약
 - `models/evaluatedSceneModel.ts`: canonical `layerDocumentId`와
   LayerDocument별 local frame을 보존하는 evaluated scene
 - `models/rendererResultModel.ts`: Preview/Accurate 결과와 Accurate 호출 계약
@@ -199,7 +201,10 @@ Preview/Accurate 역할 전환 완료 기록은
 
 ### `src/engines/canvas`
 
-- `useLayerDocumentCanvasComposition.ts`: Canvas controller composer와 공개 view props
+- `useLayerDocumentCanvasEngine.ts`: Canvas Panel의 controller/runtime 조립과
+  공개 view props
+- `useCanvasViewportRuntime.ts`: zoom, pan, workspace state와 Viewport
+  Controller를 조립하는 Canvas 내부 Runtime
 - `adapters/layerDocumentCanvasReadAdapter.ts`: Owner/Timeline/Draft 입력을
   단일 Canvas read model로 변환하고 `previewQuality`를 Source 요청의
   `sourceSamplingQuality`로 명시적으로 연결
@@ -216,7 +221,13 @@ Preview/Accurate 역할 전환 완료 기록은
 - `controllers/useCanvasRenderController.ts`: Preview draw, Dirty Region과
   Draft 중 cache bypass 조정
 - `controllers/useLayerDocumentCanvasDirectSelectionController.ts`: direct selection
-- `helpers/layerDocumentCanvasSelectionHelpers.ts`: glow/gizmo/motion-path projection
+- `helpers/layerDocumentCanvasSelectionHelpers.ts`:
+  selection-highlight/gizmo/motion-path projection
+- `helpers/canvasSelectionHighlightHelpers.ts`: 선택된 Source Alpha를
+  2px outline과 screen-tone Highlight로 그리는 제품 helper
+- `adapters/canvasSelectionHighlightBrowserAdapter.ts`: Highlight scratch
+  surface의 Browser Canvas adapter
+- `models/canvasSelectionHighlightModel.ts`: Selection Highlight view model
 - `state/compositionPreviewCacheStore.ts`: Preview Group composition surface cache
 - `state/previewSurfaceCacheStore.ts`: quality/scale/size key surface pool과 LRU
 - `state/runtimeMetricsStore.ts`: Preview/Accurate/Dirty/Cache/Surface 관찰 counter
@@ -291,13 +302,10 @@ Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Dr
 - `src/animation/index.ts`: keyframe 조회/불변 갱신, 보간 평가, global/local
   frame 변환, Modifier 정규화/결정적 계산, motion-path sampling의 단일 pure
   public entry
-- `src/engines/animation/index.ts`: Render Sprint까지 유지하는
-  `@/engines/animation` compatibility re-export
 
 Animation은 state, Runtime authority, Project 편집 원본을 소유하지 않는다.
-Timeline/Properties/Canvas 같은 비-Render 소비자는 `@/animation`만 사용하고
-Project 편집은 계속 Owner command로 수행한다. Render module은 동결된 기존
-import 경로를 compatibility entry를 통해 사용한다.
+Timeline/Properties/Canvas/Render는 모두 `@/animation`을 canonical
+public 경계로 사용하고 Project 편집은 계속 Owner command로 수행한다.
 
 - `src/layer-types/index.ts`: Drawing/Text query와 transaction preparation,
   Audio unsupported capability의 단일 public entry

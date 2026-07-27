@@ -33,8 +33,8 @@ export default function PreviewWorkspacePane({
   guide,
   toggleShortformFrame,
   toggleSafeZone,
-  showSelectionGlow,
-  toggleSelectionGlow,
+  showSelectionHighlight,
+  toggleSelectionHighlight,
   resetPreviewView,
   setOneToOnePreviewView,
   centerPreviewView,
@@ -43,7 +43,7 @@ export default function PreviewWorkspacePane({
   isPreviewPanning,
   isPreviewPanModifierActive,
   interactionViewModel,
-  selectionGlow,
+  selectionHighlight,
   directSelectionHover,
   interactionCommands,
 }: CanvasPreviewPaneProps) {
@@ -152,8 +152,8 @@ export default function PreviewWorkspacePane({
               toggleShortformFrame={toggleShortformFrame}
               showSafeZoneGuides={guide.showSafeZoneGuides}
               toggleSafeZone={toggleSafeZone}
-              showSelectionGlow={showSelectionGlow}
-              toggleSelectionGlow={toggleSelectionGlow}
+              showSelectionHighlight={showSelectionHighlight}
+              toggleSelectionHighlight={toggleSelectionHighlight}
               resetPreviewView={resetPreviewView}
               setOneToOnePreviewView={setOneToOnePreviewView}
               centerPreviewView={centerPreviewView}
@@ -178,7 +178,7 @@ export default function PreviewWorkspacePane({
               previewViewportWidth={previewViewportWidth}
               previewViewportHeight={previewViewportHeight}
               viewModel={interactionViewModel}
-              selectionGlow={selectionGlow}
+              selectionHighlight={selectionHighlight}
               commands={interactionCommands}
             />
           </div>

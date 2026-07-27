@@ -3,10 +3,10 @@ import { createPortal } from "react-dom";
 import type {
   CanvasGizmoViewModel,
   CanvasInteractionCommands,
-  CanvasSelectionGlowViewModel,
+  CanvasSelectionHighlightViewModel,
 } from "@/engines/canvas";
 import {
-  CANVAS_SELECTION_GLOW_POINTER_EVENTS,
+  CANVAS_SELECTION_HIGHLIGHT_POINTER_EVENTS,
   CANVAS_SELECTION_OVERLAY_LAYER_ORDER,
 } from "@/engines/canvas";
 import PreviewGizmoLayer from "@/features/preview/components/PreviewGizmoLayer";
@@ -16,7 +16,7 @@ type PreviewOverlayProps = {
   overlayRef: RefObject<HTMLDivElement | null>;
   viewportSize: { width: number; height: number };
   viewModel: CanvasGizmoViewModel;
-  selectionGlow: CanvasSelectionGlowViewModel;
+  selectionHighlight: CanvasSelectionHighlightViewModel;
   commands: CanvasInteractionCommands;
 };
 
@@ -24,7 +24,7 @@ export default function PreviewOverlay({
   overlayRef,
   viewportSize,
   viewModel,
-  selectionGlow: { attachCanvas: attachSelectionGlowCanvas },
+  selectionHighlight: { attachCanvas: attachSelectionHighlightCanvas },
   commands,
 }: PreviewOverlayProps) {
   const isTransformHandleDragging =
@@ -47,7 +47,7 @@ export default function PreviewOverlay({
         }}
       >
         <canvas
-          ref={attachSelectionGlowCanvas}
+          ref={attachSelectionHighlightCanvas}
           aria-hidden="true"
           data-canvas-overlay-layer={CANVAS_SELECTION_OVERLAY_LAYER_ORDER[0]}
           style={{
@@ -55,7 +55,7 @@ export default function PreviewOverlay({
             inset: 0,
             width: viewportSize.width,
             height: viewportSize.height,
-            pointerEvents: CANVAS_SELECTION_GLOW_POINTER_EVENTS,
+            pointerEvents: CANVAS_SELECTION_HIGHLIGHT_POINTER_EVENTS,
           }}
         />
         <svg

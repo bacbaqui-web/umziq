@@ -2,7 +2,7 @@ import type { RefObject } from "react";
 import type {
   CanvasGizmoViewModel,
   CanvasInteractionCommands,
-  CanvasSelectionGlowViewModel,
+  CanvasSelectionHighlightViewModel,
 } from "@/engines/canvas";
 import PreviewOverlay from "@/features/preview/components/PreviewOverlay";
 
@@ -11,7 +11,7 @@ type PreviewInteractionOverlayProps = {
   previewViewportWidth: number;
   previewViewportHeight: number;
   viewModel: CanvasGizmoViewModel;
-  selectionGlow: CanvasSelectionGlowViewModel;
+  selectionHighlight: CanvasSelectionHighlightViewModel;
   commands: CanvasInteractionCommands;
 };
 
@@ -20,14 +20,14 @@ export default function PreviewInteractionOverlay({
   previewViewportWidth,
   previewViewportHeight,
   viewModel,
-  selectionGlow,
+  selectionHighlight,
   commands,
 }: PreviewInteractionOverlayProps) {
   return (
     <PreviewOverlay
       overlayRef={previewOverlayRef}
       viewportSize={{ width: previewViewportWidth, height: previewViewportHeight }}
-      selectionGlow={selectionGlow}
+      selectionHighlight={selectionHighlight}
       viewModel={viewModel}
       commands={commands}
     />
