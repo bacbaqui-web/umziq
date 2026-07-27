@@ -7,6 +7,26 @@ export {
   WINDOW_TIMELINE_PLAYBACK_SCHEDULER,
 } from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";
 export {
+  advancePlaybackFrame,
+  clampPlaybackFrame,
+  getPlaybackResetFrame,
+  stepPlaybackFrame,
+} from "@/engines/timeline/helpers/timelinePlaybackFrameHelpers";
+export {
+  createDefaultPlaybackRange,
+  isFrameInPlaybackRange,
+  normalizePlaybackDuration,
+  normalizePlaybackRange,
+  resolvePlaybackRange,
+} from "@/engines/timeline/helpers/timelinePlaybackRangeHelpers";
+export {
+  formatCompactTime,
+  formatTimelineTime,
+} from "@/engines/timeline/helpers/timelineTimeFormatting";
+export type {
+  PlaybackRange,
+} from "@/engines/timeline/models/timelinePlaybackModel";
+export {
   createLayerDocumentTimelineSourceStatusAdapter,
   type LayerDocumentTimelineSourceStatusResult,
 } from "@/engines/timeline/adapters/layerDocumentTimelineSourceStatusAdapter";

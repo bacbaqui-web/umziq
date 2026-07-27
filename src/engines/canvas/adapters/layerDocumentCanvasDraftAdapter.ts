@@ -7,10 +7,11 @@ import {
   buildLayerDocumentEditorFrameReadModel,
   type LayerDocumentDraftInteractionPreparation,
   type LayerDocumentRuntimeInput,
+  type LayerDocumentSourceSamplingQuality,
   type LayerDocumentTransformDraftSnapshot,
   type PreviewSceneTransformPatch,
   type RuntimeMetricRecordPort,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentSourceRuntimeResolutionReadPort,
   LayerDocumentTransformKeyframeSelection,
@@ -106,7 +107,8 @@ export function createLayerDocumentCanvasDraftAdapter<
   const publish = (command: {
     layerDocumentId: string;
     patch: PreviewSceneTransformPatch;
-    quality: string;
+    sourceSamplingQuality:
+      LayerDocumentSourceSamplingQuality;
     globalFrame: number;
     expectedLocalFrame?: number;
   }) => {
@@ -115,7 +117,8 @@ export function createLayerDocumentCanvasDraftAdapter<
       activeGroupLayerDocumentId:
         options.readActiveGroupLayerDocumentId(),
       globalFrame: command.globalFrame,
-      quality: command.quality,
+      sourceSamplingQuality:
+        command.sourceSamplingQuality,
       draft: options.draft.read(),
       resolvePsdSource: options.resolvePsdSource,
       readSourceResolutionStatus: (sourceId) =>
@@ -155,17 +158,20 @@ export function createLayerDocumentCanvasDraftAdapter<
     globalFrame: number;
     localFrame: number;
     position: Position;
-    quality: string;
+    sourceSamplingQuality:
+      LayerDocumentSourceSamplingQuality;
   }) =>
     publish({
       layerDocumentId: command.layerDocumentId,
       patch: { position: command.position },
-      quality: command.quality,
+      sourceSamplingQuality:
+        command.sourceSamplingQuality,
       globalFrame: command.globalFrame,
       expectedLocalFrame: command.localFrame,
     });
   const readViewProps = (command: {
-    quality: string;
+    sourceSamplingQuality:
+      LayerDocumentSourceSamplingQuality;
     globalFrame: number;
     runtimeMetrics?: RuntimeMetricRecordPort;
   }) => ({
@@ -173,14 +179,16 @@ export function createLayerDocumentCanvasDraftAdapter<
       options.readSelectedLayerDocumentId(),
     selectedTransformKeyframe:
       options.readSelectedTransformKeyframe(),
-    quality: command.quality,
+    sourceSamplingQuality:
+      command.sourceSamplingQuality,
     scope: options.readScope(),
     runtime: buildLayerDocumentEditorFrameReadModel({
       project: options.readProject(),
       activeGroupLayerDocumentId:
         options.readActiveGroupLayerDocumentId(),
       globalFrame: command.globalFrame,
-      quality: command.quality,
+      sourceSamplingQuality:
+        command.sourceSamplingQuality,
       draft: options.draft.read(),
       resolvePsdSource: options.resolvePsdSource,
       readSourceResolutionStatus: (sourceId) =>

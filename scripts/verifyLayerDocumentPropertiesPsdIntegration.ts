@@ -22,7 +22,7 @@ import {
 import {
   createLayerDocumentSourceRuntimeResourceCache,
   type LayerDocumentTransformDraftSnapshot,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesRuntimeState,
@@ -403,7 +403,7 @@ const firstPsdLayer =
 assert.ok(firstPsdLayer?.common.source);
 const firstRuntime = ports.canvas.readViewProps({
   globalFrame: 7,
-  quality: "preview",
+  sourceSamplingQuality: "preview",
 });
 assert.equal(firstRuntime.runtime.ok, true);
 if (!firstRuntime.runtime.ok || !firstPsdLayer) {

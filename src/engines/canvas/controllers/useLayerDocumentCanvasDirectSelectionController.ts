@@ -22,8 +22,8 @@ import {
 } from "@/engines/canvas/helpers/layerDocumentCanvasDirectSelectionHelpers";
 import type {
   LayerDocumentCanvasCommands,
-  LayerDocumentCanvasModeReadModel,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+  LayerDocumentCanvasReadModel,
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 import type {
   SelectionSourceAlphaProvider,
 } from "@/engines/canvas/models/canvasSelectionAlphaModel";
@@ -40,7 +40,7 @@ export function useLayerDocumentCanvasDirectSelectionController<
   TKeyframeResult,
 >(options: {
   overlayRef: RefObject<HTMLDivElement | null>;
-  readModel: LayerDocumentCanvasModeReadModel;
+  readModel: LayerDocumentCanvasReadModel;
   commands: LayerDocumentCanvasCommands<
     TCommitResult,
     TSelectionResult,

@@ -15,7 +15,7 @@ import type {
 } from "@/engines/project/models/layerDocumentSourceRuntimeResolutionModel";
 import type {
   LayerDocumentSourceRuntimeResourcePort,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export interface LayerDocumentProjectReconnectBrowserPort {
   readonly capability:

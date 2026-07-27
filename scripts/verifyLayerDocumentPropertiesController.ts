@@ -14,7 +14,7 @@ import {
   applyLayerDocumentTransformDraft,
   evaluateLayerDocumentTransform,
   type PreviewSceneTransformPatch,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesCommandPort,

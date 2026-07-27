@@ -35,7 +35,7 @@ import {
 import {
   createLayerDocumentSourceRuntimeResourceCache,
   type LayerDocumentTransformDraftSnapshot,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
@@ -1095,7 +1095,7 @@ if (parsedProperties.status === "ready") {
 }
 const parsedCanvasView = ports.canvas.readViewProps({
   globalFrame: externalFrame,
-  quality: "original",
+  sourceSamplingQuality: "original",
 });
 assert.equal(parsedCanvasView.runtime.ok, true);
 if (!parsedCanvasView.runtime.ok) {
@@ -1289,7 +1289,7 @@ assert.equal(
 
 let canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
-  quality: "preview",
+  sourceSamplingQuality: "preview",
 });
 assert.equal(canvas.runtime.ok, true);
 if (!canvas.runtime.ok) {
@@ -1331,7 +1331,7 @@ assert.doesNotMatch(
 );
 canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
-  quality: "preview",
+  sourceSamplingQuality: "preview",
 });
 assert.equal(canvas.selectedLayerDocumentId, "psd-copy");
 assert.equal(canvas.runtime.ok, true);
@@ -1359,7 +1359,7 @@ callsBefore = transitionCallCount;
 const pointerMove = ports.canvas.pointerMove({
   layerDocumentId: "psd-copy",
   globalFrame: externalFrame,
-  quality: "preview",
+  sourceSamplingQuality: "preview",
   patch: {
     position: { x: 333, y: 444 },
     scale: { x: 155, y: 166 },
@@ -1377,7 +1377,7 @@ assert.equal(draftPublishCount, 1);
 assert.ok(draft);
 canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
-  quality: "preview",
+  sourceSamplingQuality: "preview",
 });
 assert.equal(canvas.runtime.ok, true);
 if (!canvas.runtime.ok) {
@@ -1439,7 +1439,7 @@ assert.deepEqual(
 const canvasAfterAnimatedCommit =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
-    quality: "preview",
+    sourceSamplingQuality: "preview",
   });
 assert.equal(canvasAfterAnimatedCommit.runtime.ok, true);
 if (!canvasAfterAnimatedCommit.runtime.ok) {
@@ -1494,7 +1494,7 @@ const projectBeforeMotionPathDraft =
 const nativeCanvasCommands =
   createLayerDocumentCanvasCommands({
     selectedLayerDocumentId: "psd-copy",
-    quality: "preview",
+    sourceSamplingQuality: "preview",
     port: createLayerDocumentCanvasCommandPort({
       draft: {
         publish: ports.canvas.pointerMove,
@@ -1511,13 +1511,13 @@ const nativeCanvasCommands =
       selectMotionPathKeyframe:
         ports.canvas.selectMotionPathKeyframe,
       playback: externalPlayback,
-      quality: "preview",
+      sourceSamplingQuality: "preview",
     }),
   });
 const motionPathBeforeDraft =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
-    quality: "preview",
+    sourceSamplingQuality: "preview",
   });
 assert.equal(motionPathBeforeDraft.runtime.ok, true);
 if (!motionPathBeforeDraft.runtime.ok) {
@@ -1575,7 +1575,7 @@ assert.deepEqual(
 assert.deepEqual(
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
-    quality: "preview",
+    sourceSamplingQuality: "preview",
   }).selectedTransformKeyframe,
   owner.state.runtimeSession
     .selectedTransformKeyframe
@@ -1607,7 +1607,7 @@ assert.equal(draft?.localFrame, 7);
 const motionPathDuringDraft =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
-    quality: "preview",
+    sourceSamplingQuality: "preview",
   });
 assert.equal(motionPathDuringDraft.runtime.ok, true);
 if (!motionPathDuringDraft.runtime.ok) {
@@ -1641,7 +1641,7 @@ assert.equal(
 const motionPathAfterCancel =
   ports.canvas.readViewProps({
     globalFrame: externalFrame,
-    quality: "preview",
+    sourceSamplingQuality: "preview",
   });
 assert.equal(motionPathAfterCancel.runtime.ok, true);
 if (!motionPathAfterCancel.runtime.ok) {
@@ -1727,7 +1727,7 @@ assert.equal(
 const disabledTrackCommands =
   createLayerDocumentCanvasCommands({
     selectedLayerDocumentId: "drawing",
-    quality: "preview",
+    sourceSamplingQuality: "preview",
     port: createLayerDocumentCanvasCommandPort({
       draft: {
         publish: ports.canvas.pointerMove,
@@ -1744,7 +1744,7 @@ const disabledTrackCommands =
       selectMotionPathKeyframe:
         ports.canvas.selectMotionPathKeyframe,
       playback: externalPlayback,
-      quality: "preview",
+      sourceSamplingQuality: "preview",
     }),
   });
 const historyBeforeDisabledTrackDraft =
@@ -2031,7 +2031,7 @@ const beforeRefreshLayer = structuredClone(
 );
 canvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
-  quality: "preview",
+  sourceSamplingQuality: "preview",
 });
 assert.equal(canvas.runtime.ok, true);
 if (!canvas.runtime.ok) {
@@ -2098,7 +2098,7 @@ assert.equal(
 assert.equal(disposedResourceCount, 2);
 const afterRefreshCanvas = ports.canvas.readViewProps({
   globalFrame: externalFrame,
-  quality: "preview",
+  sourceSamplingQuality: "preview",
 });
 assert.equal(afterRefreshCanvas.runtime.ok, true);
 if (!afterRefreshCanvas.runtime.ok) {

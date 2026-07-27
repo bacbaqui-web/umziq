@@ -15,11 +15,11 @@ import type {
 } from "@/engines/project/models/layerDocumentSourcePreparationModel";
 import type {
   LayerDocumentSourceRuntimeResource,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   buildLayerDocumentSourceResourceCacheKey,
   layerDocumentSourceVisualKeyPolicy,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   analyzeParsedPsd,
 } from "@/engines/project/import/psdImportAnalyzer";
@@ -203,7 +203,7 @@ function runtimeResource(options: {
       sourceVersion: options.source.version,
       sourceFingerprint: options.source.data.visualFingerprint,
       localFrame: 0,
-      quality: "preview",
+      sourceSamplingQuality: "preview",
     });
   return {
     sourceId: options.source.sourceId,

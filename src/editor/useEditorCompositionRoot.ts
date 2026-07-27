@@ -10,15 +10,13 @@ import {
   useLayerDocumentCanvasComposition,
 } from "@/engines/canvas";
 import {
-  formatCompactTime,
-} from "@/engines/playback-render";
-import {
   useLayerDocumentPropertiesEngine,
 } from "@/engines/properties";
 import {
   useLayerDocumentPsdTreeEngine,
 } from "@/engines/psd-tree";
 import {
+  formatCompactTime,
   TIMELINE_NAME_COL_WIDTH,
   TIMELINE_PX_PER_FRAME,
   useLayerDocumentTimelineEngine,
@@ -67,7 +65,7 @@ EditorShellLayoutProps {
         runtime.sourceResolution,
       draftSession: runtime.draftSession,
       frameInput: runtime.playback,
-      quality: "original",
+      sourceSamplingQuality: "original",
     });
   const scope = panelPorts.scope.read();
   if (!scope.ok) {

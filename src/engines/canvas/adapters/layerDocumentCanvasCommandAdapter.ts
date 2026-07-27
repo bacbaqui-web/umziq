@@ -1,12 +1,13 @@
 import type {
+  LayerDocumentSourceSamplingQuality,
   PreviewSceneTransformPatch,
   RuntimeMetricRecordPort,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentCanvasCommandPort,
   LayerDocumentCanvasCommands,
   LayerDocumentCanvasHandleDraft,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 
 function patchForHandle(
   draft: LayerDocumentCanvasHandleDraft
@@ -59,7 +60,8 @@ export function createLayerDocumentCanvasCommands<
   TKeyframeResult,
 >(options: {
   selectedLayerDocumentId: string | null;
-  quality: string;
+  sourceSamplingQuality:
+    LayerDocumentSourceSamplingQuality;
   port: LayerDocumentCanvasCommandPort<
     TCommitResult,
     TSelectionResult,
@@ -79,7 +81,8 @@ export function createLayerDocumentCanvasCommands<
       return options.port.pointerMove({
         layerDocumentId,
         patch: patchForHandle(draft),
-        quality: options.quality,
+        sourceSamplingQuality:
+          options.sourceSamplingQuality,
       });
     },
     commitDraft: () => {

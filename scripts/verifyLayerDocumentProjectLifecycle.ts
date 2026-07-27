@@ -16,7 +16,7 @@ import {
 } from "@/editor/layerDocumentEditorBootstrap";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   createLayerDocumentTimelinePlaybackRuntime,
 } from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";

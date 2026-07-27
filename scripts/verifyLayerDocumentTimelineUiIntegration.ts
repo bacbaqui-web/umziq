@@ -18,7 +18,7 @@ import {
 } from "@/engines/project";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";

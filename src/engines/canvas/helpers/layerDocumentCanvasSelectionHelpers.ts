@@ -4,7 +4,7 @@ import type {
   LayerDocumentRuntimeInput,
   LayerDocumentEditorFrameReadModel,
   LayerDocumentRuntimeTargetReadModel,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   getTransformGeometry,
 } from "@/engines/canvas/helpers/canvasCoordinateHelpers";
@@ -18,7 +18,7 @@ import type {
   LayerDocumentCanvasDirectSelectionCandidate,
   LayerDocumentCanvasRenderAssetPort,
   LayerDocumentCanvasViewportInput,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 import {
   STATIC_PSD_SELECTION_FRAME_VISUAL_KEY,
   SUBCOMPOSITION_SELECTION_CONTENT_REVISION,

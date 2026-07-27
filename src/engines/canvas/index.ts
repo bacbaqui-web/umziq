@@ -12,9 +12,6 @@ export type {
   CanvasFpsStatus,
 } from "@/engines/canvas/models/canvasFpsModel";
 export {
-  createCanvasFpsRuntime,
-} from "@/engines/canvas/state/canvasFpsRuntimeStore";
-export {
   PREVIEW_QUALITY_SCALE,
   RESOLVED_PREVIEW_QUALITIES,
 } from "@/engines/canvas/constants/previewQualityConstants";
@@ -32,78 +29,6 @@ export {
   PREVIEW_QUALITY_LABELS,
 } from "@/engines/canvas/helpers/previewQualityControlHelpers";
 export { resolvePreviewQuality } from "@/engines/canvas/helpers/previewQualityHelpers";
-export { collectRenderFrameSourceIds } from "@/engines/canvas/helpers/previewRenderFrameHelpers";
-export { createDirtyState } from "@/engines/canvas/state/dirtyStateStore";
-export { createCompositionPreviewCacheRuntime } from "@/engines/canvas/state/compositionPreviewCacheStore";
-export { createPreviewSurfaceCacheRuntime } from "@/engines/canvas/state/previewSurfaceCacheStore";
-export { createRuntimeMetricsResource } from "@/engines/canvas/state/runtimeMetricsStore";
-export {
-  resolvePreviewCompositionCacheForRender,
-} from "@/engines/canvas/controllers/useCanvasRenderController";
-export {
-  buildDirtySummary,
-  createCleanDirtyStateSnapshot,
-  createDirtySceneSnapshotFromPreviewScene,
-  updateDirtyStateSnapshot,
-} from "@/engines/canvas/helpers/dirtyStateHelpers";
-export {
-  applyPreviewNodeCache,
-  applyPreviewNodeCacheFromScenes,
-} from "@/engines/canvas/helpers/nodeCacheHelpers";
-export {
-  buildCompositionPreviewCacheKey,
-  isCompositionPreviewSurfaceContentEqual,
-} from "@/engines/canvas/helpers/compositionCacheKeyHelpers";
-export { buildPreviewSurfaceCacheKey } from "@/engines/canvas/helpers/surfaceCacheKeyHelpers";
-export {
-  DIRTY_KINDS,
-  type DirtyKind,
-  type DirtyNodeRecord,
-  type DirtyNodeSnapshot,
-  type DirtySceneSnapshot,
-  type DirtyStateResource,
-  type DirtyStateSnapshot,
-  type DirtySummary,
-  type DirtyTargetKind,
-  type PreviewSceneDirtySnapshotInput,
-  type PreviewSceneDirtySnapshotOptions,
-} from "@/engines/canvas/models/dirtyStateModel";
-export type {
-  PreviewNodeCacheResult,
-  PreviewNodeCacheStats,
-} from "@/engines/canvas/models/nodeCacheModel";
-export type {
-  CompositionPreviewCacheEntry,
-  CompositionPreviewCacheKeyInput,
-  CompositionPreviewCacheRuntimeOptions,
-  CompositionPreviewCacheRuntime,
-  CompositionPreviewCacheSnapshot,
-} from "@/engines/canvas/models/compositionCacheModel";
-export type {
-  PreviewSurfaceCacheAcquireInput,
-  PreviewSurfaceCacheKeyInput,
-  PreviewSurfaceCacheRuntime,
-  PreviewSurfaceCacheSnapshot,
-} from "@/engines/canvas/models/surfaceCacheModel";
-export {
-  compareRuntimeMetricBaseline,
-  compareRuntimeMetrics,
-  createEmptyRuntimeMetricCounters,
-} from "@/engines/canvas/helpers/runtimeMetricsHelpers";
-export {
-  RUNTIME_METRIC_COUNTER_NAMES,
-  type ExpectedRuntimeMetrics,
-  type RuntimeMetricDifference,
-  type RuntimeMetricComparisonResult,
-  type RuntimeMetricCounterName,
-  type RuntimeMetricCounters,
-  type RuntimeMetricExpectation,
-  type RuntimeMetricsBaselineComparison,
-  type RuntimeMetricsBaselineKind,
-  type RuntimeMetricsComparison,
-  type RuntimeMetricsResource,
-  type RuntimeMetricsSnapshot,
-} from "@/engines/canvas/models/runtimeMetricsModel";
 export {
   PREVIEW_MIN_WORKSPACE_HEIGHT,
   PREVIEW_MIN_WORKSPACE_WIDTH,
@@ -121,8 +46,8 @@ export type { CanvasSelectionGlowViewModel } from "@/engines/canvas/models/canva
 export type { CanvasDirectSelectionHoverViewModel } from "@/engines/canvas/models/canvasDirectSelectionModel";
 export { resolveCanvasPreviewCursor } from "@/engines/canvas/helpers/canvasDirectSelectionCursorHelpers";
 export {
-  buildLayerDocumentCanvasModeReadModel,
-} from "@/engines/canvas/adapters/layerDocumentCanvasModeAdapter";
+  buildLayerDocumentCanvasReadModel,
+} from "@/engines/canvas/adapters/layerDocumentCanvasReadAdapter";
 export {
   useLayerDocumentCanvasOverlayAdapter,
 } from "@/engines/canvas/adapters/useLayerDocumentCanvasOverlayAdapter";
@@ -153,7 +78,6 @@ export type {
   LayerDocumentCanvasRuntimeResourceAdapter,
 } from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
 export {
-  buildLayerDocumentCanvasRenderFrame,
   buildLayerDocumentCanvasPreviewReadModel,
 } from "@/engines/canvas/helpers/layerDocumentCanvasRendererHelpers";
 export {
@@ -176,9 +100,9 @@ export type {
   LayerDocumentCanvasDirectSelectionIntent,
   LayerDocumentCanvasHandleDraft,
   LayerDocumentCanvasKeyframeSelectionCommand,
-  LayerDocumentCanvasModeInput,
-  LayerDocumentCanvasModeReadModel,
-  LayerDocumentCanvasModeReadResult,
+  LayerDocumentCanvasReadInput,
+  LayerDocumentCanvasReadModel,
+  LayerDocumentCanvasReadResult,
   LayerDocumentCanvasMotionPathDraftPreparation,
   LayerDocumentCanvasRenderAsset,
   LayerDocumentCanvasRenderAssetPort,
@@ -188,7 +112,7 @@ export type {
   LayerDocumentCanvasSemanticKeyframeCommand,
   LayerDocumentCanvasTransformHandle,
   LayerDocumentCanvasViewportInput,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 export {
   CANVAS_SELECTION_GLOW_POINTER_EVENTS,
   CANVAS_SELECTION_OVERLAY_LAYER_ORDER,

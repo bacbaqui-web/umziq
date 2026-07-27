@@ -6,7 +6,7 @@ import {
   createLayerDocumentPsdRuntimeRegistrationBridge,
   type LayerDocumentSourceRuntimeResourcePort,
   type RuntimeMetricRecordPort,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentProjectOwnerEffect,
   LayerDocumentProjectOwnerPort,

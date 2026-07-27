@@ -36,8 +36,8 @@ const removedPaths = [
   "src/engines/timeline/useTimelineEngine.ts",
   "src/engines/properties/usePropertiesEngine.ts",
   "src/engines/psd-tree/usePsdTreeEngine.ts",
-  "src/engines/playback-render/useRenderEngine.ts",
-  "src/engines/playback-render/usePlaybackEngine.ts",
+  "src/render/useRenderEngine.ts",
+  "src/render/usePlaybackEngine.ts",
   "src/engines/project/models/runtimeRenderModel.ts",
   "src/engines/project/models/projectCommandModel.ts",
 ] as const;
@@ -80,7 +80,7 @@ assert.doesNotMatch(
 
 const renderingSource = [
   ...sourceFiles("src/engines/canvas"),
-  ...sourceFiles("src/engines/playback-render"),
+  ...sourceFiles("src/render"),
 ].map(read).join("\n");
 assert.doesNotMatch(
   renderingSource,

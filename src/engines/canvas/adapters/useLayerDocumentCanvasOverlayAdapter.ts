@@ -6,8 +6,8 @@ import type {
   CanvasInteractionStatePort,
 } from "@/engines/canvas/models/canvasInteractionModel";
 import type {
-  LayerDocumentCanvasModeReadModel,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+  LayerDocumentCanvasReadModel,
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 import type {
   ScaleHandleDirection,
 } from "@/engines/canvas/models/canvasViewModel";
@@ -17,7 +17,7 @@ import type {
  * identity-neutral Gizmo/MotionPath VM consumed by PreviewWorkspacePane.
  */
 export function useLayerDocumentCanvasOverlayAdapter(options: {
-  readModel: LayerDocumentCanvasModeReadModel;
+  readModel: LayerDocumentCanvasReadModel;
   state: CanvasInteractionStatePort;
   transform: {
     startPositionDrag: (clientX: number, clientY: number) => void;

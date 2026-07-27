@@ -7,6 +7,9 @@ import {
 import type {
   PreviewQualityPreference,
 } from "@/engines/canvas/models/previewQualityModel";
+import {
+  mapCanvasPreviewQualityToSourceSamplingQuality,
+} from "@/engines/canvas/adapters/layerDocumentCanvasReadAdapter";
 
 const preference: PreviewQualityPreference = "auto";
 assert.equal(JSON.parse(JSON.stringify(preference)), "auto");
@@ -21,6 +24,14 @@ assert.deepEqual(PREVIEW_QUALITY_SCALE, {
   high: 0.75,
   medium: 0.5,
   low: 0.25,
+});
+RESOLVED_PREVIEW_QUALITIES.forEach((quality) => {
+  assert.equal(
+    mapCanvasPreviewQualityToSourceSamplingQuality(
+      quality
+    ),
+    quality
+  );
 });
 
 const controller = readFileSync(
@@ -44,9 +55,19 @@ const composition = readFileSync(
   "src/engines/canvas/useLayerDocumentCanvasComposition.ts",
   "utf8"
 );
-assert.match(composition, /const quality =\s*previewRuntime\.quality/);
-assert.match(composition, /pixelScale:\s*PREVIEW_QUALITY_SCALE\[quality\]/);
-assert.match(composition, /previewQuality:\s*quality/);
+assert.match(
+  composition,
+  /const previewQuality =\s*previewRuntime\.quality/
+);
+assert.match(
+  composition,
+  /pixelScale:\s*PREVIEW_QUALITY_SCALE\[previewQuality\]/
+);
+assert.match(composition, /previewQuality,/);
+assert.match(
+  composition,
+  /mapCanvasPreviewQualityToSourceSamplingQuality/
+);
 assert.match(composition, /kind:\s*"original" as const/);
 assert.doesNotMatch(composition, /PreviewBitmap|previewSourceResolver/);
 

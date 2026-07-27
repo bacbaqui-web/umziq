@@ -1,5 +1,5 @@
 import type { CompositionPreviewCacheKeyInput } from "@/engines/canvas/models/compositionCacheModel";
-import type { CompositionPreviewNode } from "@/engines/playback-render";
+import type { CompositionPreviewNode } from "@/render";
 
 function normalizeScale(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1;

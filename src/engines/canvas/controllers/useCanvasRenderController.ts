@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, type RefObject } from "react";
 import type {
   PreviewScene,
   RenderNodeVisualResolver,
-} from "@/engines/playback-render";
+} from "@/render";
 import { createRuntimeMetricRecordPort } from "@/engines/canvas/helpers/runtimeMetricsHelpers";
 import type { RuntimeMetricsResource } from "@/engines/canvas/models/runtimeMetricsModel";
 import type {
@@ -15,7 +15,7 @@ import type { ResolvedPreviewQuality } from "@/engines/canvas/models/previewQual
 import {
   renderPreviewSceneToCanvas,
   type PreviewCanvasDrawState,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export function resolvePreviewCompositionCacheForRender({
   compositionCache,

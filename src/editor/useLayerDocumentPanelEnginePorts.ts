@@ -15,8 +15,9 @@ import {
 } from "@/engines/canvas";
 import {
   createLayerDocumentPsdRuntimeRegistrationBridge,
+  type LayerDocumentSourceSamplingQuality,
   type LayerDocumentSourceRuntimeResourcePort,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   createLayerDocumentPsdTreeController,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
@@ -58,7 +59,8 @@ export function useLayerDocumentPanelEnginePorts(
     draftSession: LayerDocumentCanvasDraftPort;
     frameInput:
       LayerDocumentTimelinePlaybackPort;
-    quality: string;
+    sourceSamplingQuality:
+      LayerDocumentSourceSamplingQuality;
   }
 ) {
   const {
@@ -68,7 +70,7 @@ export function useLayerDocumentPanelEnginePorts(
     sourceResolution,
     draftSession,
     frameInput,
-    quality,
+    sourceSamplingQuality,
   } = options;
   const readProject = () =>
     owner.state.currentProject;
@@ -207,7 +209,7 @@ export function useLayerDocumentPanelEnginePorts(
         readSelectedKeyframe: () =>
           timelineConsumer.readViewProps()
             .selectedTransformKeyframe,
-        quality,
+        sourceSamplingQuality,
       });
     const psdTreeController =
       createLayerDocumentPsdTreeController({
@@ -237,7 +239,7 @@ export function useLayerDocumentPanelEnginePorts(
         selectMotionPathKeyframe:
           timelineCommands.selectTransformKeyframe,
         playback: frameInput,
-        quality,
+        sourceSamplingQuality,
       });
     return {
       timelineOwner,
@@ -310,9 +312,13 @@ export function useLayerDocumentPanelEnginePorts(
               ),
             ])
           ),
-        quality,
+        quality: sourceSamplingQuality,
       };
-    }, [owner, frameInput, quality]);
+    }, [
+      owner,
+      frameInput,
+      sourceSamplingQuality,
+    ]);
   const canvasRead = useMemo<
     LayerDocumentCanvasReadPort
   >(

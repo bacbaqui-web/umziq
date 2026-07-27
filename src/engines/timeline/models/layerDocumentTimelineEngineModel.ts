@@ -10,6 +10,9 @@ import type {
   LayerDocumentSourceStatusIdentity,
   LayerDocumentTransformKeyframeSelection,
 } from "@/engines/project";
+import type {
+  PlaybackRange,
+} from "@/engines/timeline/models/timelinePlaybackModel";
 
 export interface LayerDocumentTimelineConsumerRow {
   readonly layerDocumentId: string;
@@ -136,10 +139,7 @@ export interface LayerDocumentTimelineSourceStatusPort<
 
 export interface LayerDocumentTimelinePlaybackReadModel {
   readonly currentFrame: number;
-  readonly range: {
-    readonly startFrame: number;
-    readonly endFrame: number;
-  };
+  readonly range: PlaybackRange;
   /** Runtime-only transport state; never stored in Project or History. */
   readonly isPlaying: boolean;
 }

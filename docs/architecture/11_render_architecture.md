@@ -62,9 +62,13 @@ Renderer가 공유하는 유일한 scene 입력이며 Canvas나 ImageBitmap을 �
 
 - `layerDocumentId`: 작업 Layer identity
 - `sourceId`: 공유 원본 identity
+- `renderItemId`: drawable의 Source Runtime visual 또는 Group의
+  renderable-content identity
+- `drawableId`: Source 내부 drawable identity
+- `targetCompId`: Group이 그릴 target composition identity
 - source resource key: decoded visual generation
 - layer result key: 현재 Layer visual 결과
-- drawable identity: Source 내부 drawable
+- `localFrameByLayerDocumentId`: LayerDocument별 현재 local frame lookup
 
 Renderer 내부 command identity를 Project identity로 사용하지 않는다.
 
@@ -139,14 +143,18 @@ projection을 만든다. Renderer output, Accurate frame와 Export 결과에
 Cache는 Project와 History에 저장하지 않는다. Source revision, visual identity,
 quality/scale/size와 lifecycle 변경에 맞춰 invalidate 또는 dispose한다.
 
-## Preview Quality와 Metrics
+## Preview Quality, Source Sampling과 Metrics
 
-Preview Quality는 Canvas backing scale과 Preview Cache에만 영향을 준다.
-Frame Evaluation의 작품 의미를 변경하지 않는다.
+`previewQuality`는 Canvas backing scale과 Preview Cache 책임이다.
+`sourceSamplingQuality`는 Frame Evaluation이 Source visual을 요청할 때
+사용하는 별도 계약이다. 현재 Canvas Read 경계가 두 값을 명시적으로
+연결하지만 같은 상태나 타입으로 소유하지 않는다.
 
 Metrics와 FPS는 관찰용 Runtime이다. frame p95, draw skip, Dirty 범위,
 Composition hit/miss, Surface reuse와 drawImage 수를 측정하지만 제품 결과를
-바꾸지 않는다.
+바꾸지 않는다. retained Preview 관찰값은 `previewDirtyNode`,
+`previewNodeReused`, `previewCompositionReused`처럼 Preview 책임 이름을
+사용한다. Source Runtime Cache metric은 이 Runtime에 억지로 합치지 않는다.
 
 ## 미래 Export
 

@@ -2,9 +2,11 @@ import {
   advancePlaybackFrame,
   clampPlaybackFrame,
   getPlaybackResetFrame,
-  normalizePlaybackRange,
   stepPlaybackFrame,
-} from "@/engines/playback-render";
+} from "@/engines/timeline/helpers/timelinePlaybackFrameHelpers";
+import {
+  normalizePlaybackRange,
+} from "@/engines/timeline/helpers/timelinePlaybackRangeHelpers";
 import type {
   LayerDocumentTimelineOwnerPort,
   LayerDocumentTimelinePlaybackPort,

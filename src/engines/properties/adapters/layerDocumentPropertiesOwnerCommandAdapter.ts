@@ -4,7 +4,7 @@ import type {
 } from "@/models";
 import type {
   LayerDocumentTransformCommitIntent,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentTransformKeyframeSelection,
 } from "@/engines/project";

@@ -1,33 +1,16 @@
 import {
-  renderAccurateRenderer,
   renderPreviewRenderer,
   type LayerDocumentEditorFrameReadModel,
   type PreviewScene,
-  type RenderFrame,
   type RuntimeMetricRecordPort,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   createLayerDocumentCanvasNodeVisualResolver,
 } from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
 import type {
   LayerDocumentCanvasRenderAssetPort,
   LayerDocumentCanvasRendererReadModel,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
-
-export function buildLayerDocumentCanvasRenderFrame(options: {
-  runtime: LayerDocumentEditorFrameReadModel;
-  renderAssets: LayerDocumentCanvasRenderAssetPort;
-  runtimeMetrics?: RuntimeMetricRecordPort;
-}): RenderFrame {
-  return renderAccurateRenderer({
-    evaluatedScene: options.runtime.scene,
-    resolveNodeVisual:
-      createLayerDocumentCanvasNodeVisualResolver(
-        options.renderAssets
-      ),
-    runtimeMetrics: options.runtimeMetrics,
-  }).frame;
-}
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 
 export function buildLayerDocumentCanvasPreviewReadModel(options: {
   runtime: LayerDocumentEditorFrameReadModel;

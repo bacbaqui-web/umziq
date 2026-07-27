@@ -19,8 +19,8 @@ import type {
 } from "@/engines/canvas/models/canvasInteractionModel";
 import type {
   LayerDocumentCanvasCommands,
-  LayerDocumentCanvasModeReadModel,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+  LayerDocumentCanvasReadModel,
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 
 /**
  * The concrete bridge to the existing PreviewWorkspacePane contract.
@@ -33,7 +33,7 @@ export function useLayerDocumentCanvasPreviewBridge<
   TKeyframeResult,
 >(options: {
   overlayRef: RefObject<HTMLDivElement | null>;
-  readModel: LayerDocumentCanvasModeReadModel;
+  readModel: LayerDocumentCanvasReadModel;
   commands: LayerDocumentCanvasCommands<
     TCommitResult,
     TSelectionResult,

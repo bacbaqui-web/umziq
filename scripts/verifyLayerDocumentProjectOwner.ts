@@ -1593,7 +1593,7 @@ editorOwnerFiles.forEach((path) => {
   const source = readFileSync(path, "utf8");
   assert.doesNotMatch(
     source,
-    /@\/features|@\/engines\/(?:canvas|properties|psd-tree|timeline|playback-render)/
+    /@\/features|@\/engines\/(?:canvas|properties|psd-tree|timeline)|@\/render/
   );
 });
 const editorOwnerHookSource = readFileSync(

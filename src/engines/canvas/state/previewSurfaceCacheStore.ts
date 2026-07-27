@@ -4,10 +4,10 @@ import type {
   PreviewSurfaceCacheRuntime,
   PreviewSurfaceCacheSnapshot,
 } from "@/engines/canvas/models/surfaceCacheModel";
-import type { RuntimeMetricRecordPort } from "@/engines/playback-render";
+import type { RuntimeMetricRecordPort } from "@/render";
 import type {
   PreviewRenderSurface,
-} from "@/engines/playback-render";
+} from "@/render";
 
 type PooledSurface = {
   readonly key: string;

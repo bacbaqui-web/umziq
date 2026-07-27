@@ -8,7 +8,7 @@ import type {
   CompositionPreviewCacheRuntime,
   CompositionPreviewCacheSnapshot,
 } from "@/engines/canvas/models/compositionCacheModel";
-import type { PreviewRenderSurface } from "@/engines/playback-render";
+import type { PreviewRenderSurface } from "@/render";
 
 function clearSurface(surface: PreviewRenderSurface): void {
   surface.canvas.width = 0;

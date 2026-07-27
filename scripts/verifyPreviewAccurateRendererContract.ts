@@ -6,7 +6,7 @@ import {
   type EvaluatedSceneNode,
   type PreviewNode,
   type RenderCommand,
-} from "@/engines/playback-render";
+} from "@/render";
 
 const transform = {
   position: { x: 42, y: 31 },
@@ -19,7 +19,6 @@ const transform = {
 const drawable: EvaluatedSceneNode = {
   type: "drawable",
   layerDocumentId: "layer-drawable",
-  itemId: "layer-drawable",
   renderItemId: "render-drawable",
   drawableId: "drawable",
   sourceId: "source-drawable",
@@ -37,7 +36,6 @@ const drawable: EvaluatedSceneNode = {
 const placeholder: EvaluatedSceneNode = {
   type: "placeholder",
   layerDocumentId: "layer-text",
-  itemId: "layer-text",
   renderItemId: null,
   sourceId: null,
   sourceType: "text",
@@ -61,14 +59,13 @@ const scene: EvaluatedScene = {
   globalFrame: 3,
   size: { width: 320, height: 180 },
   localFrameBySourceId: new Map([["source-drawable", 3]]),
-  localFrameByItemId: new Map([
+  localFrameByLayerDocumentId: new Map([
     ["layer-drawable", 3],
     ["layer-text", 3],
   ]),
   nodes: [{
     type: "composition",
     layerDocumentId: "group",
-    itemId: "group",
     renderItemId: "group",
     sourceId: null,
     sourceType: "group",
@@ -97,7 +94,6 @@ function normalizeEvaluated(node: EvaluatedSceneNode): unknown {
   return {
     kind: node.type,
     layerDocumentId: node.layerDocumentId,
-    itemId: node.itemId,
     sourceId: node.sourceId,
     localFrame: node.localFrame,
     size: node.type === "composition" ? node.size : node.logicalSize,
@@ -114,7 +110,6 @@ function normalizePreview(node: PreviewNode): unknown {
   return {
     kind: node.kind === "layer" ? "drawable" : node.kind,
     layerDocumentId: node.layerDocumentId,
-    itemId: node.itemId,
     sourceId: node.sourceId,
     localFrame: node.localFrame,
     size: node.logicalSize,
@@ -128,7 +123,6 @@ function normalizeAccurate(command: RenderCommand): unknown {
   return {
     kind: command.type,
     layerDocumentId: command.layerDocumentId,
-    itemId: command.itemId,
     sourceId: command.sourceId,
     localFrame: command.localFrame,
     size:
@@ -159,5 +153,23 @@ assert.deepEqual(preview.logicalSize, {
   width: accurate.width,
   height: accurate.height,
 });
+
+const previewGroup = preview.nodes[0];
+assert.equal(previewGroup.kind, "composition");
+assert.equal(previewGroup.renderItemId, "group");
+assert.equal(previewGroup.targetCompId, "group");
+const previewDrawable = previewGroup.children[0];
+assert.equal(previewDrawable.kind, "layer");
+assert.equal(previewDrawable.renderItemId, "render-drawable");
+assert.equal(previewDrawable.drawableId, "drawable");
+
+const accurateGroup = accurate.commands[0];
+assert.equal(accurateGroup.type, "composition");
+assert.equal(accurateGroup.renderItemId, "group");
+assert.equal(accurateGroup.targetCompId, "group");
+const accurateDrawable = accurateGroup.children[0];
+assert.equal(accurateDrawable.type, "drawable");
+assert.equal(accurateDrawable.renderItemId, "render-drawable");
+assert.equal(accurateDrawable.drawableId, "drawable");
 
 console.log("Preview/Accurate renderer contract verification passed");

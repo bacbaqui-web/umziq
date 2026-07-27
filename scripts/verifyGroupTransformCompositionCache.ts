@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import {
   createCompositionPreviewCacheRuntime,
   createRuntimeMetricsResource,
-} from "@/engines/canvas";
+} from "@/engines/canvas/testing";
 import {
   createRuntimeMetricRecordPort,
-} from "@/engines/canvas/helpers/runtimeMetricsHelpers";
+} from "@/engines/canvas/testing";
 import {
   renderPreviewSceneToCanvas,
   type PreviewCanvasDrawState,
   type PreviewRenderSurface,
   type PreviewScene,
-} from "@/engines/playback-render";
+} from "@/render";
 
 const transform = {
   position: { x: 50, y: 50 },
@@ -25,7 +25,6 @@ const child = {
   id: "layer:child",
   kind: "layer" as const,
   layerDocumentId: "layer:child",
-  itemId: "layer:child",
   sourceId: "source:child",
   sourceResourceCacheKey: "source:child:v1",
   layerResultCacheKey: "result:child:v1",
@@ -47,7 +46,6 @@ const group = {
   id: "group:one",
   kind: "composition" as const,
   layerDocumentId: "group:one",
-  itemId: "group:one",
   sourceId: null,
   sourceResourceCacheKey: null,
   layerResultCacheKey: "result:group:committed",

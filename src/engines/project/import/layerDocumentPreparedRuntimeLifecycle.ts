@@ -1,6 +1,6 @@
 import type {
   LayerDocumentSourceRuntimeResource,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export type LayerDocumentPreparedRuntimeState =
   | "prepared"

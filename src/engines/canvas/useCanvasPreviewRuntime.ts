@@ -13,9 +13,6 @@ import type {
   PreviewQualityPreference,
 } from "@/engines/canvas/models/previewQualityModel";
 import {
-  createDirtyState,
-} from "@/engines/canvas/state/dirtyStateStore";
-import {
   createRuntimeMetricsResource,
 } from "@/engines/canvas/state/runtimeMetricsStore";
 import {
@@ -37,7 +34,6 @@ export function useCanvasPreviewRuntime() {
     useState(createRuntimeMetricsResource);
   const [fps] =
     useState(createCanvasFpsRuntime);
-  const [dirty] = useState(createDirtyState);
   const [surfaceCache] = useState(() =>
     createPreviewSurfaceCacheRuntime({
       metrics: createRuntimeMetricRecordPort(metrics),
@@ -64,7 +60,6 @@ export function useCanvasPreviewRuntime() {
     quality,
     metrics,
     fps,
-    dirty,
     compositionCache,
     surfaceCache,
     commands: { setPreference },

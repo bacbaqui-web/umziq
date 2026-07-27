@@ -1,7 +1,7 @@
 import type {
   PreviewRenderSurface,
   PreviewRenderSurfaceFactory,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export type PreviewSurfaceCacheKeyInput = {
   readonly logicalWidth: number;

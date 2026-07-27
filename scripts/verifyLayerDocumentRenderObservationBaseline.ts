@@ -4,23 +4,13 @@ import {
   createLayerDocumentCanvasCommands,
 } from "@/engines/canvas/adapters/layerDocumentCanvasCommandAdapter";
 import {
-  buildLayerDocumentCanvasRenderFrame,
-} from "@/engines/canvas/helpers/layerDocumentCanvasRendererHelpers";
-import {
-  createRuntimeMetricRecordPort,
-} from "@/engines/canvas/helpers/runtimeMetricsHelpers";
-import {
   createCompositionPreviewCacheRuntime,
-} from "@/engines/canvas/state/compositionPreviewCacheStore";
-import {
   createPreviewSurfaceCacheRuntime,
-} from "@/engines/canvas/state/previewSurfaceCacheStore";
-import {
+  createRuntimeMetricRecordPort,
   createRuntimeMetricsResource,
-} from "@/engines/canvas/state/runtimeMetricsStore";
+} from "@/engines/canvas/testing";
 import {
-  buildLayerDocumentCompositionVisualResultCacheKey,
-  buildLayerDocumentVisualResultCacheKey,
+  renderAccurateRenderer,
   renderPreviewRenderer,
   renderPreviewSceneToCanvas,
   type EvaluatedScene,
@@ -28,10 +18,12 @@ import {
   type PreviewCanvasDrawState,
   type PreviewRenderSurface,
   type RenderNodeVisualResolver,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
+  buildLayerDocumentCompositionVisualResultCacheKey,
+  buildLayerDocumentVisualResultCacheKey,
   drawRenderCommandsToContext,
-} from "@/engines/playback-render/adapters/canvas2dRenderAdapter";
+} from "@/render/testing";
 import {
   PROFILING_ENVIRONMENT_FREEZE,
   PROFILING_FIXTURES,
@@ -59,9 +51,7 @@ function composition(
   const sourceId = `psd-source:layer-${suffix}`;
   return {
     type: "composition",
-    identityKind: "canonical-placement",
     layerDocumentId: groupId,
-    itemId: groupId,
     renderItemId: groupId,
     sourceId: `psd-source:group-${suffix}`,
     sourceResourceCacheKey: `source:${suffix}:group`,
@@ -76,9 +66,7 @@ function composition(
     opacity: 100,
     children: [{
       type: "drawable",
-      identityKind: "canonical-placement",
       layerDocumentId: layerId,
-      itemId: layerId,
       renderItemId: `runtime:${sourceId}`,
       drawableId: `drawable:${sourceId}`,
       sourceId,
@@ -100,7 +88,7 @@ const evaluatedScene: EvaluatedScene = {
   globalFrame: 0,
   size: { width: 200, height: 100 },
   localFrameBySourceId: new Map(),
-  localFrameByItemId: new Map(),
+  localFrameByLayerDocumentId: new Map(),
   nodes: [
     composition("front", 0),
     composition("back", 1),
@@ -117,30 +105,17 @@ const frameOnlyEvaluatedScene: EvaluatedScene = {
   ...evaluatedScene,
   globalFrame: 1,
 };
-const accurateFrame =
-  buildLayerDocumentCanvasRenderFrame({
-    runtime: {
-      scene: evaluatedScene,
-      inputs: [],
-      targets: [],
-      unsupportedLayerDocumentIds: [],
-    },
-    renderAssets: {
-      resolve: (request) => ({
-        source: {
-          kind: "original",
-          image: {
-            label: request.layerDocumentId,
-          } as unknown as CanvasImageSource,
-          pixelSize: request.logicalSize,
-        },
-        alphaCanvas: null,
-        sourceVisualIdentity:
-          request.sourceResourceCacheKey,
-      }),
-    },
-    runtimeMetrics: metricPort,
-  });
+const accurateFrame = renderAccurateRenderer({
+  evaluatedScene,
+  resolveNodeVisual: (request) => ({
+    kind: "original",
+    image: {
+      label: request.layerDocumentId,
+    } as unknown as CanvasImageSource,
+    pixelSize: request.logicalSize,
+  }),
+  runtimeMetrics: metricPort,
+}).frame;
 const secondPreview = renderPreviewRenderer(
   frameOnlyEvaluatedScene,
   metricPort,
@@ -319,7 +294,7 @@ const commitResult = {
 };
 const commands = createLayerDocumentCanvasCommands({
   selectedLayerDocumentId: "layer-document:layer-front",
-  quality: "original",
+  sourceSamplingQuality: "original",
   runtimeMetrics: metricPort,
   port: {
     pointerMove: () => null,
@@ -346,8 +321,8 @@ const BEFORE_PAINTER_IDENTITY_BASELINE = Object.freeze({
   previewRenderer: 2,
   accurateRenderer: 1,
   previewSceneGeneration: 1,
-  playbackNodeReused: 4,
-  playbackCompositionReused: 2,
+  previewNodeReused: 4,
+  previewCompositionReused: 2,
   painterTraversal: 8,
   painterClone: 6,
   dirtyFull: 1,
@@ -365,8 +340,8 @@ const after = metrics.getGlobalSnapshot();
 assert.equal(after.previewRenderer, 3);
 assert.equal(after.accurateRenderer, 1);
 assert.equal(after.previewSceneGeneration, 1);
-assert.equal(after.playbackNodeReused, 6);
-assert.equal(after.playbackCompositionReused, 3);
+assert.equal(after.previewNodeReused, 6);
+assert.equal(after.previewCompositionReused, 3);
 assert.equal(after.painterTraversal, 7);
 assert.equal(after.painterClone, 0);
 assert.equal(after.dirtyFull, 1);
@@ -530,14 +505,14 @@ const [
   ),
   readFile(
     new URL(
-      "../src/engines/playback-render/adapters/canvas2dPreviewNodeRenderer.ts",
+      "../src/render/adapters/canvas2dPreviewNodeRenderer.ts",
       import.meta.url
     ),
     "utf8"
   ),
   readFile(
     new URL(
-      "../src/engines/playback-render/adapters/canvas2dRenderAdapter.ts",
+      "../src/render/adapters/canvas2dRenderAdapter.ts",
       import.meta.url
     ),
     "utf8"

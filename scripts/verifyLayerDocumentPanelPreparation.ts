@@ -34,7 +34,7 @@ import {
 } from "@/layer-types";
 import type {
   LayerDocumentRuntimeInput,
-} from "@/engines/playback-render";
+} from "@/render";
 
 const EMPTY_ANIMATION: LayerAnimation = {
   positionKeyframes: [],

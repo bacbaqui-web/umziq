@@ -3,7 +3,7 @@ import {
 } from "@/engines/project/import/layerDocumentPsdImportAdapter";
 import {
   buildLayerDocumentSourceResourceCacheKey,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentProjectLinkedSourcePreparationPort,
   PreparedLayerDocumentLinkedSourceRuntime,
@@ -68,7 +68,7 @@ LayerDocumentProjectLinkedSourcePreparationPort = {
                 sourceFingerprint:
                   saved.data.visualFingerprint,
                 localFrame: 0,
-                quality: "source",
+                sourceSamplingQuality: "source",
               }),
           }];
         }

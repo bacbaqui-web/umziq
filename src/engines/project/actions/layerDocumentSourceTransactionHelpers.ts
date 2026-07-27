@@ -9,7 +9,7 @@ import {
   buildLayerDocumentResultCacheKey,
   buildLayerDocumentSourceResourceCacheKey,
   layerDocumentSourceVisualKeyPolicy,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   cloneTransactionData,
 } from "@/models/layerDocumentTransactionHelpers";
@@ -215,7 +215,8 @@ function buildCacheInvalidations(options: {
           sourceFingerprint:
             layerDocumentSourceVisualFingerprint(sourceBefore),
           localFrame,
-          quality: options.context.quality,
+          sourceSamplingQuality:
+            options.context.quality,
         });
       const sourceResourceCacheKeyAfter =
         buildLayerDocumentSourceResourceCacheKey({
@@ -228,7 +229,8 @@ function buildCacheInvalidations(options: {
           sourceFingerprint:
             layerDocumentSourceVisualFingerprint(sourceAfter),
           localFrame,
-          quality: options.context.quality,
+          sourceSamplingQuality:
+            options.context.quality,
         });
       const draftIdentity =
         options.context.draftIdentityByLayerDocumentId?.[
@@ -246,7 +248,8 @@ function buildCacheInvalidations(options: {
           revision: layer.revision,
           globalFrame: options.context.globalFrame,
           localFrame,
-          quality: options.context.quality,
+          sourceSamplingQuality:
+            options.context.quality,
           sourceResourceCacheKey: sourceResourceCacheKeyBefore,
           draftIdentity,
         }),
@@ -255,7 +258,8 @@ function buildCacheInvalidations(options: {
           revision: nextLayer.revision,
           globalFrame: options.context.globalFrame,
           localFrame,
-          quality: options.context.quality,
+          sourceSamplingQuality:
+            options.context.quality,
           sourceResourceCacheKey: sourceResourceCacheKeyAfter,
           draftIdentity,
         }),

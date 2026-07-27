@@ -18,7 +18,7 @@ import type {
 import type {
   LayerDocumentSourceRuntimeResource,
   LayerDocumentSourceRuntimeResourcePort,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export type LayerDocumentProjectOpenCapability =
   | "native-file-system"

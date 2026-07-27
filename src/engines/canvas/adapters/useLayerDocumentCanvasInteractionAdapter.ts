@@ -28,8 +28,8 @@ import type {
 } from "@/engines/canvas/models/canvasInteractionModel";
 import type {
   LayerDocumentCanvasCommands,
-  LayerDocumentCanvasModeReadModel,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+  LayerDocumentCanvasReadModel,
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 import type {
   ScaleHandleDirection,
 } from "@/engines/canvas/models/canvasViewModel";
@@ -40,7 +40,7 @@ export function useLayerDocumentCanvasInteractionAdapter<
   TKeyframeResult,
 >(options: {
   overlayRef: RefObject<HTMLDivElement | null>;
-  readModel: LayerDocumentCanvasModeReadModel;
+  readModel: LayerDocumentCanvasReadModel;
   commands: LayerDocumentCanvasCommands<
     TCommitResult,
     TSelectionResult,

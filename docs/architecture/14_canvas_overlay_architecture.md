@@ -93,7 +93,7 @@ Animation 원본과 sampling 책임은
 
 Canvas Panel 수명 동안 다음 Runtime을 가질 수 있다.
 
-- Preview Quality
+- Canvas backing scale용 Preview Quality
 - previous scene와 draw state
 - Dirty Region
 - Composition/Surface Cache
@@ -102,6 +102,10 @@ Canvas Panel 수명 동안 다음 Runtime을 가질 수 있다.
 - viewport와 tool state
 
 이 값은 저장하거나 Undo/Redo하지 않는다.
+
+Source sampling은 별도 `sourceSamplingQuality` 계약이며 Canvas Read 경계에서
+Preview Quality로부터 명시적으로 투영된다. Source resource의 수명과 cache는
+Source Runtime이 소유한다.
 
 ## 불변 조건
 

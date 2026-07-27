@@ -25,7 +25,7 @@ import type {
   LayerDocumentTransformCommitIntent,
   LayerDocumentTransformDraftSnapshot,
   PreviewSceneTransformPatch,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export type LayerDocumentPanelCapabilityStatus =
   | "editable"

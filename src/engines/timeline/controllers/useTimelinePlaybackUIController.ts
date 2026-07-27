@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { clampPlaybackFrame } from "@/engines/playback-render";
+import { clampPlaybackFrame } from "@/engines/timeline/helpers/timelinePlaybackFrameHelpers";
 import {
   buildTimelineDurationViewModel,
   buildTimelineRulerFrames,

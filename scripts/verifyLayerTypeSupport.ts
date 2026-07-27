@@ -7,7 +7,7 @@ import type {
 } from "@/models";
 import {
   getEditorPlaceholderDescriptorForLayerType,
-} from "@/engines/playback-render/adapters/editorPlaceholderInputAdapter";
+} from "@/render/adapters/editorPlaceholderInputAdapter";
 
 const placeholderExpectations = {
   drawing: {

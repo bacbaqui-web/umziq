@@ -14,7 +14,7 @@ import {
 } from "@/engines/project";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   createInitialLayerDocumentOwnerOptions,
 } from "@/editor/layerDocumentEditorBootstrap";

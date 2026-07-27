@@ -3,7 +3,7 @@ import type {
 } from "@/engines/project";
 import type {
   LayerDocumentRuntimeBatchRegistrationResult,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export type LayerDocumentPreparedPsdConfirmResult =
   | {

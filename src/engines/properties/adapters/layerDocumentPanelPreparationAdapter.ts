@@ -1,7 +1,7 @@
 import {
   prepareLayerDocumentPointerMove,
   prepareLayerDocumentPointerUp,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   prepareLayerDocumentPanelCommand,
 } from "@/engines/properties/adapters/layerDocumentPanelCommandAdapter";

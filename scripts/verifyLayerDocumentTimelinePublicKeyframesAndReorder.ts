@@ -22,7 +22,7 @@ import {
 import {
   createLayerDocumentSourceRuntimeResourceCache,
   type LayerDocumentTransformDraftSnapshot,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
@@ -740,7 +740,7 @@ const transformDraft = ports.canvas.pointerMove({
   layerDocumentId: "background-copy-2",
   globalFrame: playback.read().currentFrame,
   patch: { position: { x: 700, y: 0 } },
-  quality: "original",
+  sourceSamplingQuality: "original",
 });
 assert.ok(transformDraft);
 const transformCommit = ports.canvas.pointerUp();

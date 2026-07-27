@@ -4,13 +4,13 @@ import {
   clampPlaybackFrame,
   getPlaybackResetFrame,
   stepPlaybackFrame,
-} from "@/engines/playback-render/helpers/playbackFrameHelpers";
+} from "@/engines/timeline/helpers/timelinePlaybackFrameHelpers";
 import {
   createDefaultPlaybackRange,
   isFrameInPlaybackRange,
   normalizePlaybackRange,
   resolvePlaybackRange,
-} from "@/engines/playback-render/helpers/playbackRangeHelpers";
+} from "@/engines/timeline/helpers/timelinePlaybackRangeHelpers";
 
 assert.equal(clampPlaybackFrame(0, 1), 0);
 assert.equal(clampPlaybackFrame(-10, 10), 0);

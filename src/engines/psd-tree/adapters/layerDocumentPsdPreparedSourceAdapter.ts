@@ -13,7 +13,7 @@ import type {
 } from "@/engines/project";
 import type {
   LayerDocumentPsdRuntimeRegistrationBridge,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentPreparedPsdConfirmResult,
 } from "@/engines/psd-tree/models/layerDocumentPsdConfirmModel";

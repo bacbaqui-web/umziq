@@ -247,7 +247,11 @@ assert.doesNotMatch(
 );
 assert.match(
   canvas,
-  /PREVIEW_QUALITY_SCALE\[quality\]/
+  /PREVIEW_QUALITY_SCALE\[previewQuality\]/
+);
+assert.match(
+  canvas,
+  /mapCanvasPreviewQualityToSourceSamplingQuality\(\s*previewQuality\s*\)/
 );
 
 const first =

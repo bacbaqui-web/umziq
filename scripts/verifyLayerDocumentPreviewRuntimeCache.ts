@@ -1,29 +1,31 @@
 import assert from "node:assert/strict";
 import {
-  buildLayerDocumentCanvasModeReadModel,
-  createCompositionPreviewCacheRuntime,
-  createDirtySceneSnapshotFromPreviewScene,
-  createDirtyState,
-  createPreviewSurfaceCacheRuntime,
-  resolvePreviewCompositionCacheForRender,
+  buildLayerDocumentCanvasReadModel,
   type LayerDocumentCanvasRenderAssetPort,
 } from "@/engines/canvas";
 import {
+  createCompositionPreviewCacheRuntime,
+  createPreviewSurfaceCacheRuntime,
+  resolvePreviewCompositionCacheForRender,
+} from "@/engines/canvas/testing";
+import {
   buildLayerDocumentTransformDraftSnapshot,
   buildLayerDocumentEditorFrameReadModel,
+  buildLayerDocumentSourceResourceCacheKey,
   createLayerDocumentSourceRuntimeResourceCache,
-  drawPreviewSceneToContext,
   renderPreviewSceneToCanvas,
   renderAccurateRenderer,
   renderPreviewRenderer,
-  updatePreviewSceneNodeTransform,
   type EvaluatedScene,
   type EvaluatedSceneDrawableNode,
   type PreviewRenderSurface,
   type PreviewCanvasDrawState,
   type RenderNodeVisualResolver,
   type LayerDocumentTransformDraftSnapshot,
-} from "@/engines/playback-render";
+} from "@/render";
+import {
+  drawPreviewSceneToContext,
+} from "@/render/testing";
 import {
   LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
   validateLayerDocumentProject,
@@ -35,6 +37,30 @@ import {
 import {
   prepareSourceRegistryRefresh,
 } from "@/engines/project";
+
+const timedSourceKey =
+  buildLayerDocumentSourceResourceCacheKey({
+    sourceId: "audio-source",
+    sourceKind: "audio",
+    visualKeyPolicy:
+      "timed-frame-quality-sample",
+    sourceVersion: 3,
+    sourceFingerprint: "audio-v3",
+    localFrame: 12,
+    sourceSamplingQuality: "high",
+  });
+assert.equal(
+  timedSourceKey,
+  JSON.stringify([
+    "layer-document-timed-source-resource-v1",
+    "audio",
+    "audio-source",
+    3,
+    "audio-v3",
+    12,
+    "high",
+  ])
+);
 
 const transform = {
   position: { x: 0, y: 0 },
@@ -50,9 +76,7 @@ function drawable(
 ): EvaluatedSceneDrawableNode {
   return {
     type: "drawable",
-    identityKind: "canonical-placement",
     layerDocumentId: `layer-document-${suffix}`,
-    itemId: `item-${suffix}`,
     renderItemId: `render-${suffix}`,
     drawableId: `drawable-${suffix}`,
     sourceId,
@@ -253,7 +277,7 @@ function runtimeFor(
     project,
     activeGroupLayerDocumentId: "root",
     globalFrame,
-    quality: "original",
+    sourceSamplingQuality: "original",
     draft,
     resolvePsdSource: (request) => ({
       renderItemId: `runtime-${request.sourceId}`,
@@ -268,8 +292,7 @@ function canvasFor(
   previousPreviewScene = null,
   draft: LayerDocumentTransformDraftSnapshot | null = null
 ) {
-  return buildLayerDocumentCanvasModeReadModel({
-    mode: "layer-document",
+  return buildLayerDocumentCanvasReadModel({
     activeScene: {
       layerDocumentId: "root",
       label: "Root",
@@ -280,7 +303,7 @@ function canvasFor(
     },
     runtime: runtimeFor(project, draft),
     selectedLayerDocumentId: "layer-a",
-    quality: "original",
+    previewQuality: "original",
     viewport: {
       previewSize: { width: 200, height: 100 },
       viewportScale: 1,
@@ -693,13 +716,29 @@ compositionCache.endFrame();
 assert.equal(surfaceCreateCount, 2);
 assert.equal(resolvedLayerDocuments.length, 2);
 
-const changedA = updatePreviewSceneNodeTransform(
-  previewScene,
-  { kind: "layer", id: "layer-a" },
+const baseLayerInput = publicRuntime.model.inputs.find(
+  (input) => input.layerDocumentId === "layer-a"
+);
+assert.ok(baseLayerInput);
+const changedDraft = buildLayerDocumentTransformDraftSnapshot(
+  baseLayerInput!,
   { position: { x: 12, y: 4 } }
 );
+const changedCanvas = canvasFor(
+  project,
+  previewScene,
+  changedDraft
+);
+assert.equal(changedCanvas.ok, true);
+if (!changedCanvas.ok) {
+  throw new Error(changedCanvas.reason);
+}
+const changedA =
+  changedCanvas.model.renderer.previewScene;
 assert.notStrictEqual(changedA.nodes[0], previewScene.nodes[0]);
 assert.strictEqual(changedA.nodes[1], previewScene.nodes[1]);
+const resolvedBeforeChangedDraw =
+  resolvedLayerDocuments.length;
 compositionCache.beginFrame();
 drawPreviewSceneToContext(
   rootContext,
@@ -714,17 +753,14 @@ drawPreviewSceneToContext(
 );
 compositionCache.endFrame();
 assert.equal(surfaceCreateCount, 2);
-assert.deepEqual(resolvedLayerDocuments, [
-  "layer-b",
-  "layer-a",
-  "layer-a",
-]);
+assert.deepEqual(
+  resolvedLayerDocuments.slice(
+    resolvedBeforeChangedDraw
+  ),
+  ["layer-a"]
+);
 assert.equal(compositionCache.getSnapshot().size, 2);
 
-const baseLayerInput = publicRuntime.model.inputs.find(
-  (input) => input.layerDocumentId === "layer-a"
-);
-assert.ok(baseLayerInput);
 const publicDraft = buildLayerDocumentTransformDraftSnapshot(
   baseLayerInput!,
   { position: { x: 18, y: 6 } }
@@ -889,38 +925,6 @@ assert.ok(
   poolSurfaces.every((surface) => surface.canvas.width === 0)
 );
 
-const draft = updatePreviewSceneNodeTransform(
-  previewScene,
-  { kind: "layer", id: "layer-a" },
-  { position: { x: 24, y: 8 } }
-);
-const draftDirty = createDirtyState(
-  createDirtySceneSnapshotFromPreviewScene(previewScene)
-);
-const draftResult = draftDirty.updateDirtyState(
-  createDirtySceneSnapshotFromPreviewScene(draft)
-);
-assert.deepEqual(
-  draftResult.dirtyNodes.find(
-    (node) => node.id === draft.nodes[0]?.children[0]?.id
-  )?.dirtyKinds,
-  ["transform"]
-);
-const committed = updatePreviewSceneNodeTransform(
-  previewScene,
-  { kind: "layer", id: "layer-a" },
-  { position: { x: 24, y: 8 } }
-);
-const commitDirty = createDirtyState(
-  createDirtySceneSnapshotFromPreviewScene(draft)
-);
-assert.equal(
-  commitDirty.updateDirtyState(
-    createDirtySceneSnapshotFromPreviewScene(committed)
-  ).dirtyNodes.length,
-  0
-);
-
 let disposedA = 0;
 let disposedB = 0;
 const sourceRuntime = createLayerDocumentSourceRuntimeResourceCache();
@@ -985,7 +989,7 @@ const directScene: EvaluatedScene = {
   globalFrame: 0,
   size: { width: 200, height: 100 },
   localFrameBySourceId: new Map(),
-  localFrameByItemId: new Map(),
+  localFrameByLayerDocumentId: new Map(),
   nodes: [
     directDrawable("mover", 20.25, 0),
     directDrawable("separated", 170.25, 1),
@@ -1042,11 +1046,25 @@ renderPreviewSceneToCanvas({
   drawState,
 });
 assert.deepEqual(directResolveCalls, []);
-const movedPreview = updatePreviewSceneNodeTransform(
-  directPreview,
-  { kind: "layer", id: "layer-document-mover" },
-  { position: { x: 30.75, y: 20.25 } }
-);
+const movedDirectScene: EvaluatedScene = {
+  ...directScene,
+  nodes: directScene.nodes.map((node) =>
+    node.layerDocumentId === "layer-document-mover"
+      ? {
+          ...node,
+          transform: {
+            ...node.transform,
+            position: { x: 30.75, y: 20.25 },
+          },
+        }
+      : node
+  ),
+};
+const movedPreview = renderPreviewRenderer(
+  movedDirectScene,
+  undefined,
+  directPreview
+).previewScene;
 renderPreviewSceneToCanvas({
   canvas,
   previewScene: movedPreview,

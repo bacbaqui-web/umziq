@@ -45,7 +45,10 @@ Timeline과 Canvas/Properties frame input 경계로 전달한다.
 - `common.transform`, `placement`, `animation`, `effects`, `modifiers`: 모든 Type의 공통 편집 데이터
 - `data`: PSD, Drawing, Text, Audio, Video, Shape, Group, Unknown별 discriminated data
 
-`renderItemId`는 renderer 결과에서 쓰이는 derived compatibility 이름일 뿐 저장 authority가 아니다. Timeline row는 별도 저장 entity가 아니며 `LayerDocument.common.placement`의 projection이다.
+`renderItemId`는 저장 authority가 아니라 Render Runtime의
+renderable-content identity다. drawable에서는 Source Runtime visual ID,
+Group에서는 Group LayerDocument ID를 사용한다. Timeline row는 별도 저장
+entity가 아니며 `LayerDocument.common.placement`의 projection이다.
 
 ### LayerDocument 모델 파일
 
@@ -156,22 +159,26 @@ adapter를 제공한다.
 
 Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure에서 dispose된다. PSD import는 한 번 읽은 ArrayBuffer를 parse와 SHA-256 계산에 함께 사용한다. Confirm 성공 시 Plain Data transaction과 runtime registration이 일관되게 적용된다.
 
-## 5. Playback/Render
+## 5. Render — `src/render`
 
-### `src/engines/playback-render`
+### `src/render`
 
 - `adapters/layerDocumentRuntimeInputAdapter.ts`: Project + Source descriptor + runtime resolution + frame + Draft를 `EvaluatedScene`으로 평가하고, Editor Overlay projection을 평가 후 별도로 조합
 - `helpers/layerDocumentRuntimeEvaluationHelpers.ts`: Transform/Animation/Modifier/Draft 평가
 - `helpers/layerDocumentRuntimeCacheKeyHelpers.ts`: Source resource key와 Layer result key 분리
-- `models/evaluatedSceneModel.ts`: `layerDocumentId`를 보존하는 evaluated scene
+- `models/evaluatedSceneModel.ts`: canonical `layerDocumentId`와
+  LayerDocument별 local frame을 보존하는 evaluated scene
 - `models/rendererResultModel.ts`: Preview/Accurate 결과와 Accurate 호출 계약
 - `renderers/accurateRenderer.ts`: 현재 Frame 전체 `RenderFrame` command 생성
 - `renderers/previewRenderer.ts`: PreviewScene 생성과 previous-scene node reuse
 - `adapters/canvas2dPreviewNodeRenderer.ts`: node-native visual resolver로 Preview draw
 - `adapters/canvas2dPreviewSceneAdapter.ts`: full/skip/dirty region Canvas2D 실행
+- `adapters/canvas2dRenderAdapter.ts`: Accurate `RenderFrame` 전체 Canvas2D draw와
+  reusable surface allocation
 - `helpers/previewSceneDirtyRegionHelpers.ts`: dirty bounds와 incremental draw plan
-- `helpers/previewSceneUpdateHelpers.ts`: Draft/commit preview transform 갱신
 - `adapters/layerDocumentSourceRuntimeResourceCache.ts`: Source별 runtime registration, suspend/restore, targeted invalidation, dispose-once
+- `testing/index.ts`: Render 내부 helper를 제품 public barrel과 분리한
+  verification seam
 
 Preview/Accurate Renderer 모두 같은 `EvaluatedScene`을 입력으로 사용하고
 `layerDocumentId`, `sourceId`, `sourceResourceCacheKey`,
@@ -193,7 +200,9 @@ Preview/Accurate 역할 전환 완료 기록은
 ### `src/engines/canvas`
 
 - `useLayerDocumentCanvasComposition.ts`: Canvas controller composer와 공개 view props
-- `adapters/layerDocumentCanvasModeAdapter.ts`: owner read model을 Canvas mode로 변환
+- `adapters/layerDocumentCanvasReadAdapter.ts`: Owner/Timeline/Draft 입력을
+  단일 Canvas read model로 변환하고 `previewQuality`를 Source 요청의
+  `sourceSamplingQuality`로 명시적으로 연결
 - `adapters/layerDocumentCanvasRenderAssetAdapter.ts`: Source runtime을 renderer visual로 변환
 - `models/canvasPreviewPaneModel.ts`: Feature Preview pane가 소비하는 Canvas
   public view props 계약
@@ -202,37 +211,41 @@ Preview/Accurate 역할 전환 완료 기록은
   Draft/Owner selection/Timeline playback 공개 port에 연결
 - `adapters/layerDocumentCanvasDraftAdapter.ts`: shared Draft port를 통한
   Canvas pointer/motion-path Draft publication, rejection과 commit 전달
-- `controllers/usePreviewUpdatePipeline.ts`: immutable base scene와 active Draft scene
-- `controllers/useCanvasRenderController.ts`: full/fast draw와 Draft cache bypass
+- `models/layerDocumentCanvasReadModel.ts`: mode tag 없는 단일 Canvas read,
+  renderer/overlay/interaction 계약
+- `controllers/useCanvasRenderController.ts`: Preview draw, Dirty Region과
+  Draft 중 cache bypass 조정
 - `controllers/useLayerDocumentCanvasDirectSelectionController.ts`: direct selection
 - `helpers/layerDocumentCanvasSelectionHelpers.ts`: glow/gizmo/motion-path projection
-- `state/dirtyStateStore.ts`: node dirty-kind snapshot
-- `state/compositionPreviewCacheStore.ts`: fast composition surface cache
+- `state/compositionPreviewCacheStore.ts`: Preview Group composition surface cache
 - `state/previewSurfaceCacheStore.ts`: quality/scale/size key surface pool과 LRU
-- `state/runtimeMetricsStore.ts`: runtime counter
+- `state/runtimeMetricsStore.ts`: Preview/Accurate/Dirty/Cache/Surface 관찰 counter
 - `state/canvasFpsRuntimeStore.ts`: 실제 Canvas paint 시각의 rolling FPS와
   낮은 빈도의 UI 구독값
 - `useCanvasPreviewRuntime.ts`: backing-scale-only quality와 cache/runtime resource 조립
+- `testing/index.ts`: Cache/Metrics/internal helper를 제품 public barrel과
+  분리한 verification seam
 
 Cache는 다음 네 층으로 분리된다.
 
 1. Source runtime cache: Source 원본 resource
 2. Layer result key: frame/revision/Draft별 evaluated result identity
-3. Composition preview cache: Group 내부 content identity 기반 fast surface
+3. Composition preview cache: Group 내부 content identity 기반 Preview surface
 4. Surface pool: quality/scale/logical/pixel size별 재사용 Canvas
 
-Preview 품질은 Source bitmap 복사본을 만들지 않고 root/offscreen Canvas의
-backing scale만 변경한다. Source resource 수명은 LayerDocument Source Runtime
-Cache가 단독으로 관리하며 UI는 존재하지 않는 bitmap cache memory를 표시하지 않는다.
+`previewQuality`는 root/offscreen Canvas의 backing scale을 소유하고,
+`sourceSamplingQuality`는 Frame Evaluation/Source request의 sampling 계약을
+소유한다. Canvas Read Adapter 한 곳에서 두 값을 연결한다. Source resource
+수명은 LayerDocument Source Runtime Cache가 단독으로 관리하며 UI는 존재하지
+않는 bitmap cache memory를 표시하지 않는다.
 
 Group의 바깥 Transform Draft는 자식 content reference가 같으면 기존
 Composition surface를 재사용한다. 자식 visual이 바뀐 경우에만 surface를
 무효화하고 다시 합성하며, root Canvas는 이전/다음 Bounds의 Dirty Region만
 다시 그린다. Canvas 직접 선택은 Source Alpha Mask를 유지하고 선택 강조는
-같은 Mask 바깥에 2px 선과 거리에 따라 밀도가 줄어드는 점 스크린톤을 그린다. Group 외부 Transform에서는
-Alpha/tone scratch를 재사용하고 Projection만 갱신하며 Blur Glow는
-사용하지 않는다.
-갱신한다.
+같은 Mask 바깥에 2px 선과 거리에 따라 밀도가 줄어드는 점 스크린톤을
+그린다. Group 외부 Transform에서는 Alpha/tone scratch를 재사용하고
+Projection만 갱신하며 Blur Glow는 사용하지 않는다.
 
 ## 7. Timeline, Properties, PSD Tree
 
@@ -283,7 +296,7 @@ Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Dr
 
 Animation은 state, Runtime authority, Project 편집 원본을 소유하지 않는다.
 Timeline/Properties/Canvas 같은 비-Render 소비자는 `@/animation`만 사용하고
-Project 편집은 계속 Owner command로 수행한다. Playback/Render는 동결된 기존
+Project 편집은 계속 Owner command로 수행한다. Render module은 동결된 기존
 import 경로를 compatibility entry를 통해 사용한다.
 
 - `src/layer-types/index.ts`: Drawing/Text query와 transaction preparation,
@@ -341,7 +354,9 @@ import해 배치한다.
 - Drawing/Text Owner transaction, Audio unsupported capability와 기존
   placeholder descriptor
 - Engine import boundary와 최종 public barrel/Editor wiring
-- full/fast render, previous-scene reuse, dirty region, composition/surface/source cache
+- Preview/Accurate contract, previous-scene reuse, dirty region,
+  composition/surface/source cache
+- active Preview Metrics 명칭과 zero-clone `painterClone` sentinel
 
 `verifyLayerDocumentPreviewRuntimeCache.ts`가 runtime cache A-F 계약을 한 곳에서 검증한다.
 `verifyLayerDocumentRenderObservationBaseline.ts`는 현재 LayerDocument
@@ -397,7 +412,7 @@ Cache의 최적화 전 정적 Baseline을 고정한다.
 - `docs/completed/59_render_runtime_optimization_architecture_audit.md`: 현재 Render/Canvas
   최적화 wiring, painter order identity 회귀, cache/metrics/quality 복구
   우선순위 조사
-- `docs/completed/60_render_runtime_architecture_inventory.md`: 현재 Full/Fast Render의
-  실제 Runtime, 소유권, Cache 계층, 비활성 잔여 경로와 후속 정리 경계
+- `docs/completed/60_render_runtime_architecture_inventory.md`: 당시 Full/Fast
+  명칭 기준의 Runtime, 소유권, Cache 계층, 비활성 잔여 경로 조사 기록
 - `docs/completed/61_render_runtime_bible.md`: 비개발자도 이해할 수 있도록 정리한 Render
   전체 흐름, 모든 관련 Runtime의 소유권·수명·사용 관계·용어·사용 여부

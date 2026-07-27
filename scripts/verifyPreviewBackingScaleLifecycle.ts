@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import {
   createPreviewSurfaceCacheRuntime,
-} from "@/engines/canvas/state/previewSurfaceCacheStore";
+} from "@/engines/canvas/testing";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
   type PreviewRenderSurface,
-} from "@/engines/playback-render";
+} from "@/render";
 
 const disposalCounts = new Map<string, number>();
 const resource = (

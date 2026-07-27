@@ -13,7 +13,7 @@ import type {
 } from "@/engines/project";
 import type {
   LayerDocumentSourceRuntimeResourcePort,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   EditorOwnerCommandResult,
 } from "@/editor/project-owner/models/editorProjectOwnerModel";

@@ -2,11 +2,11 @@ import type {
   LayerDocumentSourceRuntimeResource,
   LayerDocumentSourceRuntimeResourcePort,
   RenderNodeVisualResolver,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentCanvasRenderAsset,
   LayerDocumentCanvasRenderAssetPort,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 
 export type LayerDocumentCanvasRuntimeResourceAdapter = (
   resource: LayerDocumentSourceRuntimeResource

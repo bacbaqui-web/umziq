@@ -1,15 +1,35 @@
 import assert from "node:assert/strict";
 import {
   compareRuntimeMetrics,
-} from "@/engines/canvas/helpers/runtimeMetricsHelpers";
-import {
   RUNTIME_METRIC_COUNTER_NAMES,
   type ExpectedRuntimeMetrics,
-} from "@/engines/canvas/models/runtimeMetricsModel";
-import { createRuntimeMetricsResource } from "@/engines/canvas/state/runtimeMetricsStore";
+  createRuntimeMetricsResource,
+} from "@/engines/canvas/testing";
 
 const metrics = createRuntimeMetricsResource();
 const initial = metrics.getSnapshot();
+
+assert.deepEqual(
+  RUNTIME_METRIC_COUNTER_NAMES.filter((counter) =>
+    counter.startsWith("preview")
+  ),
+  [
+    "previewRenderer",
+    "previewSceneGeneration",
+    "previewDirtyNode",
+    "previewCleanNode",
+    "previewNodeUpdated",
+    "previewNodeReused",
+    "previewCompositionReused",
+    "previewSceneUpdateTime",
+  ]
+);
+assert.equal(
+  RUNTIME_METRIC_COUNTER_NAMES.some((counter) =>
+    counter.startsWith("playback")
+  ),
+  false
+);
 
 RUNTIME_METRIC_COUNTER_NAMES.forEach((counter) => {
   assert.equal(initial.global[counter], 0);

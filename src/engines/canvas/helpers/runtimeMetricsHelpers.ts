@@ -10,7 +10,7 @@ import {
   type RuntimeMetricsComparison,
   type RuntimeMetricsResource,
 } from "@/engines/canvas/models/runtimeMetricsModel";
-import type { RuntimeMetricRecordPort } from "@/engines/playback-render";
+import type { RuntimeMetricRecordPort } from "@/render";
 
 export function isRuntimeMetricCounterName(
   value: string

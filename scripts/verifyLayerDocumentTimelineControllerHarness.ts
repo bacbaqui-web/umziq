@@ -17,7 +17,7 @@ import {
   type LayerDocumentProjectOwnerPort,
   type LayerDocumentProjectOwnerState,
 } from "@/engines/project";
-import { createLayerDocumentSourceRuntimeResourceCache } from "@/engines/playback-render";
+import { createLayerDocumentSourceRuntimeResourceCache } from "@/render";
 import { LAYER_DOCUMENT_PANEL_PREPARATION_PORT } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,

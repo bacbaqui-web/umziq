@@ -7,9 +7,10 @@ import {
   applyLayerDocumentTransformDraft,
   evaluateLayerDocumentTransform,
   isLayerDocumentDraftForInput,
+  type LayerDocumentSourceSamplingQuality,
   type LayerDocumentTransformDraftSnapshot,
   type PreviewSceneTransformPatch,
-} from "@/engines/playback-render";
+} from "@/render";
 import type {
   LayerDocumentTransformKeyframeSelection,
 } from "@/engines/project";
@@ -48,7 +49,8 @@ export function createLayerDocumentPropertiesCommandPort(
     previewDraft: (command: {
       layerDocumentId: string;
       patch: PreviewSceneTransformPatch;
-      quality: string;
+      sourceSamplingQuality:
+        LayerDocumentSourceSamplingQuality;
       globalFrame: number;
     }) => unknown | null;
     commitDraft:
@@ -67,7 +69,8 @@ export function createLayerDocumentPropertiesCommandPort(
     ) => unknown;
     readSelectedKeyframe:
       () => LayerDocumentTransformKeyframeSelection | null;
-    quality?: string;
+    sourceSamplingQuality?:
+      LayerDocumentSourceSamplingQuality;
   }
 ): LayerDocumentPropertiesCommandPort {
   const read = () => {
@@ -143,7 +146,8 @@ export function createLayerDocumentPropertiesCommandPort(
       const prepared = options.previewDraft({
         layerDocumentId,
         patch,
-        quality: options.quality ?? "preview",
+        sourceSamplingQuality:
+          options.sourceSamplingQuality ?? "preview",
         globalFrame: options.readGlobalFrame(),
       });
       return prepared ? { ok: true } : { ok: false };

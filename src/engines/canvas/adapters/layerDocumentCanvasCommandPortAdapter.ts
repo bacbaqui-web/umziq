@@ -1,6 +1,9 @@
 import type {
   LayerDocumentCanvasCommandPort,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
+import type {
+  LayerDocumentSourceSamplingQuality,
+} from "@/render";
 
 export function createLayerDocumentCanvasCommandPort<
   TCommitResult,
@@ -13,7 +16,8 @@ export function createLayerDocumentCanvasCommandPort<
         patch: Parameters<
           LayerDocumentCanvasCommandPort["pointerMove"]
         >[0]["patch"];
-        quality: string;
+        sourceSamplingQuality:
+          LayerDocumentSourceSamplingQuality;
         globalFrame: number;
       }) => ReturnType<
         LayerDocumentCanvasCommandPort["pointerMove"]
@@ -27,7 +31,8 @@ export function createLayerDocumentCanvasCommandPort<
           readonly x: number;
           readonly y: number;
         };
-        quality: string;
+        sourceSamplingQuality:
+          LayerDocumentSourceSamplingQuality;
       }) => { readonly kind: string } | null;
       readonly commitMotionPath: () => TCommitResult;
       readonly cancel: () => void;
@@ -52,7 +57,8 @@ export function createLayerDocumentCanvasCommandPort<
         readonly seek: (frame: number) => void;
       };
     };
-    quality: string;
+    sourceSamplingQuality:
+      LayerDocumentSourceSamplingQuality;
   }
 ): LayerDocumentCanvasCommandPort<
   TCommitResult,
@@ -78,7 +84,8 @@ export function createLayerDocumentCanvasCommandPort<
           globalFrame: command.globalFrame,
           localFrame: command.localFrame,
           position: command.value,
-          quality: options.quality,
+          sourceSamplingQuality:
+            options.sourceSamplingQuality,
         });
       return preparation?.kind === "pointer-move"
         ? {

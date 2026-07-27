@@ -3,7 +3,7 @@ import type {
   PreviewCompositionCacheKeyInput,
   PreviewCompositionCachePort,
   PreviewRenderSurface,
-} from "@/engines/playback-render";
+} from "@/render";
 
 export type CompositionPreviewCacheKeyInput = PreviewCompositionCacheKeyInput;
 

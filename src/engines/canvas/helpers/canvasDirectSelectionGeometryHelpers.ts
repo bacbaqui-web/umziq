@@ -1,4 +1,4 @@
-import type { EvaluatedSceneSize, EvaluatedSceneTransform } from "@/engines/playback-render";
+import type { EvaluatedSceneSize, EvaluatedSceneTransform } from "@/render";
 import type {
   CanvasSelectionMatrix,
   CanvasSelectionPoint,

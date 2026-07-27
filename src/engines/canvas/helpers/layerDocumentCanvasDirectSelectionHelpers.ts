@@ -19,7 +19,7 @@ import type {
   LayerDocumentCanvasDirectSelectionCandidate,
   LayerDocumentCanvasDirectSelectionHit,
   LayerDocumentCanvasDirectSelectionIntent,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 
 export function hitLayerDocumentCanvasDirectSelection(options: {
   point: CanvasSelectionPoint;

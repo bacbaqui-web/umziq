@@ -11,14 +11,13 @@ const root = process.cwd();
 const sourceRoot = join(root, "src");
 const engineNames = [
   "canvas",
-  "playback-render",
   "project",
   "properties",
   "psd-tree",
   "timeline",
 ] as const;
 const uiEngines = new Set(["canvas", "properties", "psd-tree", "timeline"]);
-const coreEngines = new Set(["playback-render", "project"]);
+const coreEngines = new Set(["project"]);
 
 function collectSourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -37,6 +36,8 @@ function engineForFile(file: string) {
 const violations: string[] = [];
 const files = collectSourceFiles(sourceRoot);
 const animationRoot = join(sourceRoot, "animation");
+const renderRoot = join(sourceRoot, "render");
+const renderFiles = collectSourceFiles(renderRoot);
 const pureAnimationFiles =
   collectSourceFiles(animationRoot);
 const layerTypeSupportRoot = join(
@@ -122,6 +123,30 @@ for (const file of files) {
   }
 }
 
+for (const file of renderFiles) {
+  const text = readFileSync(file, "utf8");
+  const label = relative(root, file).split(sep).join("/");
+  assert.doesNotMatch(
+    text,
+    /@\/(?:editor|features)\//,
+    `${label}: Render module이 Editor/Feature에 의존`
+  );
+  assert.doesNotMatch(
+    text,
+    /@\/engines\/(?:canvas|properties|psd-tree|timeline)\b/,
+    `${label}: Render module이 Panel Engine에 의존`
+  );
+}
+for (const file of files.filter(
+  (candidate) => !candidate.startsWith(renderRoot)
+)) {
+  assert.doesNotMatch(
+    readFileSync(file, "utf8"),
+    /from ["']@\/render\//,
+    `${relative(root, file)}: Render public entry 밖의 내부 경로를 직접 import`
+  );
+}
+
 for (const file of pureAnimationFiles) {
   const text = readFileSync(file, "utf8");
   const label =
@@ -139,7 +164,7 @@ for (const file of pureAnimationFiles) {
 }
 for (const file of files.filter((candidate) =>
   !candidate.startsWith(
-    join(sourceRoot, "engines/playback-render")
+    join(sourceRoot, "render")
   ) &&
   candidate !== join(
     sourceRoot,
@@ -346,7 +371,7 @@ assert.match(
 );
 for (const file of files.filter((candidate) =>
   !candidate.startsWith(
-    join(sourceRoot, "engines/playback-render")
+    join(sourceRoot, "render")
   )
 )) {
   assert.doesNotMatch(

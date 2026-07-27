@@ -7,11 +7,12 @@ import {
 } from "react";
 import type {
   LayerDocumentEditorFrameReadModelResult,
+  LayerDocumentSourceSamplingQuality,
   LayerDocumentSourceRuntimeResource,
   LayerDocumentSourceRuntimeResourcePort,
   PreviewScene,
   RuntimeMetricRecordPort,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   createLayerDocumentCanvasCommands,
 } from "@/engines/canvas/adapters/layerDocumentCanvasCommandAdapter";
@@ -19,8 +20,9 @@ import {
   createLayerDocumentCanvasRenderAssetPort,
 } from "@/engines/canvas/adapters/layerDocumentCanvasRenderAssetAdapter";
 import {
-  buildLayerDocumentCanvasModeReadModel,
-} from "@/engines/canvas/adapters/layerDocumentCanvasModeAdapter";
+  buildLayerDocumentCanvasReadModel,
+  mapCanvasPreviewQualityToSourceSamplingQuality,
+} from "@/engines/canvas/adapters/layerDocumentCanvasReadAdapter";
 import {
   useLayerDocumentCanvasPreviewBridge,
 } from "@/engines/canvas/adapters/useLayerDocumentCanvasPreviewBridge";
@@ -54,14 +56,15 @@ import type {
 import type {
   LayerDocumentCanvasCommandPort,
   LayerDocumentCanvasSceneDescriptor,
-} from "@/engines/canvas/models/layerDocumentCanvasModeModel";
+} from "@/engines/canvas/models/layerDocumentCanvasReadModel";
 import type {
   CanvasPreviewPaneProps,
 } from "@/engines/canvas/models/canvasPreviewPaneModel";
 
 export interface LayerDocumentCanvasReadPort {
   readonly read: (options: {
-    quality: string;
+    sourceSamplingQuality:
+      LayerDocumentSourceSamplingQuality;
     runtimeMetrics?: RuntimeMetricRecordPort;
   }) => {
     readonly selectedLayerDocumentId: string | null;
@@ -131,10 +134,14 @@ export function useLayerDocumentCanvasComposition<
       ),
     [previewRuntime.metrics]
   );
-  const quality =
+  const previewQuality =
     previewRuntime.quality;
+  const sourceSamplingQuality =
+    mapCanvasPreviewQualityToSourceSamplingQuality(
+      previewQuality
+    );
   const consumer = options.readPort.read({
-    quality,
+    sourceSamplingQuality,
     runtimeMetrics,
   });
   const selectedMeta = {
@@ -173,13 +180,12 @@ export function useLayerDocumentCanvasComposition<
   );
   const previousPreviewScene =
     useRef<PreviewScene | null>(null);
-  const mode = buildLayerDocumentCanvasModeReadModel({
-    mode: "layer-document",
+  const readResult = buildLayerDocumentCanvasReadModel({
     activeScene: consumer.activeScene,
     runtime: consumer.runtime,
     selectedLayerDocumentId:
       consumer.selectedLayerDocumentId,
-    quality,
+    previewQuality,
     viewport: {
       previewSize:
         viewport.readModel.previewSize,
@@ -196,9 +202,9 @@ export function useLayerDocumentCanvasComposition<
       previousPreviewScene.current,
     runtimeMetrics,
   });
-  if (!mode.ok) {
+  if (!readResult.ok) {
     throw new Error(
-      `LayerDocument Canvas unavailable: ${mode.reason}`
+      `LayerDocument Canvas unavailable: ${readResult.reason}`
     );
   }
   const commandPort = options.commandPort;
@@ -207,14 +213,14 @@ export function useLayerDocumentCanvasComposition<
       createLayerDocumentCanvasCommands({
         selectedLayerDocumentId:
           consumer.selectedLayerDocumentId,
-        quality,
+        sourceSamplingQuality,
         port: commandPort,
         runtimeMetrics,
       }),
     [
       commandPort,
       consumer.selectedLayerDocumentId,
-      quality,
+      sourceSamplingQuality,
       runtimeMetrics,
     ]
   );
@@ -223,7 +229,7 @@ export function useLayerDocumentCanvasComposition<
   const bridge =
     useLayerDocumentCanvasPreviewBridge({
       overlayRef,
-      readModel: mode.model,
+      readModel: readResult.model,
       commands,
       state: options.interactionState,
       isGlowEnabled:
@@ -265,8 +271,8 @@ export function useLayerDocumentCanvasComposition<
     resolveNodeVisual:
       bridge.renderer.resolveNodeVisual,
     pixelScale:
-      PREVIEW_QUALITY_SCALE[quality],
-    previewQuality: quality,
+      PREVIEW_QUALITY_SCALE[previewQuality],
+    previewQuality,
     metrics: previewRuntime.metrics,
     compositionCache:
       previewRuntime.compositionCache,
@@ -278,23 +284,23 @@ export function useLayerDocumentCanvasComposition<
     previousPreviewScene.current =
       bridge.renderer.previewScene;
   }, [bridge.renderer.previewScene]);
-  const previewQuality = useMemo(
+  const previewQualityControl = useMemo(
     () =>
       buildPreviewQualityControlViewModel({
         preference: previewRuntime.preference,
-        quality,
+        quality: previewQuality,
       }),
     [
       previewRuntime.preference,
-      quality,
+      previewQuality,
     ]
   );
   const viewProps:
   CanvasPreviewPaneProps = {
     selectedLayerDocumentId:
-      mode.model.selectedLayerDocumentId,
+      readResult.model.selectedLayerDocumentId,
     selectedSourceId:
-      mode.model.selectedInput?.sourceId ?? null,
+      readResult.model.selectedInput?.sourceId ?? null,
     activeScene:
       bridge.previewWorkspaceScene,
     previewWorkspaceRef: viewport.workspaceRef,
@@ -309,7 +315,7 @@ export function useLayerDocumentCanvasComposition<
       options.viewportState.previewZoom,
     previewZoomPercent:
       viewport.readModel.previewZoomPercent,
-    previewQuality,
+    previewQuality: previewQualityControl,
     previewQualityCommands:
       previewRuntime.commands,
     canvasFpsRuntime: previewRuntime.fps,
@@ -355,7 +361,7 @@ export function useLayerDocumentCanvasComposition<
   };
   return {
     viewProps,
-    readModel: mode.model,
-    quality,
+    readModel: readResult.model,
+    previewQuality,
   };
 }

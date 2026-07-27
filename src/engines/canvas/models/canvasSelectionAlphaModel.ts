@@ -1,4 +1,4 @@
-import type { EvaluatedSceneTransform } from "@/engines/playback-render";
+import type { EvaluatedSceneTransform } from "@/render";
 
 export type SelectionAlphaSize = {
   readonly width: number;

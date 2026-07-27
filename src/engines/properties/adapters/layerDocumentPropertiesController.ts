@@ -8,7 +8,7 @@ import type {
 import { upsertKeyframeValue } from "@/models/keyframeTrackMutation";
 import type {
   PreviewSceneTransformPatch,
-} from "@/engines/playback-render";
+} from "@/render";
 import {
   applyLinkedScaleInput,
   applyPositionInput,
