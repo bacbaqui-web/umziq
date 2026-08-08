@@ -3,11 +3,11 @@ import {
   prepareLayerDocumentPointerUp,
 } from "@/render";
 import {
-  prepareLayerDocumentPanelCommand,
-} from "@/engines/properties/adapters/layerDocumentPanelCommandAdapter";
+  prepareLayerDocumentPropertiesCommand,
+} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter";
 import {
-  buildLayerDocumentPanelDescriptor,
-} from "@/engines/properties/helpers/layerDocumentPanelDescriptorHelpers";
+  buildLayerDocumentPropertiesDescriptor,
+} from "@/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers";
 import type {
   LayerDocumentPanelPreparationPort,
 } from "@/engines/properties/models/layerDocumentPanelModel";
@@ -19,10 +19,10 @@ import type {
 export const LAYER_DOCUMENT_PANEL_PREPARATION_PORT:
 LayerDocumentPanelPreparationPort = {
   query: {
-    describe: buildLayerDocumentPanelDescriptor,
+    describe: buildLayerDocumentPropertiesDescriptor,
   },
   commands: {
-    prepare: prepareLayerDocumentPanelCommand,
+    prepare: prepareLayerDocumentPropertiesCommand,
   },
   draft: {
     preparePointerMove: prepareLayerDocumentPointerMove,

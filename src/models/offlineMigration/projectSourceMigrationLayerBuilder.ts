@@ -1,8 +1,8 @@
 import type { GroupLayerData, LayerDocument, LayerDocumentCommon, LayerSourceReference } from "@/models/layerDocumentModel";
 import type { PlainDataObject } from "@/models/plainDataModel";
-import type { GroupSource, ProjectSource, ProjectSourceDocument } from "@/models/projectSourceModel";
-import { allocateLayerId, clonePlainData, isRecord, type MigratedLayerTypeAndData, type MigrationContext, type ProjectSourceLayerMigrationIssue, type ProjectSourceLayerMigrationOrigin } from "@/models/projectSourceMigrationIdentity";
-import { buildCommon, hasDefaultAnimation, hasDefaultTransform, pathKey } from "@/models/projectSourceMigrationSourceBuilder";
+import type { GroupSource, ProjectSource, ProjectSourceDocument } from "@/models/offlineMigration/projectSourceModel";
+import { allocateLayerId, clonePlainData, isRecord, type MigratedLayerTypeAndData, type MigrationContext, type ProjectSourceLayerMigrationIssue, type ProjectSourceLayerMigrationOrigin } from "@/models/offlineMigration/projectSourceMigrationIdentity";
+import { buildCommon, hasDefaultAnimation, hasDefaultTransform, pathKey } from "@/models/offlineMigration/projectSourceMigrationSourceBuilder";
 
 function buildGroupData(
   document: ProjectSourceDocument,

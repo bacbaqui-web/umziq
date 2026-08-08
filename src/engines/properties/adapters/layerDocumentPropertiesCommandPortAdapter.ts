@@ -15,12 +15,12 @@ import type {
   LayerDocumentTransformKeyframeSelection,
 } from "@/engines/project";
 import type {
-  LayerDocumentPanelCommand,
-  LayerDocumentPanelDescriptorResult,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+  LayerDocumentPropertiesCommand,
+  LayerDocumentPropertiesDescriptorResult,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 import type {
   LayerDocumentPropertiesCommandPort,
-} from "@/engines/properties/adapters/layerDocumentPropertiesController";
+} from "@/engines/properties/controllers/layerDocumentPropertiesController";
 
 function frameRateForLayer(
   project: LayerDocumentProject,
@@ -41,7 +41,7 @@ function frameRateForLayer(
 export function createLayerDocumentPropertiesCommandPort(
   options: {
     readDescriptor:
-      () => LayerDocumentPanelDescriptorResult;
+      () => LayerDocumentPropertiesDescriptorResult;
     readProject: () => LayerDocumentProject;
     readDraft:
       () => LayerDocumentTransformDraftSnapshot | null;
@@ -58,7 +58,7 @@ export function createLayerDocumentPropertiesCommandPort(
     cancelDraft:
       LayerDocumentPropertiesCommandPort["cancel"];
     dispatchPanel: (
-      command: LayerDocumentPanelCommand
+      command: LayerDocumentPropertiesCommand
     ) => { readonly ok: boolean };
     dispatchTimeline: (
       intent: LayerDocumentTimelineIntent

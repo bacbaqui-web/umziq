@@ -1,7 +1,7 @@
 import type { LayerAnimation, LayerDocumentCommon, LayerEffect, LayerModifier, LayerSourceReference, LayerTransform, SourceRegistryRecord } from "@/models/layerDocumentModel";
 import type { PlainDataObject } from "@/models/plainDataModel";
-import type { FutureLayerSource, GroupSource, ProjectSource, ProjectSourceDocument } from "@/models/projectSourceModel";
-import { allocateSourceId, clonePlainData, stableHash, type ProjectSourceLayerMigrationIssue, type RegistryBuildResult } from "@/models/projectSourceMigrationIdentity";
+import type { FutureLayerSource, GroupSource, ProjectSource, ProjectSourceDocument } from "@/models/offlineMigration/projectSourceModel";
+import { allocateSourceId, clonePlainData, stableHash, type ProjectSourceLayerMigrationIssue, type RegistryBuildResult } from "@/models/offlineMigration/projectSourceMigrationIdentity";
 
 export function pathKey(ancestorItemIds: readonly string[], itemId: string | null) {
   return JSON.stringify([...ancestorItemIds, itemId]);

@@ -15,13 +15,13 @@ import {
   prepareLayerDocumentTextUpdate,
 } from "@/layer-types";
 import type {
-  LayerDocumentPanelCommand,
-  LayerDocumentPanelCommandPreparation,
-  LayerDocumentPanelCommandRejectReason,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+  LayerDocumentPropertiesCommand,
+  LayerDocumentPropertiesCommandPreparation,
+  LayerDocumentPropertiesCommandRejectReason,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 
 function commandLayerDocumentId(
-  command: LayerDocumentPanelCommand
+  command: LayerDocumentPropertiesCommand
 ): string {
   return command.kind === "commit-transform"
     ? command.intent.layerDocumentId
@@ -32,9 +32,9 @@ function rejected(options: {
   project: LayerDocumentProject;
   selectedLayerDocumentId: string | null;
   layerDocumentId: string | null;
-  reason: LayerDocumentPanelCommandRejectReason;
+  reason: LayerDocumentPropertiesCommandRejectReason;
   message: string;
-}): LayerDocumentPanelCommandPreparation {
+}): LayerDocumentPropertiesCommandPreparation {
   return {
     ok: false,
     status: "rejected",
@@ -53,7 +53,7 @@ function rejected(options: {
 function fromTransactionResult(
   result: LayerDocumentTransactionResult,
   selectedLayerDocumentId: string
-): LayerDocumentPanelCommandPreparation {
+): LayerDocumentPropertiesCommandPreparation {
   if (result.ok) {
     return {
       ok: true,
@@ -90,7 +90,7 @@ function isProjectRoot(layer: LayerDocument): boolean {
 }
 
 function rootRestricted(
-  command: LayerDocumentPanelCommand,
+  command: LayerDocumentPropertiesCommand,
   layer: LayerDocument
 ): boolean {
   if (command.kind === "commit-transform") {
@@ -119,10 +119,10 @@ function futureDomainPreparation(options: {
   selectedLayerDocumentId: string;
   layer: LayerDocument;
   command: Extract<
-    LayerDocumentPanelCommand,
+    LayerDocumentPropertiesCommand,
     { kind: "request-future-domain-update" }
   >;
-}): LayerDocumentPanelCommandPreparation {
+}): LayerDocumentPropertiesCommandPreparation {
   if (options.layer.type !== options.command.domain) {
     return rejected({
       project: options.project,
@@ -160,11 +160,11 @@ function futureDomainPreparation(options: {
   });
 }
 
-export function prepareLayerDocumentPanelCommand(options: {
+export function prepareLayerDocumentPropertiesCommand(options: {
   project: LayerDocumentProject;
   selectedLayerDocumentId: string | null;
-  command: LayerDocumentPanelCommand;
-}): LayerDocumentPanelCommandPreparation {
+  command: LayerDocumentPropertiesCommand;
+}): LayerDocumentPropertiesCommandPreparation {
   const layerDocumentId = commandLayerDocumentId(options.command);
   if (!options.selectedLayerDocumentId) {
     return rejected({

@@ -35,4 +35,4 @@ export interface TimelineItem {
   sourceSyncStatus?: SourceSyncStatus;
   targetCompId?: string;
 }
-import type { SourceSyncStatus } from "@/models/compositionModel";
+import type { SourceSyncStatus } from "@/models/offlineMigration/compositionModel";

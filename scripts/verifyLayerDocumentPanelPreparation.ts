@@ -20,15 +20,15 @@ import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
 import {
-  prepareLayerDocumentPanelCommand,
-} from "@/engines/properties/adapters/layerDocumentPanelCommandAdapter";
+  prepareLayerDocumentPropertiesCommand,
+} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter";
 import {
-  buildLayerDocumentPanelDescriptor,
-} from "@/engines/properties/helpers/layerDocumentPanelDescriptorHelpers";
+  buildLayerDocumentPropertiesDescriptor,
+} from "@/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers";
 import type {
-  LayerDocumentPanelCommand,
-  LayerDocumentPanelCommandPreparation,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+  LayerDocumentPropertiesCommand,
+  LayerDocumentPropertiesCommandPreparation,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 import {
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
 } from "@/layer-types";
@@ -372,7 +372,7 @@ const projectSnapshot = structuredClone(project);
 assert.deepEqual(validateLayerDocumentProject(project), []);
 
 assert.deepEqual(
-  buildLayerDocumentPanelDescriptor({
+  buildLayerDocumentPropertiesDescriptor({
     project,
     selectedLayerDocumentId: null,
     readSourceResolutionStatus: () => "available",
@@ -385,7 +385,7 @@ assert.deepEqual(
   }
 );
 assert.deepEqual(
-  buildLayerDocumentPanelDescriptor({
+  buildLayerDocumentPropertiesDescriptor({
     project,
     selectedLayerDocumentId: "stale-layer",
     readSourceResolutionStatus: () => "available",
@@ -523,9 +523,9 @@ assert.equal(
 
 function prepare(
   selectedLayerDocumentId: string | null,
-  command: LayerDocumentPanelCommand
+  command: LayerDocumentPropertiesCommand
 ) {
-  return prepareLayerDocumentPanelCommand({
+  return prepareLayerDocumentPropertiesCommand({
     project,
     selectedLayerDocumentId,
     command,
@@ -533,7 +533,7 @@ function prepare(
 }
 
 function assertPrepared(
-  result: LayerDocumentPanelCommandPreparation,
+  result: LayerDocumentPropertiesCommandPreparation,
   layerDocumentId: string
 ) {
   assert.equal(result.ok, true);
@@ -669,7 +669,7 @@ mixedTrackBefore.common.animation.enabledProperties = {
   opacity: false,
 };
 const mixedTrackPreparation =
-  prepareLayerDocumentPanelCommand({
+  prepareLayerDocumentPropertiesCommand({
     project: mixedTrackProject,
     selectedLayerDocumentId: "psd-b",
     command: {
@@ -919,9 +919,9 @@ if (!wrongFutureType.ok) {
 assert.deepEqual(project, projectSnapshot);
 
 const taskFiles = [
-  "src/engines/properties/models/layerDocumentPanelModel.ts",
-  "src/engines/properties/helpers/layerDocumentPanelDescriptorHelpers.ts",
-  "src/engines/properties/adapters/layerDocumentPanelCommandAdapter.ts",
+  "src/engines/properties/models/layerDocumentPropertiesModel.ts",
+  "src/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers.ts",
+  "src/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter.ts",
   "src/engines/properties/adapters/layerDocumentPanelPreparationAdapter.ts",
   "src/layer-types/index.ts",
   "src/layer-types/drawingSupport.ts",
@@ -956,11 +956,11 @@ const productPanelSource = readFileSync(
 );
 assert.doesNotMatch(
   compositionRootSource,
-  /LAYER_DOCUMENT_PANEL_PREPARATION_PORT|buildLayerDocumentPanelDescriptor/
+  /LAYER_DOCUMENT_PANEL_PREPARATION_PORT|buildLayerDocumentPropertiesDescriptor/
 );
 assert.doesNotMatch(
   productPanelSource,
-  /LAYER_DOCUMENT_PANEL_PREPARATION_PORT|buildLayerDocumentPanelDescriptor/
+  /LAYER_DOCUMENT_PANEL_PREPARATION_PORT|buildLayerDocumentPropertiesDescriptor/
 );
 
 console.log("Layer Document Panel preparation verification passed");

@@ -5,9 +5,9 @@ const nativeFiles = [
   "src/engines/timeline/useLayerDocumentTimelineEngine.ts",
   "src/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers.ts",
   "src/engines/timeline/models/layerDocumentTimelineEngineModel.ts",
-  "src/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter.ts",
-  "src/engines/timeline/adapters/layerDocumentTimelineInteractionController.ts",
-  "src/engines/timeline/adapters/layerDocumentTimelineNavigationController.ts",
+  "src/engines/timeline/state/layerDocumentTimelinePlaybackRuntime.ts",
+  "src/engines/timeline/controllers/layerDocumentTimelineInteractionController.ts",
+  "src/engines/timeline/controllers/layerDocumentTimelineNavigationController.ts",
   "src/engines/timeline/adapters/layerDocumentTimelineSourceStatusAdapter.ts",
 ];
 nativeFiles.forEach((file) => {

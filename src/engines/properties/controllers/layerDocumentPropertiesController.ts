@@ -19,10 +19,10 @@ import {
 } from "@/engines/properties/helpers/propertiesNumericHelpers";
 import { getModifierInputDescriptor } from "@/engines/properties/helpers/propertiesModifierHelpers";
 import type {
-  LayerDocumentPanelCommand,
-  LayerDocumentPanelDescriptor,
-  LayerDocumentPanelDescriptorResult,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+  LayerDocumentPropertiesCommand,
+  LayerDocumentPropertiesDescriptor,
+  LayerDocumentPropertiesDescriptorResult,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 import type {
   PropertiesDraftInputId,
   PropertiesModifierInputId,
@@ -54,7 +54,7 @@ export interface LayerDocumentPropertiesRuntimePort {
  * another Panel Engine.
  */
 export interface LayerDocumentPropertiesReadContext {
-  readonly descriptor: LayerDocumentPanelDescriptorResult;
+  readonly descriptor: LayerDocumentPropertiesDescriptorResult;
   readonly globalFrame: number;
   readonly localFrame: number | null;
   readonly displayedTransform: LayerTransform | null;
@@ -69,7 +69,7 @@ export interface LayerDocumentPropertiesCommandPort {
   readonly commit: () => { readonly ok: boolean } | null;
   readonly cancel: () => void;
   readonly dispatchPanel: (
-    command: LayerDocumentPanelCommand
+    command: LayerDocumentPropertiesCommand
   ) => { readonly ok: boolean };
   readonly dispatchTimeline: (
     intent: LayerDocumentTimelineIntent
@@ -91,7 +91,7 @@ export interface LayerDocumentPropertiesCommandPort {
 }
 
 function emptyRuntime(
-  descriptor: LayerDocumentPanelDescriptor | null,
+  descriptor: LayerDocumentPropertiesDescriptor | null,
   globalFrame: number,
   localFrame: number | null
 ): LayerDocumentPropertiesRuntimeState {
@@ -107,7 +107,7 @@ function emptyRuntime(
 }
 
 function readyDescriptor(
-  result: LayerDocumentPanelDescriptorResult
+  result: LayerDocumentPropertiesDescriptorResult
 ) {
   return result.status === "ready" ? result.descriptor : null;
 }
@@ -229,7 +229,7 @@ function patchChanged(
 }
 
 function numericInputEditable(
-  descriptor: LayerDocumentPanelDescriptor,
+  descriptor: LayerDocumentPropertiesDescriptor,
   inputId: PropertiesNumericInputId
 ) {
   const { property } =
@@ -239,7 +239,7 @@ function numericInputEditable(
 }
 
 function modifierForInput(
-  descriptor: LayerDocumentPanelDescriptor,
+  descriptor: LayerDocumentPropertiesDescriptor,
   inputId: PropertiesModifierInputId
 ) {
   const { type } = getModifierInputDescriptor(inputId);
@@ -333,7 +333,7 @@ export function createLayerDocumentPropertiesController(options: {
     );
     return true;
   };
-  const dispatch = (command: LayerDocumentPanelCommand) =>
+  const dispatch = (command: LayerDocumentPropertiesCommand) =>
     options.port.dispatchPanel(command);
 
   const focusNumericInput = (inputId: PropertiesNumericInputId) => {

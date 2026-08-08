@@ -11,16 +11,16 @@ import {
   type LayerDocumentPropertiesCommandPort,
   type LayerDocumentPropertiesRuntimePort,
   type LayerDocumentPropertiesRuntimeState,
-} from "@/engines/properties/adapters/layerDocumentPropertiesController";
+} from "@/engines/properties/controllers/layerDocumentPropertiesController";
 import {
   buildPropertiesPropertyRows,
   buildPropertiesTransformOriginViewModel,
   type PropertiesSelectedKeyframe,
 } from "@/engines/properties/helpers/propertiesViewModelHelpers";
 import type {
-  LayerDocumentPanelDescriptor,
-  LayerDocumentPanelCapability,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+  LayerDocumentPropertiesDescriptor,
+  LayerDocumentPropertiesCapability,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 import type {
   PropertiesCapabilityViewModel,
   PropertiesEngineViewProps,
@@ -34,7 +34,7 @@ export type LayerDocumentPropertiesController = ReturnType<
 >;
 
 const TYPE_LABELS: Readonly<Record<
-  LayerDocumentPanelDescriptor["type"],
+  LayerDocumentPropertiesDescriptor["type"],
   string
 >> = {
   psd: "PSD",
@@ -48,7 +48,7 @@ const TYPE_LABELS: Readonly<Record<
 };
 
 function capabilityStatus(
-  value: LayerDocumentPanelCapability["status"]
+  value: LayerDocumentPropertiesCapability["status"]
 ): PropertiesCapabilityViewModel["status"] {
   return value === "future" ? "unsupported" : value;
 }
@@ -56,7 +56,7 @@ function capabilityStatus(
 function capabilityView(
   key: PropertiesCapabilityViewModel["key"],
   label: string,
-  value: LayerDocumentPanelCapability
+  value: LayerDocumentPropertiesCapability
 ): PropertiesCapabilityViewModel {
   const status = capabilityStatus(value.status);
   return {
@@ -74,7 +74,7 @@ function capabilityView(
 }
 
 function typeDetail(
-  descriptor: LayerDocumentPanelDescriptor
+  descriptor: LayerDocumentPropertiesDescriptor
 ): PropertiesSourceDetailViewModel | null {
   const typeData = descriptor.typeData;
   if (typeData.kind === "psd") {
@@ -171,7 +171,7 @@ function typeDetail(
 }
 
 function modifierViews(
-  descriptor: LayerDocumentPanelDescriptor,
+  descriptor: LayerDocumentPropertiesDescriptor,
   runtime: LayerDocumentPropertiesRuntimeState
 ): PropertiesModifierViewModel[] {
   return descriptor.modifiers.flatMap((modifier) => {

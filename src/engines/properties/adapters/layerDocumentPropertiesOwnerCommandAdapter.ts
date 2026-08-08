@@ -9,8 +9,10 @@ import type {
   LayerDocumentTransformKeyframeSelection,
 } from "@/engines/project";
 import type {
-  LayerDocumentPanelCommand,
-  LayerDocumentPanelCommandPreparation,
+  LayerDocumentPropertiesCommand,
+  LayerDocumentPropertiesCommandPreparation,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
+import type {
   LayerDocumentPanelPreparationPort,
 } from "@/engines/properties/models/layerDocumentPanelModel";
 
@@ -31,11 +33,11 @@ export function createLayerDocumentPropertiesOwnerCommandAdapter<
     | "error";
   reject: (
     message: string,
-    preparation: LayerDocumentPanelCommandPreparation
+    preparation: LayerDocumentPropertiesCommandPreparation
   ) => TCommandResult;
   commit: (
     transaction: Extract<
-      LayerDocumentPanelCommandPreparation,
+      LayerDocumentPropertiesCommandPreparation,
       { readonly ok: true }
     >["transaction"],
     selection?:
@@ -43,7 +45,7 @@ export function createLayerDocumentPropertiesOwnerCommandAdapter<
   ) => TCommandResult;
 }) {
   const commitPreparation = (
-    preparation: LayerDocumentPanelCommandPreparation,
+    preparation: LayerDocumentPropertiesCommandPreparation,
     selection?:
       LayerDocumentTransformKeyframeSelection
   ) =>
@@ -63,7 +65,7 @@ export function createLayerDocumentPropertiesOwnerCommandAdapter<
     const selectedLayerDocumentId =
       options.readSelectedLayerDocumentId();
     const preparation: Extract<
-      LayerDocumentPanelCommandPreparation,
+      LayerDocumentPropertiesCommandPreparation,
       { readonly ok: false }
     > = {
       ok: false,
@@ -93,7 +95,7 @@ export function createLayerDocumentPropertiesOwnerCommandAdapter<
         readSourceResolutionStatus:
           options.readSourceResolutionStatus,
       }),
-    dispatch: (command: LayerDocumentPanelCommand) =>
+    dispatch: (command: LayerDocumentPropertiesCommand) =>
       commitPreparation(
         options.preparation.commands.prepare({
           project: options.readProject(),

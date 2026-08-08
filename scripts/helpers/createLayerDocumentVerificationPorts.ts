@@ -17,7 +17,9 @@ import {
   createLayerDocumentPropertiesOwnerCommandAdapter,
 } from "@/engines/properties/adapters/layerDocumentPropertiesOwnerCommandAdapter";
 import type {
-  LayerDocumentPanelCommandPreparation,
+  LayerDocumentPropertiesCommandPreparation,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
+import type {
   LayerDocumentPanelPreparationPort,
 } from "@/engines/properties/models/layerDocumentPanelModel";
 import {
@@ -112,7 +114,7 @@ export function createLayerDocumentVerificationPorts(
   const propertiesOwner =
     createLayerDocumentPropertiesOwnerCommandAdapter<
       EditorOwnerCommandResult<
-        LayerDocumentPanelCommandPreparation
+        LayerDocumentPropertiesCommandPreparation
       >
     >({
       readProject,
@@ -127,7 +129,7 @@ export function createLayerDocumentVerificationPorts(
   const canvasDraft =
     createLayerDocumentCanvasDraftAdapter<
       EditorOwnerCommandResult<
-        LayerDocumentPanelCommandPreparation
+        LayerDocumentPropertiesCommandPreparation
       >
     >({
       readProject,

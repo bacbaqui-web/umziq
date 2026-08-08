@@ -3,7 +3,7 @@
 ## 상태
 
 - 역할: Project와 Editor 전체의 영구 Architecture
-- 기준: `docs/00_rule.md`
+- 기준: `docs/01_rule.md`
 - 현재 구현 위치: `docs/20_src_map.md`
 - 과거 전환 기록: `docs/completed/56_layer_document_architecture.md`,
   `docs/completed/58_editor_project_owner_panel_engine_architecture.md`

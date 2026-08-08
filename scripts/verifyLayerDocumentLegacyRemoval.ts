@@ -114,11 +114,11 @@ for (const path of [
   "src/models/layerDocumentSourceValidation.ts",
   "src/models/layerDocumentStructureValidation.ts",
   "src/models/layerDocumentGraphValidation.ts",
-  "src/models/projectSourceToLayerDocumentMigration.ts",
-  "src/models/projectSourceMigrationIdentity.ts",
-  "src/models/projectSourceMigrationSourceBuilder.ts",
-  "src/models/projectSourceMigrationLayerBuilder.ts",
-  "src/models/projectSourceMigrationInputValidation.ts",
+  "src/models/offlineMigration/projectSourceToLayerDocumentMigration.ts",
+  "src/models/offlineMigration/projectSourceMigrationIdentity.ts",
+  "src/models/offlineMigration/projectSourceMigrationSourceBuilder.ts",
+  "src/models/offlineMigration/projectSourceMigrationLayerBuilder.ts",
+  "src/models/offlineMigration/projectSourceMigrationInputValidation.ts",
 ]) {
   assert.ok(
     read(path).split("\n").length < 800,

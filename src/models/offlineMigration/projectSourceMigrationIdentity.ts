@@ -1,5 +1,5 @@
 import type { LayerDocument, LayerDocumentProject, LayerSourceReference, SourceRegistryRecord } from "@/models/layerDocumentModel";
-import type { ProjectSourceDocument } from "@/models/projectSourceModel";
+import type { ProjectSourceDocument } from "@/models/offlineMigration/projectSourceModel";
 
 export type ProjectSourceLayerMigrationIssueCode =
   | "non-plain-input"

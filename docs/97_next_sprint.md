@@ -372,8 +372,8 @@ Timeline reorder는 Project Command를 통해 Timeline, Render와 Composition or
 
 ### 보존할 Cross-Engine 계약
 
-- `src/models/timelineItemModel.ts`
-- `src/models/selectionModel.ts`
+- `src/models/offlineMigration/timelineItemModel.ts`
+- `src/models/offlineMigration/selectionModel.ts`
 - `src/models/animationModel.ts`
 - `src/engines/project/models/projectCommandModel.ts`
 - `src/engines/project/history/projectHistorySnapshot.ts`

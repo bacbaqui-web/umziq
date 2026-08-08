@@ -40,10 +40,10 @@ import type {
 } from "@/engines/timeline/models/timelineEngineTypes";
 import {
   createLayerDocumentTimelineInteractionController,
-} from "@/engines/timeline/adapters/layerDocumentTimelineInteractionController";
+} from "@/engines/timeline/controllers/layerDocumentTimelineInteractionController";
 import {
   createLayerDocumentTimelineNavigationController,
-} from "@/engines/timeline/adapters/layerDocumentTimelineNavigationController";
+} from "@/engines/timeline/controllers/layerDocumentTimelineNavigationController";
 
 type NativePointerSession =
   | {

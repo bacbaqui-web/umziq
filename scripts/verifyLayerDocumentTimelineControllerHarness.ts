@@ -24,9 +24,9 @@ import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
 } from "@/layer-types";
-import { createLayerDocumentTimelineInteractionController } from "@/engines/timeline/adapters/layerDocumentTimelineInteractionController";
-import { createLayerDocumentTimelineNavigationController } from "@/engines/timeline/adapters/layerDocumentTimelineNavigationController";
-import { createLayerDocumentTimelinePlaybackRuntime } from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";
+import { createLayerDocumentTimelineInteractionController } from "@/engines/timeline/controllers/layerDocumentTimelineInteractionController";
+import { createLayerDocumentTimelineNavigationController } from "@/engines/timeline/controllers/layerDocumentTimelineNavigationController";
+import { createLayerDocumentTimelinePlaybackRuntime } from "@/engines/timeline/state/layerDocumentTimelinePlaybackRuntime";
 import {
   createLayerDocumentTimelineSourceStatusAdapter,
   type LayerDocumentTimelineSourceStatusResult,

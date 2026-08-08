@@ -14,11 +14,11 @@ import {
 } from "@/engines/project/actions/layerDocumentSourceTransactions";
 import {
   createLayerDocumentPsdPreparedSessionController,
-} from "@/engines/project/adapters/layerDocumentPsdPreparedSessionController";
+} from "@/engines/project/controllers/layerDocumentPsdPreparedSessionController";
 import {
   createLayerDocumentPsdTreeController,
   type LayerDocumentPsdTreeCommandPort,
-} from "@/engines/project/adapters/layerDocumentPsdTreeController";
+} from "@/engines/project/controllers/layerDocumentPsdTreeController";
 import {
   buildPsdSourceTreeReadModel,
 } from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
@@ -514,11 +514,11 @@ assert.deepEqual(
 );
 
 const propertiesControllerSource = readFileSync(
-  "src/engines/properties/adapters/layerDocumentPropertiesController.ts",
+  "src/engines/properties/controllers/layerDocumentPropertiesController.ts",
   "utf8"
 );
 const psdControllerSource = readFileSync(
-  "src/engines/project/adapters/layerDocumentPsdTreeController.ts",
+  "src/engines/project/controllers/layerDocumentPsdTreeController.ts",
   "utf8"
 );
 assert.doesNotMatch(
@@ -539,7 +539,7 @@ assert.match(
 );
 assert.match(
   readFileSync(
-    "src/engines/properties/adapters/useLayerDocumentPropertiesEngine.ts",
+    "src/engines/properties/useLayerDocumentPropertiesEngine.ts",
     "utf8"
   ),
   /PropertiesEngineViewProps/

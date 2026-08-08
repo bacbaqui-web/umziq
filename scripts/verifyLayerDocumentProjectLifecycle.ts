@@ -19,7 +19,7 @@ import {
 } from "@/render";
 import {
   createLayerDocumentTimelinePlaybackRuntime,
-} from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";
+} from "@/engines/timeline/state/layerDocumentTimelinePlaybackRuntime";
 
 const initialOptions =
   createInitialLayerDocumentOwnerOptions();

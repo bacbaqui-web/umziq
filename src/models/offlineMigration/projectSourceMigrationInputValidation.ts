@@ -1,7 +1,7 @@
 import { findNonPlainDataPath } from "@/models/plainDataModel";
-import { PROJECT_SOURCE_SCHEMA_VERSION } from "@/models/projectSourceModel";
-import { validateProjectSourceDocument } from "@/models/projectSourceValidation";
-import type { ProjectSourceLayerMigrationIssue, ProjectSourceToLayerDocumentMigrationInput } from "@/models/projectSourceMigrationIdentity";
+import { PROJECT_SOURCE_SCHEMA_VERSION } from "@/models/offlineMigration/projectSourceModel";
+import { validateProjectSourceDocument } from "@/models/offlineMigration/projectSourceValidation";
+import type { ProjectSourceLayerMigrationIssue, ProjectSourceToLayerDocumentMigrationInput } from "@/models/offlineMigration/projectSourceMigrationIdentity";
 
 export function inputIssues(
   input: ProjectSourceToLayerDocumentMigrationInput

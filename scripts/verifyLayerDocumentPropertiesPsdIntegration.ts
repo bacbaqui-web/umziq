@@ -26,7 +26,7 @@ import {
 import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesRuntimeState,
-} from "@/engines/properties/adapters/layerDocumentPropertiesController";
+} from "@/engines/properties/controllers/layerDocumentPropertiesController";
 import {
   createLayerDocumentPropertiesCommandPort,
 } from "@/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter";

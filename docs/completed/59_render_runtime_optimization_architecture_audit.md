@@ -365,7 +365,7 @@ Canvas2D painter traversal
 - painter만 back→front
 
 이 수정은 현재 동결된 Render adapter 경계를 건드린다. 구현하려면
-별도 Render Sprint에서 `docs/00_rule.md`의 동결을 명시적으로 해제하거나
+별도 Render Sprint에서 `docs/01_rule.md`의 동결을 명시적으로 해제하거나
 이번 순서 계약에 한정된 예외를 먼저 승인해야 한다.
 
 대안으로 Canvas에 persistent WeakMap projector를 둘 수 있다. 기존

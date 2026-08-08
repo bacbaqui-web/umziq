@@ -3,7 +3,7 @@ import type {
   CompositionMeta,
   Layer,
   SourceSyncStatus,
-} from "@/models/compositionModel";
+} from "@/models/offlineMigration/compositionModel";
 import {
   PROJECT_SOURCE_SCHEMA_VERSION,
   PROJECT_SOURCE_VERSION,
@@ -14,11 +14,11 @@ import {
   type ProjectSourceTransform,
   type PsdLayerSource,
   type SourceAvailability,
-} from "@/models/projectSourceModel";
+} from "@/models/offlineMigration/projectSourceModel";
 import type {
   TimelineItem,
   TimelineItemReference,
-} from "@/models/timelineItemModel";
+} from "@/models/offlineMigration/timelineItemModel";
 
 export interface LegacyProjectSourceInput {
   compositions: Composition[];

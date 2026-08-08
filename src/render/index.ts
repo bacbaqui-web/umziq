@@ -74,7 +74,7 @@ export type {
 export {
   createLayerDocumentPsdRuntimeRegistrationBridge,
   createLayerDocumentSourceRuntimeResourceCache,
-} from "@/render/adapters/layerDocumentSourceRuntimeResourceCache";
+} from "@/render/state/layerDocumentSourceRuntimeResourceCache";
 export {
   buildLayerDocumentEditorFrameReadModel,
 } from "@/render/adapters/layerDocumentRuntimeInputAdapter";

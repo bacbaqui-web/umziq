@@ -1,4 +1,4 @@
-import type { TimelineItemKind } from "@/models/timelineItemModel";
+import type { TimelineItemKind } from "@/models/offlineMigration/timelineItemModel";
 
 export type TimelineSelection = {
   itemId?: string;

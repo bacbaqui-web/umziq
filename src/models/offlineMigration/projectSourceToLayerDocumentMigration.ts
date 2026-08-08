@@ -1,11 +1,11 @@
 import { LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION, type LayerDocumentProject } from "@/models/layerDocumentModel";
 import { validateLayerDocumentProject } from "@/models/layerDocumentValidation";
-import { allocateLayerId, defaultLayerIdCandidateFactory, type MigrationContext, type ProjectSourceLayerMigrationOrigin, type ProjectSourceToLayerDocumentMigrationInput, type ProjectSourceToLayerDocumentMigrationResult } from "@/models/projectSourceMigrationIdentity";
-import { buildSourceRegistry, pathKey } from "@/models/projectSourceMigrationSourceBuilder";
-import { createLayerDocument, expandGroupChildren, findUnplacedSourceIssues } from "@/models/projectSourceMigrationLayerBuilder";
-import { inputIssues } from "@/models/projectSourceMigrationInputValidation";
+import { allocateLayerId, defaultLayerIdCandidateFactory, type MigrationContext, type ProjectSourceLayerMigrationOrigin, type ProjectSourceToLayerDocumentMigrationInput, type ProjectSourceToLayerDocumentMigrationResult } from "@/models/offlineMigration/projectSourceMigrationIdentity";
+import { buildSourceRegistry, pathKey } from "@/models/offlineMigration/projectSourceMigrationSourceBuilder";
+import { createLayerDocument, expandGroupChildren, findUnplacedSourceIssues } from "@/models/offlineMigration/projectSourceMigrationLayerBuilder";
+import { inputIssues } from "@/models/offlineMigration/projectSourceMigrationInputValidation";
 
-export type { ProjectSourceLayerIdCandidateFactory, ProjectSourceLayerMigrationIssue, ProjectSourceLayerMigrationIssueCode, ProjectSourceLayerMigrationOrigin, ProjectSourceToLayerDocumentMigrationInput, ProjectSourceToLayerDocumentMigrationReport, ProjectSourceToLayerDocumentMigrationResult } from "@/models/projectSourceMigrationIdentity";
+export type { ProjectSourceLayerIdCandidateFactory, ProjectSourceLayerMigrationIssue, ProjectSourceLayerMigrationIssueCode, ProjectSourceLayerMigrationOrigin, ProjectSourceToLayerDocumentMigrationInput, ProjectSourceToLayerDocumentMigrationReport, ProjectSourceToLayerDocumentMigrationResult } from "@/models/offlineMigration/projectSourceMigrationIdentity";
 
 export function migrateProjectSourceToLayerDocumentProject(
   input: ProjectSourceToLayerDocumentMigrationInput

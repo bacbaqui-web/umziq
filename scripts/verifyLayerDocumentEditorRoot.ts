@@ -28,7 +28,7 @@ const timeline = source(
   "src/engines/timeline/useLayerDocumentTimelineEngine.ts"
 );
 const properties = source(
-  "src/engines/properties/adapters/useLayerDocumentPropertiesEngine.ts"
+  "src/engines/properties/useLayerDocumentPropertiesEngine.ts"
 );
 const shell = source(
   "src/editor/EditorShell.tsx"
@@ -37,7 +37,7 @@ const projectOwner = source(
   "src/editor/project-owner/useEditorProjectOwner.ts"
 );
 const timelinePlayback = source(
-  "src/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter.ts"
+  "src/engines/timeline/state/layerDocumentTimelinePlaybackRuntime.ts"
 );
 const ownerModel = source(
   "src/engines/project/models/layerDocumentProjectOwnerModel.ts"

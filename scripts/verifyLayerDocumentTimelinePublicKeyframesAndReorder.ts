@@ -37,10 +37,10 @@ import {
 } from "@/layer-types";
 import {
   createLayerDocumentTimelineInteractionController,
-} from "@/engines/timeline/adapters/layerDocumentTimelineInteractionController";
+} from "@/engines/timeline/controllers/layerDocumentTimelineInteractionController";
 import {
   createLayerDocumentTimelinePlaybackRuntime,
-} from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";
+} from "@/engines/timeline/state/layerDocumentTimelinePlaybackRuntime";
 import {
   buildMoveLayerDocumentTransaction,
 } from "@/models/layerDocumentTimelineTransactions";

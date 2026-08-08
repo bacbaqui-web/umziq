@@ -5,12 +5,12 @@ import type {
   RotationKeyframe,
   ScaleKeyframe,
 } from "@/models/animationModel";
-import type { CompositionMeta, SourceSyncStatus } from "@/models/compositionModel";
+import type { CompositionMeta, SourceSyncStatus } from "@/models/offlineMigration/compositionModel";
 import type { ModifierInstance } from "@/models/modifierModel";
 import type { PlainDataObject } from "@/models/plainDataModel";
 import type { PsdImportSettings } from "@/models/psdImportSettingsModel";
 import type { PsdSourceIdentity } from "@/models/psdSourceIdentityModel";
-import type { TimelineItemReference } from "@/models/timelineItemModel";
+import type { TimelineItemReference } from "@/models/offlineMigration/timelineItemModel";
 import type { Position, Scale } from "@/models/transformModel";
 
 export const PROJECT_SOURCE_SCHEMA_VERSION = 1 as const;

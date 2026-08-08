@@ -1,7 +1,7 @@
 import type {
   LayerDocumentPsdImportPreviewPlan,
   PreparedLayerDocumentPsdRefreshPlan,
-} from "@/engines/project/adapters/layerDocumentPsdTreeController";
+} from "@/engines/project";
 
 export type LayerDocumentPsdPreparedSession =
   | {

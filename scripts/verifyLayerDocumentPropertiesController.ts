@@ -19,19 +19,19 @@ import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesCommandPort,
   type LayerDocumentPropertiesRuntimeState,
-} from "@/engines/properties/adapters/layerDocumentPropertiesController";
+} from "@/engines/properties/controllers/layerDocumentPropertiesController";
 import {
   buildLayerDocumentPropertiesViewProps,
-} from "@/engines/properties/adapters/useLayerDocumentPropertiesEngine";
+} from "@/engines/properties/useLayerDocumentPropertiesEngine";
 import {
-  prepareLayerDocumentPanelCommand,
-} from "@/engines/properties/adapters/layerDocumentPanelCommandAdapter";
+  prepareLayerDocumentPropertiesCommand,
+} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter";
 import {
-  buildLayerDocumentPanelDescriptor,
-} from "@/engines/properties/helpers/layerDocumentPanelDescriptorHelpers";
+  buildLayerDocumentPropertiesDescriptor,
+} from "@/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers";
 import type {
-  LayerDocumentPanelCommand,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+  LayerDocumentPropertiesCommand,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 import {
   getCompensatedTransformOffset,
 } from "@/shared/geometry/transformOffsetHelpers";
@@ -269,9 +269,9 @@ function commitProject(next: LayerDocumentProject) {
   historyEntryCount += 1;
 }
 
-function dispatchPanel(command: LayerDocumentPanelCommand) {
+function dispatchPanel(command: LayerDocumentPropertiesCommand) {
   if (dispatchFails) return { ok: false as const };
-  const prepared = prepareLayerDocumentPanelCommand({
+  const prepared = prepareLayerDocumentPropertiesCommand({
     project,
     selectedLayerDocumentId,
     command,
@@ -282,7 +282,7 @@ function dispatchPanel(command: LayerDocumentPanelCommand) {
 
 const port: LayerDocumentPropertiesCommandPort = {
   read: () => {
-    const descriptor = buildLayerDocumentPanelDescriptor({
+    const descriptor = buildLayerDocumentPropertiesDescriptor({
       project,
       selectedLayerDocumentId,
       readSourceResolutionStatus: () => "available",
@@ -628,7 +628,7 @@ for (const layerDocumentId of [
   "group",
   "unknown",
 ]) {
-  const result = buildLayerDocumentPanelDescriptor({
+  const result = buildLayerDocumentPropertiesDescriptor({
     project,
     selectedLayerDocumentId: layerDocumentId,
     readSourceResolutionStatus: () => "available",

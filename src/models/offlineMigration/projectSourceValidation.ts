@@ -2,7 +2,7 @@ import { findNonPlainDataPath } from "@/models/plainDataModel";
 import type {
   GroupSource,
   ProjectSourceDocument,
-} from "@/models/projectSourceModel";
+} from "@/models/offlineMigration/projectSourceModel";
 
 export type ProjectSourceIntegrityIssue =
   | {

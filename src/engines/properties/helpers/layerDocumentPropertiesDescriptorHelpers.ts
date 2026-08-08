@@ -7,12 +7,12 @@ import {
   layerDocumentSourceDescriptorPath,
 } from "@/models";
 import type {
-  LayerDocumentPanelCapabilities,
-  LayerDocumentPanelCapability,
-  LayerDocumentPanelDescriptorResult,
-  LayerDocumentPanelSourceDescriptor,
-  LayerDocumentPanelTypeData,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+  LayerDocumentPropertiesCapabilities,
+  LayerDocumentPropertiesCapability,
+  LayerDocumentPropertiesDescriptorResult,
+  LayerDocumentPropertiesSourceDescriptor,
+  LayerDocumentPropertiesTypeData,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 
 function clonePlainData<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -23,15 +23,15 @@ function isProjectRoot(layer: LayerDocument): boolean {
 }
 
 function capability(
-  status: LayerDocumentPanelCapability["status"],
+  status: LayerDocumentPropertiesCapability["status"],
   reason: string
-): LayerDocumentPanelCapability {
+): LayerDocumentPropertiesCapability {
   return { status, reason };
 }
 
 function buildCapabilities(
   layer: LayerDocument
-): LayerDocumentPanelCapabilities {
+): LayerDocumentPropertiesCapabilities {
   const root = isProjectRoot(layer);
   const commonEditable = root
     ? capability(
@@ -58,7 +58,7 @@ function buildCapabilities(
       )
     : commonEditable;
 
-  let domain: LayerDocumentPanelCapabilities["domain"];
+  let domain: LayerDocumentPropertiesCapabilities["domain"];
   switch (layer.type) {
     case "drawing":
       domain = {
@@ -189,7 +189,7 @@ function buildSourceDescriptor(
     | "available"
     | "missing"
     | "error"
-): LayerDocumentPanelSourceDescriptor {
+): LayerDocumentPropertiesSourceDescriptor {
   const sourceId = layer.common.source?.sourceId;
   if (!sourceId) {
     return {
@@ -227,7 +227,7 @@ function buildSourceDescriptor(
   };
 }
 
-function buildTypeData(layer: LayerDocument): LayerDocumentPanelTypeData {
+function buildTypeData(layer: LayerDocument): LayerDocumentPropertiesTypeData {
   switch (layer.type) {
     case "psd":
       return { kind: "psd", data: clonePlainData(layer.data) };
@@ -256,7 +256,7 @@ function buildTypeData(layer: LayerDocument): LayerDocumentPanelTypeData {
   }
 }
 
-export function buildLayerDocumentPanelDescriptor(options: {
+export function buildLayerDocumentPropertiesDescriptor(options: {
   project: LayerDocumentProject;
   selectedLayerDocumentId: string | null;
   readSourceResolutionStatus: (
@@ -267,7 +267,7 @@ export function buildLayerDocumentPanelDescriptor(options: {
     | "available"
     | "missing"
     | "error";
-}): LayerDocumentPanelDescriptorResult {
+}): LayerDocumentPropertiesDescriptorResult {
   const selectedLayerDocumentId = options.selectedLayerDocumentId;
   if (!selectedLayerDocumentId) {
     return {

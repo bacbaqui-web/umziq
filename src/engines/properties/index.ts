@@ -21,25 +21,27 @@ export type {
   PropertiesTransformOriginViewModel,
 } from "@/engines/properties/models/propertiesEngineModel";
 export type {
-  LayerDocumentPanelCapabilities,
-  LayerDocumentPanelCapability,
-  LayerDocumentPanelCapabilityStatus,
-  LayerDocumentPanelCommand,
-  LayerDocumentPanelCommandPreparation,
-  LayerDocumentPanelCommandRejectReason,
-  LayerDocumentPanelDescriptor,
-  LayerDocumentPanelDescriptorResult,
-  LayerDocumentPanelPlacementSummary,
+  LayerDocumentPropertiesCapabilities,
+  LayerDocumentPropertiesCapability,
+  LayerDocumentPropertiesCapabilityStatus,
+  LayerDocumentPropertiesCommand,
+  LayerDocumentPropertiesCommandPreparation,
+  LayerDocumentPropertiesCommandRejectReason,
+  LayerDocumentPropertiesDescriptor,
+  LayerDocumentPropertiesDescriptorResult,
+  LayerDocumentPropertiesPlacementSummary,
+  LayerDocumentPropertiesSourceDescriptor,
+  LayerDocumentPropertiesTypeData,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
+export type {
   LayerDocumentPanelPreparationPort,
-  LayerDocumentPanelSourceDescriptor,
-  LayerDocumentPanelTypeData,
 } from "@/engines/properties/models/layerDocumentPanelModel";
 export {
-  buildLayerDocumentPanelDescriptor,
-} from "@/engines/properties/helpers/layerDocumentPanelDescriptorHelpers";
+  buildLayerDocumentPropertiesDescriptor,
+} from "@/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers";
 export {
-  prepareLayerDocumentPanelCommand,
-} from "@/engines/properties/adapters/layerDocumentPanelCommandAdapter";
+  prepareLayerDocumentPropertiesCommand,
+} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter";
 export {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
@@ -49,7 +51,7 @@ export {
   type LayerDocumentPropertiesReadContext,
   type LayerDocumentPropertiesRuntimePort,
   type LayerDocumentPropertiesRuntimeState,
-} from "@/engines/properties/adapters/layerDocumentPropertiesController";
+} from "@/engines/properties/controllers/layerDocumentPropertiesController";
 export {
   createLayerDocumentPropertiesCommandPort,
 } from "@/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter";
@@ -60,4 +62,4 @@ export {
   buildLayerDocumentPropertiesViewProps,
   useLayerDocumentPropertiesEngine,
   type LayerDocumentPropertiesController,
-} from "@/engines/properties/adapters/useLayerDocumentPropertiesEngine";
+} from "@/engines/properties/useLayerDocumentPropertiesEngine";

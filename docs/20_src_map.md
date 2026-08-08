@@ -152,9 +152,9 @@ adapter를 제공한다.
 - `controllers/layerDocumentProjectSaveController.ts`: immutable snapshot, write 직렬화, 성공 시 savepoint/target commit
 - `controllers/layerDocumentProjectOpenController.ts`: candidate 검증, linked Source 준비, 원자 Replace와 Runtime 등록
 - `controllers/layerDocumentProjectReconnectController.ts`: fingerprint gate, dependent Source 복구와 targeted cache 교체
-- `adapters/layerDocumentSourceRuntimeResolutionStore.ts`: Project/History 밖의 Source 해석 상태 저장소
-- `adapters/layerDocumentPsdPreparedSessionController.ts`: prepare/confirm/cancel session
-- `adapters/layerDocumentPsdTreeController.ts`: PSD Tree command/read port
+- `state/layerDocumentSourceRuntimeResolutionStore.ts`: Project/History 밖의 Source 해석 상태 저장소
+- `controllers/layerDocumentPsdPreparedSessionController.ts`: prepare/confirm/cancel session
+- `controllers/layerDocumentPsdTreeController.ts`: PSD Tree command/read port
 - `import/*`: PSD parse, analysis, plan, LayerDocument/Source Registry build
 
 Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure에서 dispose된다. PSD import는 한 번 읽은 ArrayBuffer를 parse와 SHA-256 계산에 함께 사용한다. Confirm 성공 시 Plain Data transaction과 runtime registration이 일관되게 적용된다.
@@ -178,7 +178,7 @@ Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure�
 - `adapters/canvas2dRenderAdapter.ts`: Accurate `RenderFrame` 전체 Canvas2D draw와
   reusable surface allocation
 - `helpers/previewSceneDirtyRegionHelpers.ts`: dirty bounds와 incremental draw plan
-- `adapters/layerDocumentSourceRuntimeResourceCache.ts`: Source별 runtime registration, suspend/restore, targeted invalidation, dispose-once
+- `state/layerDocumentSourceRuntimeResourceCache.ts`: Source별 runtime registration, suspend/restore, targeted invalidation, dispose-once
 - `testing/index.ts`: Render 내부 helper를 제품 public barrel과 분리한
   verification seam
 
@@ -264,9 +264,9 @@ Projection만 갱신하며 Blur Glow는 사용하지 않는다.
 
 - `useLayerDocumentTimelineEngine.ts`: Timeline Engine facade
 - `helpers/layerDocumentTimelineViewModelHelpers.ts`: placement/animation/selection을 row와 keyframe으로 projection
-- `adapters/layerDocumentTimelineInteractionController.ts`: move/trim/reorder/keyframe Draft와 commit intent
-- `adapters/layerDocumentTimelineNavigationController.ts`: active Group/selection navigation
-- `adapters/layerDocumentTimelinePlaybackAdapter.ts`: current frame/range, isPlaying, clock, scheduler와 transport를 단독 소유하는 Timeline Runtime 및 validity command
+- `controllers/layerDocumentTimelineInteractionController.ts`: move/trim/reorder/keyframe Draft와 commit intent
+- `controllers/layerDocumentTimelineNavigationController.ts`: active Group/selection navigation
+- `state/layerDocumentTimelinePlaybackRuntime.ts`: current frame/range, isPlaying, clock, scheduler와 transport를 단독 소유하는 Timeline Runtime 및 validity command
 - `adapters/layerDocumentTimelineConsumerAdapter.ts`: placement/Source
   resolution을 Timeline consumer row로 projection
 - `adapters/layerDocumentTimelineIntentCommitAdapter.ts`: Timeline intent의
@@ -276,14 +276,19 @@ Timeline은 Layer를 저장하지 않고 LayerDocument placement/animation을 �
 
 ### `src/engines/properties`
 
-- `adapters/layerDocumentPropertiesController.ts`: 선택 LayerDocument read/command controller
-- `adapters/useLayerDocumentPropertiesEngine.ts`: React facade
+- `controllers/layerDocumentPropertiesController.ts`: 선택 LayerDocument read/command controller
+- `useLayerDocumentPropertiesEngine.ts`: Properties Panel Engine
 - `adapters/layerDocumentPanelPreparationAdapter.ts`: Type별 panel descriptor
-- `adapters/layerDocumentPanelCommandAdapter.ts`: Transform/Animation/Effect/Modifier commit
+- `adapters/layerDocumentPropertiesCommandPreparationAdapter.ts`: Transform/Animation/Effect/Modifier command preparation
 - `adapters/layerDocumentPropertiesCommandPortAdapter.ts`: 현재 frame과
   matching Draft를 반영한 Properties 표시 평가와 command port 구성
 - `adapters/layerDocumentPropertiesOwnerCommandAdapter.ts`: panel
   preparation/commit, Canvas Draft rejection, transform/motion-path commit 조합
+- `helpers/layerDocumentPropertiesDescriptorHelpers.ts`: 선택 LayerDocument의
+  Properties descriptor projection
+- `models/layerDocumentPropertiesModel.ts`: Properties 전용 capability,
+  descriptor와 command preparation 계약
+- `models/layerDocumentPanelModel.ts`: Type별 preparation port 계약
 
 Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Draft를 읽고, 외부 Source 가용성은 주입된 runtime resolution에서 읽는다.
 
@@ -338,12 +343,21 @@ import해 배치한다.
 
 ## 10. Offline migration boundary
 
-`src/models/offlineMigration/index.ts`만 이전 ProjectSource 문서를 LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
+`src/models/offlineMigration/index.ts`만 이전 ProjectSource 문서를
+LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 
-- 이전 모델/normalization/validation
-- migration input validation
-- Source Registry/LayerDocument builder
-- identity mapping
+- `compositionModel.ts`, `timelineItemModel.ts`, `selectionModel.ts`:
+  이전 Composition/Timeline/Selection 입력 모델
+- `projectSourceModel.ts`, `projectSourceNormalization.ts`,
+  `projectSourceValidation.ts`: 이전 ProjectSource schema와
+  normalization/validation
+- `projectSourceToLayerDocumentMigration.ts`,
+  `projectSourceMigrationInputValidation.ts`: offline migration 진입점과
+  입력 검증
+- `projectSourceMigrationSourceBuilder.ts`,
+  `projectSourceMigrationLayerBuilder.ts`: Source Registry와 LayerDocument
+  builder
+- `projectSourceMigrationIdentity.ts`: migration identity와 결과 계약
 
 이 경계는 bootstrap이나 active UI/Engine에서 import하지 않는다. `src/models/index.ts`의 active public barrel도 이전 모델을 export하지 않는다.
 

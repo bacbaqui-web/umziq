@@ -36,7 +36,7 @@ import {
 } from "@/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers";
 import {
   createLayerDocumentTimelinePlaybackRuntime,
-} from "@/engines/timeline/adapters/layerDocumentTimelinePlaybackAdapter";
+} from "@/engines/timeline/state/layerDocumentTimelinePlaybackRuntime";
 import {
   resolveLayerDocumentTimelineTimingDraft,
 } from "@/engines/timeline/helpers/layerDocumentTimelineInteractionHelpers";
