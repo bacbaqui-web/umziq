@@ -7,7 +7,7 @@ import {
   createLayerDocumentProjectLifecycleController,
   createLayerDocumentProjectOwnerState,
   createLayerDocumentProjectSaveController,
-  loadLayerDocumentProjectFromSfep,
+  loadLayerDocumentProjectFromZiq,
   reduceLayerDocumentProjectOwner,
   type LayerDocumentProjectBrowserWriteEnvironment,
   type LayerDocumentProjectOwnerAction,
@@ -148,13 +148,13 @@ function pickerError(name: string) {
 }
 
 const firstHandle = createHandle(
-  "native-initial.sfep"
+  "native-initial.ziq"
 );
 const saveAsHandle = createHandle(
-  "native-save-as.sfep"
+  "native-save-as.ziq"
 );
 const deniedHandle = createHandle(
-  "native-denied.sfep"
+  "native-denied.ziq"
 );
 deniedHandle.behaviors.push({
   createError: pickerError("NotAllowedError"),
@@ -220,7 +220,7 @@ assert.equal(
   "file-backed"
 );
 const firstLoaded =
-  loadLayerDocumentProjectFromSfep(
+  loadLayerDocumentProjectFromZiq(
     firstHandle.committed[0]
   );
 assert.equal(firstLoaded.ok, true);
@@ -341,7 +341,7 @@ const latestBytes =
     saveAsHandle.committed.length - 1
   ];
 const latestLoaded =
-  loadLayerDocumentProjectFromSfep(latestBytes);
+  loadLayerDocumentProjectFromZiq(latestBytes);
 assert.equal(latestLoaded.ok, true);
 if (latestLoaded.ok) {
   const root = Object.values(
@@ -353,7 +353,7 @@ if (latestLoaded.ok) {
 const serializedOwner =
   JSON.stringify(nativeFixture.owner.state);
 assert.equal(
-  serializedOwner.includes("native-save-as.sfep"),
+  serializedOwner.includes("native-save-as.ziq"),
   false,
   "File handles must remain outside Project, History, and Session"
 );
@@ -437,7 +437,7 @@ assert.equal(
 );
 assert.equal(anchors[0].clicked, true);
 assert.equal(anchors[0].removed, true);
-assert.ok(anchors[0].download.endsWith(".sfep"));
+assert.ok(anchors[0].download.endsWith(".ziq"));
 assert.deepEqual(revoked, ["blob:fallback-1"]);
 fallbackFixture.rename("Fallback Again");
 assert.equal((await fallbackSave.save()).ok, true);

@@ -1,5 +1,5 @@
 import {
-  loadLayerDocumentProjectFromSfep,
+  loadLayerDocumentProjectFromZiq,
 } from "@/engines/project/adapters/layerDocumentProjectPersistenceCodec";
 import type {
   CreateLayerDocumentProjectOpenControllerOptions,
@@ -105,7 +105,7 @@ export function createLayerDocumentProjectOpenController(
         return staleResult();
       }
       const loaded =
-        loadLayerDocumentProjectFromSfep(
+        loadLayerDocumentProjectFromZiq(
           selected.value.bytes
         );
       if (!loaded.ok) {

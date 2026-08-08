@@ -7,11 +7,11 @@
 
 ## 저장 Envelope
 
-`.sfep`는 UTF-8 JSON이며 container와 Project schema version을 분리한다.
+`.ziq`는 UTF-8 JSON이며 container와 Project schema version을 분리한다.
 
 ```text
 {
-  format: "shortform-editor-project",
+  format: "umziq-project",
   containerVersion,
   project: LayerDocumentProject
 }

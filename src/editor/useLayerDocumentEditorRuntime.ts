@@ -62,6 +62,23 @@ function createTimelineValidityBridge() {
   };
 }
 
+function createNewProjectPsdImportBridge() {
+  let importFiles:
+    ((files: readonly File[]) => Promise<boolean>) | null =
+      null;
+  return {
+    connect: (
+      next: (files: readonly File[]) => Promise<boolean>
+    ) => {
+      importFiles = next;
+    },
+    importFiles: (files: readonly File[]) =>
+      importFiles
+        ? importFiles(files)
+        : Promise.resolve(false),
+  };
+}
+
 export function useLayerDocumentEditorRuntime(
   projectOwner: EditorProjectOwnerPort
 ) {
@@ -103,6 +120,9 @@ export function useLayerDocumentEditorRuntime(
   const [, setDraftRevision] = useState(0);
   const [timelineValidity] = useState(
     createTimelineValidityBridge
+  );
+  const [newProjectPsdImport] = useState(
+    createNewProjectPsdImportBridge
   );
   const [ownerEffect, setOwnerEffect] =
     useState<{
@@ -328,6 +348,8 @@ export function useLayerDocumentEditorRuntime(
         reconnect: reconnectController,
         createNewProject:
           createNewLayerDocumentEditorProject,
+        importPsdFiles:
+          newProjectPsdImport.importFiles,
         confirmDiscard: (intent) =>
           window.confirm(
             intent === "open-project"
@@ -354,6 +376,7 @@ export function useLayerDocumentEditorRuntime(
         projectLifecycleCommands.read(),
       commands: projectLifecycleCommands,
     },
+    newProjectPsdImport,
     ownerEffect,
   };
 }

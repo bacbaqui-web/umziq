@@ -11,7 +11,7 @@ import {
 } from "@/engines/project";
 
 export const LAYER_DOCUMENT_EDITOR_PROJECT_ID =
-  "shortform-editor-project";
+  "umziq-project";
 const INITIAL_ROOT_LAYER_DOCUMENT_ID =
   "layer-document:project-root";
 
@@ -77,7 +77,7 @@ CreateLayerDocumentProjectOwnerOptions {
       schemaVersion:
         LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
       projectId: LAYER_DOCUMENT_EDITOR_PROJECT_ID,
-      name: "Shortform Editor Project",
+      name: "움직 프로젝트",
     },
     payload: {
       layerDocumentsById: {

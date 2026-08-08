@@ -136,7 +136,7 @@ adapter를 제공한다.
 - `actions/layerDocumentPsdRefreshTransaction.ts`: stable Source identity 기반 refresh
 - `actions/layerDocumentSourceDeleteTransaction.ts`: source/layer delete policy
 - `actions/layerDocumentSourceLifecycleTransactions.ts`: source replace/reconnect
-- `models/layerDocumentProjectPersistenceModel.ts`: `.sfep` envelope, 제한값, Load Candidate와 구조화 오류 계약
+- `models/layerDocumentProjectPersistenceModel.ts`: `.ziq` envelope, 제한값, Load Candidate와 구조화 오류 계약
 - `models/layerDocumentProjectLifecycleModel.ts`: document/dirty/operation 축, operation token과 lifecycle runtime port
 - `models/layerDocumentProjectBrowserWriteModel.ts`: native handle/Blob download capability와 Runtime write target 계약
 - `models/layerDocumentProjectSaveModel.ts`: Save/Save As controller 결과와 오류 계약
@@ -145,7 +145,7 @@ adapter를 제공한다.
 - `models/layerDocumentSourceRuntimeResolutionModel.ts`: unresolved/resolving/available/missing/error와 File/Handle/permission runtime port
 - `adapters/layerDocumentProjectPersistenceCodec.ts`: canonical UTF-8 Save와 container dispatch/schema migration/normalize/validation Load
 - `adapters/layerDocumentProjectBrowserWriteAdapter.ts`: native file picker/write와 Blob download fallback
-- `adapters/layerDocumentProjectBrowserOpenAdapter.ts`: native open picker와 hidden `.sfep` file input fallback
+- `adapters/layerDocumentProjectBrowserOpenAdapter.ts`: native open picker와 hidden `.ziq` file input fallback
 - `adapters/layerDocumentProjectLinkedSourcePreparationAdapter.ts`: 저장된 PSD identity로 새 pixel Runtime 재생성
 - `adapters/layerDocumentProjectReconnectBrowserAdapter.ts`: document Source 확장자 기준 native/hidden-input 파일 재지정
 - `controllers/layerDocumentProjectLifecycleController.ts`: canonical savepoint, stale operation 폐기와 검증 후 Replace 조정
@@ -369,7 +369,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - owner transaction/history/selection
 - duplicate/group/animation/effect/modifier
 - PSD import/refresh/source lifecycle/runtime GC
-- `.sfep` canonical round trip/container·schema migration/input-limit 거부
+- `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/PSD Tree public port integration
 - pure Animation public entry의 keyframe/evaluation/frame conversion/modifier/motion-path 계산

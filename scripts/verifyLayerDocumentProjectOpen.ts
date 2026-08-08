@@ -9,7 +9,7 @@ import {
   createLayerDocumentProjectOpenController,
   createLayerDocumentProjectOwnerState,
   createLayerDocumentSourceRuntimeResolutionStore,
-  saveLayerDocumentProjectToSfep,
+  saveLayerDocumentProjectToZiq,
   reduceLayerDocumentProjectOwner,
   type LayerDocumentProjectOpenFileHandle,
   type LayerDocumentProjectOwnerAction,
@@ -106,10 +106,10 @@ function projectFixture(
 
 function projectFile(
   project: LayerDocumentProject,
-  fileName = "project.sfep"
+  fileName = "project.ziq"
 ) {
   const saved =
-    saveLayerDocumentProjectToSfep(project);
+    saveLayerDocumentProjectToZiq(project);
   assert.equal(saved.ok, true);
   if (!saved.ok) throw new Error(saved.error.message);
   return new File(
@@ -326,7 +326,7 @@ const beforeFailureProject =
   fixture.owner.state.currentProject;
 const beforeFailureTarget = saveTarget;
 pickerQueue.push(openHandle(
-  invalidFile("{broken", "broken.sfep")
+  invalidFile("{broken", "broken.ziq")
 ));
 const corrupt = await openController.open();
 assert.equal(corrupt.ok, false);
@@ -348,7 +348,7 @@ const futureEnvelope = JSON.parse(
 futureEnvelope.project.metadata.schemaVersion = 99;
 pickerQueue.push(openHandle(invalidFile(
   JSON.stringify(futureEnvelope),
-  "future.sfep"
+  "future.ziq"
 )));
 const future = await openController.open();
 assert.equal(future.ok, false);
@@ -410,9 +410,9 @@ const staleProject =
 const latestProject =
   projectFixture("latest-load", "Latest Load");
 const staleHandle =
-  openHandle(projectFile(staleProject, "stale.sfep"));
+  openHandle(projectFile(staleProject, "stale.ziq"));
 const latestHandle =
-  openHandle(projectFile(latestProject, "latest.sfep"));
+  openHandle(projectFile(latestProject, "latest.ziq"));
 const firstPreparationGate = deferred();
 blockedPreparation = firstPreparationGate;
 pickerQueue.push(staleHandle, latestHandle);
@@ -475,7 +475,7 @@ if (fallbackSelection.ok) {
     null
   );
 }
-assert.equal(fallbackAccept, ".sfep");
+assert.equal(fallbackAccept, ".ziq");
 const cancelledFallback =
   createLayerDocumentProjectBrowserOpenAdapter({
     chooseFileWithHiddenInput: async () => null,

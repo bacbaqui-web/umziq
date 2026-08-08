@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type {
   ProjectLifecycleUiCommandPort,
   ProjectLifecycleUiViewModel,
@@ -14,6 +15,8 @@ export function ProjectLifecycleBar({
   viewModel,
   commands,
 }: ProjectLifecycleBarProps) {
+  const directoryInputRef =
+    useRef<HTMLInputElement | null>(null);
   const busy = viewModel.commandsDisabled;
   const status =
     viewModel.operation === "saving"
@@ -29,10 +32,37 @@ export function ProjectLifecycleBar({
         <button
           className="ui-button"
           disabled={busy}
-          onClick={() => void commands.newProject()}
+          onClick={() => directoryInputRef.current?.click()}
         >
           새 프로젝트
         </button>
+        <input
+          ref={(input) => {
+            directoryInputRef.current = input;
+            input?.setAttribute("webkitdirectory", "");
+            input?.setAttribute("directory", "");
+          }}
+          type="file"
+          accept=".psd"
+          multiple
+          style={{ display: "none" }}
+          onChange={(event) => {
+            const files = Array.from(
+              event.currentTarget.files ?? []
+            )
+              .filter((file) => /\.psd$/i.test(file.name))
+              .sort((left, right) =>
+                (left.webkitRelativePath || left.name)
+                  .localeCompare(
+                    right.webkitRelativePath || right.name
+                  )
+              );
+            if (event.currentTarget.files) {
+              void commands.newProject(files);
+            }
+            event.currentTarget.value = "";
+          }}
+        />
         <button
           className="ui-button"
           disabled={busy}

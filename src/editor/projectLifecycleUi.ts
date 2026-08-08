@@ -27,7 +27,9 @@ export interface ProjectLifecycleUiViewModel {
 
 export interface ProjectLifecycleUiCommandPort {
   readonly read: () => ProjectLifecycleUiViewModel;
-  readonly newProject: () => Promise<void>;
+  readonly newProject: (
+    psdFiles?: readonly File[]
+  ) => Promise<void>;
   readonly openProject: () => Promise<void>;
   readonly saveProject: () => Promise<void>;
   readonly saveProjectAs: () => Promise<void>;
@@ -54,6 +56,9 @@ export function createProjectLifecycleUiCommandPort(
       LayerDocumentProjectReconnectController;
     readonly createNewProject: () =>
       LayerDocumentProject;
+    readonly importPsdFiles?: (
+      files: readonly File[]
+    ) => Promise<boolean>;
     readonly confirmDiscard: (
       intent: DestructiveIntent
     ) => boolean | Promise<boolean>;
@@ -151,8 +156,50 @@ export function createProjectLifecycleUiCommandPort(
         notice,
       };
     },
-    newProject: () =>
-      replaceWithBlank("new-project"),
+    newProject: async (psdFiles) => {
+      if (psdFiles && psdFiles.length === 0) {
+        setNotice({
+          tone: "warning",
+          code: "no-psd-files",
+          message: "선택한 폴더에 PSD 파일이 없습니다.",
+        });
+        return;
+      }
+      if (!await confirmIfDirty("new-project")) return;
+      const replaced =
+        options.lifecycle.replaceProject({
+          project: options.createNewProject(),
+          document: "untitled",
+        });
+      if (!replaced.ok) {
+        setNotice({
+          tone: "error",
+          code: replaced.error.code,
+          message: replaced.error.message,
+        });
+        return;
+      }
+      options.save.commitTarget(null);
+      if (psdFiles && options.importPsdFiles) {
+        const imported =
+          await options.importPsdFiles(psdFiles);
+        setNotice({
+          tone: imported ? "info" : "error",
+          code: imported
+            ? "new-project"
+            : "psd-import-failed",
+          message: imported
+            ? `새 프로젝트에 PSD ${psdFiles.length}개를 불러왔습니다.`
+            : "새 프로젝트를 만들었지만 PSD를 불러오지 못했습니다.",
+        });
+        return;
+      }
+      setNotice({
+        tone: "info",
+        code: "new-project",
+        message: "새 프로젝트를 만들었습니다.",
+      });
+    },
     openProject: async () => {
       if (!await confirmIfDirty("open-project")) {
         return;

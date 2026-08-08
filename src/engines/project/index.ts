@@ -58,8 +58,8 @@ export {
   createLayerDocumentProjectReconnectController,
 } from "@/engines/project/controllers/layerDocumentProjectReconnectController";
 export {
-  loadLayerDocumentProjectFromSfep,
-  saveLayerDocumentProjectToSfep,
+  loadLayerDocumentProjectFromZiq,
+  saveLayerDocumentProjectToZiq,
 } from "@/engines/project/adapters/layerDocumentProjectPersistenceCodec";
 export {
   LAYER_DOCUMENT_PROJECT_CONTAINER_VERSION,

@@ -11,8 +11,8 @@ import {
   LAYER_DOCUMENT_PROJECT_MAX_JSON_BYTES,
   LAYER_DOCUMENT_PROJECT_MAX_JSON_NESTING,
   LAYER_DOCUMENT_PROJECT_MAX_SOURCE_COUNT,
-  loadLayerDocumentProjectFromSfep,
-  saveLayerDocumentProjectToSfep,
+  loadLayerDocumentProjectFromZiq,
+  saveLayerDocumentProjectToZiq,
   type LayerDocumentProjectPersistenceErrorCode,
 } from "@/engines/project";
 
@@ -157,7 +157,7 @@ function expectLoadError(
   code: LayerDocumentProjectPersistenceErrorCode
 ) {
   const result =
-    loadLayerDocumentProjectFromSfep(bytes);
+    loadLayerDocumentProjectFromZiq(bytes);
   assert.equal(result.ok, false);
   if (result.ok) {
     throw new Error(`Expected ${code}`);
@@ -182,7 +182,7 @@ function encodeEnvelope(project: unknown) {
 const current = projectFixture();
 const currentSnapshot = structuredClone(current);
 const saved =
-  saveLayerDocumentProjectToSfep(current);
+  saveLayerDocumentProjectToZiq(current);
 assert.equal(saved.ok, true);
 if (!saved.ok) {
   throw new Error(saved.error.message);
@@ -212,7 +212,7 @@ assert.ok(
 );
 
 const loaded =
-  loadLayerDocumentProjectFromSfep(saved.value);
+  loadLayerDocumentProjectFromZiq(saved.value);
 assert.equal(loaded.ok, true);
 if (!loaded.ok) {
   throw new Error(loaded.error.message);
@@ -252,7 +252,7 @@ assert.equal(
 
 const nonCanonicalBytes = encodeEnvelope(current);
 const nonCanonicalLoad =
-  loadLayerDocumentProjectFromSfep(
+  loadLayerDocumentProjectFromZiq(
     nonCanonicalBytes
   );
 assert.equal(nonCanonicalLoad.ok, true);
@@ -260,7 +260,7 @@ if (!nonCanonicalLoad.ok) {
   throw new Error(nonCanonicalLoad.error.message);
 }
 const canonicalResave =
-  saveLayerDocumentProjectToSfep(
+  saveLayerDocumentProjectToZiq(
     nonCanonicalLoad.value.project
   );
 assert.equal(canonicalResave.ok, true);
@@ -306,7 +306,7 @@ legacyProject.payload.sourceRegistry.sourcesById[
   },
 };
 const migratedLoad =
-  loadLayerDocumentProjectFromSfep(
+  loadLayerDocumentProjectFromZiq(
     encodeEnvelope(legacyProject)
   );
 assert.equal(migratedLoad.ok, true);
@@ -458,7 +458,7 @@ for (
   projectWithRuntimeObject.runtimeObject =
     runtimeValue;
   const runtimeSave =
-    saveLayerDocumentProjectToSfep(
+    saveLayerDocumentProjectToZiq(
       projectWithRuntimeObject
     );
   assert.equal(runtimeSave.ok, false);
@@ -482,7 +482,7 @@ for (
     currentFrame: 42,
   };
   const result =
-    saveLayerDocumentProjectToSfep(
+    saveLayerDocumentProjectToZiq(
       projectWithSessionData
     );
   assert.equal(result.ok, false);

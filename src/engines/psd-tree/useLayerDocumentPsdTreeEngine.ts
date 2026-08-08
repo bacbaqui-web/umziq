@@ -296,7 +296,8 @@ export function useLayerDocumentPsdTreeEngine(options: {
   );
 
   const prepareImports = useCallback(async (
-    files: readonly File[]
+    files: readonly File[],
+    confirmImmediately = false
   ) => {
     const sequence = session.begin();
     setStatus("analyzing");
@@ -315,7 +316,7 @@ export function useLayerDocumentPsdTreeEngine(options: {
         }));
         if (sequence !== session.readSequence()) {
           prepared.forEach(options.controller.cancelImport);
-          return;
+          return false;
         }
       }
     } catch {
@@ -324,13 +325,41 @@ export function useLayerDocumentPsdTreeEngine(options: {
         setStatus("idle");
         setError("PSD 분석에 실패했습니다.");
       }
-      return;
+      return false;
     }
     const accepted =
       session.acceptImports(sequence, prepared);
-    if (!accepted.accepted) return;
-    setPlans(prepared);
-    setStatus(prepared.length ? "review" : "idle");
+    if (!accepted.accepted) return false;
+    if (!confirmImmediately) {
+      setPlans(prepared);
+      setStatus(prepared.length ? "review" : "idle");
+      return prepared.length > 0;
+    }
+    setStatus("importing");
+    for (const plan of prepared) {
+      let result = options.controller.confirmImport(plan);
+      if (
+        !result.ok &&
+        plan.prepared.runtime.readState() ===
+          "runtime-registration-pending"
+      ) {
+        result = options.controller.confirmImport(plan);
+      }
+      if (!result.ok) {
+        prepared
+          .slice(prepared.indexOf(plan) + 1)
+          .forEach(options.controller.cancelImport);
+        setStatus("idle");
+        setError("PSD 불러오기에 실패했습니다.");
+        return false;
+      }
+    }
+    const completed = session.read();
+    if (completed) session.clearTransferred(completed);
+    setPlans([]);
+    setStatus("idle");
+    setError(null);
+    return true;
   }, [options, session]);
 
   const prepareRefresh = useCallback(async (
@@ -495,5 +524,10 @@ export function useLayerDocumentPsdTreeEngine(options: {
     onMoveImportNode: moveNode,
     onDismissRefreshSummary: () => setSummary(null),
   };
-  return { viewProps, session };
+  const importFiles = useCallback(
+    (files: readonly File[]) =>
+      prepareImports(files, true),
+    [prepareImports]
+  );
+  return { viewProps, session, importFiles };
 }

@@ -1,5 +1,5 @@
 import {
-  saveLayerDocumentProjectToSfep,
+  saveLayerDocumentProjectToZiq,
 } from "@/engines/project/adapters/layerDocumentProjectPersistenceCodec";
 import type {
   LayerDocumentProject,
@@ -39,9 +39,9 @@ function suggestedFileName(
     .join("")
     .replace(/\.+$/g, "")
     .slice(0, 120) || "untitled";
-  return base.toLowerCase().endsWith(".sfep")
+  return base.toLowerCase().endsWith(".ziq")
     ? base
-    : `${base}.sfep`;
+    : `${base}.ziq`;
 }
 
 function activeTokenMatches(
@@ -74,7 +74,7 @@ export function createLayerDocumentProjectSaveController(
     const token =
       options.lifecycle.beginOperation("saving");
     const encoded =
-      saveLayerDocumentProjectToSfep(snapshot);
+      saveLayerDocumentProjectToZiq(snapshot);
     if (!encoded.ok) {
       options.lifecycle.finishOperation(token);
       return {

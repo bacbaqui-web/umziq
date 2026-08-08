@@ -1,5 +1,5 @@
 import {
-  saveLayerDocumentProjectToSfep,
+  saveLayerDocumentProjectToZiq,
 } from "@/engines/project/adapters/layerDocumentProjectPersistenceCodec";
 import type {
   CreateLayerDocumentProjectLifecycleOptions,
@@ -24,7 +24,7 @@ function canonicalProjectDigest(
   project: LayerDocumentProject
 ): LayerDocumentProjectLifecycleResult<string> {
   const encoded =
-    saveLayerDocumentProjectToSfep(project);
+    saveLayerDocumentProjectToZiq(project);
   if (!encoded.ok) {
     return {
       ok: false,

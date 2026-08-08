@@ -11,11 +11,11 @@ function createDefaultProjectId() {
   const randomUuid =
     globalThis.crypto?.randomUUID;
   if (randomUuid) {
-    return `shortform-project:${randomUuid.call(globalThis.crypto)}`;
+    return `umziq-project:${randomUuid.call(globalThis.crypto)}`;
   }
   fallbackProjectIdSequence += 1;
   return [
-    "shortform-project",
+    "umziq-project",
     Date.now().toString(36),
     fallbackProjectIdSequence.toString(36),
     Math.random().toString(36).slice(2),

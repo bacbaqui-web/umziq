@@ -61,6 +61,7 @@ let notifications = 0;
 let saveFailure = false;
 let openFailure = false;
 let reconnectConfirmation = false;
+let importedPsdFileNames: readonly string[] = [];
 const replacedProjectIds: string[] = [];
 
 const lifecycle = {
@@ -197,6 +198,12 @@ const commands =
     reconnect,
     createNewProject:
       createDeterministicProject,
+    importPsdFiles: async (files) => {
+      importedPsdFileNames = files.map(
+        (file) => file.name
+      );
+      return true;
+    },
     confirmDiscard: () => {
       confirmations += 1;
       return confirmResult;
@@ -237,6 +244,26 @@ assert.notEqual(
     newProjectIds[1]!,
     "locator:shared"
   )
+);
+
+const replacementsBeforeEmptyFolder = replacements;
+await commands.newProject([]);
+assert.equal(replacements, replacementsBeforeEmptyFolder);
+assert.equal(
+  commands.read().notice?.code,
+  "no-psd-files"
+);
+await commands.newProject([
+  new File([new Uint8Array([1])], "first.psd"),
+  new File([new Uint8Array([2])], "second.psd"),
+]);
+assert.deepEqual(
+  importedPsdFileNames,
+  ["first.psd", "second.psd"]
+);
+assert.equal(
+  commands.read().notice?.message,
+  "새 프로젝트에 PSD 2개를 불러왔습니다."
 );
 
 dirty = "dirty";

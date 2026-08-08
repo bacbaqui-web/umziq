@@ -324,7 +324,7 @@ function parseContainer(
   }
 }
 
-export function saveLayerDocumentProjectToSfep(
+export function saveLayerDocumentProjectToZiq(
   project: LayerDocumentProject
 ): LayerDocumentProjectPersistenceResult<Uint8Array> {
   const nonPlainDataPath = findNonPlainDataPath(project);
@@ -377,7 +377,7 @@ export function saveLayerDocumentProjectToSfep(
   return { ok: true, value: bytes };
 }
 
-export function loadLayerDocumentProjectFromSfep(
+export function loadLayerDocumentProjectFromZiq(
   bytes: Uint8Array
 ): LayerDocumentProjectPersistenceResult<
   LayerDocumentProjectLoadCandidate

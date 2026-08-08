@@ -127,7 +127,7 @@ export function createLayerDocumentProjectBrowserOpenAdapter(
         try {
           const file =
             await environment
-              .chooseFileWithHiddenInput(".sfep");
+              .chooseFileWithHiddenInput(".ziq");
           if (!file) {
             return failure(
                 "cancelled",
@@ -158,9 +158,9 @@ export function createLayerDocumentProjectBrowserOpenAdapter(
             multiple: false,
             types: [{
               description:
-                "Shortform Editor Project",
+                "UMZIQ Project",
               accept: {
-                "application/json": [".sfep"],
+                "application/json": [".ziq"],
               },
             }],
           });

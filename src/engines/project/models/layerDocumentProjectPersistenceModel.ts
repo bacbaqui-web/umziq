@@ -4,7 +4,7 @@ import type {
 } from "@/models";
 
 export const LAYER_DOCUMENT_PROJECT_FILE_FORMAT =
-  "shortform-editor-project" as const;
+  "umziq-project" as const;
 export const LAYER_DOCUMENT_PROJECT_CONTAINER_VERSION =
   1 as const;
 export const LAYER_DOCUMENT_PROJECT_MAX_JSON_BYTES =

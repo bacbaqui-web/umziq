@@ -1,4 +1,4 @@
-# Shortform Editor Constitution
+# 움직(UMZIQ) Constitution
 
 ## 1. 제품 철학
 

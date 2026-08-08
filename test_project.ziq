@@ -1,10 +1,10 @@
 {
   "containerVersion": 1,
-  "format": "shortform-editor-project",
+  "format": "umziq-project",
   "project": {
     "metadata": {
-      "name": "Shortform Editor Project",
-      "projectId": "shortform-project:c22b358f-b2ed-4ed0-a3c5-e23fe8e7996b",
+      "name": "움직 프로젝트",
+      "projectId": "umziq-project:c22b358f-b2ed-4ed0-a3c5-e23fe8e7996b",
       "schemaVersion": 2
     },
     "payload": {

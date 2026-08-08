@@ -95,9 +95,9 @@ export function createLayerDocumentProjectBrowserWriteAdapter(
             suggestedName: suggestedFileName,
             types: [{
               description:
-                "Shortform Editor Project",
+                "UMZIQ Project",
               accept: {
-                "application/json": [".sfep"],
+                "application/json": [".ziq"],
               },
             }],
           });

@@ -109,6 +109,9 @@ EditorShellLayoutProps {
       cacheContext:
         panelPorts.readPsdCacheContext,
     });
+  runtime.newProjectPsdImport.connect(
+    psdTree.importFiles
+  );
   const canvas =
     useLayerDocumentCanvasEngine({
       readPort: panelPorts.canvasRead,
