@@ -177,6 +177,115 @@ Group order, Timeline Runtime, Export Audio 경계를 실제 코드로 확정한
 - 기존 dirty worktree와 충돌 파일 확인
 - 추측성 compatibility layer 추가 0건
 
+### 조사 결과 — 완료
+
+- 조사 기준 commit은 `9758bc4`이며 Task 0 시작 시 worktree는 clean이었다.
+- 제품 코드는 변경하지 않았고 compatibility layer도 추가하지 않았다.
+
+#### Library rename manifest
+
+- Panel Engine 공개 경계는 `src/engines/psd-tree/index.ts`,
+  `models/psdTreeModel.ts`, `useLayerDocumentPsdTreeEngine.ts`와
+  `adapters/layerDocumentPsdPreparedSourceAdapter.ts`다.
+- Project Engine에 남은 Panel 이름 경계는
+  `controllers/layerDocumentPsdTreeController.ts`,
+  `models/layerDocumentSourcePreparationModel.ts`의 `PsdTree*` read/selection
+  이름과 `helpers/layerDocumentSourceTreeHelpers.ts`다.
+- Panel view 경계는 `src/features/psdtree/components/PsdTree.tsx`,
+  `PsdTreeNode.tsx`, `PsdImportPreviewDialog.tsx`와
+  `PsdRefreshSummaryCard.tsx`다. PSD import/refresh dialog는 Library 안의 PSD
+  기능 이름으로 유지할 수 있지만 Panel/폴더/공개 props 이름은 Library로
+  바꿔야 한다.
+- 직접 caller는 `src/editor/useLayerDocumentPanelEnginePorts.ts`,
+  `useEditorCompositionRoot.ts`, `EditorShellLayout.tsx`다.
+  `useLayerDocumentEditorRuntime.ts`의 `newProjectPsdImport` bridge는 PSD import
+  기능 경계이므로 Library rename과 별개로 유지한다.
+- `PsdTreeSourceSelection`은 `src/models/layerDocumentSelectionModel.ts`부터
+  Project Owner helper/adapter까지 Source 선택 identity로 누출되어 있다.
+  같은 Audio Source를 여러 Cut에 배치하려면 Library 행 선택은
+  `layerDocumentId`, Source file 선택은 `sourceId`로 분리해야 한다.
+- 관련 verification은 `scripts/verifyEngineImportBoundaries.ts`,
+  `verifyLayerDocumentConsumerPorts.ts`, `verifyLayerDocumentEditorRoot.ts`,
+  `verifyLayerDocumentProjectOwner.ts`,
+  `verifyLayerDocumentPsdTreeController.ts`와
+  `verifyLayerDocumentSourcePreparation.ts`다.
+
+#### 현재 Cut과 순서
+
+- PSD import는 `src/engines/project/import/layerDocumentPsdImportAdapter.ts`에서
+  PSD document Source를 참조하는 `role: "composition"` Group을 만들고,
+  그 Group의 `common.placement.parentLayerDocumentId`와 `order`를 import 대상
+  Group 아래에 저장한다. 이 최상위 composition Group이 Cut identity와 실제
+  placement order로 재사용 가능하다.
+- 하지만 현재 Library 후보 read model은
+  `buildPsdSourceTreeReadModel()`에서 PSD document를 `displayName/sourceId`로
+  정렬한다. `createLayerDocumentPsdTreeController()`도 Registry에는 order가
+  없다는 전제로 이 순서를 canonical이라고 명시하며, confirmed tree의
+  `canReorder`는 항상 false이고 drag handler는 no-op이다.
+- 따라서 Task 1은 rename-only로 제한하고 순서 원본 전환은 하지 않는다.
+  Cut order UI는 이후 Task에서 top-level composition Group의 placement order를
+  직접 projection/transaction하는 계약으로 추가해야 한다.
+
+#### Audio schema와 Panel port
+
+- `src/models/layerDocumentModel.ts`의 Audio Source는 현재
+  `mimeType`, `durationFrames`만 저장하며 Audio Layer data는 빈 object다.
+  structure/source validation과 schema 1→2 migration도 이 최소 shape만
+  허용한다.
+- `src/layer-types/audioSupport.ts`의 query는 `dataSchema: "empty"`,
+  command preparation은 `audio-domain-data-empty` unsupported만 반환한다.
+- Properties descriptor에는 Audio type projection과 unsupported domain command
+  분기가 이미 있지만 Audio 전용 기본 property/effect view 계약은 없다.
+- Source tree는 Audio/Video/Unknown을 이미 `nonPsdSources` resource leaf로
+  읽지만 Cut 아래 Audio Layer placement를 표현하지 못한다. Library public
+  node에는 최소 `sourceKind`, `layerDocumentId`, `parentLayerDocumentId`,
+  provenance와 type별 action capability가 필요하다.
+
+#### Source와 Audio Runtime 경계
+
+- Source import/refresh/reconnect/delete의 저장 경계는
+  `LayerDocumentSourcePreparationPort`와 Project Owner source transaction이다.
+  현재 `prepareSourceRegistryImport()`는 PSD document/node만 받아 Audio import를
+  거부하므로 Task 2/3에서 범용 import 계약 또는 별도 Audio preparation을
+  명시적으로 연결해야 한다.
+- linked-file locator, fingerprint, resolution store와 reconnect file picker는
+  Audio kind를 수용한다. 반면
+  `LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION`은 PSD document 외 kind를
+  모두 unsupported로 반환하므로 Audio save/open/reconnect 준비가 새로 필요하다.
+- 현재 `LayerDocumentSourceRuntimeResourcePort`는 source별 register/invalidate,
+  suspend/restore와 dispose-once를 제공하지만 PSD logical-size resource와
+  `createPsdResolver()`를 전제로 한다. AudioBuffer, waveform과 audition state는
+  이 visual cache에 억지로 넣지 않고 별도 Editor Audio Runtime port로 둔다.
+- Audio Runtime 공개 port의 최소 후보는 resource
+  `prepare/register/resolve/invalidate/dispose`, audition
+  `play/stop/read/subscribe`, Timeline sync 입력이다. Project/History에는
+  `File`, `AudioBuffer`, `AudioContext`, `AudioNode`를 넣지 않는다.
+
+#### Timeline clock과 Export Audio 경계
+
+- `createLayerDocumentTimelinePlaybackRuntime()`이 current frame, range,
+  transport와 repeating clock의 단일 owner다. 공개 port는
+  `read/subscribe`와 `play/pause/toggle/seek/step/reset/setRange`를 제공한다.
+  Audio Runtime은 이 port를 구독해야 하며 별도 current-frame owner를 만들면
+  안 된다.
+- 현재 `src/editor/projectExport.ts`는 Canvas frame만 렌더하고
+  `canvas.captureStream()`의 video track만 MediaRecorder에 전달한다.
+  MP4/WebM Audio track, offline Audio effect render와 mux 경계는 없다.
+- GIF/WebP는 본질적으로 무음으로 유지한다. MP4/WebM은 이후 Export lifecycle에
+  Audio render/stream port를 주입하고 video/audio가 같은 frame range와
+  frameRate 의미를 사용하도록 확장해야 한다.
+
+#### Task 1 고정 범위와 위험
+
+- Task 1은 Panel/Engine/model/view/public prop와 verification의 Library rename만
+  수행하고 PSD import/refresh 제품 용어는 기능 이름으로 유지한다.
+- Source selection을 성급하게 Layer selection으로 통합하거나 Cut ordering을
+  함께 구현하지 않는다. 둘은 Audio의 shared Source/multiple placement 계약이
+  정해지는 Task 2 이후에 변경한다.
+- 가장 큰 위험은 문자열 치환으로 `psd` 기능 이름까지 지워 PSD import 경계를
+  흐리는 것, 그리고 `PsdTreeSourceSelection`을 compatibility alias로 남겨 active
+  product의 이중 이름을 만드는 것이다.
+
 ---
 
 ## Task 1 — PSD Tree를 Library로 책임 전환
