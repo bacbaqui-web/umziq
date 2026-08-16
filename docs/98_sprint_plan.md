@@ -3,7 +3,7 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~11 완료
+- Task 0~12 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
 - Browser QA 미실행
@@ -801,6 +801,30 @@ Timeline 배치와 effect chain이 적용된 Audio를 기존 영상 출력에 �
 - muted/out-of-range Audio 제외
 - 원본 decode 또는 encode 실패 시 불완전 파일을 성공으로 보고하지 않음
 - Export 완료/취소/실패에서 encoder와 Audio resource 정리
+
+### 구현 결과
+
+- 현재 Timeline/Canvas의 active Group을 export 범위로 사용한다. composition Cut을 출력하면
+  Cut-local 시간이 되고, project-root를 출력하면 ancestor Cut의 canonical placement start와
+  각 Audio placement start를 합쳐 Project 시간으로 투영한다. placement order는 sibling 순회를
+  결정하며 기존 visual hierarchy/order는 변경하지 않는다.
+- visible이며 mute되지 않은 Audio만 Source Runtime public resolver에서 decoded 원본을 읽는다.
+  start/duration/sourceOffset과 ancestor clip을 적용하고 gain, fade in/out, ordered
+  compressor/reverb/delay/noise-gate graph를 각 Layer별로 구성한다. 필요한 Source가 missing이거나
+  decoded Audio가 아니면 불완전한 파일을 저장하지 않고 실패한다.
+- MP4/WebM은 Canvas capture video track과 Web Audio `MediaStreamDestination` audio track을
+  하나의 MediaStream으로 MediaRecorder에 전달한다. audio codec 조합을 우선 feature-detect하고
+  full-resolution Accurate visual renderer는 그대로 유지한다. GIF/animated WebP 경로에는 Audio
+  Runtime을 만들지 않으며 UI에도 소리가 없다고 표시한다.
+- 영상 frame scheduling은 Audio가 있으면 AudioContext currentTime 하나를 기준으로 하고,
+  Audio가 없으면 monotonic performance clock을 쓴다. fixed-delay 누적 방식 대신 각 frame의 절대
+  deadline을 기다려 장시간 A/V drift를 줄인다.
+- 완료/취소/Recorder 오류/render 오류에서 Source/effect/gain/destination node, AudioContext,
+  visual/audio stream track과 Recorder listener를 정리한다. 출력 Dialog의 ‘출력 취소’는
+  AbortSignal로 진행 중 Runtime을 중단하며 incomplete Blob은 저장하지 않는다.
+- pure/fake 검증은 Cut/Project timing, source offset, ancestor clip, fade/gain, mute/visible,
+  missing Source, ordered effects, video/audio track 결합, no-audio stream과 MediaRecorder 취소 시
+  track cleanup을 확인한다.
 
 ---
 

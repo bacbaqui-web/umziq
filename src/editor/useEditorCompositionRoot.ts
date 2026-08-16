@@ -234,12 +234,15 @@ EditorShellLayoutProps {
           runtime.sourceResolution.read(sourceId).status,
         cameraScalePercent:
           canvasState.cameraScalePercent,
+        activeGroupLayerDocumentId:
+          scope.model.activeGroupLayerDocumentId,
       }),
     [
       canvasState.cameraScalePercent,
       runtime.owner,
       runtime.resources,
       runtime.sourceResolution,
+      scope.model.activeGroupLayerDocumentId,
     ]
   );
   return {
@@ -295,7 +298,7 @@ EditorShellLayoutProps {
           scope.model.activeGroup.data.durationFrames,
         frameRate:
           scope.model.activeGroup.data.frameRate,
-        run: (format, destination, onProgress) =>
+        run: (format, destination, onProgress, signal) =>
           exportProject({
             format,
             projectName:
@@ -303,12 +306,18 @@ EditorShellLayoutProps {
             renderFrame:
               fullResolutionProjectRenderer,
             playback: runtime.playback,
+            project: runtime.owner.state.currentProject,
+            exportGroupLayerDocumentId:
+              scope.model.activeGroupLayerDocumentId,
+            resolveAudioResource: (sourceId) =>
+              runtime.audio.resources.resolve(sourceId),
             durationFrames:
               scope.model.activeGroup.data.durationFrames,
             frameRate:
               scope.model.activeGroup.data.frameRate,
             onProgress,
             destination,
+            signal,
           }),
       },
     },

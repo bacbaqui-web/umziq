@@ -59,7 +59,8 @@ export type ProjectLifecycleBarProps = {
     readonly run: (
       format: ProjectExportFormat,
       destination: ProjectExportDestination | null,
-      onProgress: (progress: ProjectExportProgress) => void
+      onProgress: (progress: ProjectExportProgress) => void,
+      signal: AbortSignal,
     ) => Promise<void>;
   };
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   isProjectExportFormatSupported,
@@ -16,7 +16,8 @@ export type ProjectExportDialogProps = {
   readonly onExport: (
     format: ProjectExportFormat,
     destination: ProjectExportDestination | null,
-    onProgress: (progress: ProjectExportProgress) => void
+    onProgress: (progress: ProjectExportProgress) => void,
+    signal: AbortSignal,
   ) => Promise<void>;
 };
 
@@ -52,6 +53,7 @@ export function ProjectExportDialog({
   const [error, setError] = useState<string | null>(null);
   const [destination, setDestination] =
     useState<ProjectExportDestination | null>(null);
+  const abortController = useRef<AbortController | null>(null);
   const busy = progress !== null;
   const videoExtension = projectVideoExtension(format);
   const formatSupported = isProjectExportFormatSupported(format);
@@ -66,14 +68,19 @@ export function ProjectExportDialog({
   }, [busy, onCancel]);
 
   const runExport = async () => {
+    const controller = new AbortController();
+    abortController.current = controller;
     setError(null);
     setProgress({ completedFrames: 0, totalFrames: durationFrames });
     try {
-      await onExport(format, destination, setProgress);
+      await onExport(format, destination, setProgress, controller.signal);
       onCancel();
     } catch (reason) {
       setProgress(null);
-      setError(reason instanceof Error ? reason.message : "출력에 실패했습니다.");
+      if (reason instanceof DOMException && reason.name === "AbortError") onCancel();
+      else setError(reason instanceof Error ? reason.message : "출력에 실패했습니다.");
+    } finally {
+      abortController.current = null;
     }
   };
   const chooseDestination = async () => {
@@ -137,7 +144,7 @@ export function ProjectExportDialog({
             <input type="radio" name="export-format" checked={format === "mp4"} disabled={busy || !isProjectExportFormatSupported("mp4")} onChange={() => setFormat("mp4")} />
             <span>
               <strong>일반 영상 MP4</strong>
-              <small>유튜브·인스타그램 등 SNS 게시용입니다. 투명 영역은 흰색 배경으로 출력됩니다.</small>
+              <small>유튜브·인스타그램 등 SNS 게시용입니다. 소리가 함께 저장되고 투명 영역은 흰색 배경으로 출력됩니다.</small>
             </span>
           </label>
           <button
@@ -167,7 +174,7 @@ export function ProjectExportDialog({
             <input type="radio" name="export-format" checked={format === "webm-alpha"} disabled={busy || !isProjectExportFormatSupported("webm-alpha")} onChange={() => setFormat("webm-alpha")} />
             <span>
               <strong>투명 배경 영상 WebM</strong>
-              <small>배경이 투명한 영상으로 저장됩니다. 다른 영상이나 이미지 위에 자연스럽게 겹쳐 사용할 수 있습니다.</small>
+              <small>배경이 투명하고 소리가 포함된 영상입니다. 다른 영상이나 이미지 위에 자연스럽게 겹쳐 사용할 수 있습니다.</small>
             </span>
           </label>}
           {(showOtherFormats || format === "gif") && <label className={`project-export-option ${format === "gif" ? "project-export-option--selected" : ""}`}>
@@ -193,7 +200,7 @@ export function ProjectExportDialog({
           {error && <p className="project-export-error">{error}</p>}
         </main>
         <footer className="new-project-dialog__actions">
-          <button className="ui-button" type="button" disabled={busy} onClick={onCancel}>취소</button>
+          <button className="ui-button" type="button" onClick={() => busy ? abortController.current?.abort() : onCancel()}>{busy ? "출력 취소" : "취소"}</button>
           <button className="ui-button ui-button--primary" type="button" disabled={busy || !formatSupported} onClick={() => void runExport()}>
             {busy ? "출력 중" : "출력하기"}
           </button>

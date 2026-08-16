@@ -137,7 +137,7 @@ class UmziqNoiseGateProcessor extends AudioWorkletProcessor {
 registerProcessor("umziq-noise-gate", UmziqNoiseGateProcessor);
 `;
 
-async function prepareNoiseGateWorklet(context: AudioContext) {
+export async function prepareNoiseGateWorklet(context: AudioContext) {
   if (!context.audioWorklet || typeof AudioWorkletNode === "undefined" || typeof Blob === "undefined") return null;
   const url = URL.createObjectURL(new Blob([NOISE_GATE_WORKLET_SOURCE], { type: "text/javascript" }));
   try {

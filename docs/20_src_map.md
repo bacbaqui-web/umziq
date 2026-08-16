@@ -86,6 +86,12 @@ Audio import 준비와 Runtime 경계:
   playback adapter. handle 종료 때 processing callback, node와 AudioContext를 정리한다.
 - `editor/audio-runtime/noiseGateDsp.ts`: `소음 줄이기` strength를
   threshold/attack/release/floor로 해석하고 linked-channel envelope를 처리하는 pure DSP
+- `editor/projectExportAudio.ts`: 현재 export Group 아래 Audio의 Cut/Layer placement를
+  export 시간으로 투영하고 source offset, gain/fade, ordered effects를 Web Audio
+  `MediaStreamDestination` mix로 만드는 경계
+- `editor/projectExportVideoRuntime.ts`: Accurate visual capture track과 Audio mix track을
+  단일 MediaRecorder stream으로 묶고 AudioContext clock 기준 frame scheduling, cancel/error
+  cleanup을 소유하는 영상 출력 Runtime
 - `editor/audio-runtime/editorAudioRuntimeModel.ts`: fake backend로도 검증 가능한
   audition/backend/Runtime public port
 - `engines/audio-effects/`: 독립 Audio Effects Panel Engine의 catalog, Runtime

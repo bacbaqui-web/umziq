@@ -2,6 +2,12 @@ import type { LayerDocumentTimelineRuntimePort } from "@/engines/timeline";
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 import type { LayerDocumentProject } from "@/models";
 import {
+  buildProjectExportAudioClips,
+  createProjectExportAudioMix,
+  type ProjectExportAudioResource,
+} from "@/editor/projectExportAudio";
+import { recordProjectVideo } from "@/editor/projectExportVideoRuntime";
+import {
   createReusableAccurateSurfaceFactory,
   drawRenderCommandsToContext,
   evaluateLayerDocumentFrame,
@@ -35,6 +41,10 @@ export type ProjectExportOptions = {
   readonly frameRate: number;
   readonly onProgress: (progress: ProjectExportProgress) => void;
   readonly destination: ProjectExportDestination | null;
+  readonly project: LayerDocumentProject;
+  readonly exportGroupLayerDocumentId: string;
+  readonly resolveAudioResource: (sourceId: string) => ProjectExportAudioResource | null;
+  readonly signal?: AbortSignal;
 };
 
 const OUTPUT_WIDTH = 1080;
@@ -212,6 +222,7 @@ export function createFullResolutionProjectRenderer(options: {
   readonly resources: LayerDocumentSourceRuntimeResourcePort;
   readonly readSourceResolutionStatus: LayerDocumentSourceResolutionStatusReader;
   readonly cameraScalePercent: number;
+  readonly activeGroupLayerDocumentId: string;
 }) {
   const resolvePsdSource = options.resources.createPsdResolver();
   const surfaces = createReusableAccurateSurfaceFactory();
@@ -229,7 +240,7 @@ export function createFullResolutionProjectRenderer(options: {
     }
     const evaluated = evaluateLayerDocumentFrame({
       project,
-      activeGroupLayerDocumentId: root.layerDocumentId,
+      activeGroupLayerDocumentId: options.activeGroupLayerDocumentId,
       globalFrame,
       sourceSamplingQuality: "original",
       resolvePsdSource,
@@ -312,10 +323,16 @@ async function saveBlob(
   downloadBlob(blob, fileName);
 }
 
-function videoType(format: ProjectExportFormat) {
+function videoType(format: ProjectExportFormat, includeAudio = true) {
   const candidates = format === "mp4"
-    ? ["video/mp4;codecs=avc1", "video/mp4"]
-    : ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+    ? [
+        ...(includeAudio ? ["video/mp4;codecs=avc1,mp4a.40.2"] : []),
+        "video/mp4;codecs=avc1", "video/mp4",
+      ]
+    : [
+        ...(includeAudio ? ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus"] : []),
+        "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm",
+      ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
 }
 
@@ -336,6 +353,9 @@ export async function exportProject(options: ProjectExportOptions) {
   output.width = OUTPUT_WIDTH;
   output.height = OUTPUT_HEIGHT;
   options.playback.commands.pause();
+  const throwIfAborted = () => {
+    if (options.signal?.aborted) throw new DOMException("출력이 취소되었습니다.", "AbortError");
+  };
 
   {
     const totalFrames = Math.max(1, Math.floor(options.durationFrames));
@@ -357,6 +377,7 @@ export async function exportProject(options: ProjectExportOptions) {
         (color) => color[3] === 0
       );
       for (let frame = 0; frame < totalFrames; frame += frameStep) {
+        throwIfAborted();
         await options.renderFrame(frame, output, true);
         const pixels = context.getImageData(0, 0, output.width, output.height).data;
         applyGifOrderedDither(pixels, output.width);
@@ -393,6 +414,7 @@ export async function exportProject(options: ProjectExportOptions) {
       );
       const frames: Array<{ chunks: Uint8Array; duration: number }> = [];
       for (let frame = 0; frame < totalFrames; frame += frameStep) {
+        throwIfAborted();
         await options.renderFrame(frame, output, true);
         frames.push({
           chunks: await encodeCanvasWebP(output),
@@ -423,37 +445,34 @@ export async function exportProject(options: ProjectExportOptions) {
     if (typeof MediaRecorder === "undefined" || !output.captureStream) {
       throw new Error("이 브라우저는 영상 출력을 지원하지 않습니다.");
     }
-    const mimeType = videoType(options.format);
+    throwIfAborted();
+    const audioClips = buildProjectExportAudioClips({
+      project: options.project,
+      exportGroupLayerDocumentId: options.exportGroupLayerDocumentId,
+      durationFrames: totalFrames,
+      frameRate,
+      resolveAudioResource: options.resolveAudioResource,
+    });
+    const mimeType = videoType(options.format, audioClips.length > 0);
     if (!mimeType) {
       throw new Error("이 브라우저는 선택한 영상 형식을 지원하지 않습니다.");
     }
-    const stream = output.captureStream(frameRate);
-    const recorder = new MediaRecorder(stream, {
-      ...(mimeType ? { mimeType } : {}),
-      videoBitsPerSecond: 12_000_000,
+    const audioMix = await createProjectExportAudioMix(audioClips);
+    const video = await recordProjectVideo({
+      output,
+      mimeType,
+      frameRate,
+      totalFrames,
+      transparent: options.format === "webm-alpha",
+      audioMix,
+      renderFrame: options.renderFrame,
+      onProgress: options.onProgress,
+      signal: options.signal,
     });
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunks.push(event.data);
-    };
-    const stopped = new Promise<void>((resolve, reject) => {
-      recorder.onstop = () => resolve();
-      recorder.onerror = () => reject(new Error("영상 출력 중 오류가 발생했습니다."));
-    });
-    recorder.start();
-    for (let frame = 0; frame < totalFrames; frame += 1) {
-      await options.renderFrame(frame, output, options.format === "webm-alpha");
-      options.onProgress({ completedFrames: frame + 1, totalFrames });
-      await new Promise((resolve) => window.setTimeout(resolve, 1000 / frameRate));
-    }
-    recorder.stop();
-    await stopped;
-    stream.getTracks().forEach((track) => track.stop());
-    const actualType = recorder.mimeType || mimeType || "video/webm";
-    const extension = projectVideoExtension(options.format);
+    throwIfAborted();
     await saveBlob(
-      new Blob(chunks, { type: actualType }),
-      `${safeFileName(options.projectName)}.${extension}`,
+      video,
+      `${safeFileName(options.projectName)}.${projectVideoExtension(options.format)}`,
       options.destination
     );
   }
