@@ -4,6 +4,7 @@ import {
   type LayerDocumentCommon,
   type LayerDocumentProject,
   type LayerDocumentTransactionResult,
+  buildLayerDocumentTimelineReadModel,
 } from "@/models";
 import { createLayerDocumentLibrarySourceCommandAdapter } from "@/engines/library";
 import { buildLayerDocumentLibraryNodes } from "@/engines/library/useLayerDocumentLibraryEngine";
@@ -21,12 +22,14 @@ let project: LayerDocumentProject = {
   payload: {
     sourceRegistry: { sourcesById: {
       doc: { sourceId: "doc", kind: "psd-document", displayName: "Cut.psd", version: 1, refresh: { status: "normal" }, locator: { locatorId: "doc-locator", kind: "linked-file", suggestedFileName: "Cut.psd", relativePathHint: null }, contentFingerprint: null, data: { importSettings: { compositionName: "Cut", hiddenLayerMode: "preserve" } } },
+      doc2: { sourceId: "doc2", kind: "psd-document", displayName: "Cut 2.psd", version: 1, refresh: { status: "normal" }, locator: { locatorId: "doc2-locator", kind: "linked-file", suggestedFileName: "Cut 2.psd", relativePathHint: null }, contentFingerprint: null, data: { importSettings: { compositionName: "Cut 2", hiddenLayerMode: "preserve" } } },
       shared: { sourceId: "shared", kind: "audio", displayName: "voice.wav", version: 1, refresh: { status: "normal" }, locator: { locatorId: "audio-shared", kind: "linked-file", suggestedFileName: "voice.wav", relativePathHint: null }, contentFingerprint: null, data: { mimeType: "audio/wav", durationFrames: 90, channelCount: 1, sampleRate: 48_000, provenance: "imported" } },
       recorded: { sourceId: "recorded", kind: "audio", displayName: "take", version: 1, refresh: { status: "normal" }, locator: { locatorId: "audio-recorded", kind: "linked-file", suggestedFileName: "take.wav", relativePathHint: null }, contentFingerprint: null, data: { mimeType: "audio/wav", durationFrames: 90, channelCount: 1, sampleRate: 48_000, provenance: "recorded" } },
     } },
     layerDocumentsById: {
       root: { layerDocumentId: "root", revision: 0, name: "Project", type: "group", common: common(null, 0, null), data: { role: "project-root", width: 1080, height: 1920, frameRate: 30, durationFrames: 90 } },
       cut: { layerDocumentId: "cut", revision: 0, name: "Cut", type: "group", common: common("root", 0, "doc"), data: { role: "composition", width: 1080, height: 1920, frameRate: 30, durationFrames: 90 } },
+      cut2: { layerDocumentId: "cut2", revision: 0, name: "Cut 2", type: "group", common: common("root", 1, "doc2"), data: { role: "composition", width: 1080, height: 1920, frameRate: 30, durationFrames: 20 } },
       a: { layerDocumentId: "a", revision: 0, name: "Voice A", type: "audio", common: common("cut", 0, "shared"), data: { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 } },
       b: { layerDocumentId: "b", revision: 0, name: "Voice B", type: "audio", common: common("cut", 1, "shared"), data: { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 } },
       c: { layerDocumentId: "c", revision: 0, name: "Recorded", type: "audio", common: common("cut", 2, "recorded"), data: { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 } },
@@ -35,7 +38,7 @@ let project: LayerDocumentProject = {
 };
 
 const controller = {
-  read: () => ({ selectedSourceId: null, documents: [{ sourceId: "doc", kind: "psd-document", displayName: "Cut.psd", refreshStatus: "normal", children: [] }], orphanNodes: [], nonPsdSources: [
+  read: () => ({ selectedSourceId: null, documents: [{ sourceId: "doc", kind: "psd-document", displayName: "Cut.psd", refreshStatus: "normal", children: [] }, { sourceId: "doc2", kind: "psd-document", displayName: "Cut 2.psd", refreshStatus: "normal", children: [] }], orphanNodes: [], nonPsdSources: [
     { sourceId: "shared", kind: "audio", displayName: "voice.wav", refreshStatus: "normal", treePolicy: "standalone" },
     { sourceId: "recorded", kind: "audio", displayName: "take.wav", refreshStatus: "normal", treePolicy: "standalone" },
   ] }),
@@ -91,6 +94,53 @@ project = rename.before;
 assert.equal(project.payload.layerDocumentsById.b.name, "Voice B", "undo restores name");
 project = rename.after;
 assert.equal(project.payload.layerDocumentsById.b.name, "Renamed voice", "redo restores name");
+
+const historyBeforeCutMove = history.length;
+commands.moveLibraryLayer({ layerDocumentId: "cut2", targetLayerDocumentId: "cut", position: "before" });
+assert.equal(history.length, historyBeforeCutMove + 1, "Cut drop commits one History entry");
+assert.equal(project.payload.layerDocumentsById.cut2.common.placement.order, 0);
+assert.equal(project.payload.layerDocumentsById.cut.common.placement.order, 1);
+assert.deepEqual(
+  buildLayerDocumentLibraryNodes(controller).filter((node) => node.type === "main").map((node) => node.layerDocumentId),
+  ["cut2", "cut"],
+  "Library Cut order follows canonical placement.order"
+);
+const rootTimeline = buildLayerDocumentTimelineReadModel(project, "exclude", "root");
+assert.equal(rootTimeline.ok, true);
+if (rootTimeline.ok) {
+  assert.deepEqual(rootTimeline.model.rows.map((row) => row.layerDocumentId), ["cut2", "cut"], "Timeline and Library Cut order match");
+}
+assert.equal(project.payload.layerDocumentsById.a.common.placement.parentLayerDocumentId, "cut", "Cut reorder preserves children");
+const cutMove = history.at(-1)!;
+project = cutMove.before;
+assert.equal(project.payload.layerDocumentsById.cut.common.placement.order, 0, "Cut reorder undo restores order");
+project = cutMove.after;
+
+const historyBeforeAudioMove = history.length;
+commands.moveLibraryLayer({ layerDocumentId: "b", targetLayerDocumentId: "a", position: "before" });
+assert.equal(history.length, historyBeforeAudioMove + 1, "same-Cut Audio reorder commits once");
+assert.ok(project.payload.layerDocumentsById.b.common.placement.order < project.payload.layerDocumentsById.a.common.placement.order);
+const sourceBeforeCrossMove = project.payload.layerDocumentsById.b.common.source?.sourceId;
+const dataBeforeCrossMove = structuredClone(project.payload.layerDocumentsById.b.type === "audio" ? project.payload.layerDocumentsById.b.data : null);
+const historyBeforeCrossMove = history.length;
+commands.moveLibraryLayer({ layerDocumentId: "b", targetLayerDocumentId: "cut2", position: "inside" });
+assert.equal(history.length, historyBeforeCrossMove + 1, "cross-Cut Audio move and timing clamp commit once");
+assert.equal(project.payload.layerDocumentsById.b.common.placement.parentLayerDocumentId, "cut2");
+assert.equal(project.payload.layerDocumentsById.b.common.placement.durationFrames, 20);
+assert.equal(project.payload.layerDocumentsById.b.common.source?.sourceId, sourceBeforeCrossMove);
+assert.deepEqual(project.payload.layerDocumentsById.b.type === "audio" ? project.payload.layerDocumentsById.b.data : null, dataBeforeCrossMove, "Audio domain/effect envelope survives Cut move");
+const crossMove = history.at(-1)!;
+project = crossMove.before;
+assert.equal(project.payload.layerDocumentsById.b.common.placement.parentLayerDocumentId, "cut", "one undo restores Audio parent and timing");
+project = crossMove.after;
+assert.equal(project.payload.layerDocumentsById.b.common.placement.parentLayerDocumentId, "cut2", "one redo restores Audio Cut move");
+const historyBeforeInvalid = history.length;
+commands.moveLibraryLayer({ layerDocumentId: "missing", targetLayerDocumentId: "cut", position: "inside" });
+commands.moveLibraryLayer({ layerDocumentId: "cut", targetLayerDocumentId: "cut", position: "inside" });
+assert.equal(history.length, historyBeforeInvalid, "stale/self/invalid drops do not create History");
+
+// Restore B beside A so shared-Source deletion semantics remain independently testable.
+project = crossMove.before;
 
 commands.deleteLayerDocument("a");
 assert.equal(project.payload.layerDocumentsById.a, undefined);

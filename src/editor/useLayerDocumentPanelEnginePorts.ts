@@ -395,6 +395,7 @@ export function useLayerDocumentPanelEnginePorts(
       toggleMuted: ports.librarySources.toggleAudioMuted,
       rename: ports.librarySources.renameLayerDocument,
       delete: ports.librarySources.deleteLayerDocument,
+      move: ports.librarySources.moveLibraryLayer,
     },
     audioImport: {
       prepare: (file: File, explicitCutLayerDocumentId?: string | null) =>

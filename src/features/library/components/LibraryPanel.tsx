@@ -31,6 +31,7 @@ function LibraryPanel({
   onDragOverMain,
   onDropMain,
   onEndMainDrag,
+  onMoveNodeKeyboard,
   onCancelImport,
   onConfirmImport,
   onMoveImportNode,
@@ -54,6 +55,7 @@ function LibraryPanel({
     onDragOverMain,
     onDropMain,
     onEndMainDrag,
+    onMoveNodeKeyboard,
   };
   const projectNode = nodes.find((node) => node.type === "project") ?? null;
   const libraryNodes = nodes.filter((node) => node.type !== "project");

@@ -392,6 +392,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - Editor Audio single-active audition과 Project/Source lifecycle cleanup
 - Library Cut 하위 Audio Layer projection, imported/recorded 아이콘과 audition/mute/name/delete command
 - Timeline Audio row/waveform, source-bounded timing Draft와 single-clock Audio synchronization
+- Library Cut canonical reorder와 Audio same/cross-Cut drag/drop single-transaction command
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration

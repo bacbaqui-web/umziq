@@ -136,6 +136,7 @@ export default function LibraryNode({
   onDragOverMain,
   onDropMain,
   onEndMainDrag,
+  onMoveNodeKeyboard,
   parentGuideLeft,
   isLastSibling = false,
 }: Props) {
@@ -169,6 +170,10 @@ export default function LibraryNode({
     node.canReorder &&
     dropTarget?.targetId === node.id &&
     dropTarget.position === "after";
+  const showDropInside =
+    node.canReorder &&
+    dropTarget?.targetId === node.id &&
+    dropTarget.position === "inside";
 
   const rowBackground = node.selected
     ? isMain
@@ -181,17 +186,31 @@ export default function LibraryNode({
   return (
     <div
       draggable={node.canReorder}
-      onDragStart={() => {
-        if (node.canReorder) onBeginMainDrag(node.id);
+      onDragStart={(event) => {
+        event.stopPropagation();
+        if (node.canReorder) {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", node.id);
+          onBeginMainDrag(node.id);
+        }
       }}
-      onDragEnd={onEndMainDrag}
+      onDragEnd={(event) => {
+        event.stopPropagation();
+        onEndMainDrag();
+      }}
       onDragOver={(event) => {
+        if (node.canReorder) event.stopPropagation();
         const bounds = event.currentTarget.getBoundingClientRect();
         if (onDragOverMain(node.id, event.clientY, bounds.top, bounds.height)) {
           event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
         }
       }}
-      onDrop={() => onDropMain(node.id)}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onDropMain(node.id);
+      }}
       style={{
         position: "relative",
         marginTop: isRoot && !isFirstRoot ? 6 : isMain ? 2 : 0,
@@ -207,6 +226,8 @@ export default function LibraryNode({
             ? "0 6px 18px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(86, 126, 168, 0.08)"
             : "0 4px 14px rgba(0, 0, 0, 0.18)"
           : "none",
+        outline: showDropInside ? "1px solid #65c98a" : "none",
+        outlineOffset: showDropInside ? 2 : 0,
         opacity: isDragging ? 0.62 : 1,
         transform: isDragging ? "scale(0.988)" : "scale(1)",
         transition: "border-color 150ms ease, box-shadow 150ms ease, opacity 140ms ease, transform 140ms ease",
@@ -343,6 +364,14 @@ export default function LibraryNode({
 
         <button
           onClick={() => onSelectNode(node.id)}
+          onKeyDown={(event) => {
+            if (!event.altKey || !node.canReorder) return;
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault();
+              onMoveNodeKeyboard(node.id, event.key === "ArrowUp" ? -1 : 1);
+            }
+          }}
+          title={node.canReorder ? "드래그 또는 Alt+위/아래 화살표로 순서 변경" : undefined}
           style={{
             flex: 1,
             alignSelf: "stretch",
@@ -639,6 +668,7 @@ export default function LibraryNode({
               onDragOverMain={onDragOverMain}
               onDropMain={onDropMain}
               onEndMainDrag={onEndMainDrag}
+              onMoveNodeKeyboard={onMoveNodeKeyboard}
               parentGuideLeft={childGuideLeft}
               isLastSibling={
                 index === node.children.length - 1

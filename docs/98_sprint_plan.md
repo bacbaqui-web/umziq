@@ -3,7 +3,7 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~6 완료
+- Task 0~7 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
 - Browser QA 미실행
@@ -589,6 +589,26 @@ Library에서 Cut 순서와 Audio 소속/순서를 직접 변경한다.
 - Cut 이동 후 child Audio 누락 0건
 - Audio Cut 이동 후 source identity와 effect data 보존
 - Undo/Redo 한 번으로 전체 reorder 복원
+
+### 구현 결과 — 완료
+
+- Library의 top-level PSD composition 행을 실제 Cut `layerDocumentId`와 연결하고,
+  표시 순서를 project-root 직속 composition의 canonical `placement.order`로 계산한다.
+  Cut drag/drop은 parent를 바꾸지 않고 sibling order만 한 Owner transaction으로
+  정규화하므로 Cut 아래 visual/Audio child 관계는 그대로 유지된다.
+- Audio 행은 같은 Cut의 Audio 앞/뒤 또는 다른 Cut 행 내부에 drop할 수 있다.
+  destination의 visual sibling 순서는 보존하고 Audio 구간만 canonical order로
+  계산한다. Cut 이동 시 Source identity, Audio domain/effect envelope와 sourceOffset은
+  유지하며 target Cut duration에 필요한 start/duration clamp만 같은 transaction의
+  최종 Project에 합친다.
+- drag hover는 React Runtime draft인 dragged id/drop target만 바꾸므로 History 0건이다.
+  유효한 drop에서만 Project Owner commit 한 번을 만들며 drag cancel, stale id,
+  self/invalid target과 허용되지 않은 hierarchy drop은 commit하지 않는다.
+- nested draggable event bubbling을 차단하고 `dataTransfer` move affordance를 연결했다.
+  키보드는 focus된 Cut/Audio 행에서 `Alt+위/아래 화살표`로 같은 sibling 범위 순서를
+  바꾸는 최소 접근성 대체 조작을 제공한다.
+- 검증은 Cut/Timeline order 일치, child 보존, Audio same/cross-Cut 이동, timing clamp,
+  Source/data 보존, 정확히 History 1건, undo/redo와 invalid/stale History 0건을 확인한다.
 
 ---
 

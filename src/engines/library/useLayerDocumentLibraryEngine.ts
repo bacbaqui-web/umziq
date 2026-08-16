@@ -275,7 +275,7 @@ export function buildLayerDocumentLibraryNodes(
             : "missing",
           canRefresh: false,
           canDelete: true,
-          canReorder: false,
+          canReorder: true,
           children: [],
         };
       });
@@ -285,7 +285,7 @@ export function buildLayerDocumentLibraryNodes(
       layer.data.role === "composition" &&
       layer.common.source?.sourceId === document.sourceId
     );
-    return treeNode(
+    const built = treeNode(
       document,
       tree.selectedSourceId,
       0,
@@ -296,6 +296,19 @@ export function buildLayerDocumentLibraryNodes(
       true,
       layerState(document.sourceId)
     );
+    return {
+      ...built,
+      layerDocumentId: cut?.layerDocumentId ?? null,
+      canReorder: Boolean(cut),
+    };
+  }).sort((left, right) => {
+    const leftOrder = left.layerDocumentId
+      ? project.payload.layerDocumentsById[left.layerDocumentId]?.common.placement.order ?? 0
+      : 0;
+    const rightOrder = right.layerDocumentId
+      ? project.payload.layerDocumentsById[right.layerDocumentId]?.common.placement.order ?? 0
+      : 0;
+    return leftOrder - rightOrder || left.id.localeCompare(right.id);
   });
   const orphanNodes = tree.orphanNodes.map((node) =>
     buildPsdNode(node, 0)
@@ -432,6 +445,11 @@ export function useLayerDocumentLibraryEngine(options: {
     toggleMuted: (layerDocumentId: string) => void;
     rename: (layerDocumentId: string, name: string) => void;
     delete: (layerDocumentId: string) => void;
+    move: (command: {
+      layerDocumentId: string;
+      targetLayerDocumentId: string;
+      position: "before" | "inside" | "after";
+    }) => void;
   };
   parentLayerDocumentId: string;
   durationFrames: number;
@@ -460,6 +478,8 @@ export function useLayerDocumentLibraryEngine(options: {
     "idle" | "analyzing" | "review" | "importing"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<import("@/engines/library/models/libraryModel").LibraryDropTarget>(null);
   const [summary, setSummary] =
     useState<PsdRefreshSummaryViewModel | null>(null);
   const pendingExternalImport = useRef<
@@ -720,8 +740,8 @@ export function useLayerDocumentLibraryEngine(options: {
     nodes,
     fileInputRef,
     audioFileInputRef,
-    draggedMainCompId: null,
-    dropTarget: null,
+    draggedMainCompId: draggedNodeId,
+    dropTarget,
     importPlan:
       plans.length
         ? buildLayerDocumentPsdImportViewPlan(plans)
@@ -803,10 +823,73 @@ export function useLayerDocumentLibraryEngine(options: {
     onDeleteMainComp: (sourceId) => {
       options.controller.deleteSource({ sourceId });
     },
-    onBeginMainDrag: () => {},
-    onDragOverMain: () => false,
-    onDropMain: () => {},
-    onEndMainDrag: () => {},
+    onBeginMainDrag: (nodeId) => {
+      setDraggedNodeId(nodeId);
+      setDropTarget(null);
+    },
+    onDragOverMain: (targetId, pointerY, nodeTop, nodeHeight) => {
+      if (!draggedNodeId || draggedNodeId === targetId) return false;
+      const all = (items: readonly LibraryNodeViewModel[]): LibraryNodeViewModel[] =>
+        items.flatMap((item) => [item, ...all(item.children)]);
+      const flat = all(nodes);
+      const dragged = flat.find((node) => node.id === draggedNodeId);
+      const target = flat.find((node) => node.id === targetId);
+      if (!dragged?.canReorder || !target) return false;
+      const valid = dragged.type === "main"
+        ? target.type === "main"
+        : dragged.contentKind === "audio" &&
+          (target.type === "main" || target.contentKind === "audio");
+      if (!valid) return false;
+      const position = dragged.contentKind === "audio" && target.type === "main"
+        ? "inside"
+        : pointerY < nodeTop + nodeHeight / 2 ? "before" : "after";
+      setDropTarget({ targetId, position });
+      return true;
+    },
+    onDropMain: (targetId) => {
+      if (!draggedNodeId || dropTarget?.targetId !== targetId) return;
+      const all = (items: readonly LibraryNodeViewModel[]): LibraryNodeViewModel[] =>
+        items.flatMap((item) => [item, ...all(item.children)]);
+      const flat = all(nodes);
+      const dragged = flat.find((node) => node.id === draggedNodeId);
+      const target = flat.find((node) => node.id === targetId);
+      if (dragged?.layerDocumentId && target?.layerDocumentId) {
+        options.audio.move({
+          layerDocumentId: dragged.layerDocumentId,
+          targetLayerDocumentId: target.layerDocumentId,
+          position: dropTarget.position,
+        });
+      }
+      setDraggedNodeId(null);
+      setDropTarget(null);
+    },
+    onEndMainDrag: () => {
+      setDraggedNodeId(null);
+      setDropTarget(null);
+    },
+    onMoveNodeKeyboard: (nodeId, direction) => {
+      const all = (items: readonly LibraryNodeViewModel[]): LibraryNodeViewModel[] =>
+        items.flatMap((item) => [item, ...all(item.children)]);
+      const flat = all(nodes);
+      const node = flat.find((candidate) => candidate.id === nodeId);
+      if (!node?.layerDocumentId || !node.canReorder) return;
+      const nodeLayerDocumentId = node.layerDocumentId;
+      const projectParent = (layerDocumentId: string) =>
+        options.controller.readProject().payload.layerDocumentsById[layerDocumentId]
+          ?.common.placement.parentLayerDocumentId ?? null;
+      const siblings = node.type === "main"
+        ? nodes.filter((candidate) => candidate.type === "main" && candidate.canReorder)
+        : flat.filter((candidate) => candidate.contentKind === "audio" && candidate.depth === node.depth && candidate.layerDocumentId !== null && candidate !== node && candidate.children.length === 0 && projectParent(candidate.layerDocumentId) === projectParent(nodeLayerDocumentId));
+      const ordered = node.type === "main" ? siblings : [node, ...siblings].sort((left, right) => {
+        const a = left.layerDocumentId ? options.controller.readProject().payload.layerDocumentsById[left.layerDocumentId]?.common.placement.order ?? 0 : 0;
+        const b = right.layerDocumentId ? options.controller.readProject().payload.layerDocumentsById[right.layerDocumentId]?.common.placement.order ?? 0 : 0;
+        return a - b;
+      });
+      const index = ordered.findIndex((candidate) => candidate.id === nodeId);
+      const target = ordered[index + direction];
+      if (!target?.layerDocumentId) return;
+      options.audio.move({ layerDocumentId: nodeLayerDocumentId, targetLayerDocumentId: target.layerDocumentId, position: direction < 0 ? "before" : "after" });
+    },
     onCancelImport: cancel,
     onConfirmImport: () => {
       void confirm();

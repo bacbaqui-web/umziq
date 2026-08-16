@@ -3,7 +3,7 @@ import type {
   PsdImportPlan,
 } from "@/engines/project";
 
-export type LibraryDropPosition = "before" | "after";
+export type LibraryDropPosition = "before" | "inside" | "after";
 
 export type LibraryDropTarget = {
   targetId: string;
@@ -79,6 +79,7 @@ export type LibraryViewProps = {
   ) => boolean;
   onDropMain: (targetId: string) => void;
   onEndMainDrag: () => void;
+  onMoveNodeKeyboard: (nodeId: string, direction: -1 | 1) => void;
   onCancelImport: () => void;
   onConfirmImport: () => void;
   onMoveImportNode: (
