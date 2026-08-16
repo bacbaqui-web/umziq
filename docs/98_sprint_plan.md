@@ -3,7 +3,7 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~10 완료
+- Task 0~11 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
 - Browser QA 미실행
@@ -725,8 +725,8 @@ Library에서 Cut 순서와 Audio 소속/순서를 직접 변경한다.
 - Editor Audio Runtime backend에는 engine import 없이 `LayerEffect[]` public data만 전달한다.
   활성 compressor/delay/reverb는 Web Audio audition과 Timeline playback graph에 실제 반영하며,
   effect envelope가 바뀌면 현재 위치에서 graph를 다시 만든다.
-- `소음 줄이기`는 envelope/default parameter와 UI만 제공한다. 실제 Noise Gate DSP는 Task 11
-  범위로 남기고 UI에도 아직 소음 처리가 연결되지 않았음을 표시한다.
+- Task 10에서는 `소음 줄이기` envelope/default parameter와 UI 경계까지만 제공했으며,
+  실제 Noise Gate DSP 연결은 아래 Task 11 구현 결과에 기록한다.
 - 검증은 catalog/default/clamp, ordered envelope의 action당 History 1건, Draft 0건,
   stale/non-Audio 거부, stable ID, effect 변경 시 audition graph reconcile 및 Panel Engine
   import boundary를 확인한다.
@@ -753,6 +753,31 @@ Library에서 Cut 순서와 Audio 소속/순서를 직접 변경한다.
 - 발화 중 지속 소음까지 완전히 제거한다고 표시하지 않음
 - Preview와 Export parameter/result 의미 일치
 - bypass 시 원본 audio sample 의미 보존
+
+### 구현 결과
+
+- 기존 `noise-gate` ordered effect envelope를 Editor Audio Runtime의 audition과
+  Timeline playback graph에 연결했다. enabled effect만 저장 순서대로 처리하고 bypass면
+  processing node 자체를 만들지 않는다.
+- 초심자 Panel은 `강도` 하나를 유지한다. pure parameter resolver가 강도를 threshold dB,
+  attack, release, floor 감쇠로 결정하며, 저장 데이터에 고급 parameter가 있으면 합리적 범위로
+  clamp하여 우선 사용한다. 이 의미는 이후 Export에서도 재사용할 수 있지만 Export mix 자체는
+  Task 12 범위로 남겼다.
+- linked-channel detector가 저레벨 구간을 floor까지 감쇠하고 attack/release smoothing으로
+  말 시작과 끝의 급격한 클릭을 줄인다. UI에는 발화 중 지속 소음 제거가 아니라
+  “말이 없는 구간의 작은 소리”를 줄인다고 안내한다.
+- 실제 브라우저 처리는 UI 부하와 분리되는 `AudioWorkletNode`를 우선 사용한다. module은
+  handle의 AudioContext에 비동기로 등록하고 Blob URL은 성공/실패와 무관하게 즉시 revoke한다.
+  CSP 차단이나 AudioWorklet 미지원 환경에서는 저장 순서를 유지하는 `ScriptProcessorNode`
+  fallback을 사용하며, 두 API 모두 없는 환경에서만 Gate 하나를 안전하게 bypass한다.
+- 각 Audio handle이 독립 envelope를 가지며 stop/effect reconcile/seek/loop/project
+  replace/dispose 때 callback, node와 AudioContext를 기존 handle cleanup에서 함께 정리한다.
+- Worklet 비동기 준비 중에도 요청 시각 기준 재생 위치는 계속 진행하며, 준비 완료 시 경과시간을
+  source offset에 더해 Timeline 위치를 따라잡는다. 경과 위치가 Source 끝이면 시작하지 않고
+  정상 종료하며, 준비 중 stop과 비동기 start 실패도 node/context 정리와 ended 단일 호출을 보장한다.
+- pure DSP 검증은 threshold/floor clamp, 저레벨 감쇠, attack/release smoothing을 확인하고,
+  fake graph/backend 검증은 bypass, ordered node 연결, 준비 중 연속 위치, catch-up offset,
+  stop-before-resolution, Source 끝과 start 실패 cleanup을 확인한다.
 
 ---
 

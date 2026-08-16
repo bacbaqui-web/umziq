@@ -81,7 +81,7 @@ export default function AudioEffectsPanel({ readModel, commands }: AudioEffectsV
                 );
               })}
             </div>
-            {effect.type === "noise-gate" && <div style={{ marginTop: 6, color: "#77858e", fontSize: 10.5 }}>소음 처리 기능은 다음 단계에서 연결됩니다.</div>}
+            {effect.type === "noise-gate" && <div style={{ marginTop: 6, color: "#77858e", fontSize: 10.5 }}>말이 없는 구간의 작은 소리를 줄입니다.</div>}
           </article>
         ))}
       </div>

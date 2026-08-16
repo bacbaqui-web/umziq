@@ -82,7 +82,10 @@ Audio import 준비와 Runtime 경계:
 - `editor/audio-runtime/editorAudioRuntime.ts`: single-active audition,
   play/stop/replace/seek/read/subscribe와 Project/Source reconcile
 - `editor/audio-runtime/browserAudioAuditionBackend.ts`: AudioBufferSourceNode와
-  GainNode 및 compressor/delay/reverb graph를 사용하는 브라우저 playback adapter
+  GainNode 및 compressor/delay/reverb/Noise Gate ordered graph를 사용하는 브라우저
+  playback adapter. handle 종료 때 processing callback, node와 AudioContext를 정리한다.
+- `editor/audio-runtime/noiseGateDsp.ts`: `소음 줄이기` strength를
+  threshold/attack/release/floor로 해석하고 linked-channel envelope를 처리하는 pure DSP
 - `editor/audio-runtime/editorAudioRuntimeModel.ts`: fake backend로도 검증 가능한
   audition/backend/Runtime public port
 - `engines/audio-effects/`: 독립 Audio Effects Panel Engine의 catalog, Runtime
