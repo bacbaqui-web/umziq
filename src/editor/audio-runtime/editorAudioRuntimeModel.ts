@@ -46,6 +46,14 @@ export interface EditorAudioRuntimePort {
   }) => EditorAudioAuditionCommandResult;
   readonly stop: () => EditorAudioAuditionState;
   readonly seek: (seconds: number) => EditorAudioAuditionCommandResult;
+  readonly readWaveform: (sourceId: string, bins: number) => readonly number[];
+  readonly synchronizeTimeline: (options: {
+    project: LayerDocumentProject;
+    activeGroupLayerDocumentId: string;
+    currentFrame: number;
+    frameRate: number;
+    isPlaying: boolean;
+  }) => void;
   readonly reconcileProject: (project: LayerDocumentProject) => void;
   readonly invalidateSource: (sourceId: string) => boolean;
   readonly replaceProject: (project: LayerDocumentProject | null) => void;

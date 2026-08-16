@@ -94,6 +94,7 @@ EditorShellLayoutProps {
       formatTime: formatCompactTime,
       resetRevision:
         runtime.ownerEffect.localUiRevision,
+      readAudioWaveform: runtime.audio.readWaveform,
     });
   const properties =
     useLayerDocumentPropertiesEngine({

@@ -11,6 +11,7 @@ export type TimelineViewItem = {
   id: string;
   name: string;
   entityKind: "layer" | "composition";
+  mediaKind: "visual" | "audio";
   visible: boolean;
   startFrame: number;
   durationFrames: number;
@@ -71,6 +72,7 @@ export type TimelineItemRowViewModel = {
   trackWidth: number;
   trackBackground: string;
   trackOpacity: number;
+  waveform: readonly number[];
   isEditingName: boolean;
   draftName: string;
   showDeleteDecision: boolean;

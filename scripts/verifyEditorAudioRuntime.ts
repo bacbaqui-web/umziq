@@ -55,12 +55,14 @@ let stops = 0;
 let currentGain = -1;
 let position = 0;
 let ended: (() => void) | null = null;
+const startRecords: Array<{ offsetSeconds: number; gain: number }> = [];
 const backend: EditorAudioAuditionBackend = {
   start: (options) => {
     starts += 1;
     position = options.offsetSeconds;
     currentGain = options.gain;
     ended = options.onEnded;
+    startRecords.push({ offsetSeconds: options.offsetSeconds, gain: options.gain });
     let stopped = false;
     return {
       readPositionSeconds: () => position,
@@ -129,6 +131,50 @@ resources.register([{
 runtime.play({ project: project(), layerDocumentId: "a" });
 ended?.();
 assert.equal(runtime.read().status, "idle");
+
+const timelineProject = project();
+const timelineA = timelineProject.payload.layerDocumentsById.a;
+const timelineB = timelineProject.payload.layerDocumentsById.b;
+timelineA.common.placement.startFrame = 10;
+timelineA.common.placement.sourceOffsetFrames = 5;
+timelineA.common.placement.durationFrames = 60;
+if (timelineA.type !== "audio") throw new Error("fixture");
+timelineA.data.fadeInFrames = 10;
+timelineB.common.placement.startFrame = 10;
+timelineB.common.placement.durationFrames = 60;
+resources.register([
+  { sourceId: "source-a", fingerprint: "timeline-a", decodedAudio: { numberOfChannels: 1, length: 4, getChannelData: () => new Float32Array([0, 0.5, -1, 0.25]) }, metadata: { durationSeconds: 3, channelCount: 1, sampleRate: 48_000 } },
+  { sourceId: "source-b", fingerprint: "timeline-b", decodedAudio: {}, metadata: { durationSeconds: 4, channelCount: 2, sampleRate: 44_100 } },
+]);
+assert.deepEqual(runtime.readWaveform("source-a", 2), [0.5, 1]);
+const startsBeforeTimeline = starts;
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 10, frameRate: 30, isPlaying: true });
+assert.equal(starts, startsBeforeTimeline + 2, "overlapping Audio layers start from the Timeline clock");
+assert.equal(startRecords.at(-2)?.offsetSeconds, 5 / 30, "source offset and placement frame determine seek position");
+assert.equal(startRecords.at(-2)?.gain, 0, "fade-in is applied at the placement start");
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 11, frameRate: 30, isPlaying: true });
+assert.equal(starts, startsBeforeTimeline + 2, "ordinary +1 frame tick must not restart Audio");
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 25, frameRate: 30, isPlaying: true });
+assert.equal(starts, startsBeforeTimeline + 4, "seek/discontinuity restarts active Audio at the requested frame");
+if (timelineB.type !== "audio") throw new Error("fixture");
+timelineB.data.muted = true;
+runtime.reconcileProject(timelineProject);
+const stopsAfterMute = stops;
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 26, frameRate: 30, isPlaying: true });
+assert.equal(stops, stopsAfterMute, "muted Audio remains suppressed");
+delete timelineProject.payload.layerDocumentsById.a;
+runtime.reconcileProject(timelineProject);
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 27, frameRate: 30, isPlaying: true });
+const stopsBeforePause = stops;
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 27, frameRate: 30, isPlaying: false });
+assert.equal(stops, stopsBeforePause, "deleted/muted tracks leave no handle for pause to stop");
+timelineProject.payload.layerDocumentsById.a = timelineA;
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 27, frameRate: 30, isPlaying: true });
+assert.ok(starts > startsBeforeTimeline + 4, "resume starts eligible Audio from the Timeline frame");
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 89, frameRate: 30, isPlaying: true });
+const stopsOutOfRange = stops;
+runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 90, frameRate: 30, isPlaying: true });
+assert.equal(stops, stopsOutOfRange, "out-of-range Audio remains suppressed");
 assert.ok(notifications >= 7);
 unsubscribe();
 runtime.dispose();

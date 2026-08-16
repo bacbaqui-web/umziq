@@ -73,6 +73,18 @@ const COLORS: Record<
   },
 };
 
+export function projectLayerDocumentAudioWaveform(
+  peaks: readonly number[],
+  sourceDurationFrames: number | null,
+  sourceOffsetFrames: number,
+  durationFrames: number
+) {
+  if (!sourceDurationFrames || !peaks.length) return peaks;
+  const start = Math.floor(sourceOffsetFrames / sourceDurationFrames * peaks.length);
+  const end = Math.ceil((sourceOffsetFrames + durationFrames) / sourceDurationFrames * peaks.length);
+  return peaks.slice(Math.max(0, start), Math.max(start + 1, end));
+}
+
 export function resolveLayerDocumentTimelineEffectiveSourceStatus(
   project: LayerDocumentProject,
   layer: LayerDocument,
@@ -140,6 +152,7 @@ function viewItem(
       layer.type === "group"
         ? "composition"
         : "layer",
+    mediaKind: layer.type === "audio" ? "audio" : "visual",
     visible: layer.common.placement.visible,
     ...timing,
   };
@@ -196,7 +209,7 @@ function displayRows(options: {
     const selected =
       options.timeline.selectedLayerDocumentId ===
       layer.layerDocumentId;
-    if (!selected) return rows;
+    if (!selected || layer.type === "audio") return rows;
     PROPERTIES.forEach((property) => {
       if (
         layer.common.animation.enabledProperties[
@@ -341,6 +354,7 @@ export function buildLayerDocumentTimelineUiReadModel(
       frame: number,
       frameRate: number
     ) => string;
+    readAudioWaveform?: (sourceId: string, bins: number) => readonly number[];
   }
 ): TimelineReadModel {
   const scope = options.timeline.scope;
@@ -380,7 +394,9 @@ export function buildLayerDocumentTimelineUiReadModel(
             ? "#4b3f2b"
             : source.isDeletePending
               ? "rgba(133, 46, 52, 0.58)"
-              : row.item.entityKind ===
+              : row.item.mediaKind === "audio"
+                ? "rgba(31, 75, 52, 0.9)"
+                : row.item.entityKind ===
                   "composition"
                 ? "#21334a"
                 : "#2a2a2a",
@@ -391,12 +407,28 @@ export function buildLayerDocumentTimelineUiReadModel(
           row.item.durationFrames *
           options.ruler.pxPerFrame,
         trackBackground:
-          row.item.entityKind === "composition"
+          row.item.mediaKind === "audio"
+            ? "linear-gradient(90deg, #287047 0%, #3b9663 100%)"
+            : row.item.entityKind === "composition"
             ? "linear-gradient(90deg, #3a6ea5 0%, #4f83bc 100%)"
             : "linear-gradient(90deg, #4a4a4a 0%, #636363 100%)",
         trackOpacity: row.item.visible
           ? 0.92
           : 0.42,
+        waveform: (() => {
+          if (row.layer.type !== "audio" || !options.readAudioWaveform) return [];
+          const sourceId = row.layer.common.source?.sourceId;
+          if (!sourceId) return [];
+          const peaks = options.readAudioWaveform(sourceId, 128);
+          const source = options.project.payload.sourceRegistry.sourcesById[sourceId];
+          const sourceFrames = source?.kind === "audio" ? source.data.durationFrames : null;
+          return projectLayerDocumentAudioWaveform(
+            peaks,
+            sourceFrames,
+            row.item.sourceOffsetFrames,
+            row.item.durationFrames
+          );
+        })(),
         isEditingName:
           options.runtime
             .editingLayerDocumentId ===

@@ -295,6 +295,31 @@ export function useLayerDocumentEditorRuntime(
     activeGroup.layerDocumentId,
     playback,
   ]);
+  useEffect(() => {
+    const synchronizeAudio = () => {
+      const scope = readEditorOwnerGroupScope(owner);
+      const playbackState = playback.read();
+      if (!scope.ok) {
+        audio.synchronizeTimeline({
+          project: owner.state.currentProject,
+          activeGroupLayerDocumentId: "",
+          currentFrame: playbackState.currentFrame,
+          frameRate: 1,
+          isPlaying: false,
+        });
+        return;
+      }
+      audio.synchronizeTimeline({
+        project: owner.state.currentProject,
+        activeGroupLayerDocumentId: scope.model.activeGroupLayerDocumentId,
+        currentFrame: playbackState.currentFrame,
+        frameRate: scope.model.activeGroup.data.frameRate,
+        isPlaying: playbackState.isPlaying,
+      });
+    };
+    synchronizeAudio();
+    return playback.subscribe(synchronizeAudio);
+  }, [audio, owner, playback]);
   const [lifecycle] = useState(() =>
     createLayerDocumentProjectLifecycleController({
       owner,

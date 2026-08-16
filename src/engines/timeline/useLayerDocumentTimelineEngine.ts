@@ -53,6 +53,7 @@ type NativePointerSession =
       readonly layerDocumentId: string;
       readonly startClientX: number;
       readonly timelineDurationFrames: number;
+      readonly sourceDurationFrames: number | null;
       readonly initial: LayerDocumentTimelineTimingDraft;
       readonly draft:
         LayerDocumentTimelineTimingDraft | null;
@@ -74,6 +75,7 @@ const EMPTY_PLAYBACK_SNAPSHOT = {
     endFrame: 1,
   },
   isPlaying: false,
+  loop: false,
 } as const;
 
 export type UseLayerDocumentTimelineEngineOptions = {
@@ -88,6 +90,7 @@ export type UseLayerDocumentTimelineEngineOptions = {
     frameRate: number
   ) => string;
   resetRevision?: number;
+  readAudioWaveform?: (sourceId: string, bins: number) => readonly number[];
 };
 
 export function useLayerDocumentTimelineEngine(
@@ -368,6 +371,10 @@ export function useLayerDocumentTimelineEngine(
           layer.common.placement
             .sourceOffsetFrames,
       };
+      const sourceId = layer.common.source?.sourceId;
+      const source = sourceId
+        ? project.payload.sourceRegistry.sourcesById[sourceId]
+        : null;
       pointer.begin({
         type:
           operation === "move"
@@ -380,11 +387,15 @@ export function useLayerDocumentTimelineEngine(
         startClientX: clientX,
         timelineDurationFrames:
           metadata.durationFrames,
+        sourceDurationFrames:
+          layer.type === "audio" && source?.kind === "audio"
+            ? source.data.durationFrames
+            : null,
         initial,
         draft: null,
       });
     },
-    [itemById, metadata, pointer]
+    [itemById, metadata, pointer, project]
   );
   const beginKeyframePointer = useCallback(
     (
@@ -546,10 +557,12 @@ export function useLayerDocumentTimelineEngine(
         nameColumnWidth:
           options.nameColumnWidth,
         formatTime: options.formatTime,
+        readAudioWaveform: options.readAudioWaveform,
       }),
     [
       options.formatTime,
       options.nameColumnWidth,
+      options.readAudioWaveform,
       playbackUi.ruler,
       project,
       runtime,

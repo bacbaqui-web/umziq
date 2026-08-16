@@ -14,6 +14,7 @@ export interface LayerDocumentTimelineTimingSession {
   readonly operation:
     LayerDocumentTimelineTimingOperation;
   readonly timelineDurationFrames: number;
+  readonly sourceDurationFrames?: number | null;
   readonly initial:
     LayerDocumentTimelineTimingDraft;
 }
@@ -55,7 +56,7 @@ export function resolveLayerDocumentTimelineTimingDraft(
   if (session.operation === "trim-start") {
     const startFrame = clamp(
       initial.startFrame + delta,
-      0,
+      Math.max(0, initial.startFrame - initial.sourceOffsetFrames),
       initialEnd - 1
     );
     const consumedFrames =
@@ -69,10 +70,16 @@ export function resolveLayerDocumentTimelineTimingDraft(
         consumedFrames,
     };
   }
+  const sourceMaximumDuration = session.sourceDurationFrames == null
+    ? session.timelineDurationFrames
+    : Math.max(1, session.sourceDurationFrames - initial.sourceOffsetFrames);
   const endFrame = clamp(
     initialEnd + delta,
     initial.startFrame + 1,
-    session.timelineDurationFrames
+    Math.min(
+      session.timelineDurationFrames,
+      initial.startFrame + sourceMaximumDuration
+    )
   );
   return {
     ...initial,

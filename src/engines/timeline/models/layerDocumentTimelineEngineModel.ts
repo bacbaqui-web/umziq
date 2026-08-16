@@ -142,6 +142,7 @@ export interface LayerDocumentTimelinePlaybackReadModel {
   readonly range: PlaybackRange;
   /** Runtime-only transport state; never stored in Project or History. */
   readonly isPlaying: boolean;
+  readonly loop: boolean;
 }
 
 export interface LayerDocumentTimelinePlaybackPort {
@@ -162,6 +163,7 @@ export interface LayerDocumentTimelinePlaybackPort {
       startFrame: number,
       endFrame: number
     ) => void;
+    readonly setLoop: (loop: boolean) => void;
   };
 }
 

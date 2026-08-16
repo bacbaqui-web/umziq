@@ -304,6 +304,19 @@ export default function TimelineItemTrackRow({
             interactions.beginMoveTimelineItem(event.clientX, item.id);
           }}
         >
+          {item.mediaKind === "audio" && viewModel.waveform.length > 0 && (
+            <svg
+              viewBox={`0 0 ${viewModel.waveform.length} 14`}
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", opacity: 0.82 }}
+            >
+              {viewModel.waveform.map((peak, index) => {
+                const height = Math.max(1, Math.min(12, peak * 12));
+                return <line key={index} x1={index + 0.5} x2={index + 0.5} y1={7 - height / 2} y2={7 + height / 2} stroke="#d3f4df" strokeWidth="0.7" />;
+              })}
+            </svg>
+          )}
           <div
             onMouseDown={(event) => {
               if (event.button !== 0) return;

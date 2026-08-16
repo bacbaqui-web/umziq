@@ -338,6 +338,15 @@ scheduledTick?.();
 assert.equal(playback.read().currentFrame, 4);
 assert.equal(playback.read().isPlaying, false);
 assert.equal(clearedClocks, 1);
+playback.commands.setLoop(true);
+playback.commands.seek(4);
+playback.commands.play();
+scheduledTick?.();
+assert.equal(playback.read().currentFrame, 2, "loop returns to the Timeline range start");
+assert.equal(playback.read().isPlaying, true);
+playback.commands.pause();
+playback.commands.setLoop(false);
+playback.commands.seek(4);
 playback.commands.stepBackward();
 assert.equal(playback.read().currentFrame, 3);
 playback.commands.stepForward();
@@ -369,6 +378,7 @@ assert.deepEqual(playback.read(), {
   currentFrame: 11,
   range: { startFrame: 0, endFrame: 12 },
   isPlaying: false,
+  loop: false,
 });
 playback.commands.setRange(5, 18);
 playback.commands.seek(15);
@@ -378,6 +388,7 @@ assert.deepEqual(playback.read(), {
   currentFrame: 11,
   range: { startFrame: 5, endFrame: 12 },
   isPlaying: false,
+  loop: false,
 });
 assert.equal(ports.project.undo().ok, true);
 playback.validity.reconcile();
@@ -385,6 +396,7 @@ assert.deepEqual(playback.read(), {
   currentFrame: 11,
   range: { startFrame: 5, endFrame: 12 },
   isPlaying: false,
+  loop: false,
 });
 playback.commands.reset();
 let switcherOpen = false;
@@ -428,6 +440,7 @@ assert.deepEqual(playback.read(), {
   currentFrame: 5,
   range: { startFrame: 0, endFrame: 6 },
   isPlaying: false,
+  loop: false,
 });
 ports.scope.enter("root");
 playback.validity.reconcile();

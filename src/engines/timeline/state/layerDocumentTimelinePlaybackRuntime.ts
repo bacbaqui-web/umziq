@@ -60,6 +60,7 @@ export function createLayerDocumentTimelinePlaybackRuntime(
     initialMetadata.durationFrames
   );
   let isPlaying = false;
+  let loop = false;
   let clockHandle: unknown = null;
   let scheduledFrameRate: number | null = null;
   const listeners = new Set<() => void>();
@@ -67,12 +68,14 @@ export function createLayerDocumentTimelinePlaybackRuntime(
     currentFrame,
     range,
     isPlaying,
+    loop,
   };
   const refreshSnapshot = () => {
     snapshot = {
       currentFrame,
       range,
       isPlaying,
+      loop,
     };
   };
   const read: LayerDocumentTimelinePlaybackPort["read"] =
@@ -117,8 +120,8 @@ export function createLayerDocumentTimelinePlaybackRuntime(
       range.startFrame,
       range.endFrame
     );
-    publish(next.frame);
-    if (next.shouldStop) pause();
+    publish(next.shouldStop && loop ? range.startFrame : next.frame);
+    if (next.shouldStop && !loop) pause();
   };
   const play = () => {
     const { durationFrames, frameRate } =
@@ -227,6 +230,12 @@ export function createLayerDocumentTimelinePlaybackRuntime(
             metadata().durationFrames
           )
         );
+      },
+      setLoop: (nextLoop) => {
+        if (loop === nextLoop) return;
+        loop = nextLoop;
+        refreshSnapshot();
+        notify();
       },
     },
     validity: { reconcile },

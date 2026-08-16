@@ -301,6 +301,7 @@ assert.deepEqual(playback.read(), {
   currentFrame: 19,
   range: { startFrame: 10, endFrame: 20 },
   isPlaying: false,
+  loop: false,
 });
 assert.deepEqual(runtimeCalls.invalidations, [
   { kind: "all" },

@@ -40,6 +40,7 @@ export {
 } from "@/engines/timeline/controllers/layerDocumentTimelineNavigationController";
 export {
   buildLayerDocumentTimelineUiReadModel,
+  projectLayerDocumentAudioWaveform,
 } from "@/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers";
 export {
   buildLayerDocumentTimelineConsumerRows,

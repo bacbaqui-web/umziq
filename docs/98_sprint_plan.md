@@ -3,7 +3,7 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~5 완료
+- Task 0~6 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
 - Browser QA 미실행
@@ -543,6 +543,28 @@ Audio Layer를 Timeline에서 배치하고 하나의 playback clock으로 Canvas
 - seek/pause/resume 뒤 Audio와 visual frame 동기화
 - drag 중 History 0건, drop 시 History 1건
 - hidden/muted/deleted Audio가 재생되지 않음
+
+### 구현 결과 — 완료
+
+- 기존 Timeline Layer projection을 그대로 사용하되 Audio 행에는 초록색 track과
+  Runtime waveform peak projection을 표시한다. 파형은 decoded resource fingerprint
+  기준 Runtime cache에서 읽고 Source offset과 trim 범위만 잘라 사용하며 Project와
+  History에는 저장하지 않는다.
+- 기존 timing Draft 경로를 Audio에도 적용한다. PointerMove는 Runtime draft만
+  변경하고 PointerUp의 `set-timing` 한 번만 Owner/History에 commit한다. trim-start는
+  source offset을 함께 움직이고, 양 끝 trim은 원본 Audio duration 범위를 넘지 않는다.
+- Editor Audio Runtime이 기존 Timeline playback port의 `subscribe/read`만 구독한다.
+  별도 timer나 current-frame owner 없이 play/pause/resume/seek/range와 loop의
+  range-start frame jump를 감지해 Audio handle을 시작·정지·재탐색한다.
+- 겹치는 Audio는 Runtime 내부의 여러 backend handle로 재생하되 Library audition은
+  계속 하나만 허용한다. 일반적인 +1 frame tick에서는 재시작하지 않고 seek/loop 등
+  불연속 frame에서만 재동기화한다.
+- placement visible, muted, missing resource, deleted/out-of-range를 억제하고 gain,
+  fade-in/fade-out을 매 frame backend gain에 반영한다. Audio 실패는 visual Timeline
+  playback을 중단하지 않는다.
+- fake backend/scheduler와 pure timing 검증에서 seek/pause/resume/loop, mute/delete/
+  out-of-range, waveform offset projection, trim source clamp, drag 중 History 0건과
+  release 1건을 확인한다.
 
 ---
 

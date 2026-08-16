@@ -154,6 +154,14 @@ assert.match(runtime, /playback\.dispose\(\)/);
 assert.match(runtime, /playback\.synchronizeClock\(\)/);
 assert.match(
   runtime,
+  /playback\.subscribe\(synchronizeAudio\)/
+);
+assert.match(
+  runtime,
+  /audio\.synchronizeTimeline\(\{[\s\S]*currentFrame:[\s\S]*isPlaying:/
+);
+assert.match(
+  runtime,
   /timelineValidity\.reconcile\(\)/
 );
 assert.match(
