@@ -9,11 +9,11 @@ export interface LayerDocumentSelection {
 }
 
 /**
- * PSD Tree selects a Source resource, not one of its Layer placements.
+ * Library selects a Source resource, not one of its Layer placements.
  * It is deliberately not assignable to LayerDocumentSelection.
  */
-export interface PsdTreeSourceSelection {
-  kind: "psd-tree-source";
+export interface LibrarySourceSelection {
+  kind: "library-source";
   sourceId: string;
 }
 

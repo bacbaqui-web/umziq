@@ -11,7 +11,7 @@ import {
   createLayerDocumentVerificationPorts,
 } from "./helpers/createLayerDocumentVerificationPorts";
 import {
-  createLayerDocumentPsdTreeController,
+  createLayerDocumentLibraryController,
   createLayerDocumentProjectOwnerState,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
@@ -311,7 +311,7 @@ assert.equal(
 );
 
 const psdController =
-  createLayerDocumentPsdTreeController({
+  createLayerDocumentLibraryController({
     port: {
       readTree: ports.sources.readTree,
       readProject: ports.project.read,
@@ -474,7 +474,7 @@ const ownerSource = readFileSync(
 );
 assert.match(
   rootSource,
-  /psdTreeProps:\s*psdTree\.viewProps/
+  /libraryProps:\s*library\.viewProps/
 );
 assert.match(
   rootSource,
@@ -490,7 +490,7 @@ assert.match(
 );
 assert.doesNotMatch(
   `${rootSource}\n${ownerSource}`,
-  /useEditorState|useProjectSourceSession|useProjectPsdEngine|useTimelineEngine|usePropertiesEngine|usePsdTreeEngine|useCanvasComposition/
+  /useEditorState|useProjectSourceSession|useProjectPsdEngine|useTimelineEngine|usePropertiesEngine|useLibraryEngine|useCanvasComposition/
 );
 assert.match(
   ownerSource,

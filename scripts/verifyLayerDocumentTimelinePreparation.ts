@@ -386,7 +386,7 @@ assert.notEqual(
 );
 
 const forgedSourceSelection = {
-  kind: "psd-tree-source",
+  kind: "library-source",
   sourceId: "source-node",
 } as unknown as LayerDocumentSelection;
 assert.deepEqual(

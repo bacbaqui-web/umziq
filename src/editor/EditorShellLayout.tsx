@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
-import PsdTree
-  from "@/features/psdtree/components/PsdTree";
+import LibraryPanel
+  from "@/features/library/components/LibraryPanel";
 import PreviewWorkspacePane from "@/features/preview/components/PreviewWorkspacePane";
 import PropertiesPanel
   from "@/features/properties/components/PropertiesPanel";
@@ -18,7 +18,7 @@ export type EditorShellLayoutProps = {
   onStartLeftResize: (clientX: number, clientY: number) => void;
   onStartRightResize: (clientX: number, clientY: number) => void;
   onStartBottomResize: (clientX: number, clientY: number) => void;
-  psdTreeProps: ComponentProps<typeof PsdTree>;
+  libraryProps: ComponentProps<typeof LibraryPanel>;
   previewPaneProps: ComponentProps<typeof PreviewWorkspacePane>;
   propertiesPanelProps: ComponentProps<typeof PropertiesPanel>;
   timelinePanelProps: ComponentProps<typeof TimelinePanel>;
@@ -34,7 +34,7 @@ export function EditorShellLayout({
   onStartLeftResize,
   onStartRightResize,
   onStartBottomResize,
-  psdTreeProps,
+  libraryProps,
   previewPaneProps,
   propertiesPanelProps,
   timelinePanelProps,
@@ -73,7 +73,7 @@ export function EditorShellLayout({
           borderRight: "1px solid #2a2e33",
         }}
       >
-        <PsdTree {...psdTreeProps} />
+        <LibraryPanel {...libraryProps} />
       </div>
 
       <div

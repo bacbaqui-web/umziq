@@ -5,7 +5,7 @@ import {
   LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
   type LayerDocument,
   type LayerDocumentProject,
-  type PsdTreeSourceSelection,
+  type LibrarySourceSelection,
 } from "@/models";
 import {
   prepareSourceRegistryDelete,
@@ -16,11 +16,11 @@ import {
   createLayerDocumentPsdPreparedSessionController,
 } from "@/engines/project/controllers/layerDocumentPsdPreparedSessionController";
 import {
-  createLayerDocumentPsdTreeController,
-  type LayerDocumentPsdTreeCommandPort,
-} from "@/engines/project/controllers/layerDocumentPsdTreeController";
+  createLayerDocumentLibraryController,
+  type LayerDocumentLibraryCommandPort,
+} from "@/engines/project/controllers/layerDocumentLibraryController";
 import {
-  buildPsdSourceTreeReadModel,
+  buildLibrarySourceTreeReadModel,
 } from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
 import {
   createLayerDocumentSourceRuntimeResolutionStore,
@@ -31,8 +31,8 @@ import type {
 } from "@/engines/project/import/layerDocumentPsdImportAdapter";
 import {
   buildLayerDocumentPsdImportViewPlan,
-  buildLayerDocumentPsdTreeNodes,
-} from "@/engines/psd-tree/useLayerDocumentPsdTreeEngine";
+  buildLayerDocumentLibraryNodes,
+} from "@/engines/library/useLayerDocumentLibraryEngine";
 
 function rootLayer(): LayerDocument {
   return {
@@ -88,7 +88,7 @@ function rootLayer(): LayerDocument {
 let project: LayerDocumentProject = {
   metadata: {
     schemaVersion: LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
-    projectId: "psd-tree-controller",
+    projectId: "library-controller",
     name: "PSD tree controller",
   },
   payload: {
@@ -96,7 +96,7 @@ let project: LayerDocumentProject = {
     sourceRegistry: { sourcesById: {} },
   },
 };
-let sourceSelection: PsdTreeSourceSelection | null = null;
+let sourceSelection: LibrarySourceSelection | null = null;
 const layerSelection = "root";
 const activeGroupLayerDocumentId = "root";
 let ownerCommitCount = 0;
@@ -135,9 +135,9 @@ function confirmPreparedImport(
   return { ok: true as const };
 }
 
-const port: LayerDocumentPsdTreeCommandPort = {
+const port: LayerDocumentLibraryCommandPort = {
   readTree: () =>
-    buildPsdSourceTreeReadModel({
+    buildLibrarySourceTreeReadModel({
       project,
       selection: sourceSelection,
       resolution: sourceResolution,
@@ -169,7 +169,7 @@ const port: LayerDocumentPsdTreeCommandPort = {
     return result;
   },
 };
-const controller = createLayerDocumentPsdTreeController({ port });
+const controller = createLayerDocumentLibraryController({ port });
 
 function parsedPsd(
   childNames: readonly string[],
@@ -417,12 +417,12 @@ if (refreshTransaction.ok) {
     sourceResolution.setAvailable({ sourceId });
   });
   const refreshedController =
-    createLayerDocumentPsdTreeController({
+    createLayerDocumentLibraryController({
       port: {
         ...port,
         readProject: () => refreshedProject,
         readTree: () =>
-          buildPsdSourceTreeReadModel({
+          buildLibrarySourceTreeReadModel({
             project: refreshedProject,
             selection: null,
             resolution: sourceResolution,
@@ -431,16 +431,16 @@ if (refreshTransaction.ok) {
     });
   const flattenedUiNodes = (
     nodes: ReturnType<
-      typeof buildLayerDocumentPsdTreeNodes
+      typeof buildLayerDocumentLibraryNodes
     >
   ): ReturnType<
-    typeof buildLayerDocumentPsdTreeNodes
+    typeof buildLayerDocumentLibraryNodes
   > => nodes.flatMap((node) => [
     node,
     ...flattenedUiNodes(node.children),
   ]);
   const uiNodes = flattenedUiNodes(
-    buildLayerDocumentPsdTreeNodes(
+    buildLayerDocumentLibraryNodes(
       refreshedController
     )
   );
@@ -544,7 +544,7 @@ assert.equal(
     .entries.length,
   1
 );
-assert.equal(buildLayerDocumentPsdTreeNodes(controller).length > 0, true);
+assert.equal(buildLayerDocumentLibraryNodes(controller).length > 0, true);
 assert.equal(preparedSession.cancelActive(), true);
 assert.equal(
   activePlan.prepared.runtime.readState(),
@@ -568,7 +568,7 @@ const propertiesControllerSource = readFileSync(
   "utf8"
 );
 const psdControllerSource = readFileSync(
-  "src/engines/project/controllers/layerDocumentPsdTreeController.ts",
+  "src/engines/project/controllers/layerDocumentLibraryController.ts",
   "utf8"
 );
 assert.doesNotMatch(
@@ -596,10 +596,10 @@ assert.match(
 );
 assert.match(
   readFileSync(
-    "src/engines/psd-tree/useLayerDocumentPsdTreeEngine.ts",
+    "src/engines/library/useLayerDocumentLibraryEngine.ts",
     "utf8"
   ),
-  /PsdTreeViewProps/
+  /LibraryViewProps/
 );
 assert.match(
   propertiesPortAdapterSource,
@@ -615,7 +615,7 @@ assert.doesNotMatch(
 );
 assert.match(
   panelPortsSource,
-  /createLayerDocumentPsdTreeController/
+  /createLayerDocumentLibraryController/
 );
 
-console.log("LayerDocument PSD Tree controller verified");
+console.log("LayerDocument Library controller verified");

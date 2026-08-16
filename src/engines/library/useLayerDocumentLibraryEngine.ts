@@ -10,7 +10,7 @@ import type {
   PsdImportPlanNode,
   SourceRegistryCacheInvalidationContext,
   LayerDocumentPsdImportPreviewPlan,
-  LayerDocumentPsdTreeController,
+  LayerDocumentLibraryController,
   LayerDocumentPsdPreparedSessionController,
 } from "@/engines/project";
 import {
@@ -18,9 +18,9 @@ import {
 } from "@/engines/project";
 import type {
   PsdRefreshSummaryViewModel,
-  PsdTreeNodeViewModel,
-  PsdTreeViewProps,
-} from "@/engines/psd-tree/models/psdTreeModel";
+  LibraryNodeViewModel,
+  LibraryViewProps,
+} from "@/engines/library/models/libraryModel";
 
 function previewToken(
   plan: LayerDocumentPsdImportPreviewPlan
@@ -153,14 +153,14 @@ function treeNode(
   },
   selectedSourceId: string | null,
   depth: number,
-  children: PsdTreeNodeViewModel[],
+  children: LibraryNodeViewModel[],
   documentActions: boolean,
   layerState: {
     visible: boolean;
     locked: boolean;
     name: string;
   } | null
-): PsdTreeNodeViewModel {
+): LibraryNodeViewModel {
   return {
     id: source.sourceId,
     type: depth === 0 ? "main" : "sub",
@@ -179,9 +179,9 @@ function treeNode(
   };
 }
 
-export function buildLayerDocumentPsdTreeNodes(
-  controller: LayerDocumentPsdTreeController
-): PsdTreeNodeViewModel[] {
+export function buildLayerDocumentLibraryNodes(
+  controller: LayerDocumentLibraryController
+): LibraryNodeViewModel[] {
   const tree = controller.read();
   const project = controller.readProject();
   const projectRoot = Object.values(
@@ -207,7 +207,7 @@ export function buildLayerDocumentPsdTreeNodes(
   const buildPsdNode = (
     node: (typeof tree.documents)[number]["children"][number],
     depth: number
-  ): PsdTreeNodeViewModel => {
+  ): LibraryNodeViewModel => {
     const state = layerState(node.sourceId);
     return treeNode(
       node,
@@ -245,7 +245,7 @@ export function buildLayerDocumentPsdTreeNodes(
       layerState(source.sourceId)
     )
   );
-  const projectNode: PsdTreeNodeViewModel[] = projectRoot
+  const projectNode: LibraryNodeViewModel[] = projectRoot
     ? [{
         id: projectRoot.layerDocumentId,
         type: "project",
@@ -299,7 +299,7 @@ function refreshSummary(
 }
 
 function movePreviewPlan(options: {
-  controller: LayerDocumentPsdTreeController;
+  controller: LayerDocumentLibraryController;
   plan: LayerDocumentPsdImportPreviewPlan;
   draggedId: string;
   targetId: string | null;
@@ -343,8 +343,8 @@ function movePreviewPlan(options: {
   );
 }
 
-export function useLayerDocumentPsdTreeEngine(options: {
-  controller: LayerDocumentPsdTreeController;
+export function useLayerDocumentLibraryEngine(options: {
+  controller: LayerDocumentLibraryController;
   parentLayerDocumentId: string;
   durationFrames: number;
   parentWidth: number;
@@ -604,10 +604,10 @@ export function useLayerDocumentPsdTreeEngine(options: {
   }, [options.controller, plans, session]);
 
 
-  const nodes = buildLayerDocumentPsdTreeNodes(
+  const nodes = buildLayerDocumentLibraryNodes(
     options.controller
   );
-  const viewProps: PsdTreeViewProps = {
+  const viewProps: LibraryViewProps = {
     nodes,
     fileInputRef,
     draggedMainCompId: null,

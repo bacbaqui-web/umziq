@@ -19,7 +19,7 @@ import {
   type LayerDocumentSourceRuntimeResourcePort,
 } from "@/render";
 import {
-  createLayerDocumentPsdTreeController,
+  createLayerDocumentLibraryController,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   type LayerDocumentProjectOwnerPort,
   type LayerDocumentSourceRuntimeResolutionPort,
@@ -30,8 +30,8 @@ import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties";
 import {
-  createLayerDocumentPsdTreeSourceCommandAdapter,
-} from "@/engines/psd-tree";
+  createLayerDocumentLibrarySourceCommandAdapter,
+} from "@/engines/library";
 import {
   createLayerDocumentTimelineCommandAdapter,
   createLayerDocumentTimelineConsumerAdapter,
@@ -154,7 +154,7 @@ export function useLayerDocumentPanelEnginePorts(
         resources
       );
     const sources =
-      createLayerDocumentPsdTreeSourceCommandAdapter({
+      createLayerDocumentLibrarySourceCommandAdapter({
         readProject,
         readSelectedLayerDocumentId,
         readActiveGroupLayerDocumentId,
@@ -213,8 +213,8 @@ export function useLayerDocumentPanelEnginePorts(
             .selectedTransformKeyframe,
         sourceSamplingQuality,
       });
-    const psdTreeController =
-      createLayerDocumentPsdTreeController({
+    const libraryController =
+      createLayerDocumentLibraryController({
         port: {
           readTree: sources.readTree,
           readProject,
@@ -256,7 +256,7 @@ export function useLayerDocumentPanelEnginePorts(
     return {
       timelineOwner,
       properties,
-      psdTreeController,
+      libraryController,
       canvasDraft,
       canvasCommands,
     };
@@ -373,7 +373,7 @@ export function useLayerDocumentPanelEnginePorts(
   return {
     timelineOwner: ports.timelineOwner,
     properties: ports.properties,
-    psdTreeController: ports.psdTreeController,
+    libraryController: ports.libraryController,
     sourceStatus,
     allocateLayerDocumentId,
     nextPsdLayerOrder,

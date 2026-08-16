@@ -199,7 +199,7 @@ export function prepareSourceRegistryImport(
     sourceSelectionChange: {
       kind: "select",
       selection: {
-        kind: "psd-tree-source",
+        kind: "library-source",
         sourceId: command.selectSourceId,
       },
     },

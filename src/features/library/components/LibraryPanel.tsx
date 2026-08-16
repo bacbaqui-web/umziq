@@ -1,11 +1,11 @@
 import { memo } from "react";
-import PsdTreeNode from "@/features/psdtree/components/PsdTreeNode";
-import PsdImportPreviewDialog from "@/features/psdtree/components/PsdImportPreviewDialog";
-import PsdRefreshSummaryCard from "@/features/psdtree/components/PsdRefreshSummaryCard";
-import type { PsdTreeViewProps } from "@/engines/psd-tree";
+import LibraryNode from "@/features/library/components/LibraryNode";
+import PsdImportPreviewDialog from "@/features/library/components/PsdImportPreviewDialog";
+import PsdRefreshSummaryCard from "@/features/library/components/PsdRefreshSummaryCard";
+import type { LibraryViewProps } from "@/engines/library";
 import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 
-function PsdTree({
+function LibraryPanel({
   nodes,
   fileInputRef,
   draggedMainCompId,
@@ -34,7 +34,7 @@ function PsdTree({
   onRenameImportNode,
   onRemoveImportNode,
   onDismissRefreshSummary,
-}: PsdTreeViewProps) {
+}: LibraryViewProps) {
   const nodeHandlers = {
     draggedMainCompId,
     dropTarget,
@@ -51,10 +51,13 @@ function PsdTree({
     onEndMainDrag,
   };
   const projectNode = nodes.find((node) => node.type === "project") ?? null;
-  const psdNodes = nodes.filter((node) => node.type !== "project");
+  const libraryNodes = nodes.filter((node) => node.type !== "project");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div
+      aria-label="라이브러리"
+      style={{ display: "flex", flexDirection: "column", gap: 10 }}
+    >
       <PsdImportPreviewDialog
         plan={importPlan}
         status={importPreviewStatus}
@@ -188,7 +191,7 @@ function PsdTree({
             paddingTop: 7,
           }}
         >
-        {psdNodes.length === 0 && (
+        {libraryNodes.length === 0 && (
           <div
             className="psd-empty-state"
             style={{ marginLeft: 10 }}
@@ -197,13 +200,13 @@ function PsdTree({
           </div>
         )}
 
-        {psdNodes.map((node, index) => (
+        {libraryNodes.map((node, index) => (
           <div
             key={node.id}
             style={{
               position: "relative",
               paddingLeft: 10,
-              paddingBottom: index === psdNodes.length - 1 ? 0 : 6,
+              paddingBottom: index === libraryNodes.length - 1 ? 0 : 6,
             }}
           >
             <span
@@ -212,7 +215,7 @@ function PsdTree({
                 position: "absolute",
                 left: 0,
                 top: index === 0 ? -20 : -7,
-                height: index === psdNodes.length - 1
+                height: index === libraryNodes.length - 1
                   ? index === 0 ? 38 : 25
                   : index === 0 ? "calc(100% + 20px)" : "calc(100% + 7px)",
                 borderLeft: "1px solid rgba(142, 182, 216, 0.82)",
@@ -230,10 +233,10 @@ function PsdTree({
                 transform: "translateY(-0.5px)",
               }}
             />
-          <PsdTreeNode
+          <LibraryNode
             node={node}
             isFirstRoot={index === 0}
-            isLastSibling={index === psdNodes.length - 1}
+            isLastSibling={index === libraryNodes.length - 1}
             {...nodeHandlers}
           />
           </div>
@@ -244,4 +247,4 @@ function PsdTree({
   );
 }
 
-export default memo(PsdTree);
+export default memo(LibraryPanel);

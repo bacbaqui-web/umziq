@@ -41,12 +41,12 @@ const propertiesModelSource = readFileSync(
   "src/engines/properties/models/propertiesEngineModel.ts",
   "utf8"
 );
-const psdTreeSource = readFileSync(
-  "src/features/psdtree/components/PsdTreeNode.tsx",
+const librarySource = readFileSync(
+  "src/features/library/components/LibraryNode.tsx",
   "utf8"
 );
 const importPreviewSource = readFileSync(
-  "src/features/psdtree/components/PsdImportPreviewNode.tsx",
+  "src/features/library/components/PsdImportPreviewNode.tsx",
   "utf8"
 );
 
@@ -66,9 +66,9 @@ assert.match(
   propertiesModelSource,
   /targetEntityKind: "layer" \| "composition" \| null/
 );
-assert.match(psdTreeSource, /<PsdFileIcon \/>/);
+assert.match(librarySource, /<PsdFileIcon \/>/);
 assert.match(
-  psdTreeSource,
+  librarySource,
   /kind=\{node\.entityKind \?\? "layer"\}/
 );
 assert.match(

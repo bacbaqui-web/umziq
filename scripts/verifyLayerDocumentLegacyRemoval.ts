@@ -35,7 +35,7 @@ const removedPaths = [
   "src/engines/canvas/useCanvasEngine.ts",
   "src/engines/timeline/useTimelineEngine.ts",
   "src/engines/properties/usePropertiesEngine.ts",
-  "src/engines/psd-tree/usePsdTreeEngine.ts",
+  "src/engines/library/useLibraryEngine.ts",
   "src/render/useRenderEngine.ts",
   "src/render/usePlaybackEngine.ts",
   "src/engines/project/models/runtimeRenderModel.ts",

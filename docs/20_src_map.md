@@ -22,9 +22,9 @@ main.tsx
       → shared Transform Draft / Timeline Runtime
       → useLayerDocumentPanelEnginePorts
       → Owner / Panel Engine / Render public port wiring
-      → Canvas / Timeline / Properties / PSD Tree Engine
+      → Canvas / Timeline / Properties / Library Engine
   → EditorShellLayout
-      → Project Lifecycle Bar / PSD Tree / Canvas / Properties / Timeline UI
+      → Project Lifecycle Bar / Library / Canvas / Properties / Timeline UI
 ```
 
 `src/editor/useEditorCompositionRoot.ts`가 제품 Composition Root다. 동일
@@ -59,7 +59,8 @@ entity가 아니며 `LayerDocument.common.placement`의 projection이다.
 - `layerDocumentStructureValidation.ts`: Project/Layer 공통 구조 검증
 - `layerDocumentGraphValidation.ts`: parent/root graph 검증
 - `layerDocumentSourceValidation.ts`: Source Registry와 참조 검증
-- `layerDocumentSelectionModel.ts`: `layerDocumentId` 기반 선택
+- `layerDocumentSelectionModel.ts`: `layerDocumentId` 기반 선택 및 Library의
+  session-only Source 선택
 - `layerDocumentGroupScopeModel.ts`: 활성 Group과 자식 scope
 - `layerDocumentPlacementFrameHelpers.ts`: global/local frame 계산
 - `layerDocumentTimelineReadModel.ts`: placement 기반 Timeline projection
@@ -98,7 +99,7 @@ Duplicate는 같은 Source를 참조하는 새 LayerDocument를 만들고 공통
   lifecycle/save/open/reconnect, Source Runtime, shared Draft와 Timeline
   Runtime의 StrictMode-safe 수명 관리
 - `useLayerDocumentPanelEnginePorts.ts`: 최종 Owner/Panel Engine/동결된
-  Render public port를 직접 연결하고 Canvas/Timeline/Properties/PSD Tree의
+  Render public port를 직접 연결하고 Canvas/Timeline/Properties/Library의
   최소 입력 port로 변환
 - `useEditorCompositionRoot.ts`: 네 Panel Engine 생성과 ViewProps 연결만 수행하는 Editor Composition Root
 - `projectLifecycleUi.ts`: lifecycle 공개 포트만 사용하는 New/Open/Save/Save As/Close/Reconnect UI command와 구조화 ViewModel
@@ -154,7 +155,7 @@ adapter를 제공한다.
 - `controllers/layerDocumentProjectReconnectController.ts`: fingerprint gate, dependent Source 복구와 targeted cache 교체
 - `state/layerDocumentSourceRuntimeResolutionStore.ts`: Project/History 밖의 Source 해석 상태 저장소
 - `controllers/layerDocumentPsdPreparedSessionController.ts`: prepare/confirm/cancel session
-- `controllers/layerDocumentPsdTreeController.ts`: PSD Tree command/read port
+- `controllers/layerDocumentLibraryController.ts`: Library command/read port
 - `import/*`: PSD parse, analysis, plan, LayerDocument/Source Registry build
 
 Prepared PSD runtime은 confirm 전까지 Project 밖에 있고 cancel/failure에서 dispose된다. PSD import는 한 번 읽은 ArrayBuffer를 parse와 SHA-256 계산에 함께 사용한다. Confirm 성공 시 Plain Data transaction과 runtime registration이 일관되게 적용된다.
@@ -258,7 +259,7 @@ Composition surface를 재사용한다. 자식 visual이 바뀐 경우에만 sur
 그린다. Group 외부 Transform에서는 Alpha/tone scratch를 재사용하고
 Projection만 갱신하며 Blur Glow는 사용하지 않는다.
 
-## 7. Timeline, Properties, PSD Tree
+## 7. Timeline, Properties, Library
 
 ### `src/engines/timeline`
 
@@ -292,12 +293,13 @@ Timeline은 Layer를 저장하지 않고 LayerDocument placement/animation을 �
 
 Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Draft를 읽고, 외부 Source 가용성은 주입된 runtime resolution에서 읽는다.
 
-### `src/engines/psd-tree`
+### `src/engines/library`
 
-- `useLayerDocumentPsdTreeEngine.ts`: PSD Tree UI Engine
-- `adapters/layerDocumentPsdPreparedSourceAdapter.ts`: PSD Owner Source
+- `useLayerDocumentLibraryEngine.ts`: Library UI Engine
+- `models/libraryModel.ts`: Library node/view props와 drag/drop 표시 계약
+- `adapters/layerDocumentLibrarySourceCommandAdapter.ts`: PSD Owner Source
   preparation/commit과 Runtime registration의 confirm/retry 원자성 및
-  PSD Tree Source command port 조합
+  Library Source command port 조합
 - 주입된 Project domain controller/port로
   import/refresh/delete/reorder/select intent를 연결
 - Source Registry와 Group LayerDocument graph를 Tree read model로 표시하며 Source 가용성은 runtime resolution에서 읽음
@@ -334,7 +336,7 @@ work다. Video/Shape는 schema와 extension point만 있다.
 - `src/features/preview`: Canvas, overlay, gizmo, quality UI
 - `src/features/timeline`: Timeline rows, ruler, keyframes, interaction hooks
 - `src/features/properties`: Properties sections와 controlled input UI
-- `src/features/psdtree`: PSD Tree, import dialog, refresh status UI
+- `src/features/library`: Library, import dialog, refresh status UI
 
 Feature UI는 Project object를 직접 mutation하지 않고 Engine view props와
 command를 사용한다. Engine barrel은 Feature component를 re-export하지
@@ -371,7 +373,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - PSD import/refresh/source lifecycle/runtime GC
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
-- Canvas/Timeline/Properties/PSD Tree public port integration
+- Canvas/Timeline/Properties/Library public port integration
 - pure Animation public entry의 keyframe/evaluation/frame conversion/modifier/motion-path 계산
 - Drawing/Text Owner transaction, Audio unsupported capability와 기존
   placeholder descriptor

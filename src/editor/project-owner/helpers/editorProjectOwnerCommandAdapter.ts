@@ -1,7 +1,7 @@
 import type {
   LayerDocumentTransaction,
   LayerDocumentTransactionResult,
-  PsdTreeSourceSelection,
+  LibrarySourceSelection,
 } from "@/models";
 import type {
   LayerDocumentProjectOwnerEffect,
@@ -205,7 +205,7 @@ export function createEditorProjectOwnerCommandAdapter(
         )
       ),
     selectSource: (
-      selection: PsdTreeSourceSelection | null
+      selection: LibrarySourceSelection | null
     ) =>
       deliver(
         commandEditorOwnerSourceSelection(

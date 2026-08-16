@@ -3,14 +3,14 @@ import type {
   PsdImportPlan,
 } from "@/engines/project";
 
-export type PsdTreeDropPosition = "before" | "after";
+export type LibraryDropPosition = "before" | "after";
 
-export type PsdTreeDropTarget = {
+export type LibraryDropTarget = {
   targetId: string;
-  position: PsdTreeDropPosition;
+  position: LibraryDropPosition;
 } | null;
 
-export type PsdTreeNodeViewModel = {
+export type LibraryNodeViewModel = {
   id: string;
   type: "project" | "main" | "sub";
   entityKind: "layer" | "composition" | null;
@@ -28,7 +28,7 @@ export type PsdTreeNodeViewModel = {
   canRefresh: boolean;
   canDelete: boolean;
   canReorder: boolean;
-  children: PsdTreeNodeViewModel[];
+  children: LibraryNodeViewModel[];
 };
 
 export type PsdRefreshSummaryViewModel = {
@@ -42,11 +42,11 @@ export type PsdRefreshSummaryViewModel = {
   }>;
 };
 
-export type PsdTreeViewProps = {
-  nodes: PsdTreeNodeViewModel[];
+export type LibraryViewProps = {
+  nodes: LibraryNodeViewModel[];
   fileInputRef: RefObject<HTMLInputElement | null>;
   draggedMainCompId: string | null;
-  dropTarget: PsdTreeDropTarget;
+  dropTarget: LibraryDropTarget;
   importPlan: PsdImportPlan | null;
   importPreviewStatus: "idle" | "analyzing" | "review" | "importing";
   importPreviewError: string | null;
@@ -93,7 +93,7 @@ export type PsdTreeViewProps = {
   onDismissRefreshSummary: () => void;
 };
 
-export type PsdTreeNodeProps = Omit<PsdTreeViewProps, "nodes" | "fileInputRef" | "onImportClick" | "onFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
-  node: PsdTreeNodeViewModel;
+export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "onImportClick" | "onFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
+  node: LibraryNodeViewModel;
   isFirstRoot: boolean;
 };

@@ -4,7 +4,7 @@ import type {
   LayerDocumentSelectionChange,
   PsdDocumentSourceRecord,
   PsdNodeSourceRecord,
-  PsdTreeSourceSelection,
+  LibrarySourceSelection,
   SourceRegistryKind,
   SourceRegistryRecord,
 } from "@/models";
@@ -60,8 +60,8 @@ export interface NonPsdSourceTreeItem extends SourceRegistryTreeMetadata {
   readonly treePolicy: SourceRegistryTreeNonPsdPolicy;
 }
 
-export interface PsdSourceTreeReadModel {
-  readonly selectionKind: "psd-tree-source";
+export interface LibrarySourceTreeReadModel {
+  readonly selectionKind: "library-source";
   readonly selectedSourceId: string | null;
   readonly selectionStatus: "none" | "selected" | "stale";
   readonly documents: readonly PsdSourceTreeDocument[];
@@ -69,10 +69,10 @@ export interface PsdSourceTreeReadModel {
   readonly nonPsdSources: readonly NonPsdSourceTreeItem[];
 }
 
-export type PsdTreeSourceSelectionChange =
+export type LibrarySourceSelectionChange =
   | {
       readonly kind: "select";
-      readonly selection: PsdTreeSourceSelection;
+      readonly selection: LibrarySourceSelection;
     }
   | {
       readonly kind: "clear-if-selected";
@@ -124,7 +124,7 @@ export interface LayerDocumentSourceTransaction {
   readonly kind: LayerDocumentSourceTransactionKind;
   readonly before: LayerDocumentProject;
   readonly after: LayerDocumentProject;
-  readonly sourceSelectionChange: PsdTreeSourceSelectionChange;
+  readonly sourceSelectionChange: LibrarySourceSelectionChange;
   readonly layerSelectionChange: LayerDocumentSelectionChange;
   readonly historyPolicy: SourceRegistryHistoryPolicy;
   readonly historyEntry: SourceRegistryHistoryEntry | null;
@@ -204,9 +204,9 @@ export interface LayerDocumentSourcePreparationPort {
   readonly query: {
     readonly readTree: (options: {
       project: LayerDocumentProject;
-      selection: PsdTreeSourceSelection | null;
+      selection: LibrarySourceSelection | null;
       resolution: LayerDocumentSourceRuntimeResolutionReadPort;
-    }) => PsdSourceTreeReadModel;
+    }) => LibrarySourceTreeReadModel;
   };
   readonly commands: {
     readonly prepareImport: (

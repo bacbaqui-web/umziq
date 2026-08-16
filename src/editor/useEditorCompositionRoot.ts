@@ -14,8 +14,8 @@ import {
   useLayerDocumentPropertiesEngine,
 } from "@/engines/properties";
 import {
-  useLayerDocumentPsdTreeEngine,
-} from "@/engines/psd-tree";
+  useLayerDocumentLibraryEngine,
+} from "@/engines/library";
 import {
   formatCompactTime,
   TIMELINE_NAME_COL_WIDTH,
@@ -101,10 +101,10 @@ EditorShellLayoutProps {
       resetRevision:
         runtime.ownerEffect.localUiRevision,
     });
-  const psdTree =
-    useLayerDocumentPsdTreeEngine({
+  const library =
+    useLayerDocumentLibraryEngine({
       controller:
-        panelPorts.psdTreeController,
+        panelPorts.libraryController,
       parentLayerDocumentId:
         scope.model.activeGroup.layerDocumentId,
       durationFrames:
@@ -118,7 +118,7 @@ EditorShellLayoutProps {
         panelPorts.readPsdCacheContext,
     });
   runtime.newProjectPsdImport.connect(
-    psdTree.importFiles
+    library.importFiles
   );
   const canvas =
     useLayerDocumentCanvasEngine({
@@ -265,8 +265,8 @@ EditorShellLayoutProps {
       clientY,
       shell.timelinePanelHeight
     ),
-    psdTreeProps:
-      psdTree.viewProps,
+    libraryProps:
+      library.viewProps,
     previewPaneProps: canvas.viewProps,
     propertiesPanelProps:
       properties.viewProps,
@@ -278,7 +278,7 @@ EditorShellLayoutProps {
         projectName:
           runtime.owner.state.currentProject.metadata.name,
         prepare: () =>
-          panelPorts.psdTreeController.openProject(),
+          panelPorts.libraryController.openProject(),
         durationFrames:
           scope.model.activeGroup.data.durationFrames,
         frameRate:

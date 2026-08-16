@@ -1,6 +1,6 @@
 import type {
   LayerDocumentProject,
-  PsdTreeSourceSelection,
+  LibrarySourceSelection,
 } from "@/models";
 import {
   buildDeleteLayerDocumentTransaction,
@@ -22,7 +22,7 @@ import type {
 } from "@/render";
 import type {
   LayerDocumentPreparedPsdConfirmResult,
-} from "@/engines/psd-tree/models/layerDocumentPsdConfirmModel";
+} from "@/engines/library/models/layerDocumentPsdConfirmModel";
 
 export type LayerDocumentPsdSourceCommitResult =
   | {
@@ -166,7 +166,7 @@ export function markLayerDocumentPsdResolutionAvailable(
   });
 }
 
-export function createLayerDocumentPsdTreeSourceCommandAdapter(
+export function createLayerDocumentLibrarySourceCommandAdapter(
   options: {
     readProject: () => LayerDocumentProject;
     readSelectedLayerDocumentId:
@@ -174,12 +174,12 @@ export function createLayerDocumentPsdTreeSourceCommandAdapter(
     readActiveGroupLayerDocumentId:
       () => string;
     readSourceSelection:
-      () => PsdTreeSourceSelection | null;
+      () => LibrarySourceSelection | null;
     selectLayer: (
       layerDocumentId: string | null
     ) => unknown;
     selectSource: (
-      selection: PsdTreeSourceSelection | null
+      selection: LibrarySourceSelection | null
     ) => unknown;
     enterGroup: (
       layerDocumentId: string
@@ -316,7 +316,7 @@ export function createLayerDocumentPsdTreeSourceCommandAdapter(
       return options.enterGroup(root.layerDocumentId);
     },
     selectSource: (
-      selection: PsdTreeSourceSelection | null
+      selection: LibrarySourceSelection | null
     ) => {
       const sourceResult =
         options.selectSource(selection);

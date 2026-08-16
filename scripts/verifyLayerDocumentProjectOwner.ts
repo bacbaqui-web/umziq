@@ -264,7 +264,7 @@ function initialize(options?: {
     sourceSelection: options?.sourceId === null
       ? null
       : {
-          kind: "psd-tree-source",
+          kind: "library-source",
           sourceId: options?.sourceId ?? "source-node",
         },
     ...(options?.activeGroupLayerDocumentId
@@ -337,7 +337,7 @@ const editorOwnerSelectionChanged =
   editorOwner.transition({
     kind: "set-source-selection",
     selection: {
-      kind: "psd-tree-source",
+      kind: "library-source",
       sourceId: "source-document",
     },
   });
@@ -354,7 +354,7 @@ assert.strictEqual(
 assert.deepEqual(
   editorOwner.state.session.sourceSelection,
   {
-    kind: "psd-tree-source",
+    kind: "library-source",
     sourceId: "source-document",
   }
 );
@@ -371,7 +371,7 @@ assert.deepEqual(initial.session.layerSelection, {
   layerDocumentId: "drawing",
 });
 assert.deepEqual(initial.session.sourceSelection, {
-  kind: "psd-tree-source",
+  kind: "library-source",
   sourceId: "source-node",
 });
 assert.deepEqual(initial.runtimeSession, {
@@ -382,7 +382,7 @@ const sourceSelectionOnly = transition(
   {
     kind: "set-source-selection",
     selection: {
-      kind: "psd-tree-source",
+      kind: "library-source",
       sourceId: "source-document",
     },
   }
@@ -1001,7 +1001,7 @@ const transformSourceSelectionChanged = transition(
   {
     kind: "set-source-selection",
     selection: {
-      kind: "psd-tree-source",
+      kind: "library-source",
       sourceId: "unused-source",
     },
   }
@@ -1148,7 +1148,7 @@ const imported = transition(importInitial, {
 assert.equal(imported.state.undoStack.length, 1);
 assert.equal(imported.state.undoStack[0].origin, "source-transaction");
 assert.deepEqual(imported.state.session.sourceSelection, {
-  kind: "psd-tree-source",
+  kind: "library-source",
   sourceId: "imported-node",
 });
 assert.ok(
@@ -1593,7 +1593,7 @@ editorOwnerFiles.forEach((path) => {
   const source = readFileSync(path, "utf8");
   assert.doesNotMatch(
     source,
-    /@\/features|@\/engines\/(?:canvas|properties|psd-tree|timeline)|@\/render/
+    /@\/features|@\/engines\/(?:canvas|properties|library|timeline)|@\/render/
   );
 });
 const editorOwnerHookSource = readFileSync(

@@ -1,6 +1,6 @@
 import type {
   LayerDocumentTransaction,
-  PsdTreeSourceSelection,
+  LibrarySourceSelection,
 } from "@/models";
 import {
   buildLayerDocumentGroupScopeReadModel,
@@ -69,7 +69,7 @@ export function commandEditorOwnerLayerSelection(
 
 export function commandEditorOwnerSourceSelection(
   owner: LayerDocumentProjectOwnerPort,
-  selection: PsdTreeSourceSelection | null
+  selection: LibrarySourceSelection | null
 ) {
   return owner.transition({
     kind: "set-source-selection",

@@ -10,8 +10,8 @@ export type {
   NonPsdSourceTreeItem,
   PsdSourceTreeDocument,
   PsdSourceTreeNode,
-  PsdSourceTreeReadModel,
-  PsdTreeSourceSelectionChange,
+  LibrarySourceTreeReadModel,
+  LibrarySourceSelectionChange,
   RefreshPsdSourceRegistryCommand,
   ReconnectSourceRegistryCommand,
   RefreshSourceRegistryCommand,
@@ -134,7 +134,7 @@ export type {
   LayerDocumentProjectReconnectResult,
 } from "@/engines/project/models/layerDocumentProjectReconnectModel";
 export {
-  buildPsdSourceTreeReadModel,
+  buildLibrarySourceTreeReadModel,
 } from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
 export {
   preparePsdSourceNodeDiscovery,
@@ -182,14 +182,14 @@ export {
   reduceLayerDocumentProjectOwner,
 } from "@/engines/project/actions/layerDocumentProjectOwnerReducer";
 export {
-  createLayerDocumentPsdTreeController,
+  createLayerDocumentLibraryController,
   type LayerDocumentPsdImportPreviewNode,
   type LayerDocumentPsdImportPreviewPlan,
   type LayerDocumentPsdRefreshDiffSummary,
-  type LayerDocumentPsdTreeCommandPort,
-  type LayerDocumentPsdTreeController,
+  type LayerDocumentLibraryCommandPort,
+  type LayerDocumentLibraryController,
   type PreparedLayerDocumentPsdRefreshPlan,
-} from "@/engines/project/controllers/layerDocumentPsdTreeController";
+} from "@/engines/project/controllers/layerDocumentLibraryController";
 export {
   createLayerDocumentPsdPreparedSessionController,
   type LayerDocumentPsdPreparedSession,

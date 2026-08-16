@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import type { PsdTreeViewProps } from "@/engines/psd-tree";
+import type { LibraryViewProps } from "@/engines/library";
 
 type Props = {
-  summary: NonNullable<PsdTreeViewProps["refreshSummary"]>;
+  summary: NonNullable<LibraryViewProps["refreshSummary"]>;
   onDismiss: () => void;
 };
 

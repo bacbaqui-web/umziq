@@ -7,7 +7,7 @@ import {
   prepareSourceRegistryRefresh,
 } from "@/engines/project/actions/layerDocumentSourceTransactions";
 import {
-  buildPsdSourceTreeReadModel,
+  buildLibrarySourceTreeReadModel,
 } from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
 import type {
   LayerDocumentSourcePreparationPort,
@@ -21,7 +21,7 @@ import type {
 export const LAYER_DOCUMENT_SOURCE_PREPARATION_PORT:
 LayerDocumentSourcePreparationPort = {
   query: {
-    readTree: buildPsdSourceTreeReadModel,
+    readTree: buildLibrarySourceTreeReadModel,
   },
   commands: {
     prepareImport: prepareSourceRegistryImport,

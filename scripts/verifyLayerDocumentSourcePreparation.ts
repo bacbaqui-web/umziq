@@ -9,7 +9,7 @@ import {
   type LayerDocumentProject,
   type LayerDocumentSelection,
   type LayerSourceReference,
-  type PsdTreeSourceSelection,
+  type LibrarySourceSelection,
   type SourceRegistryRecord,
 } from "@/models";
 import {
@@ -19,7 +19,7 @@ import {
   createLayerDocumentSourceRuntimeResolutionStore,
 } from "@/engines/project";
 import {
-  buildPsdSourceTreeReadModel,
+  buildLibrarySourceTreeReadModel,
 } from "@/engines/project/helpers/layerDocumentSourceTreeHelpers";
 import {
   completeSourceTransaction,
@@ -568,8 +568,8 @@ Object.keys(project.payload.sourceRegistry.sourcesById)
 const projectSnapshot = structuredClone(project);
 assert.deepEqual(validateLayerDocumentProject(project), []);
 
-const sourceSelection: PsdTreeSourceSelection = {
-  kind: "psd-tree-source",
+const sourceSelection: LibrarySourceSelection = {
+  kind: "library-source",
   sourceId: "shared-node",
 };
 const layerSelection: LayerDocumentSelection = {
@@ -587,7 +587,7 @@ const tree = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.query.readTree({
   selection: sourceSelection,
   resolution: sourceResolution,
 });
-assert.equal(tree.selectionKind, "psd-tree-source");
+assert.equal(tree.selectionKind, "library-source");
 assert.equal(tree.selectionStatus, "selected");
 assert.equal(tree.selectedSourceId, "shared-node");
 assert.equal(tree.documents.length, 3);
@@ -672,10 +672,10 @@ assert.doesNotMatch(
   serializedTree,
   /Layer edit|alias|placement|transform|animation|effect|modifier/
 );
-const staleTree = buildPsdSourceTreeReadModel({
+const staleTree = buildLibrarySourceTreeReadModel({
   project,
   selection: {
-    kind: "psd-tree-source",
+    kind: "library-source",
     sourceId: "stale-source",
   },
   resolution: sourceResolution,
@@ -767,7 +767,7 @@ assert.deepEqual(imported.createdLayerDocumentIds, ["import-layer"]);
 assert.deepEqual(imported.sourceSelectionChange, {
   kind: "select",
   selection: {
-    kind: "psd-tree-source",
+    kind: "library-source",
     sourceId: "import-node",
   },
 });
@@ -1396,7 +1396,7 @@ assert.equal(
   false
 );
 assert.equal(
-  buildPsdSourceTreeReadModel({
+  buildLibrarySourceTreeReadModel({
     project: discovered.after,
     selection: null,
     resolution: sourceResolution,
@@ -1536,8 +1536,8 @@ const compositionRootSource = readFileSync(
   "src/editor/useEditorCompositionRoot.ts",
   "utf8"
 );
-const productPsdTreeSource = readFileSync(
-  "src/features/psdtree/components/PsdTree.tsx",
+const productLibraryPanelSource = readFileSync(
+  "src/features/library/components/LibraryPanel.tsx",
   "utf8"
 );
 assert.doesNotMatch(
@@ -1545,8 +1545,8 @@ assert.doesNotMatch(
   /LAYER_DOCUMENT_SOURCE_PREPARATION_PORT|prepareSourceRegistryImport/
 );
 assert.doesNotMatch(
-  productPsdTreeSource,
-  /LAYER_DOCUMENT_SOURCE_PREPARATION_PORT|buildPsdSourceTreeReadModel/
+  productLibraryPanelSource,
+  /LAYER_DOCUMENT_SOURCE_PREPARATION_PORT|buildLibrarySourceTreeReadModel/
 );
 
 console.log("Layer Document Source preparation verification passed");

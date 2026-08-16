@@ -3,7 +3,8 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- 구현 미착수
+- Task 0~1 완료
+- Task 2 구현 대기
 - Browser QA 미실행
 
 ## 기준
@@ -311,6 +312,24 @@ PSD 전용 명칭을 Project file library 책임에 맞추되 기존 PSD 동작�
 - 기존 PSD 동작과 public 의미 변화 0
 - Library Engine ↔ Library Panel 경계 성립
 - 변경 파일 lint, 관련 verification, build와 `git diff --check` 통과
+
+### 구현 결과 — 완료
+
+- Panel Engine 경로를 `src/engines/library`로, Feature 경로를
+  `src/features/library`로 전환했다.
+- 공개 이름을 `LibraryViewProps`, `LibraryNodeViewModel`,
+  `useLayerDocumentLibraryEngine`, `LayerDocumentLibraryController`와
+  `createLayerDocumentLibrarySourceCommandAdapter`로 정렬했다.
+- Source 선택 Runtime 이름과 discriminant를 `LibrarySourceSelection`과
+  `library-source`로 전환하고 Owner/transaction/verification caller를 함께
+  동기화했다. 이 선택은 저장 Project가 아니라 session Runtime이므로 Project
+  schema migration은 필요하지 않다.
+- Editor Composition Root, Panel port와 Shell prop을 `library` 이름으로
+  연결하고 Panel root에 화면 접근성 이름 `라이브러리`를 부여했다.
+- PSD import/preview/refresh/session 이름과 동작은 Library 내부의 PSD 기능으로
+  유지했다. Audio, Cut ordering과 selection identity 재설계는 추가하지 않았다.
+- `scripts/verifyLayerDocumentLibraryController.ts`와 Engine/import/consumer/root
+  verification 경로를 현재 Library 구조로 동기화했다.
 
 ---
 

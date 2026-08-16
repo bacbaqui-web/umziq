@@ -298,7 +298,7 @@ const initialized = createLayerDocumentProjectOwnerState({
     layerDocumentId: "psd",
   },
   sourceSelection: {
-    kind: "psd-tree-source",
+    kind: "library-source",
     sourceId: "node",
   },
 });
@@ -1080,7 +1080,7 @@ if (!parsedGroup?.common.source || !parsedCompositionId) {
   throw new Error("Parsed PSD groups unavailable");
 }
 ports.sources.selectSource({
-  kind: "psd-tree-source",
+  kind: "library-source",
   sourceId: parsedGroup.common.source.sourceId,
 });
 assert.equal(
@@ -1094,7 +1094,7 @@ assert.equal(
 );
 ports.scope.enter("root");
 ports.sources.selectSource({
-  kind: "psd-tree-source",
+  kind: "library-source",
   sourceId: parsedPrepared.resolution.documentSourceId,
 });
 assert.equal(
@@ -1103,7 +1103,7 @@ assert.equal(
   "Selecting a PSD document should show its timeline"
 );
 ports.sources.selectSource({
-  kind: "psd-tree-source",
+  kind: "library-source",
   sourceId: parsedNestedLeaf.common.source.sourceId,
 });
 assert.equal(

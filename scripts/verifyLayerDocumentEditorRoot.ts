@@ -59,7 +59,7 @@ assert.match(
   /useEditorCompositionRoot\(\)/
 );
 for (const connection of [
-  /psdTreeProps:\s*psdTree\.viewProps/,
+  /libraryProps:\s*library\.viewProps/,
   /readPort:\s*panelPorts\.canvasRead/,
   /propertiesPanelProps:\s*properties\.viewProps/,
   /timelinePanelProps:\s*timeline\.viewProps/,
@@ -68,7 +68,7 @@ for (const connection of [
 }
 assert.doesNotMatch(
   `${root}\n${owner}\n${runtime}\n${panelPorts}`,
-  /useEditorState|useProjectSourceSession|useProjectPsdEngine|useProjectSelectionModel|useProjectHistory|useTimelineEngine|usePropertiesEngine|usePsdTreeEngine|useCanvasComposition|setProjectSourceDocument|setComps|setTimelineItemsByCompId/
+  /useEditorState|useProjectSourceSession|useProjectPsdEngine|useProjectSelectionModel|useProjectHistory|useTimelineEngine|usePropertiesEngine|useLibraryEngine|useCanvasComposition|setProjectSourceDocument|setComps|setTimelineItemsByCompId/
 );
 assert.match(
   owner,
@@ -93,12 +93,12 @@ assert.equal(
 );
 assert.doesNotMatch(
   owner,
-  /useLayerDocument(?:Timeline|Properties|PsdTree|Canvas)|createLayerDocumentTimelinePlaybackRuntime/
+  /useLayerDocument(?:Timeline|Properties|Library|Canvas)|createLayerDocumentTimelinePlaybackRuntime/
 );
 for (const nativePath of [
   /useLayerDocumentTimelineEngine\(\{/,
   /useLayerDocumentPropertiesEngine\(\{/,
-  /useLayerDocumentPsdTreeEngine\(\{/,
+  /useLayerDocumentLibraryEngine\(\{/,
   /useLayerDocumentCanvasEngine\(\{/,
 ]) {
   assert.match(root, nativePath);
@@ -114,7 +114,7 @@ for (const nativePath of [
 for (const panelPort of [
   /createLayerDocumentCanvasCommandPort\(\{/,
   /createLayerDocumentPropertiesCommandPort\(\{/,
-  /createLayerDocumentPsdTreeController\(\{/,
+  /createLayerDocumentLibraryController\(\{/,
 ]) {
   assert.match(panelPorts, panelPort);
 }

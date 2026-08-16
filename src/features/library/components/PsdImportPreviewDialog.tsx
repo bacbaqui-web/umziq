@@ -1,6 +1,6 @@
 import { useEffect, useState, type DragEvent } from "react";
 import type { PsdImportPlan } from "@/engines/project";
-import PsdImportPreviewNode from "@/features/psdtree/components/PsdImportPreviewNode";
+import PsdImportPreviewNode from "@/features/library/components/PsdImportPreviewNode";
 
 type Props = {
   plan: PsdImportPlan | null;

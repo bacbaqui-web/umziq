@@ -2,7 +2,7 @@ import type {
   LayerDocumentProject,
   LayerDocumentSelection,
   LayerDocumentTransaction,
-  PsdTreeSourceSelection,
+  LibrarySourceSelection,
   SourceRegistryRefreshStatus,
 } from "@/models";
 import type {
@@ -12,7 +12,7 @@ import type {
 
 export interface LayerDocumentOwnerSession {
   readonly layerSelection: LayerDocumentSelection | null;
-  readonly sourceSelection: PsdTreeSourceSelection | null;
+  readonly sourceSelection: LibrarySourceSelection | null;
   readonly activeGroupLayerDocumentId: string;
 }
 
@@ -115,7 +115,7 @@ export type LayerDocumentProjectOwnerAction =
     }
   | {
       readonly kind: "set-source-selection";
-      readonly selection: PsdTreeSourceSelection | null;
+      readonly selection: LibrarySourceSelection | null;
     }
   | {
       readonly kind: "set-active-group";
@@ -184,7 +184,7 @@ export type LayerDocumentProjectOwnerInitializationResult =
 export interface CreateLayerDocumentProjectOwnerOptions {
   readonly project: LayerDocumentProject;
   readonly layerSelection?: LayerDocumentSelection | null;
-  readonly sourceSelection?: PsdTreeSourceSelection | null;
+  readonly sourceSelection?: LibrarySourceSelection | null;
   readonly activeGroupLayerDocumentId?: string | null;
 }
 

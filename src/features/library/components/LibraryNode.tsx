@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
-import type { PsdTreeNodeProps } from "@/engines/psd-tree";
+import type { LibraryNodeProps } from "@/engines/library";
 import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 
-type Props = PsdTreeNodeProps & {
+type Props = LibraryNodeProps & {
   readonly parentGuideLeft?: number;
   readonly isLastSibling?: boolean;
 };
@@ -96,7 +96,7 @@ function ActionButton({
   );
 }
 
-export default function PsdTreeNode({
+export default function LibraryNode({
   node,
   isFirstRoot,
   draggedMainCompId,
@@ -574,7 +574,7 @@ export default function PsdTreeNode({
           }}
         >
           {node.children.map((child, index) => (
-            <PsdTreeNode
+            <LibraryNode
               key={child.id}
               node={child}
               isFirstRoot={index === 0}

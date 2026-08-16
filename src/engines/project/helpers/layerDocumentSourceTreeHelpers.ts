@@ -2,7 +2,7 @@ import type {
   LayerDocumentProject,
   PsdDocumentSourceRecord,
   PsdNodeSourceRecord,
-  PsdTreeSourceSelection,
+  LibrarySourceSelection,
   SourceRegistryRecord,
 } from "@/models";
 import {
@@ -15,7 +15,7 @@ import type {
   NonPsdSourceTreeItem,
   PsdSourceTreeDocument,
   PsdSourceTreeNode,
-  PsdSourceTreeReadModel,
+  LibrarySourceTreeReadModel,
   SourceRegistryTreeMetadata,
 } from "@/engines/project/models/layerDocumentSourcePreparationModel";
 
@@ -193,11 +193,11 @@ function nonPsdSource(
   };
 }
 
-export function buildPsdSourceTreeReadModel(options: {
+export function buildLibrarySourceTreeReadModel(options: {
   project: LayerDocumentProject;
-  selection: PsdTreeSourceSelection | null;
+  selection: LibrarySourceSelection | null;
   resolution: LayerDocumentSourceRuntimeResolutionReadPort;
-}): PsdSourceTreeReadModel {
+}): LibrarySourceTreeReadModel {
   const sources = Object.values(
     options.project.payload.sourceRegistry.sourcesById
   );
@@ -288,7 +288,7 @@ export function buildPsdSourceTreeReadModel(options: {
   );
 
   return {
-    selectionKind: "psd-tree-source",
+    selectionKind: "library-source",
     selectedSourceId: selectionExists ? selectedSourceId : null,
     selectionStatus: !selectedSourceId
       ? "none"

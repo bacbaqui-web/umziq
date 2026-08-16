@@ -6,7 +6,7 @@ import {
   validateLayerDocumentProject,
   type LayerDocumentProject,
   type LayerDocumentSelection,
-  type PsdTreeSourceSelection,
+  type LibrarySourceSelection,
 } from "@/models";
 import {
   cloneTransactionData,
@@ -19,31 +19,31 @@ import type {
   LayerDocumentProjectOwnerState,
 } from "@/engines/project/models/layerDocumentProjectOwnerModel";
 import type {
-  PsdTreeSourceSelectionChange,
+  LibrarySourceSelectionChange,
 } from "@/engines/project/models/layerDocumentSourcePreparationModel";
 
 export const cloneOwnerPlainData = cloneTransactionData;
 
 export function normalizeOwnerSourceSelection(
   project: LayerDocumentProject,
-  selection: PsdTreeSourceSelection | null
-): PsdTreeSourceSelection | null {
+  selection: LibrarySourceSelection | null
+): LibrarySourceSelection | null {
   if (
-    selection?.kind !== "psd-tree-source" ||
+    selection?.kind !== "library-source" ||
     typeof selection.sourceId !== "string" ||
     !project.payload.sourceRegistry.sourcesById[selection.sourceId]
   ) return null;
   return {
-    kind: "psd-tree-source",
+    kind: "library-source",
     sourceId: selection.sourceId,
   };
 }
 
 export function applyOwnerSourceSelectionChange(
   project: LayerDocumentProject,
-  current: PsdTreeSourceSelection | null,
-  change: PsdTreeSourceSelectionChange
-): PsdTreeSourceSelection | null {
+  current: LibrarySourceSelection | null,
+  change: LibrarySourceSelectionChange
+): LibrarySourceSelection | null {
   switch (change.kind) {
     case "select":
       return normalizeOwnerSourceSelection(project, change.selection);
@@ -59,7 +59,7 @@ export function applyOwnerSourceSelectionChange(
 export function normalizeOwnerSession(options: {
   project: LayerDocumentProject;
   layerSelection: LayerDocumentSelection | null;
-  sourceSelection: PsdTreeSourceSelection | null;
+  sourceSelection: LibrarySourceSelection | null;
   activeGroupLayerDocumentId?: string | null;
 }): LayerDocumentOwnerSession | null {
   const activeGroupLayerDocumentId =

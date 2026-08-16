@@ -13,10 +13,10 @@ const engineNames = [
   "canvas",
   "project",
   "properties",
-  "psd-tree",
+  "library",
   "timeline",
 ] as const;
-const uiEngines = new Set(["canvas", "properties", "psd-tree", "timeline"]);
+const uiEngines = new Set(["canvas", "properties", "library", "timeline"]);
 const coreEngines = new Set(["project"]);
 
 function collectSourceFiles(directory: string): string[] {
@@ -133,7 +133,7 @@ for (const file of renderFiles) {
   );
   assert.doesNotMatch(
     text,
-    /@\/engines\/(?:canvas|properties|psd-tree|timeline)\b/,
+    /@\/engines\/(?:canvas|properties|library|timeline)\b/,
     `${label}: Render module이 Panel Engine에 의존`
   );
 }
@@ -284,7 +284,7 @@ assert.match(
 for (const nativeHook of [
   "useLayerDocumentTimelineEngine",
   "useLayerDocumentPropertiesEngine",
-  "useLayerDocumentPsdTreeEngine",
+  "useLayerDocumentLibraryEngine",
   "useLayerDocumentCanvasEngine",
 ]) {
   assert.match(
@@ -295,7 +295,7 @@ for (const nativeHook of [
 }
 assert.doesNotMatch(
   ownerRoot,
-  /@\/engines\/(canvas|timeline|properties|psd-tree)/
+  /@\/engines\/(canvas|timeline|properties|library)/
 );
 for (const file of files.filter((candidate) =>
   engineForFile(candidate)
@@ -329,7 +329,7 @@ const editorShellLayout = readFileSync(
   "utf8"
 );
 for (const featureComponentPath of [
-  "@/features/psdtree/components/PsdTree",
+  "@/features/library/components/LibraryPanel",
   "@/features/preview/components/PreviewWorkspacePane",
   "@/features/properties/components/PropertiesPanel",
   "@/features/timeline/components/TimelinePanel",
@@ -407,7 +407,7 @@ for (const finalOwnerAdapter of [
   "createLayerDocumentTimelineConsumerAdapter",
   "createLayerDocumentPropertiesOwnerCommandAdapter",
   "createLayerDocumentCanvasDraftAdapter",
-  "createLayerDocumentPsdTreeSourceCommandAdapter",
+  "createLayerDocumentLibrarySourceCommandAdapter",
 ]) {
   assert.match(
     finalEditorWiring,

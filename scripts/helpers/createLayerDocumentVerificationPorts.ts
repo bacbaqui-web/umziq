@@ -23,8 +23,8 @@ import type {
   LayerDocumentPanelPreparationPort,
 } from "@/engines/properties/models/layerDocumentPanelModel";
 import {
-  createLayerDocumentPsdTreeSourceCommandAdapter,
-} from "@/engines/psd-tree/adapters/layerDocumentPsdPreparedSourceAdapter";
+  createLayerDocumentLibrarySourceCommandAdapter,
+} from "@/engines/library/adapters/layerDocumentLibrarySourceCommandAdapter";
 import {
   createLayerDocumentTimelineCommandAdapter,
 } from "@/engines/timeline/adapters/layerDocumentTimelineIntentCommitAdapter";
@@ -161,7 +161,7 @@ export function createLayerDocumentVerificationPorts(
       input.sourceRuntime
     );
   const sources =
-    createLayerDocumentPsdTreeSourceCommandAdapter({
+    createLayerDocumentLibrarySourceCommandAdapter({
       readProject,
       readSelectedLayerDocumentId,
       readActiveGroupLayerDocumentId,

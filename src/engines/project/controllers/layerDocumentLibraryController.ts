@@ -2,7 +2,7 @@ import type {
   LayerDocument,
   LayerDocumentProject,
   PsdDocumentSourceRecord,
-  PsdTreeSourceSelection,
+  LibrarySourceSelection,
   SourceRegistryRecord,
 } from "@/models";
 import {
@@ -17,17 +17,17 @@ import {
 } from "@/engines/project/import/layerDocumentPsdImportAdapter";
 import type {
   DeleteSourceRegistryCommand,
-  PsdSourceTreeReadModel,
+  LibrarySourceTreeReadModel,
   ReconnectSourceRegistryCommand,
   RefreshSourceRegistryCommand,
   SourceRegistryCacheInvalidationContext,
 } from "@/engines/project/models/layerDocumentSourcePreparationModel";
 
-export interface LayerDocumentPsdTreeCommandPort {
-  readonly readTree: () => PsdSourceTreeReadModel;
+export interface LayerDocumentLibraryCommandPort {
+  readonly readTree: () => LibrarySourceTreeReadModel;
   readonly readProject: () => LayerDocumentProject;
   readonly selectSource: (
-    selection: PsdTreeSourceSelection | null
+    selection: LibrarySourceSelection | null
   ) => unknown;
   readonly toggleSourceVisibility: (sourceId: string) => unknown;
   readonly toggleSourceLock: (sourceId: string) => unknown;
@@ -448,8 +448,8 @@ function buildRefreshSummary(
  * confirmed Source ordering. Confirmed Source tree order remains the
  * canonical name/id read-model order because the registry has no order field.
  */
-export function createLayerDocumentPsdTreeController(options: {
-  port: LayerDocumentPsdTreeCommandPort;
+export function createLayerDocumentLibraryController(options: {
+  port: LayerDocumentLibraryCommandPort;
 }) {
   return {
     read: options.port.readTree,
@@ -457,7 +457,7 @@ export function createLayerDocumentPsdTreeController(options: {
     selectSource: (sourceId: string | null) =>
       options.port.selectSource(
         sourceId
-          ? { kind: "psd-tree-source", sourceId }
+          ? { kind: "library-source", sourceId }
           : null
       ),
     toggleSourceVisibility:
@@ -534,6 +534,6 @@ export function createLayerDocumentPsdTreeController(options: {
   };
 }
 
-export type LayerDocumentPsdTreeController = ReturnType<
-  typeof createLayerDocumentPsdTreeController
+export type LayerDocumentLibraryController = ReturnType<
+  typeof createLayerDocumentLibraryController
 >;
