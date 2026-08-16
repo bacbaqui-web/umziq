@@ -180,6 +180,18 @@ export type LayerDocumentPropertiesCommand =
       readonly sourceOffsetFrames: number;
     }
   | {
+      readonly kind: "set-audio-properties";
+      readonly layerDocumentId: string;
+      readonly name: string;
+      readonly gain: number;
+      readonly muted: boolean;
+      readonly startFrame: number;
+      readonly durationFrames: number;
+      readonly sourceOffsetFrames: number;
+      readonly fadeInFrames: number;
+      readonly fadeOutFrames: number;
+    }
+  | {
       readonly kind: "set-visibility";
       readonly layerDocumentId: string;
       readonly visible: boolean;

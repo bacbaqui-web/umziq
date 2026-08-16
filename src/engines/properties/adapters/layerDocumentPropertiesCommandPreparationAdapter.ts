@@ -1,6 +1,7 @@
 import {
   buildSetLayerDocumentNameTransaction,
   buildUpdateLayerDocumentCommonTransaction,
+  validateLayerDocumentProject,
   type LayerDocument,
   type LayerDocumentProject,
   type LayerDocumentTransactionResult,
@@ -150,6 +151,77 @@ function futureDomainPreparation(options: {
   });
 }
 
+function prepareAudioProperties(options: {
+  project: LayerDocumentProject;
+  selectedLayerDocumentId: string;
+  layer: LayerDocument;
+  command: Extract<LayerDocumentPropertiesCommand, { kind: "set-audio-properties" }>;
+}): LayerDocumentPropertiesCommandPreparation {
+  if (options.layer.type !== "audio") {
+    return rejected({ project: options.project, selectedLayerDocumentId: options.selectedLayerDocumentId, layerDocumentId: options.command.layerDocumentId, reason: "type-mismatch", message: "Audio Properties require an Audio Layer." });
+  }
+  const parentId = options.layer.common.placement.parentLayerDocumentId;
+  const parent = parentId ? options.project.payload.layerDocumentsById[parentId] : null;
+  const sourceId = options.layer.common.source?.sourceId;
+  const source = sourceId ? options.project.payload.sourceRegistry.sourcesById[sourceId] : null;
+  if (!parent || parent.type !== "group" || !source || source.kind !== "audio") {
+    return rejected({ project: options.project, selectedLayerDocumentId: options.selectedLayerDocumentId, layerDocumentId: options.command.layerDocumentId, reason: "transaction-error", message: "Audio parent or Source is unavailable." });
+  }
+  const sourceDurationFrames = source.data.durationFrames ??
+    (options.layer.common.placement.sourceOffsetFrames + options.layer.common.placement.durationFrames);
+  const integer = (value: number) => Math.round(Number.isFinite(value) ? value : 0);
+  const gain = Math.min(4, Math.max(0, Number.isFinite(options.command.gain) ? options.command.gain : options.layer.data.gain));
+  const startFrame = Math.min(Math.max(0, integer(options.command.startFrame)), Math.max(0, parent.data.durationFrames - 1));
+  const sourceOffsetFrames = Math.min(Math.max(0, integer(options.command.sourceOffsetFrames)), Math.max(0, sourceDurationFrames - 1));
+  const durationFrames = Math.min(
+    Math.max(1, integer(options.command.durationFrames)),
+    Math.max(1, parent.data.durationFrames - startFrame),
+    Math.max(1, sourceDurationFrames - sourceOffsetFrames)
+  );
+  const fadeInFrames = Math.min(Math.max(0, integer(options.command.fadeInFrames)), durationFrames);
+  const fadeOutFrames = Math.min(Math.max(0, integer(options.command.fadeOutFrames)), durationFrames - fadeInFrames);
+  const name = options.command.name.trim() || options.layer.name;
+  const before = options.layer;
+  const changed = name !== before.name || gain !== before.data.gain || options.command.muted !== before.data.muted ||
+    startFrame !== before.common.placement.startFrame || durationFrames !== before.common.placement.durationFrames ||
+    sourceOffsetFrames !== before.common.placement.sourceOffsetFrames || fadeInFrames !== before.data.fadeInFrames ||
+    fadeOutFrames !== before.data.fadeOutFrames;
+  if (!changed) {
+    return rejected({ project: options.project, selectedLayerDocumentId: options.selectedLayerDocumentId, layerDocumentId: options.command.layerDocumentId, reason: "no-change", message: "Audio Properties did not change." });
+  }
+  const after = structuredClone(options.project);
+  const next = after.payload.layerDocumentsById[options.layer.layerDocumentId];
+  if (next.type !== "audio") {
+    return rejected({ project: options.project, selectedLayerDocumentId: options.selectedLayerDocumentId, layerDocumentId: options.command.layerDocumentId, reason: "type-mismatch", message: "Audio Layer changed during preparation." });
+  }
+  next.name = name;
+  next.revision += 1;
+  next.common.placement = { ...next.common.placement, startFrame, durationFrames, sourceOffsetFrames };
+  next.data = { ...next.data, gain, muted: options.command.muted, fadeInFrames, fadeOutFrames };
+  const issues = validateLayerDocumentProject(after);
+  if (issues.length) {
+    return rejected({ project: options.project, selectedLayerDocumentId: options.selectedLayerDocumentId, layerDocumentId: options.command.layerDocumentId, reason: "transaction-error", message: issues[0].message });
+  }
+  return {
+    ok: true,
+    status: "prepared",
+    selectedLayerDocumentId: options.selectedLayerDocumentId,
+    layerDocumentId: options.layer.layerDocumentId,
+    transaction: {
+      kind: "update-domain",
+      before: options.project,
+      after,
+      selectionChange: { kind: "preserve" },
+      historyEntry: { label: `Update ${options.layer.name} Audio Properties`, affectedLayerDocumentIds: [options.layer.layerDocumentId] },
+      createdLayerDocumentIds: [],
+      deletedLayerDocumentIds: [],
+    },
+    projectUpdateCount: 0,
+    transactionCount: 1,
+    historyEntryCount: 1,
+  };
+}
+
 export function prepareLayerDocumentPropertiesCommand(options: {
   project: LayerDocumentProject;
   selectedLayerDocumentId: string | null;
@@ -277,6 +349,13 @@ export function prepareLayerDocumentPropertiesCommand(options: {
         }),
         layerDocumentId
       );
+    case "set-audio-properties":
+      return prepareAudioProperties({
+        project: options.project,
+        selectedLayerDocumentId: options.selectedLayerDocumentId,
+        layer,
+        command: options.command,
+      });
     case "set-visibility":
       return fromTransactionResult(
         buildUpdateLayerDocumentCommonTransaction(options.project, {

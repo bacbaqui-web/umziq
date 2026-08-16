@@ -2,6 +2,7 @@ import PropertiesKeyframeSection from "@/features/properties/sections/Properties
 import PropertiesModifierLibrarySection from "@/features/properties/sections/PropertiesModifierLibrarySection";
 import PropertiesModifierSection from "@/features/properties/sections/PropertiesModifierSection";
 import PropertiesTransformSection from "@/features/properties/sections/PropertiesTransformSection";
+import PropertiesAudioSection from "@/features/properties/sections/PropertiesAudioSection";
 import type {
   PropertiesEngineViewProps,
 } from "@/engines/properties";
@@ -22,6 +23,9 @@ export default function PropertiesPanel({
                   transformOrigin={readModel.transformOrigin}
                   commands={commands}
                 />
+              )}
+              {readModel.audioSection && (
+                <PropertiesAudioSection viewModel={readModel.audioSection} commands={commands} />
               )}
               <PropertiesModifierSection modifiers={readModel.modifiers} commands={commands} />
               <PropertiesModifierLibrarySection

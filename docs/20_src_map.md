@@ -396,6 +396,8 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - Timeline Audio row/waveform, source-bounded timing Draft와 single-clock Audio synchronization
 - Library Cut canonical reorder와 Audio same/cross-Cut drag/drop single-transaction command
 - fake microphone/recorder 기반 직접 녹음 cancel/error/stale/confirm과 자원 정리
+- Audio Properties 전용 name/gain/mute/timing/source offset/fade Runtime Draft와
+  단일 Owner transaction clamp/undo 계약
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration

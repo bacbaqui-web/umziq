@@ -32,6 +32,30 @@ export type PropertiesDraftInputId =
   | PropertiesNumericInputId
   | PropertiesModifierInputId;
 
+export type PropertiesAudioInputId =
+  | "audio.name"
+  | "audio.gain"
+  | "audio.startFrame"
+  | "audio.durationFrames"
+  | "audio.sourceOffsetFrames"
+  | "audio.fadeInFrames"
+  | "audio.fadeOutFrames";
+
+export type PropertiesAudioFieldViewModel = {
+  id: PropertiesAudioInputId;
+  label: string;
+  value: string;
+  suffix?: string;
+  numeric: boolean;
+  step?: number;
+};
+
+export type PropertiesAudioSectionViewModel = {
+  layerDocumentId: string;
+  fields: PropertiesAudioFieldViewModel[];
+  muted: boolean;
+};
+
 export type PropertiesPropertyIcon = "position" | "scale" | "rotation" | "opacity";
 
 export type PropertiesVisualTokens = {
@@ -176,6 +200,7 @@ export type PropertiesReadModel = {
   keyframe: PropertiesKeyframeViewModel;
   modifiers: PropertiesModifierViewModel[];
   modifierLibrary: PropertiesModifierLibraryViewModel;
+  audioSection: PropertiesAudioSectionViewModel | null;
   importError: string | null;
   importNotice: string | null;
 };
@@ -200,6 +225,11 @@ export type PropertiesCommand = {
     inputId: PropertiesModifierInputId,
     key: string
   ) => "blur" | null;
+  focusAudioInput: (inputId: PropertiesAudioInputId) => void;
+  changeAudioInput: (inputId: PropertiesAudioInputId, value: string) => void;
+  blurAudioInput: (inputId: PropertiesAudioInputId) => void;
+  keyDownAudioInput: (inputId: PropertiesAudioInputId, key: string) => "blur" | null;
+  toggleAudioMuted: () => void;
 };
 
 export type PropertiesEngineViewProps = {

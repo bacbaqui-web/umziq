@@ -1,6 +1,9 @@
 export { PROPERTY_LABELS } from "@/engines/properties/constants/propertiesConstants";
 export type {
   PropertiesCommand,
+  PropertiesAudioFieldViewModel,
+  PropertiesAudioInputId,
+  PropertiesAudioSectionViewModel,
   PropertiesEngineViewProps,
   PropertiesInfoViewModel,
   PropertiesCapabilityStatus,

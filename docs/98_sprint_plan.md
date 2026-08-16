@@ -3,7 +3,7 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~8 완료
+- Task 0~9 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
 - Browser QA 미실행
@@ -672,6 +672,21 @@ Library에서 Cut 순서와 Audio 소속/순서를 직접 변경한다.
 - Properties/Timeline/Library 선택 identity 일치
 - Undo/Redo 뒤 Runtime이 현재 Project에 맞게 재평가
 - 저장/재열기 후 동일한 Audio 기본 설정 복원
+
+### 구현 결과
+
+- Audio Layer 선택 시 기존 기준/위치/크기/회전/투명, animation keyframe과 modifier
+  UI를 숨기고 이름, 음량, 음소거, 시작 프레임, 길이, 원본 시작, fade in/out 전용
+  section을 표시한다. Library와 Timeline이 공유하는 `layerDocumentId` 선택을 그대로 쓴다.
+- 숫자 입력과 위/아래 pointer drag는 Properties Runtime Draft만 갱신해 History 0건이며
+  blur/pointerup/Enter에서 `set-audio-properties` Owner transaction 한 번으로 확정한다.
+  Escape/pointer cancel은 Draft만 버리고 History 0건이다.
+- 단일 command가 name, common placement와 Audio data를 함께 바꾸고 Layer revision도
+  한 번만 증가시킨다. gain은 0~4, timing은 Cut과 Source duration, source offset은 0 이상,
+  fade 합은 최종 duration 이하로 clamp한다.
+- 검증은 canonical 필드 projection, visual section 비노출, clamp, 준비 중 Project 불변,
+  no-change History 0건과 성공 transaction/History 1건을 확인한다. 기존 visual Properties
+  검증 suite도 함께 유지한다.
 
 ---
 

@@ -23,11 +23,22 @@ import type {
 } from "@/engines/properties/models/layerDocumentPropertiesModel";
 import type {
   PropertiesCapabilityViewModel,
+  PropertiesAudioInputId,
   PropertiesEngineViewProps,
   PropertiesModifierViewModel,
   PropertiesReadModel,
   PropertiesSourceDetailViewModel,
 } from "@/engines/properties/models/propertiesEngineModel";
+
+type AudioPropertiesDescriptor = LayerDocumentPropertiesDescriptor & {
+  typeData: Extract<LayerDocumentPropertiesDescriptor["typeData"], { kind: "audio" }>;
+};
+
+function isAudioPropertiesDescriptor(
+  descriptor: LayerDocumentPropertiesDescriptor | null
+): descriptor is AudioPropertiesDescriptor {
+  return descriptor?.typeData.kind === "audio";
+}
 
 export type LayerDocumentPropertiesController = ReturnType<
   typeof createLayerDocumentPropertiesController
@@ -264,6 +275,8 @@ export function buildLayerDocumentPropertiesViewProps(options: {
   controller: LayerDocumentPropertiesController;
   formatTime?: (frame: number, frameRate: number) => string;
   frameRate?: number;
+  audioDrafts?: Partial<Record<PropertiesAudioInputId, string>>;
+  audioCommands?: Pick<PropertiesEngineViewProps["commands"], "focusAudioInput" | "changeAudioInput" | "blurAudioInput" | "keyDownAudioInput" | "toggleAudioMuted">;
 }): PropertiesEngineViewProps {
   const read = options.controller.read();
   const descriptor = read.descriptor.status === "ready"
@@ -307,6 +320,9 @@ export function buildLayerDocumentPropertiesViewProps(options: {
     ])
   ) as Record<(typeof ANIMATABLE_PROPERTIES)[number], boolean>;
   const numericDrafts = read.runtime.inputDrafts;
+  const audio = isAudioPropertiesDescriptor(descriptor) ? descriptor : null;
+  const audioValue = (id: PropertiesAudioInputId, fallback: string) =>
+    options.audioDrafts?.[id] ?? fallback;
   const readModel: PropertiesReadModel = {
     hasSelectedComposition: Boolean(descriptor),
     info: descriptor?.typeData.kind === "group"
@@ -387,7 +403,7 @@ export function buildLayerDocumentPropertiesViewProps(options: {
           ),
         ]
       : [],
-    transformSectionVisible: Boolean(descriptor && transform),
+    transformSectionVisible: Boolean(descriptor && transform && descriptor.type !== "audio"),
     currentTimeText: formatTime(read.globalFrame, frameRate),
     currentValues: values,
     rows: buildPropertiesPropertyRows({
@@ -423,7 +439,7 @@ export function buildLayerDocumentPropertiesViewProps(options: {
       numericDrafts,
     }),
     keyframe: {
-      visible: Boolean(descriptor),
+      visible: Boolean(descriptor && descriptor.type !== "audio"),
       showPositionSave: Boolean(
         descriptor &&
         descriptor.capabilities.transformInputs.position.status ===
@@ -439,12 +455,12 @@ export function buildLayerDocumentPropertiesViewProps(options: {
         : "없음",
       canDeleteSelected: Boolean(selected),
     },
-    modifiers: descriptor
+    modifiers: descriptor && descriptor.type !== "audio"
       ? modifierViews(descriptor, read.runtime)
       : [],
     modifierLibrary: {
       visible:
-        descriptor?.capabilities.modifiers.status === "editable",
+        descriptor?.type !== "audio" && descriptor?.capabilities.modifiers.status === "editable",
       items: [
         {
           type: "wiggle",
@@ -475,6 +491,19 @@ export function buildLayerDocumentPropertiesViewProps(options: {
         },
       ],
     },
+    audioSection: audio ? {
+      layerDocumentId: audio.layerDocumentId,
+      muted: audio.typeData.data.muted,
+      fields: [
+        { id: "audio.name", label: "이름", value: audioValue("audio.name", audio.name), numeric: false },
+        { id: "audio.gain", label: "음량", value: audioValue("audio.gain", String(audio.typeData.data.gain)), suffix: "x", numeric: true, step: 0.05 },
+        { id: "audio.startFrame", label: "시작 프레임", value: audioValue("audio.startFrame", String(audio.placement.startFrame)), numeric: true, step: 1 },
+        { id: "audio.durationFrames", label: "길이", value: audioValue("audio.durationFrames", String(audio.placement.durationFrames)), suffix: "f", numeric: true, step: 1 },
+        { id: "audio.sourceOffsetFrames", label: "원본 시작", value: audioValue("audio.sourceOffsetFrames", String(audio.placement.sourceOffsetFrames)), suffix: "f", numeric: true, step: 1 },
+        { id: "audio.fadeInFrames", label: "페이드 인", value: audioValue("audio.fadeInFrames", String(audio.typeData.data.fadeInFrames)), suffix: "f", numeric: true, step: 1 },
+        { id: "audio.fadeOutFrames", label: "페이드 아웃", value: audioValue("audio.fadeOutFrames", String(audio.typeData.data.fadeOutFrames)), suffix: "f", numeric: true, step: 1 },
+      ],
+    } : null,
     importError: null,
     importNotice: null,
   };
@@ -507,6 +536,11 @@ export function buildLayerDocumentPropertiesViewProps(options: {
         options.controller.blurModifierInput,
       keyDownModifierInput:
         options.controller.keyDownModifierInput,
+      focusAudioInput: options.audioCommands?.focusAudioInput ?? (() => undefined),
+      changeAudioInput: options.audioCommands?.changeAudioInput ?? (() => undefined),
+      blurAudioInput: options.audioCommands?.blurAudioInput ?? (() => undefined),
+      keyDownAudioInput: options.audioCommands?.keyDownAudioInput ?? (() => null),
+      toggleAudioMuted: options.audioCommands?.toggleAudioMuted ?? (() => undefined),
     },
   };
 }
@@ -540,6 +574,10 @@ export function useLayerDocumentPropertiesEngine(options: {
     useState<LayerDocumentPropertiesRuntimeState>(
       () => initialRuntime(options.port)
     );
+  const [audioDraft, setAudioDraft] = useState<{
+    selectionId: string | null;
+    values: Partial<Record<PropertiesAudioInputId, string>>;
+  }>({ selectionId: null, values: {} });
   const runtimePort = useMemo<
     LayerDocumentPropertiesRuntimePort
   >(() => ({
@@ -572,16 +610,98 @@ export function useLayerDocumentPropertiesEngine(options: {
     // Owner History/session restoration invalidates every local input Draft.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRuntime(initialRuntime(options.port));
+    setAudioDraft({ selectionId: null, values: {} });
   }, [
     options.port,
     options.resetRevision,
   ]);
+  const readyAudioDescriptor = () => {
+    const current = options.port.read().descriptor;
+    return current.status === "ready" && current.descriptor.typeData.kind === "audio"
+      ? current.descriptor as AudioPropertiesDescriptor
+      : null;
+  };
+  const currentAudioValue = (descriptor: NonNullable<ReturnType<typeof readyAudioDescriptor>>, id: PropertiesAudioInputId) => {
+    switch (id) {
+      case "audio.name": return descriptor.name;
+      case "audio.gain": return String(descriptor.typeData.data.gain);
+      case "audio.startFrame": return String(descriptor.placement.startFrame);
+      case "audio.durationFrames": return String(descriptor.placement.durationFrames);
+      case "audio.sourceOffsetFrames": return String(descriptor.placement.sourceOffsetFrames);
+      case "audio.fadeInFrames": return String(descriptor.typeData.data.fadeInFrames);
+      case "audio.fadeOutFrames": return String(descriptor.typeData.data.fadeOutFrames);
+    }
+  };
+  const commitAudioDraft = (inputId: PropertiesAudioInputId) => {
+    const descriptor = readyAudioDescriptor();
+    if (!descriptor || audioDraft.selectionId !== descriptor.layerDocumentId || audioDraft.values[inputId] === undefined) return;
+    const value = (id: PropertiesAudioInputId) => audioDraft.values[id] ?? currentAudioValue(descriptor, id);
+    const number = (id: PropertiesAudioInputId) => Number(value(id));
+    if (inputId !== "audio.name" && !Number.isFinite(number(inputId))) {
+      setAudioDraft({ selectionId: null, values: {} });
+      return;
+    }
+    controller.dispatch({
+      kind: "set-audio-properties",
+      layerDocumentId: descriptor.layerDocumentId,
+      name: value("audio.name"),
+      gain: number("audio.gain"),
+      muted: descriptor.typeData.data.muted,
+      startFrame: number("audio.startFrame"),
+      durationFrames: number("audio.durationFrames"),
+      sourceOffsetFrames: number("audio.sourceOffsetFrames"),
+      fadeInFrames: number("audio.fadeInFrames"),
+      fadeOutFrames: number("audio.fadeOutFrames"),
+    });
+    setAudioDraft({ selectionId: null, values: {} });
+  };
+  const audioCommands = {
+    focusAudioInput: (inputId: PropertiesAudioInputId) => {
+      const descriptor = readyAudioDescriptor();
+      if (!descriptor) return;
+      setAudioDraft({ selectionId: descriptor.layerDocumentId, values: { [inputId]: currentAudioValue(descriptor, inputId) } });
+    },
+    changeAudioInput: (inputId: PropertiesAudioInputId, value: string) => {
+      const descriptor = readyAudioDescriptor();
+      if (!descriptor) return;
+      setAudioDraft((current) => ({
+        selectionId: descriptor.layerDocumentId,
+        values: current.selectionId === descriptor.layerDocumentId ? { ...current.values, [inputId]: value } : { [inputId]: value },
+      }));
+    },
+    blurAudioInput: commitAudioDraft,
+    keyDownAudioInput: (inputId: PropertiesAudioInputId, key: string) => {
+      if (key === "Escape") {
+        setAudioDraft({ selectionId: null, values: {} });
+        return "blur" as const;
+      }
+      if (key === "Enter") {
+        commitAudioDraft(inputId);
+        return "blur" as const;
+      }
+      return null;
+    },
+    toggleAudioMuted: () => {
+      const descriptor = readyAudioDescriptor();
+      if (!descriptor) return;
+      controller.dispatch({
+        kind: "set-audio-properties", layerDocumentId: descriptor.layerDocumentId,
+        name: descriptor.name, gain: descriptor.typeData.data.gain,
+        muted: !descriptor.typeData.data.muted,
+        startFrame: descriptor.placement.startFrame, durationFrames: descriptor.placement.durationFrames,
+        sourceOffsetFrames: descriptor.placement.sourceOffsetFrames,
+        fadeInFrames: descriptor.typeData.data.fadeInFrames, fadeOutFrames: descriptor.typeData.data.fadeOutFrames,
+      });
+    },
+  };
   return {
     controller,
     viewProps: buildLayerDocumentPropertiesViewProps({
       controller,
       formatTime: options.formatTime,
       frameRate: options.frameRate,
+      audioDrafts: audioDraft.selectionId === (scope.descriptor.status === "ready" ? scope.descriptor.descriptor.layerDocumentId : null) ? audioDraft.values : {},
+      audioCommands,
     }),
   };
 }
