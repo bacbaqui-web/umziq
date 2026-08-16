@@ -16,6 +16,7 @@ import {
   createLayerDocumentProjectReconnectController,
   createLayerDocumentProjectSaveController,
   createLayerDocumentSourceRuntimeResolutionStore,
+  createLayerDocumentAudioRuntimeStore,
   LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
   type LayerDocumentProjectOwnerEffect,
   type LayerDocumentProjectLinkedSourceAccess,
@@ -41,6 +42,10 @@ import {
   readEditorOwnerGroupScope,
   type EditorProjectOwnerPort,
 } from "@/editor/project-owner";
+import {
+  BROWSER_AUDIO_AUDITION_BACKEND,
+  createEditorAudioRuntime,
+} from "@/editor/audio-runtime";
 
 const NOOP_METRICS = {
   increment: () => {},
@@ -86,6 +91,28 @@ export function useLayerDocumentEditorRuntime(
   const [resources] = useState(
     createLayerDocumentSourceRuntimeResourceCache
   );
+  const [audioResources] = useState(
+    createLayerDocumentAudioRuntimeStore
+  );
+  const [audio] = useState(() =>
+    createEditorAudioRuntime({
+      resources: audioResources,
+      backend: BROWSER_AUDIO_AUDITION_BACKEND,
+    })
+  );
+  const audioDisposeTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (audioDisposeTimer.current !== null) {
+      window.clearTimeout(audioDisposeTimer.current);
+      audioDisposeTimer.current = null;
+    }
+    return () => {
+      audioDisposeTimer.current = window.setTimeout(() => {
+        audio.dispose();
+        audioDisposeTimer.current = null;
+      }, 0);
+    };
+  }, [audio]);
   const [sourceResolution] = useState(
     createLayerDocumentSourceRuntimeResolutionStore
   );
@@ -217,6 +244,7 @@ export function useLayerDocumentEditorRuntime(
     createEditorProjectOwnerCommandAdapter({
       owner,
       sourceRuntime: resources,
+      audioRuntime: audio,
       clearDraft: draftSession.clear,
       applyOwnerEffect,
       incrementMetric: NOOP_METRICS.increment,
@@ -398,6 +426,7 @@ export function useLayerDocumentEditorRuntime(
     owner,
     ownerCommands,
     resources,
+    audio,
     sourceResolution,
     draftSession,
     playback,

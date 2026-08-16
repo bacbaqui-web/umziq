@@ -77,6 +77,12 @@ Audio import 준비와 Runtime 경계:
   decoded Audio 등록·재사용·dispose 경계
 - `engines/library/adapters/layerDocumentAudioImportCommandAdapter.ts`: prepared
   lifecycle, Owner atomic confirm, Runtime 등록과 Source resolution 연결
+- `editor/audio-runtime/editorAudioRuntime.ts`: single-active audition,
+  play/stop/replace/seek/read/subscribe와 Project/Source reconcile
+- `editor/audio-runtime/browserAudioAuditionBackend.ts`: AudioBufferSourceNode와
+  GainNode를 사용하는 브라우저 playback adapter
+- `editor/audio-runtime/editorAudioRuntimeModel.ts`: fake backend로도 검증 가능한
+  audition/backend/Runtime public port
 
 ### Transaction
 
@@ -383,6 +389,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - duplicate/group/animation/effect/modifier
 - PSD import/refresh/source lifecycle/runtime GC
 - Cut별 Audio prepare/confirm/cancel, shared Source와 decoded resource 재사용
+- Editor Audio single-active audition과 Project/Source lifecycle cleanup
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration

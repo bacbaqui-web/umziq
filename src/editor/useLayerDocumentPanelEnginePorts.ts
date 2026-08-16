@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -21,7 +20,6 @@ import {
 } from "@/render";
 import {
   createLayerDocumentLibraryController,
-  createLayerDocumentAudioRuntimeStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   prepareLayerDocumentAudioImport,
   type LayerDocumentProjectOwnerPort,
@@ -58,6 +56,7 @@ export function useLayerDocumentPanelEnginePorts(
     ownerCommands: OwnerCommands;
     resources:
       LayerDocumentSourceRuntimeResourcePort;
+    audioRuntime: import("@/editor/audio-runtime").EditorAudioRuntimePort;
     sourceResolution:
       LayerDocumentSourceRuntimeResolutionPort;
     draftSession: LayerDocumentCanvasDraftPort;
@@ -71,6 +70,7 @@ export function useLayerDocumentPanelEnginePorts(
     owner,
     ownerCommands,
     resources,
+    audioRuntime,
     sourceResolution,
     draftSession,
     frameInput,
@@ -265,10 +265,6 @@ export function useLayerDocumentPanelEnginePorts(
       canvasCommands,
     };
   });
-  const [audioRuntime] = useState(
-    createLayerDocumentAudioRuntimeStore
-  );
-  useEffect(() => () => audioRuntime.dispose(), [audioRuntime]);
   const sourceStatus = useMemo(
     () =>
       createLayerDocumentTimelineSourceStatusAdapter({
@@ -402,7 +398,7 @@ export function useLayerDocumentPanelEnginePorts(
               command
             ),
           commit: ownerCommands.commitSourcePreparation,
-          runtime: audioRuntime,
+          runtime: audioRuntime.resources,
           sourceResolution,
         }),
       cancel: (prepared: Awaited<ReturnType<typeof prepareLayerDocumentAudioImport>>) =>

@@ -10,6 +10,12 @@ function dispose(resource: LayerDocumentAudioRuntimeResource) {
 export function createLayerDocumentAudioRuntimeStore(): LayerDocumentAudioRuntimePort {
   const resources = new Map<string, LayerDocumentAudioRuntimeResource>();
   let disposed = false;
+  const clear = () => {
+    const count = resources.size;
+    resources.forEach(dispose);
+    resources.clear();
+    return count;
+  };
   return {
     preflight: (incoming) => {
       if (disposed) return { ok: false, message: "Audio runtime store is disposed" };
@@ -50,11 +56,11 @@ export function createLayerDocumentAudioRuntimeStore(): LayerDocumentAudioRuntim
       dispose(resource);
       return true;
     },
+    clear,
     dispose: () => {
       if (disposed) return;
       disposed = true;
-      resources.forEach(dispose);
-      resources.clear();
+      clear();
     },
   };
 }

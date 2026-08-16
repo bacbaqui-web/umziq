@@ -3,7 +3,8 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~3 완료
+- Task 0~3, 5 완료
+- Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 구현 대기
 - Browser QA 미실행
 
@@ -477,6 +478,27 @@ Audio resource lifecycle과 동시에 하나만 재생되는 Library audition을
 - Project 교체 후 이전 Audio 재생 0건
 - stale resource 재사용 0건
 - resource dispose 중복 0건
+
+### 구현 결과 — 완료 (Task 4보다 선행)
+
+- Task 4의 Library 재생/정지 행 command가 의존할 Runtime 계약을 먼저 고정하기
+  위해 Task 5를 선행했다. Library UI 행과 재생 버튼은 아직 추가하지 않았다.
+- `EditorAudioRuntimePort`에 `play`, `stop`, `seek`, `read`, `subscribe`와
+  Project/Source lifecycle command를 추가했다. Runtime 상태와 decoded resource는
+  Project·History에 저장하지 않는다.
+- 한 audition을 시작하면 기존 backend handle을 먼저 정지한다. Audio Layer의
+  gain/muted를 backend gain에 반영하며 Project reconcile에서 변경된 값을
+  재적용한다.
+- Project replace/open/close의 `invalidate-all` Owner effect는 audition을 멈추고
+  decoded registry를 비운다. Source refresh/delete/reconnect invalidation은 해당
+  Source audition을 멈추고 resource를 dispose하며, Layer 삭제·Source 변경도
+  Project reconcile에서 즉시 정지한다.
+- 브라우저 backend는 AudioBufferSourceNode와 GainNode를 사용한다. Runtime
+  핵심은 backend port에만 의존하므로 검증은 AudioContext 없이 fake backend로
+  single-active, replace, seek, mute/gain, ended, invalidate, Project replace와
+  dispose-once를 결정적으로 확인한다.
+- Timeline clock 동기화와 waveform projection/cache 생성은 Task 6에 남겼다.
+  Task 5에서는 두 번째 clock이나 persistent playback state를 만들지 않았다.
 
 ---
 

@@ -67,6 +67,7 @@ EditorShellLayoutProps {
       owner: runtime.owner,
       ownerCommands: runtime.ownerCommands,
       resources: runtime.resources,
+      audioRuntime: runtime.audio,
       sourceResolution:
         runtime.sourceResolution,
       draftSession: runtime.draftSession,

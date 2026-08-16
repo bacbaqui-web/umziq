@@ -17,6 +17,7 @@ import type {
 import type {
   EditorOwnerCommandResult,
 } from "@/editor/project-owner/models/editorProjectOwnerModel";
+import type { EditorAudioRuntimePort } from "@/editor/audio-runtime";
 import {
   commandEditorOwnerAcknowledgeSourceStatus,
   commandEditorOwnerActiveGroup,
@@ -30,16 +31,22 @@ import {
 function applyRuntimeCacheEffect(
   sourceRuntime:
     LayerDocumentSourceRuntimeResourcePort,
-  effect: LayerDocumentProjectOwnerEffect
+  effect: LayerDocumentProjectOwnerEffect,
+  audioRuntime: EditorAudioRuntimePort | undefined,
+  project: import("@/models").LayerDocumentProject
 ) {
   if (effect.runtimeCachePolicy === "invalidate-all") {
     sourceRuntime.invalidate({ kind: "all" });
+    audioRuntime?.replaceProject(project);
     return;
   }
   if (
     effect.runtimeCachePolicy !==
     "apply-source-invalidations"
-  ) return;
+  ) {
+    audioRuntime?.reconcileProject(project);
+    return;
+  }
   effect.sourceRestorationIds.forEach((sourceId) => {
     sourceRuntime.restoreSource(sourceId);
   });
@@ -48,6 +55,7 @@ function applyRuntimeCacheEffect(
       kind: "source",
       sourceId,
     });
+    audioRuntime?.invalidateSource(sourceId);
   });
   effect.suspendedSourceDisposalIds.forEach(
     (sourceId) => {
@@ -56,6 +64,7 @@ function applyRuntimeCacheEffect(
   );
   effect.sourceInvalidationIds.forEach((sourceId) => {
     sourceRuntime.suspendSource(sourceId);
+    audioRuntime?.invalidateSource(sourceId);
   });
   const invalidatedKeys = new Set<string>();
   effect.cacheInvalidations.forEach((descriptor) => {
@@ -72,6 +81,7 @@ function applyRuntimeCacheEffect(
         descriptor.sourceResourceCacheKeyBefore,
     });
   });
+  audioRuntime?.reconcileProject(project);
 }
 
 export function createEditorProjectOwnerCommandAdapter(
@@ -79,6 +89,7 @@ export function createEditorProjectOwnerCommandAdapter(
     owner: LayerDocumentProjectOwnerPort;
     sourceRuntime:
       LayerDocumentSourceRuntimeResourcePort;
+    audioRuntime?: EditorAudioRuntimePort;
     clearDraft: () => void;
     applyOwnerEffect: (
       effect: LayerDocumentProjectOwnerEffect
@@ -112,7 +123,9 @@ export function createEditorProjectOwnerCommandAdapter(
     }
     applyRuntimeCacheEffect(
       options.sourceRuntime,
-      transition.effect
+      transition.effect,
+      options.audioRuntime,
+      transition.state.currentProject
     );
     if (transition.changed) {
       options.incrementMetric(

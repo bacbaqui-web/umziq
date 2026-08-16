@@ -149,6 +149,7 @@ assert.match(
   /resetRevision:\s*runtime\.ownerEffect\.localUiRevision/
 );
 assert.match(runtime, /resources\.dispose\(\)/);
+assert.match(runtime, /audio\.dispose\(\)/);
 assert.match(runtime, /playback\.dispose\(\)/);
 assert.match(runtime, /playback\.synchronizeClock\(\)/);
 assert.match(
@@ -158,6 +159,14 @@ assert.match(
 assert.match(
   runtime,
   /resourceDisposeTimer[\s\S]*window\.setTimeout[\s\S]*resources\.dispose\(\)/
+);
+assert.match(
+  runtime,
+  /audioDisposeTimer[\s\S]*window\.clearTimeout[\s\S]*window\.setTimeout[\s\S]*audio\.dispose\(\)/
+);
+assert.doesNotMatch(
+  runtime,
+  /useEffect\(\(\) => \(\) => audio\.dispose\(\)/
 );
 assert.match(
   runtime,
