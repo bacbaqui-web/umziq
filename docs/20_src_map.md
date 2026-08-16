@@ -71,6 +71,8 @@ Audio import 준비와 Runtime 경계:
 
 - `engines/project/import/layerDocumentAudioImportAdapter.ts`: Cut 해석,
   browser decode metadata, SHA-256 fingerprint, Source/Audio Layer prepared command
+- `engines/project/import/layerDocumentAudioRecordingAdapter.ts`: 마이크 권한,
+  MediaRecorder start/stop/cancel, recorded File 준비와 stream/track dispose 경계
 - `engines/project/models/layerDocumentAudioRuntimeModel.ts`: 저장되지 않는 decoded
   Audio resource와 registration public port
 - `engines/project/state/layerDocumentAudioRuntimeStore.ts`: sourceId/fingerprint 기반
@@ -393,6 +395,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - Library Cut 하위 Audio Layer projection, imported/recorded 아이콘과 audition/mute/name/delete command
 - Timeline Audio row/waveform, source-bounded timing Draft와 single-clock Audio synchronization
 - Library Cut canonical reorder와 Audio same/cross-Cut drag/drop single-transaction command
+- fake microphone/recorder 기반 직접 녹음 cancel/error/stale/confirm과 자원 정리
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration

@@ -108,6 +108,7 @@ EditorShellLayoutProps {
       controller:
         panelPorts.libraryController,
       audioImport: panelPorts.audioImport,
+      audioRecording: panelPorts.audioRecording,
       audio: panelPorts.libraryAudio,
       parentLayerDocumentId:
         scope.model.activeGroup.layerDocumentId,
@@ -120,6 +121,7 @@ EditorShellLayoutProps {
         panelPorts.nextPsdLayerOrder,
       cacheContext:
         panelPorts.readPsdCacheContext,
+      resetRevision: runtime.ownerEffect.localUiRevision,
     });
   runtime.newProjectPsdImport.connect(
     library.importFiles

@@ -436,6 +436,11 @@ export function useLayerDocumentLibraryEngine(options: {
     confirm: (prepared: PreparedLayerDocumentAudioImport) => { readonly ok: boolean; readonly message?: string };
     cancel: (prepared: PreparedLayerDocumentAudioImport) => unknown;
   };
+  audioRecording: {
+    start: () => Promise<import("@/engines/project").LayerDocumentAudioRecordingSession>;
+    stop: (session: import("@/engines/project").LayerDocumentAudioRecordingSession) => Promise<PreparedLayerDocumentAudioImport>;
+    cancel: (session: import("@/engines/project").LayerDocumentAudioRecordingSession) => boolean;
+  };
   audio: {
     read: () => import("@/editor/audio-runtime").EditorAudioAuditionState;
     subscribe: (listener: () => void) => () => void;
@@ -457,15 +462,23 @@ export function useLayerDocumentLibraryEngine(options: {
   parentHeight: number;
   nextOrder: () => number;
   cacheContext: () => SourceRegistryCacheInvalidationContext;
+  resetRevision: number;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioRequest = useRef(0);
   const activeAudioPrepared = useRef<PreparedLayerDocumentAudioImport | null>(null);
+  const activeRecording = useRef<import("@/engines/project").LayerDocumentAudioRecordingSession | null>(null);
+  const [audioRecordingStatus, setAudioRecordingStatus] = useState<LibraryViewProps["audioRecordingStatus"]>("idle");
+  const [audioRecordingName, setAudioRecordingName] = useState<string | null>(null);
+  const projectIdentity = `${options.controller.readProject().metadata.projectId}:${options.resetRevision}`;
+  const previousProjectIdentity = useRef(projectIdentity);
   const audioImportRef = useRef(options.audioImport);
+  const audioRecordingRef = useRef(options.audioRecording);
   useEffect(() => {
     audioImportRef.current = options.audioImport;
-  }, [options.audioImport]);
+    audioRecordingRef.current = options.audioRecording;
+  }, [options.audioImport, options.audioRecording]);
   const [picker, setPicker] = useState<
     { kind: "import" } |
     { kind: "refresh"; sourceId: string } |
@@ -498,12 +511,34 @@ export function useLayerDocumentLibraryEngine(options: {
         audioImportRef.current.cancel(activeAudioPrepared.current);
         activeAudioPrepared.current = null;
       }
+      if (activeRecording.current) {
+        audioRecordingRef.current.cancel(activeRecording.current);
+        activeRecording.current = null;
+      }
       session.cancelActive();
       pendingExternalImport.current?.(false);
       pendingExternalImport.current = null;
     },
     [session]
   );
+  useEffect(() => {
+    if (previousProjectIdentity.current === projectIdentity) return;
+    previousProjectIdentity.current = projectIdentity;
+    audioRequest.current += 1;
+    if (activeRecording.current) {
+      audioRecordingRef.current.cancel(activeRecording.current);
+      activeRecording.current = null;
+    }
+    if (activeAudioPrepared.current) {
+      audioImportRef.current.cancel(activeAudioPrepared.current);
+      activeAudioPrepared.current = null;
+    }
+    const resetTimer = window.setTimeout(() => {
+      setAudioRecordingStatus("idle");
+      setAudioRecordingName(null);
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
+  }, [projectIdentity]);
 
   const prepareImports = useCallback(async (
     files: readonly File[]
@@ -749,6 +784,8 @@ export function useLayerDocumentLibraryEngine(options: {
     importPreviewStatus: status,
     importPreviewError: error,
     refreshSummary: summary,
+    audioRecordingStatus,
+    audioRecordingName,
     onImportClick: () => {
       setPicker({ kind: "import" });
       fileInputRef.current?.click();
@@ -778,6 +815,73 @@ export function useLayerDocumentLibraryEngine(options: {
           setError(reason instanceof Error ? reason.message : "오디오를 분석하지 못했습니다.");
         }
       });
+    },
+    onStartAudioRecording: () => {
+      if (audioRecordingStatus !== "idle") return;
+      setError(null);
+      setAudioRecordingStatus("requesting");
+      const request = ++audioRequest.current;
+      void options.audioRecording.start().then((recording) => {
+        if (request !== audioRequest.current) {
+          options.audioRecording.cancel(recording);
+          return;
+        }
+        activeRecording.current = recording;
+        setAudioRecordingStatus("recording");
+      }).catch((reason: unknown) => {
+        if (request === audioRequest.current) {
+          setAudioRecordingStatus("idle");
+          setError(reason instanceof Error ? reason.message : "마이크를 시작하지 못했습니다.");
+        }
+      });
+    },
+    onStopAudioRecording: () => {
+      const recording = activeRecording.current;
+      if (!recording || audioRecordingStatus !== "recording") return;
+      setAudioRecordingStatus("preparing");
+      const request = audioRequest.current;
+      void options.audioRecording.stop(recording).then((prepared) => {
+        if (request !== audioRequest.current) {
+          options.audioImport.cancel(prepared);
+          return;
+        }
+        activeAudioPrepared.current = prepared;
+        if (activeRecording.current === recording) activeRecording.current = null;
+        setAudioRecordingName(prepared.command.layers[0]?.name ?? "움직 녹음");
+        setAudioRecordingStatus("review");
+      }).catch((reason: unknown) => {
+        if (request === audioRequest.current) {
+          if (activeRecording.current === recording) activeRecording.current = null;
+          setAudioRecordingStatus("idle");
+          setError(reason instanceof Error ? reason.message : "녹음을 준비하지 못했습니다.");
+        }
+      });
+    },
+    onCancelAudioRecording: () => {
+      audioRequest.current += 1;
+      if (activeRecording.current) {
+        options.audioRecording.cancel(activeRecording.current);
+        activeRecording.current = null;
+      }
+      if (activeAudioPrepared.current) {
+        options.audioImport.cancel(activeAudioPrepared.current);
+        activeAudioPrepared.current = null;
+      }
+      setAudioRecordingName(null);
+      setAudioRecordingStatus("idle");
+      setError(null);
+    },
+    onConfirmAudioRecording: () => {
+      const prepared = activeAudioPrepared.current;
+      if (!prepared || audioRecordingStatus !== "review") return;
+      const result = options.audioImport.confirm(prepared);
+      if (result.ok) {
+        activeAudioPrepared.current = null;
+        setAudioRecordingName(null);
+        setAudioRecordingStatus("idle");
+      } else {
+        setError(result.message ?? "녹음을 추가하지 못했습니다.");
+      }
     },
     onSelectNode: (nodeId) => {
       const findNode = (items: readonly LibraryNodeViewModel[]): LibraryNodeViewModel | null => {

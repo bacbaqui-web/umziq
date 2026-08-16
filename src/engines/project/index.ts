@@ -178,6 +178,17 @@ export type {
   LayerDocumentAudioDecodePort,
   PreparedLayerDocumentAudioImport,
 } from "@/engines/project/import/layerDocumentAudioImportAdapter";
+export {
+  LAYER_DOCUMENT_BROWSER_AUDIO_RECORDING_PORT,
+  cancelLayerDocumentAudioRecording,
+  startLayerDocumentAudioRecording,
+  stopLayerDocumentAudioRecording,
+} from "@/engines/project/import/layerDocumentAudioRecordingAdapter";
+export type {
+  LayerDocumentAudioRecorderPort,
+  LayerDocumentAudioRecordingBrowserPort,
+  LayerDocumentAudioRecordingSession,
+} from "@/engines/project/import/layerDocumentAudioRecordingAdapter";
 export type {
   CreateLayerDocumentProjectOwnerOptions,
   LayerDocumentOwnerHistoryEntry,

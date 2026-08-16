@@ -138,6 +138,7 @@ export async function prepareLayerDocumentAudioImport(options: {
   activeGroupLayerDocumentId?: string | null;
   order?: number;
   decoder?: LayerDocumentAudioDecodePort;
+  provenance?: "imported" | "recorded";
 }): Promise<PreparedLayerDocumentAudioImport> {
   const mimeType = options.file.type.toLowerCase();
   const hasAudioExtension = /\.(wav|mp3|m4a|aac|ogg|oga|webm|flac)$/i
@@ -165,9 +166,14 @@ export async function prepareLayerDocumentAudioImport(options: {
   }
   const shared = Object.values(options.project.payload.sourceRegistry.sourcesById)
     .find((source) => source.kind === "audio" &&
+      source.data.provenance === (options.provenance ?? "imported") &&
       source.contentFingerprint?.digestHex === contentFingerprint.digestHex &&
       source.contentFingerprint.byteLength === contentFingerprint.byteLength);
-  const sourceId = shared?.sourceId ?? stableId("audio-source", options.token, options.file.name);
+  const sourceId = shared?.sourceId ?? stableId(
+    options.provenance === "recorded" ? "recorded-audio-source" : "audio-source",
+    options.token,
+    options.file.name
+  );
   const layerDocumentId = stableId("audio-layer", options.token, cutId);
   const durationFrames = Math.max(1, Math.round(
     decoded.metadata.durationSeconds * cut.data.frameRate
@@ -184,7 +190,7 @@ export async function prepareLayerDocumentAudioImport(options: {
       mimeType: options.file.type || null, durationFrames,
       channelCount: decoded.metadata.channelCount,
       sampleRate: decoded.metadata.sampleRate,
-      provenance: "imported",
+      provenance: options.provenance ?? "imported",
     },
   };
   const siblingCount = Object.values(options.project.payload.layerDocumentsById)

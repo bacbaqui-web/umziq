@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import LibraryNode from "@/features/library/components/LibraryNode";
 import PsdImportPreviewDialog from "@/features/library/components/PsdImportPreviewDialog";
 import PsdRefreshSummaryCard from "@/features/library/components/PsdRefreshSummaryCard";
@@ -14,11 +14,17 @@ function LibraryPanel({
   importPlan,
   importPreviewStatus,
   importPreviewError,
+  audioRecordingStatus,
+  audioRecordingName,
   refreshSummary,
   onImportClick,
   onFileInputChange,
   onAudioImportClick,
   onAudioFileInputChange,
+  onStartAudioRecording,
+  onStopAudioRecording,
+  onCancelAudioRecording,
+  onConfirmAudioRecording,
   onSelectNode,
   onToggleNodeVisibility,
   onToggleNodeLock,
@@ -40,6 +46,7 @@ function LibraryPanel({
   onRemoveImportNode,
   onDismissRefreshSummary,
 }: LibraryViewProps) {
+  const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const nodeHandlers = {
     draggedMainCompId,
     dropTarget,
@@ -85,6 +92,30 @@ function LibraryPanel({
       {importPreviewStatus === "idle" && importPreviewError && (
         <div role="alert" style={{ color: "#e69a9a", fontSize: 12, padding: "0 8px" }}>
           {importPreviewError}
+        </div>
+      )}
+      {audioRecordingStatus !== "idle" && (
+        <div
+          role="status"
+          style={{
+            margin: "0 4px", padding: "10px 11px", border: "1px solid #3d4a43",
+            borderRadius: 8, background: "#171d1a", color: "#dce7df", fontSize: 12,
+            display: "flex", alignItems: "center", gap: 8,
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            {audioRecordingStatus === "requesting" && "마이크 권한을 확인하고 있습니다…"}
+            {audioRecordingStatus === "recording" && "● 녹음 중"}
+            {audioRecordingStatus === "preparing" && "녹음을 확인하고 있습니다…"}
+            {audioRecordingStatus === "review" && `${audioRecordingName ?? "움직 녹음"}을 추가할까요?`}
+          </span>
+          {audioRecordingStatus === "recording" && (
+            <button type="button" onClick={onStopAudioRecording}>녹음 끝내기</button>
+          )}
+          {audioRecordingStatus === "review" && (
+            <button type="button" onClick={onConfirmAudioRecording}>추가</button>
+          )}
+          <button type="button" onClick={onCancelAudioRecording}>취소</button>
         </div>
       )}
 
@@ -135,18 +166,42 @@ function LibraryPanel({
                 : "0 4px 14px rgba(0, 0, 0, 0.18)",
             }}
           >
-            <button
-              type="button"
-              onClick={onAudioImportClick}
-              style={{
-                height: 27, padding: "0 8px", border: "1px solid #46515b",
-                borderRadius: 6, background: "rgba(20, 25, 30, 0.62)",
-                color: "#a9d8b6", cursor: "pointer", fontSize: 11.5,
-                fontWeight: 650, whiteSpace: "nowrap",
-              }}
-            >
-              + 오디오
-            </button>
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={audioMenuOpen}
+                onClick={() => setAudioMenuOpen((open) => !open)}
+                style={{
+                  height: 27, padding: "0 8px", border: "1px solid #46515b",
+                  borderRadius: 6, background: "rgba(20, 25, 30, 0.62)",
+                  color: "#a9d8b6", cursor: "pointer", fontSize: 11.5,
+                  fontWeight: 650, whiteSpace: "nowrap",
+                }}
+              >
+                + 오디오
+              </button>
+              {audioMenuOpen && (
+                <div role="menu" style={{
+                  position: "absolute", zIndex: 20, top: 31, left: 0, width: 130,
+                  padding: 4, border: "1px solid #46515b", borderRadius: 7,
+                  background: "#1b2126", boxShadow: "0 8px 20px rgba(0,0,0,.4)",
+                }}>
+                  <button type="button" role="menuitem" onClick={() => {
+                    setAudioMenuOpen(false);
+                    onAudioImportClick();
+                  }} style={{ width: "100%", padding: "7px 8px", textAlign: "left" }}>
+                    파일 불러오기
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => {
+                    setAudioMenuOpen(false);
+                    onStartAudioRecording();
+                  }} style={{ width: "100%", padding: "7px 8px", textAlign: "left" }}>
+                    직접 녹음
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => onSelectNode(projectNode.id)}

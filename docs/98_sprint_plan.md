@@ -3,7 +3,7 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~7 완료
+- Task 0~8 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
 - Browser QA 미실행
@@ -633,6 +633,22 @@ Library에서 Cut 순서와 Audio 소속/순서를 직접 변경한다.
 - Cancel 시 Project update/History 0건
 - 녹음 성공 시 imported Audio와 같은 playback/persistence 경로 사용
 - recording stream과 object URL 누수 0건
+
+### 구현 결과
+
+- Library의 `+ 오디오` 메뉴를 `파일 불러오기`와 `직접 녹음`으로 나누고,
+  권한 확인/녹음/분석/확인 상태와 stop/cancel 조작을 명시했다.
+- `getUserMedia({ audio: true })`와 `MediaRecorder`는 Project 밖 Runtime port에서만
+  다룬다. 녹음 stream track은 stop/cancel/생성 실패에 정리하며, Blob/File과 decoded
+  Audio는 confirm 전 prepared lifecycle에만 머문다.
+- 녹음 시작 시 기존 explicit/selected/active ancestor 규칙으로 Cut을 고정하고 stop 시
+  해당 Cut을 다시 검증한다. Confirm에서만 `recorded` Source와 Audio Layer를 기존
+  Source preparation/Owner 경로로 한 번에 생성한다.
+- 기본 이름은 `움직 녹음 <시각>`이며 Library의 recorded 마이크 아이콘으로 구분된다.
+  imported와 recorded fingerprint dedupe 범위는 분리해 provenance가 바뀌지 않는다.
+- 권한 거부, 취소, 빈 Blob, decode 실패와 stale Cut은 Project/History 0건이다.
+  fake microphone/recorder 검증은 confirm History 1건, 취소 idempotency와 recorder/stream
+  dispose, 실패 경로와 recorded persistence 계약을 확인한다.
 
 ---
 

@@ -57,11 +57,17 @@ export type LibraryViewProps = {
   importPlan: PsdImportPlan | null;
   importPreviewStatus: "idle" | "analyzing" | "review" | "importing";
   importPreviewError: string | null;
+  audioRecordingStatus: "idle" | "requesting" | "recording" | "preparing" | "review";
+  audioRecordingName: string | null;
   refreshSummary: PsdRefreshSummaryViewModel | null;
   onImportClick: () => void;
   onFileInputChange: (files: FileList | readonly File[]) => void;
   onAudioImportClick: () => void;
   onAudioFileInputChange: (files: FileList | readonly File[]) => void;
+  onStartAudioRecording: () => void;
+  onStopAudioRecording: () => void;
+  onCancelAudioRecording: () => void;
+  onConfirmAudioRecording: () => void;
   onSelectNode: (nodeId: string) => void;
   onToggleNodeVisibility: (nodeId: string) => void;
   onToggleNodeLock: (nodeId: string) => void;
@@ -104,7 +110,7 @@ export type LibraryViewProps = {
   onDismissRefreshSummary: () => void;
 };
 
-export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "audioFileInputRef" | "onImportClick" | "onFileInputChange" | "onAudioImportClick" | "onAudioFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
+export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "audioFileInputRef" | "onImportClick" | "onFileInputChange" | "onAudioImportClick" | "onAudioFileInputChange" | "audioRecordingStatus" | "audioRecordingName" | "onStartAudioRecording" | "onStopAudioRecording" | "onCancelAudioRecording" | "onConfirmAudioRecording" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
   node: LibraryNodeViewModel;
   isFirstRoot: boolean;
 };

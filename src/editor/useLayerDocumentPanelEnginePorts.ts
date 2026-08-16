@@ -22,6 +22,9 @@ import {
   createLayerDocumentLibraryController,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   prepareLayerDocumentAudioImport,
+  cancelLayerDocumentAudioRecording,
+  startLayerDocumentAudioRecording,
+  stopLayerDocumentAudioRecording,
   type LayerDocumentProjectOwnerPort,
   type LayerDocumentSourceRuntimeResolutionPort,
 } from "@/engines/project";
@@ -422,6 +425,22 @@ export function useLayerDocumentPanelEnginePorts(
         }),
       cancel: (prepared: Awaited<ReturnType<typeof prepareLayerDocumentAudioImport>>) =>
         prepared.runtime.cancel(),
+    },
+    audioRecording: {
+      start: (explicitCutLayerDocumentId?: string | null) =>
+        startLayerDocumentAudioRecording({
+          project: readProject(),
+          explicitCutLayerDocumentId,
+          selectedLayerDocumentId: readSelectedLayerDocumentId(),
+          activeGroupLayerDocumentId: readActiveGroupLayerDocumentId(),
+        }),
+      stop: (session: Awaited<ReturnType<typeof startLayerDocumentAudioRecording>>) =>
+        stopLayerDocumentAudioRecording({
+          session,
+          project: readProject(),
+          token: `recording:${Date.now()}`,
+        }),
+      cancel: cancelLayerDocumentAudioRecording,
     },
     sourceStatus,
     allocateLayerDocumentId,
