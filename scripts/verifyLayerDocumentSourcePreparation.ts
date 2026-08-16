@@ -858,7 +858,7 @@ assert.equal(badReference.ok, false);
 if (!badReference.ok) {
   assert.equal(badReference.error.code, "source-reference-conflict");
 }
-const wrongImportKind = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands
+const audioImportKind = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands
   .prepareImport(project, {
     sources: [{
       ...project.payload.sourceRegistry.sourcesById["audio-source"],
@@ -868,10 +868,7 @@ const wrongImportKind = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands
     selectSourceId: "import-audio",
     selectLayerDocumentId: null,
   });
-assert.equal(wrongImportKind.ok, false);
-if (!wrongImportKind.ok) {
-  assert.equal(wrongImportKind.error.code, "source-kind-conflict");
-}
+assert.equal(audioImportKind.ok, true);
 const runtimeImport = {
   ...importCommand,
   sources: [{

@@ -12,6 +12,7 @@ import type {
   LayerDocumentPsdImportPreviewPlan,
   LayerDocumentLibraryController,
   LayerDocumentPsdPreparedSessionController,
+  PreparedLayerDocumentAudioImport,
 } from "@/engines/project";
 import {
   createLayerDocumentPsdPreparedSessionController,
@@ -345,6 +346,11 @@ function movePreviewPlan(options: {
 
 export function useLayerDocumentLibraryEngine(options: {
   controller: LayerDocumentLibraryController;
+  audioImport: {
+    prepare: (file: File) => Promise<PreparedLayerDocumentAudioImport>;
+    confirm: (prepared: PreparedLayerDocumentAudioImport) => { readonly ok: boolean; readonly message?: string };
+    cancel: (prepared: PreparedLayerDocumentAudioImport) => unknown;
+  };
   parentLayerDocumentId: string;
   durationFrames: number;
   parentWidth: number;
@@ -353,6 +359,13 @@ export function useLayerDocumentLibraryEngine(options: {
   cacheContext: () => SourceRegistryCacheInvalidationContext;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioFileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioRequest = useRef(0);
+  const activeAudioPrepared = useRef<PreparedLayerDocumentAudioImport | null>(null);
+  const audioImportRef = useRef(options.audioImport);
+  useEffect(() => {
+    audioImportRef.current = options.audioImport;
+  }, [options.audioImport]);
   const [picker, setPicker] = useState<
     { kind: "import" } |
     { kind: "refresh"; sourceId: string } |
@@ -378,6 +391,11 @@ export function useLayerDocumentLibraryEngine(options: {
   }), [options.controller]);
   useEffect(
     () => () => {
+      audioRequest.current += 1;
+      if (activeAudioPrepared.current) {
+        audioImportRef.current.cancel(activeAudioPrepared.current);
+        activeAudioPrepared.current = null;
+      }
       session.cancelActive();
       pendingExternalImport.current?.(false);
       pendingExternalImport.current = null;
@@ -610,6 +628,7 @@ export function useLayerDocumentLibraryEngine(options: {
   const viewProps: LibraryViewProps = {
     nodes,
     fileInputRef,
+    audioFileInputRef,
     draggedMainCompId: null,
     dropTarget: null,
     importPlan:
@@ -624,6 +643,31 @@ export function useLayerDocumentLibraryEngine(options: {
       fileInputRef.current?.click();
     },
     onFileInputChange,
+    onAudioImportClick: () => audioFileInputRef.current?.click(),
+    onAudioFileInputChange: (files) => {
+      const file = Array.from(files)[0];
+      if (!file) return;
+      const request = ++audioRequest.current;
+      if (activeAudioPrepared.current) {
+        options.audioImport.cancel(activeAudioPrepared.current);
+        activeAudioPrepared.current = null;
+      }
+      setError(null);
+      void options.audioImport.prepare(file).then((prepared) => {
+        if (request !== audioRequest.current) {
+          options.audioImport.cancel(prepared);
+          return;
+        }
+        activeAudioPrepared.current = prepared;
+        const result = options.audioImport.confirm(prepared);
+        if (result.ok) activeAudioPrepared.current = null;
+        else setError(result.message ?? "오디오를 추가하지 못했습니다.");
+      }).catch((reason: unknown) => {
+        if (request === audioRequest.current) {
+          setError(reason instanceof Error ? reason.message : "오디오를 분석하지 못했습니다.");
+        }
+      });
+    },
     onSelectNode: (nodeId) => {
       const node = nodes.find((candidate) =>
         candidate.id === nodeId

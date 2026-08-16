@@ -10,12 +10,12 @@ export type LayerDocumentPreparedRuntimeState =
   | "cancelled"
   | "failed-before-owner";
 
-export type LayerDocumentPreparedRuntimeClaim =
+export type LayerDocumentPreparedRuntimeClaim<TResource = LayerDocumentSourceRuntimeResource> =
   | {
       readonly ok: true;
       readonly mode: "commit-owner" | "retry-runtime-registration";
       readonly resources:
-        readonly LayerDocumentSourceRuntimeResource[];
+        readonly TResource[];
     }
   | {
       readonly ok: false;
@@ -33,10 +33,10 @@ export interface LayerDocumentPreparedRuntimeDisposition {
   readonly disposedCount: number;
 }
 
-export interface LayerDocumentPreparedRuntimeLifecycle {
+export interface LayerDocumentPreparedRuntimeLifecycle<TResource = LayerDocumentSourceRuntimeResource> {
   readonly readState: () => LayerDocumentPreparedRuntimeState;
   readonly readResourceCount: () => number;
-  readonly claimForConfirm: () => LayerDocumentPreparedRuntimeClaim;
+  readonly claimForConfirm: () => LayerDocumentPreparedRuntimeClaim<TResource>;
   readonly markOwnerCommitted: () => boolean;
   readonly markTransferred: () => boolean;
   readonly markRegistrationFailed: () => boolean;
@@ -46,7 +46,7 @@ export interface LayerDocumentPreparedRuntimeLifecycle {
 }
 
 function disposeResources(
-  resources: readonly LayerDocumentSourceRuntimeResource[]
+  resources: readonly { readonly dispose?: () => void }[]
 ): number {
   resources.forEach((resource) => {
     try {
@@ -62,9 +62,11 @@ function disposeResources(
  * Runtime-only one-shot ownership state. No instance is serializable or
  * admitted into the LayerDocument Project/History.
  */
-export function createLayerDocumentPreparedRuntimeLifecycle(
-  resources: readonly LayerDocumentSourceRuntimeResource[]
-): LayerDocumentPreparedRuntimeLifecycle {
+export function createLayerDocumentPreparedRuntimeLifecycle<
+  TResource extends { readonly dispose?: () => void },
+>(
+  resources: readonly TResource[]
+): LayerDocumentPreparedRuntimeLifecycle<TResource> {
   let state: LayerDocumentPreparedRuntimeState = "prepared";
   let resourcesDisposed = false;
   const disposeOnce = () => {

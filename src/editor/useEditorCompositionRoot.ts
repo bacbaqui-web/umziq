@@ -105,6 +105,7 @@ EditorShellLayoutProps {
     useLayerDocumentLibraryEngine({
       controller:
         panelPorts.libraryController,
+      audioImport: panelPorts.audioImport,
       parentLayerDocumentId:
         scope.model.activeGroup.layerDocumentId,
       durationFrames:

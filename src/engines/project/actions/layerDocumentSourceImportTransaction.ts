@@ -115,11 +115,11 @@ export function prepareSourceRegistryImport(
   const invalid = validateSourceTransactionBefore(project) ??
     validateSourceCommandPlainData(project, command);
   if (invalid) return invalid;
-  if (command.sources.length === 0) {
+  if (command.sources.length === 0 && command.layers.length === 0) {
     return failSourceTransaction(
       project,
       "invalid-input",
-      "Import must provide at least one Source Registry record"
+      "Import must provide a Source Registry record or Layer Document"
     );
   }
   const afterWithSources = cloneSourceTransactionData(project);
@@ -127,12 +127,13 @@ export function prepareSourceRegistryImport(
   for (const source of command.sources) {
     if (
       source.kind !== "psd-document" &&
-      source.kind !== "psd-node"
+      source.kind !== "psd-node" &&
+      source.kind !== "audio"
     ) {
       return failSourceTransaction(
         project,
         "source-kind-conflict",
-        `PSD import cannot create Source kind ${source.kind}`
+        `Import cannot create Source kind ${source.kind}`
       );
     }
     if (
@@ -149,11 +150,14 @@ export function prepareSourceRegistryImport(
     afterWithSources.payload.sourceRegistry.sourcesById[source.sourceId] =
       cloneSourceTransactionData(source);
   }
-  if (!createdSourceIds.has(command.selectSourceId)) {
+  if (
+    !createdSourceIds.has(command.selectSourceId) &&
+    !project.payload.sourceRegistry.sourcesById[command.selectSourceId]
+  ) {
     return failSourceTransaction(
       project,
       "invalid-selection",
-      "Import source selection must target a created Source"
+      "Import source selection must target a created or existing Source"
     );
   }
   if (
@@ -211,7 +215,7 @@ export function prepareSourceRegistryImport(
       : { kind: "preserve" },
     historyPolicy: "record-entry",
     historyEntry: {
-      label: "Import PSD Sources",
+      label: "Import Sources",
       affectedSourceIds: [...createdSourceIds].sort(),
       affectedLayerDocumentIds,
     },

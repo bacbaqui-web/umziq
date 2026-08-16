@@ -3,8 +3,8 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~2 완료
-- Task 3 구현 대기
+- Task 0~3 완료
+- Task 4 구현 대기
 - Browser QA 미실행
 
 ## 기준
@@ -403,6 +403,30 @@ PSD 전용 명칭을 Project file library 책임에 맞추되 기존 PSD 동작�
 - 실패/Cancel 시 Project update, transaction과 History 0건
 - 같은 Source 재사용 시 descriptor/resource 중복 생성 없음
 - Missing/Reconnect에 필요한 fingerprint와 locator 저장
+
+### 구현 결과 — 완료
+
+- Library Project header에 PSD picker와 분리된 `오디오` 파일 입력을 추가했다.
+  `audio/*` MIME 또는 MIME이 비어 있는 일반 Audio 확장자를 후보로 받고,
+  실제 지원 여부는 브라우저 `decodeAudioData` 성공으로 판정한다. 특정 codec을
+  모든 브라우저에서 지원한다고 가정하지 않는다.
+- 준비 단계에서 ArrayBuffer를 한 번 읽어 SHA-256 fingerprint와 byte length를
+  만들고, decode 결과에서 duration/channel count/sample rate를 얻는다. File과
+  decoded Audio는 Project/History에 넣지 않고 prepared Runtime에만 둔다.
+- explicit Cut을 우선하고, 없으면 선택 Layer와 active Group의 부모를 따라
+  project-root 바로 아래 composition Cut을 찾는다. 유효한 Cut이 없으면 임의의
+  첫 Cut에 넣지 않고 import를 거부한다.
+- Confirm은 기존 Source import transaction을 Audio에도 열어 Source와 Audio
+  Layer를 한 Owner action/History로 생성한다. 같은 fingerprint Source가 이미
+  있으면 Source Registry record와 decoded Runtime resource를 중복 생성하지
+  않고 새 Audio Layer만 같은 Source를 참조한다.
+- Source에는 linked-file locator, suggested file name과 fingerprint를 남기고
+  Confirm 후 session-only resolution에 File을 연결해 Missing/Reconnect 경계를
+  유지한다.
+- 별도 Audio Runtime store/registration port를 추가했다. stale prepared session,
+  cancel, decode/validation/Owner 실패는 commit 0건이며 prepared resource를
+  dispose-once로 정리한다. 재생, waveform, 녹음, Audio 행 관리, Properties,
+  DSP와 Export는 추가하지 않았다.
 
 ---
 

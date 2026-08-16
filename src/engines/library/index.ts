@@ -14,6 +14,12 @@ export {
   createLayerDocumentLibrarySourceCommandAdapter,
   markLayerDocumentPsdResolutionAvailable,
 } from "@/engines/library/adapters/layerDocumentLibrarySourceCommandAdapter";
+export {
+  confirmLayerDocumentAudioPreparedSource,
+} from "@/engines/library/adapters/layerDocumentAudioImportCommandAdapter";
+export type {
+  LayerDocumentAudioImportConfirmResult,
+} from "@/engines/library/adapters/layerDocumentAudioImportCommandAdapter";
 export type {
   LayerDocumentPsdSourceCommitResult,
 } from "@/engines/library/adapters/layerDocumentLibrarySourceCommandAdapter";

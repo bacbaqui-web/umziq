@@ -67,6 +67,17 @@ entity가 아니며 `LayerDocument.common.placement`의 projection이다.
 - `layerDocumentTimelineIntentModel.ts`: Timeline semantic intent
 - `layerDocumentTimelineIntentAdapter.ts`: intent를 transaction 입력으로 변환
 
+Audio import 준비와 Runtime 경계:
+
+- `engines/project/import/layerDocumentAudioImportAdapter.ts`: Cut 해석,
+  browser decode metadata, SHA-256 fingerprint, Source/Audio Layer prepared command
+- `engines/project/models/layerDocumentAudioRuntimeModel.ts`: 저장되지 않는 decoded
+  Audio resource와 registration public port
+- `engines/project/state/layerDocumentAudioRuntimeStore.ts`: sourceId/fingerprint 기반
+  decoded Audio 등록·재사용·dispose 경계
+- `engines/library/adapters/layerDocumentAudioImportCommandAdapter.ts`: prepared
+  lifecycle, Owner atomic confirm, Runtime 등록과 Source resolution 연결
+
 ### Transaction
 
 - `layerDocumentTransactionModel.ts`: transaction/result 계약
@@ -371,6 +382,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - owner transaction/history/selection
 - duplicate/group/animation/effect/modifier
 - PSD import/refresh/source lifecycle/runtime GC
+- Cut별 Audio prepare/confirm/cancel, shared Source와 decoded resource 재사용
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration

@@ -33,6 +33,15 @@ export {
   createLayerDocumentSourceRuntimeResolutionStore,
 } from "@/engines/project/state/layerDocumentSourceRuntimeResolutionStore";
 export {
+  createLayerDocumentAudioRuntimeStore,
+} from "@/engines/project/state/layerDocumentAudioRuntimeStore";
+export type {
+  LayerDocumentAudioRuntimePort,
+  LayerDocumentAudioRuntimeRegistrationResult,
+  LayerDocumentAudioRuntimeResource,
+  LayerDocumentDecodedAudioMetadata,
+} from "@/engines/project/models/layerDocumentAudioRuntimeModel";
+export {
   createLayerDocumentProjectLifecycleController,
 } from "@/engines/project/controllers/layerDocumentProjectLifecycleController";
 export {
@@ -160,6 +169,15 @@ export {
   type LayerDocumentPreparedRuntimeLifecycle,
   type LayerDocumentPreparedRuntimeState,
 } from "@/engines/project/import/layerDocumentPreparedRuntimeLifecycle";
+export {
+  LAYER_DOCUMENT_BROWSER_AUDIO_DECODER,
+  prepareLayerDocumentAudioImport,
+  resolveLayerDocumentAudioImportCut,
+} from "@/engines/project/import/layerDocumentAudioImportAdapter";
+export type {
+  LayerDocumentAudioDecodePort,
+  PreparedLayerDocumentAudioImport,
+} from "@/engines/project/import/layerDocumentAudioImportAdapter";
 export type {
   CreateLayerDocumentProjectOwnerOptions,
   LayerDocumentOwnerHistoryEntry,

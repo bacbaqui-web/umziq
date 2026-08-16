@@ -8,6 +8,7 @@ import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 function LibraryPanel({
   nodes,
   fileInputRef,
+  audioFileInputRef,
   draggedMainCompId,
   dropTarget,
   importPlan,
@@ -16,6 +17,8 @@ function LibraryPanel({
   refreshSummary,
   onImportClick,
   onFileInputChange,
+  onAudioImportClick,
+  onAudioFileInputChange,
   onSelectNode,
   onToggleNodeVisibility,
   onToggleNodeLock,
@@ -75,6 +78,11 @@ function LibraryPanel({
           onDismiss={onDismissRefreshSummary}
         />
       )}
+      {importPreviewStatus === "idle" && importPreviewError && (
+        <div role="alert" style={{ color: "#e69a9a", fontSize: 12, padding: "0 8px" }}>
+          {importPreviewError}
+        </div>
+      )}
 
       <input
         ref={fileInputRef}
@@ -85,6 +93,18 @@ function LibraryPanel({
         onChange={(event) => {
           if (event.currentTarget.files) {
             onFileInputChange(event.currentTarget.files);
+          }
+          event.currentTarget.value = "";
+        }}
+      />
+      <input
+        ref={audioFileInputRef}
+        type="file"
+        accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.webm,.flac"
+        style={{ display: "none" }}
+        onChange={(event) => {
+          if (event.currentTarget.files) {
+            onAudioFileInputChange(event.currentTarget.files);
           }
           event.currentTarget.value = "";
         }}
@@ -111,6 +131,18 @@ function LibraryPanel({
                 : "0 4px 14px rgba(0, 0, 0, 0.18)",
             }}
           >
+            <button
+              type="button"
+              onClick={onAudioImportClick}
+              style={{
+                height: 27, padding: "0 8px", border: "1px solid #46515b",
+                borderRadius: 6, background: "rgba(20, 25, 30, 0.62)",
+                color: "#a9d8b6", cursor: "pointer", fontSize: 11.5,
+                fontWeight: 650, whiteSpace: "nowrap",
+              }}
+            >
+              + 오디오
+            </button>
             <button
               type="button"
               onClick={() => onSelectNode(projectNode.id)}

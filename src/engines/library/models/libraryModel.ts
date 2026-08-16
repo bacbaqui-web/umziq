@@ -45,6 +45,7 @@ export type PsdRefreshSummaryViewModel = {
 export type LibraryViewProps = {
   nodes: LibraryNodeViewModel[];
   fileInputRef: RefObject<HTMLInputElement | null>;
+  audioFileInputRef: RefObject<HTMLInputElement | null>;
   draggedMainCompId: string | null;
   dropTarget: LibraryDropTarget;
   importPlan: PsdImportPlan | null;
@@ -53,6 +54,8 @@ export type LibraryViewProps = {
   refreshSummary: PsdRefreshSummaryViewModel | null;
   onImportClick: () => void;
   onFileInputChange: (files: FileList | readonly File[]) => void;
+  onAudioImportClick: () => void;
+  onAudioFileInputChange: (files: FileList | readonly File[]) => void;
   onSelectNode: (nodeId: string) => void;
   onToggleNodeVisibility: (nodeId: string) => void;
   onToggleNodeLock: (nodeId: string) => void;
@@ -93,7 +96,7 @@ export type LibraryViewProps = {
   onDismissRefreshSummary: () => void;
 };
 
-export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "onImportClick" | "onFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
+export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "audioFileInputRef" | "onImportClick" | "onFileInputChange" | "onAudioImportClick" | "onAudioFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
   node: LibraryNodeViewModel;
   isFirstRoot: boolean;
 };

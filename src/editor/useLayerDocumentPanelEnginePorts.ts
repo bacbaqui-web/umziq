@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -20,7 +21,9 @@ import {
 } from "@/render";
 import {
   createLayerDocumentLibraryController,
+  createLayerDocumentAudioRuntimeStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
+  prepareLayerDocumentAudioImport,
   type LayerDocumentProjectOwnerPort,
   type LayerDocumentSourceRuntimeResolutionPort,
 } from "@/engines/project";
@@ -31,6 +34,7 @@ import {
 } from "@/engines/properties";
 import {
   createLayerDocumentLibrarySourceCommandAdapter,
+  confirmLayerDocumentAudioPreparedSource,
 } from "@/engines/library";
 import {
   createLayerDocumentTimelineCommandAdapter,
@@ -261,6 +265,10 @@ export function useLayerDocumentPanelEnginePorts(
       canvasCommands,
     };
   });
+  const [audioRuntime] = useState(
+    createLayerDocumentAudioRuntimeStore
+  );
+  useEffect(() => () => audioRuntime.dispose(), [audioRuntime]);
   const sourceStatus = useMemo(
     () =>
       createLayerDocumentTimelineSourceStatusAdapter({
@@ -374,6 +382,32 @@ export function useLayerDocumentPanelEnginePorts(
     timelineOwner: ports.timelineOwner,
     properties: ports.properties,
     libraryController: ports.libraryController,
+    audioImport: {
+      prepare: (file: File, explicitCutLayerDocumentId?: string | null) =>
+        prepareLayerDocumentAudioImport({
+          project: readProject(),
+          file,
+          token: `${Date.now()}:${file.name}`,
+          explicitCutLayerDocumentId,
+          selectedLayerDocumentId: readSelectedLayerDocumentId(),
+          activeGroupLayerDocumentId: readActiveGroupLayerDocumentId(),
+        }),
+      confirm: (prepared: Awaited<ReturnType<typeof prepareLayerDocumentAudioImport>>) =>
+        confirmLayerDocumentAudioPreparedSource({
+          prepared,
+          readProject,
+          prepare: (project, command) =>
+            LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands.prepareImport(
+              project,
+              command
+            ),
+          commit: ownerCommands.commitSourcePreparation,
+          runtime: audioRuntime,
+          sourceResolution,
+        }),
+      cancel: (prepared: Awaited<ReturnType<typeof prepareLayerDocumentAudioImport>>) =>
+        prepared.runtime.cancel(),
+    },
     sourceStatus,
     allocateLayerDocumentId,
     nextPsdLayerOrder,
