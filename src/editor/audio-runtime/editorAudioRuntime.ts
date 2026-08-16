@@ -21,20 +21,27 @@ export function createEditorAudioRuntime(options: {
     durationSeconds: number;
     gain: number;
     muted: boolean;
+    effectsFingerprint: string;
   } | null = null;
   let disposed = false;
   let auditionGeneration = 0;
   const timelineHandles = new Map<string, {
     sourceId: string;
     handle: EditorAudioAuditionBackendHandle;
+    effectsFingerprint: string;
   }>();
   let timelineFrame: number | null = null;
   const waveformCache = new Map<string, readonly number[]>();
+  const effectsFingerprint = (effects: AudioLayerDocument["common"]["effects"]) => JSON.stringify(effects);
   const notify = () => listeners.forEach((listener) => listener());
   const read = (): EditorAudioAuditionState => active && handle
     ? {
         status: "playing",
-        ...active,
+        layerDocumentId: active.layerDocumentId,
+        sourceId: active.sourceId,
+        durationSeconds: active.durationSeconds,
+        gain: active.gain,
+        muted: active.muted,
         positionSeconds: Math.min(
           active.durationSeconds,
           Math.max(0, handle.readPositionSeconds())
@@ -78,7 +85,7 @@ export function createEditorAudioRuntime(options: {
       const generation = auditionGeneration + 1;
       auditionGeneration = generation;
       const nextHandle: EditorAudioAuditionBackendHandle = options.backend.start({
-        resource, offsetSeconds: clampedOffset, gain,
+        resource, offsetSeconds: clampedOffset, gain, effects: layer.common.effects,
         onEnded: () => {
           if (auditionGeneration !== generation) return;
           handle = null;
@@ -94,6 +101,7 @@ export function createEditorAudioRuntime(options: {
         durationSeconds: resource.metadata.durationSeconds,
         gain: layer.data.gain,
         muted: layer.data.muted,
+        effectsFingerprint: effectsFingerprint(layer.common.effects),
       };
       notify();
       return { ok: true, state: read() };
@@ -131,8 +139,13 @@ export function createEditorAudioRuntime(options: {
       return;
     }
     const gain = layer.data.muted ? 0 : layer.data.gain;
+    if (active.effectsFingerprint !== effectsFingerprint(layer.common.effects)) {
+      const position = handle.readPositionSeconds();
+      start(nextProject, layer, position);
+      return;
+    }
     if (gain !== (active.muted ? 0 : active.gain)) handle.setGain(gain);
-    active = { ...active, gain: layer.data.gain, muted: layer.data.muted };
+    active = { ...active, gain: layer.data.gain, muted: layer.data.muted, effectsFingerprint: effectsFingerprint(layer.common.effects) };
     notify();
   };
   return {
@@ -210,7 +223,8 @@ export function createEditorAudioRuntime(options: {
         const fadeOut = layer.data.fadeOutFrames > 0 ? Math.min(1, remaining / layer.data.fadeOutFrames) : 1;
         const gain = layer.data.gain * fadeIn * fadeOut;
         const existing = timelineHandles.get(layer.layerDocumentId);
-        if (existing?.sourceId === sourceId) {
+        const fingerprint = effectsFingerprint(layer.common.effects);
+        if (existing?.sourceId === sourceId && existing.effectsFingerprint === fingerprint) {
           existing.handle.setGain(gain);
           return;
         }
@@ -221,12 +235,13 @@ export function createEditorAudioRuntime(options: {
             resource,
             offsetSeconds,
             gain,
+            effects: layer.common.effects,
             onEnded: () => {
               const activeHandle = timelineHandles.get(layer.layerDocumentId);
               if (activeHandle?.handle === handle) timelineHandles.delete(layer.layerDocumentId);
             },
           });
-          timelineHandles.set(layer.layerDocumentId, { sourceId, handle });
+          timelineHandles.set(layer.layerDocumentId, { sourceId, handle, effectsFingerprint: fingerprint });
         } catch { /* an unavailable source must not stop visual playback */ }
       });
     },

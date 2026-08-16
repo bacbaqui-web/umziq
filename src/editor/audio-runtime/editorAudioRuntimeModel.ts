@@ -1,4 +1,4 @@
-import type { LayerDocumentProject } from "@/models";
+import type { LayerDocumentProject, LayerEffect } from "@/models";
 import type {
   LayerDocumentAudioRuntimePort,
   LayerDocumentAudioRuntimeResource,
@@ -15,6 +15,7 @@ export interface EditorAudioAuditionBackend {
     resource: LayerDocumentAudioRuntimeResource;
     offsetSeconds: number;
     gain: number;
+    effects: readonly LayerEffect[];
     onEnded: () => void;
   }) => EditorAudioAuditionBackendHandle;
 }

@@ -3,7 +3,7 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~9 완료
+- Task 0~10 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
 - Browser QA 미실행
@@ -711,6 +711,25 @@ Library에서 Cut 순서와 Audio 소속/순서를 직접 변경한다.
 - effect chain 저장 원본 1개
 - effect reorder/parameter 확정 action당 History 1건
 - Engine Import Boundary 검증 통과
+
+### 구현 결과
+
+- Properties와 분리된 `audio-effects` Engine 및 Audio Effects Panel을 추가했다.
+  Composition Root가 Owner public port와 Panel을 조립하고, 오른쪽 영역에서 Audio Layer
+  선택 때만 Properties 아래에 표시한다. 다른 Panel Engine을 직접 import하지 않는다.
+- `common.effects` ordered envelope가 유일한 저장 원본이다. 컴프레서, 리버브, 딜레이,
+  `소음 줄이기` catalog와 안정적 effectId를 제공하며 add/delete/reorder/enable-bypass는
+  각각 Owner transaction/History 1건이다. Audio가 아니거나 stale selection이면 0건이다.
+- parameter 입력/pointer drag는 Engine Runtime Draft라 History 0건이고 blur/pointerup/Enter
+  시 clamp된 parameter를 한 번 commit한다. Escape/pointer cancel은 Draft만 버린다.
+- Editor Audio Runtime backend에는 engine import 없이 `LayerEffect[]` public data만 전달한다.
+  활성 compressor/delay/reverb는 Web Audio audition과 Timeline playback graph에 실제 반영하며,
+  effect envelope가 바뀌면 현재 위치에서 graph를 다시 만든다.
+- `소음 줄이기`는 envelope/default parameter와 UI만 제공한다. 실제 Noise Gate DSP는 Task 11
+  범위로 남기고 UI에도 아직 소음 처리가 연결되지 않았음을 표시한다.
+- 검증은 catalog/default/clamp, ordered envelope의 action당 History 1건, Draft 0건,
+  stale/non-Audio 거부, stable ID, effect 변경 시 audition graph reconcile 및 Panel Engine
+  import boundary를 확인한다.
 
 ---
 

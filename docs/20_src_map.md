@@ -82,9 +82,13 @@ Audio import 준비와 Runtime 경계:
 - `editor/audio-runtime/editorAudioRuntime.ts`: single-active audition,
   play/stop/replace/seek/read/subscribe와 Project/Source reconcile
 - `editor/audio-runtime/browserAudioAuditionBackend.ts`: AudioBufferSourceNode와
-  GainNode를 사용하는 브라우저 playback adapter
+  GainNode 및 compressor/delay/reverb graph를 사용하는 브라우저 playback adapter
 - `editor/audio-runtime/editorAudioRuntimeModel.ts`: fake backend로도 검증 가능한
   audition/backend/Runtime public port
+- `engines/audio-effects/`: 독립 Audio Effects Panel Engine의 catalog, Runtime
+  parameter Draft, ordered envelope command와 Owner adapter
+- `features/audio-effects/components/AudioEffectsPanel.tsx`: Audio 선택 때만 보이는
+  effect 추가/삭제/순서/bypass/parameter 편집 Panel
 
 ### Transaction
 
@@ -398,6 +402,8 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - fake microphone/recorder 기반 직접 녹음 cancel/error/stale/confirm과 자원 정리
 - Audio Properties 전용 name/gain/mute/timing/source offset/fade Runtime Draft와
   단일 Owner transaction clamp/undo 계약
+- Audio Effects ordered envelope, Draft/단일 History command, stale selection 거부와
+  audition graph reconcile
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration

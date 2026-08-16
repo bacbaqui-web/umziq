@@ -4,6 +4,7 @@ import LibraryPanel
 import PreviewWorkspacePane from "@/features/preview/components/PreviewWorkspacePane";
 import PropertiesPanel
   from "@/features/properties/components/PropertiesPanel";
+import AudioEffectsPanel from "@/features/audio-effects/components/AudioEffectsPanel";
 import TimelinePanel
   from "@/features/timeline/components/TimelinePanel";
 import {
@@ -21,6 +22,7 @@ export type EditorShellLayoutProps = {
   libraryProps: ComponentProps<typeof LibraryPanel>;
   previewPaneProps: ComponentProps<typeof PreviewWorkspacePane>;
   propertiesPanelProps: ComponentProps<typeof PropertiesPanel>;
+  audioEffectsPanelProps: ComponentProps<typeof AudioEffectsPanel>;
   timelinePanelProps: ComponentProps<typeof TimelinePanel>;
   projectLifecycleProps:
     ComponentProps<typeof ProjectLifecycleBar>;
@@ -37,6 +39,7 @@ export function EditorShellLayout({
   libraryProps,
   previewPaneProps,
   propertiesPanelProps,
+  audioEffectsPanelProps,
   timelinePanelProps,
   projectLifecycleProps,
 }: EditorShellLayoutProps) {
@@ -125,7 +128,12 @@ export function EditorShellLayout({
           overflow: "hidden",
         }}
       >
-        <PropertiesPanel {...propertiesPanelProps} />
+        <div style={{ height: "100%", display: "grid", gridTemplateRows: audioEffectsPanelProps.readModel.visible ? "minmax(0, 1fr) minmax(150px, 1fr)" : "minmax(0, 1fr)", minHeight: 0 }}>
+          <div style={{ minHeight: 0, overflow: "hidden" }}><PropertiesPanel {...propertiesPanelProps} /></div>
+          {audioEffectsPanelProps.readModel.visible && (
+            <div style={{ minHeight: 0, overflow: "hidden" }}><AudioEffectsPanel {...audioEffectsPanelProps} /></div>
+          )}
+        </div>
       </div>
 
       <div

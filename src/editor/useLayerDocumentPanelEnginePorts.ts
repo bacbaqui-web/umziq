@@ -33,6 +33,7 @@ import {
   createLayerDocumentPropertiesOwnerCommandAdapter,
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
 } from "@/engines/properties";
+import { createAudioEffectsOwnerPort } from "@/engines/audio-effects";
 import {
   createLayerDocumentLibrarySourceCommandAdapter,
   confirmLayerDocumentAudioPreparedSource,
@@ -89,6 +90,11 @@ export function useLayerDocumentPanelEnginePorts(
   const readScope = () =>
     readEditorOwnerGroupScope(owner);
   const [ports] = useState(() => {
+    const audioEffects = createAudioEffectsOwnerPort({
+      readProject,
+      readSelectedLayerDocumentId,
+      commit: ownerCommands.commitLayerTransaction,
+    });
     const timelineCommands =
       createLayerDocumentTimelineCommandAdapter({
         owner,
@@ -261,6 +267,7 @@ export function useLayerDocumentPanelEnginePorts(
         sourceSamplingQuality,
       });
     return {
+      audioEffects,
       timelineOwner,
       properties,
       libraryController,
@@ -379,6 +386,7 @@ export function useLayerDocumentPanelEnginePorts(
     [ports.canvasDraft, frameInput]
   );
   return {
+    audioEffects: ports.audioEffects,
     timelineOwner: ports.timelineOwner,
     properties: ports.properties,
     libraryController: ports.libraryController,

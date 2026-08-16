@@ -15,8 +15,9 @@ const engineNames = [
   "properties",
   "library",
   "timeline",
+  "audio-effects",
 ] as const;
-const uiEngines = new Set(["canvas", "properties", "library", "timeline"]);
+const uiEngines = new Set(["canvas", "properties", "library", "timeline", "audio-effects"]);
 const coreEngines = new Set(["project"]);
 
 function collectSourceFiles(directory: string): string[] {
@@ -133,7 +134,7 @@ for (const file of renderFiles) {
   );
   assert.doesNotMatch(
     text,
-    /@\/engines\/(?:canvas|properties|library|timeline)\b/,
+    /@\/engines\/(?:canvas|properties|library|timeline|audio-effects)\b/,
     `${label}: Render module이 Panel Engine에 의존`
   );
 }
@@ -230,7 +231,7 @@ for (const file of files) {
   const text = readFileSync(file, "utf8");
   assert.doesNotMatch(
     text,
-    /@\/engines\/(?:drawing|text|audio)/,
+    /@\/engines\/(?:drawing|text|audio)(?:\/|["'])/,
     `${relative(root, file)}: Panel 없는 Layer Type을 Engine으로 import`
   );
 }

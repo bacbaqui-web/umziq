@@ -13,6 +13,7 @@ import {
 import {
   useLayerDocumentPropertiesEngine,
 } from "@/engines/properties";
+import { useAudioEffectsEngine } from "@/engines/audio-effects";
 import {
   useLayerDocumentLibraryEngine,
 } from "@/engines/library";
@@ -103,6 +104,10 @@ EditorShellLayoutProps {
       resetRevision:
         runtime.ownerEffect.localUiRevision,
     });
+  const audioEffects = useAudioEffectsEngine({
+    port: panelPorts.audioEffects,
+    resetRevision: runtime.ownerEffect.localUiRevision,
+  });
   const library =
     useLayerDocumentLibraryEngine({
       controller:
@@ -276,6 +281,7 @@ EditorShellLayoutProps {
     previewPaneProps: canvas.viewProps,
     propertiesPanelProps:
       properties.viewProps,
+    audioEffectsPanelProps: audioEffects.viewProps,
     timelinePanelProps:
       timeline.viewProps,
     projectLifecycleProps: {
