@@ -390,6 +390,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - PSD import/refresh/source lifecycle/runtime GC
 - Cut별 Audio prepare/confirm/cancel, shared Source와 decoded resource 재사용
 - Editor Audio single-active audition과 Project/Source lifecycle cleanup
+- Library Cut 하위 Audio Layer projection, imported/recorded 아이콘과 audition/mute/name/delete command
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration

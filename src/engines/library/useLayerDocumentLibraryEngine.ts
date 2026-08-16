@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type {
   PsdImportPlan,
@@ -167,6 +168,12 @@ function treeNode(
     type: depth === 0 ? "main" : "sub",
     entityKind:
       depth === 0 ? null : source.entityKind ?? "layer",
+    contentKind: "visual",
+    audioProvenance: null,
+    playing: false,
+    muted: false,
+    sourceId: source.sourceId,
+    layerDocumentId: null,
     name: layerState?.name ?? source.displayName,
     depth,
     selected: source.sourceId === selectedSourceId,
@@ -181,7 +188,11 @@ function treeNode(
 }
 
 export function buildLayerDocumentLibraryNodes(
-  controller: LayerDocumentLibraryController
+  controller: LayerDocumentLibraryController,
+  audioState?: {
+    readonly selectedLayerDocumentId: string | null;
+    readonly playingLayerDocumentId: string | null;
+  }
 ): LibraryNodeViewModel[] {
   const tree = controller.read();
   const project = controller.readProject();
@@ -221,22 +232,77 @@ export function buildLayerDocumentLibraryNodes(
       state
     );
   };
-  const documents = tree.documents.map((document) =>
-    treeNode(
+  const audioSources = new Map(
+    Object.values(project.payload.sourceRegistry.sourcesById)
+      .filter((source) => source.kind === "audio")
+      .map((source) => [source.sourceId, source])
+  );
+  const audioTreeStatus = new Map(
+    tree.nonPsdSources
+      .filter((source) => source.kind === "audio")
+      .map((source) => [source.sourceId, source.refreshStatus])
+  );
+  const audioNodesForCut = (cutLayerDocumentId: string | null) =>
+    Object.values(project.payload.layerDocumentsById)
+      .flatMap((layer) => layer.type === "audio" &&
+        layer.common.placement.parentLayerDocumentId === cutLayerDocumentId
+          ? [layer]
+          : [])
+      .sort((left, right) =>
+        left.common.placement.order - right.common.placement.order ||
+        left.layerDocumentId.localeCompare(right.layerDocumentId)
+      )
+      .map((layer): LibraryNodeViewModel => {
+        const sourceId = layer.common.source?.sourceId ?? null;
+        const source = sourceId ? audioSources.get(sourceId) : null;
+        return {
+          id: layer.layerDocumentId,
+          type: "sub",
+          entityKind: "layer",
+          contentKind: "audio",
+          audioProvenance: source?.data.provenance ?? "imported",
+          playing: audioState?.playingLayerDocumentId === layer.layerDocumentId,
+          muted: layer.data.muted,
+          sourceId,
+          layerDocumentId: layer.layerDocumentId,
+          name: layer.name,
+          depth: 1,
+          selected: audioState?.selectedLayerDocumentId === layer.layerDocumentId,
+          visible: !layer.data.muted,
+          locked: false,
+          sourceSyncStatus: sourceId
+            ? audioTreeStatus.get(sourceId) ?? "missing"
+            : "missing",
+          canRefresh: false,
+          canDelete: true,
+          canReorder: false,
+          children: [],
+        };
+      });
+  const documents = tree.documents.map((document) => {
+    const cut = Object.values(project.payload.layerDocumentsById).find((layer) =>
+      layer.type === "group" &&
+      layer.data.role === "composition" &&
+      layer.common.source?.sourceId === document.sourceId
+    );
+    return treeNode(
       document,
       tree.selectedSourceId,
       0,
-      document.children.map((child) =>
-        buildPsdNode(child, 1)
-      ),
+      [
+        ...document.children.map((child) => buildPsdNode(child, 1)),
+        ...audioNodesForCut(cut?.layerDocumentId ?? null),
+      ],
       true,
       layerState(document.sourceId)
-    )
-  );
+    );
+  });
   const orphanNodes = tree.orphanNodes.map((node) =>
     buildPsdNode(node, 0)
   );
-  const nonPsdSources = tree.nonPsdSources.map((source) =>
+  const nonPsdSources = tree.nonPsdSources
+    .filter((source) => source.kind !== "audio")
+    .map((source) =>
     treeNode(
       source,
       tree.selectedSourceId,
@@ -251,6 +317,12 @@ export function buildLayerDocumentLibraryNodes(
         id: projectRoot.layerDocumentId,
         type: "project",
         entityKind: "composition",
+        contentKind: "visual",
+        audioProvenance: null,
+        playing: false,
+        muted: false,
+        sourceId: null,
+        layerDocumentId: projectRoot.layerDocumentId,
         name: "프로젝트",
         depth: 0,
         selected:
@@ -350,6 +422,16 @@ export function useLayerDocumentLibraryEngine(options: {
     prepare: (file: File) => Promise<PreparedLayerDocumentAudioImport>;
     confirm: (prepared: PreparedLayerDocumentAudioImport) => { readonly ok: boolean; readonly message?: string };
     cancel: (prepared: PreparedLayerDocumentAudioImport) => unknown;
+  };
+  audio: {
+    read: () => import("@/editor/audio-runtime").EditorAudioAuditionState;
+    subscribe: (listener: () => void) => () => void;
+    readSelectedLayerDocumentId: () => string | null;
+    select: (layerDocumentId: string) => void;
+    togglePlayback: (layerDocumentId: string) => void;
+    toggleMuted: (layerDocumentId: string) => void;
+    rename: (layerDocumentId: string, name: string) => void;
+    delete: (layerDocumentId: string) => void;
   };
   parentLayerDocumentId: string;
   durationFrames: number;
@@ -622,9 +704,18 @@ export function useLayerDocumentLibraryEngine(options: {
   }, [options.controller, plans, session]);
 
 
-  const nodes = buildLayerDocumentLibraryNodes(
-    options.controller
+  const playingLayerDocumentId = useSyncExternalStore(
+    options.audio.subscribe,
+    () => {
+      const state = options.audio.read();
+      return state.status === "playing" ? state.layerDocumentId : null;
+    },
+    () => null
   );
+  const nodes = buildLayerDocumentLibraryNodes(options.controller, {
+    selectedLayerDocumentId: options.audio.readSelectedLayerDocumentId(),
+    playingLayerDocumentId,
+  });
   const viewProps: LibraryViewProps = {
     nodes,
     fileInputRef,
@@ -669,23 +760,42 @@ export function useLayerDocumentLibraryEngine(options: {
       });
     },
     onSelectNode: (nodeId) => {
-      const node = nodes.find((candidate) =>
-        candidate.id === nodeId
-      );
+      const findNode = (items: readonly LibraryNodeViewModel[]): LibraryNodeViewModel | null => {
+        for (const item of items) {
+          if (item.id === nodeId) return item;
+          const child = findNode(item.children);
+          if (child) return child;
+        }
+        return null;
+      };
+      const node = findNode(nodes);
       if (node?.type === "project") {
         options.controller.openProject();
         return;
       }
+      if (node?.contentKind === "audio" && node.layerDocumentId) {
+        options.audio.select(node.layerDocumentId);
+        return;
+      }
       options.controller.selectSource(nodeId);
     },
-    onToggleNodeVisibility:
-      options.controller.toggleSourceVisibility,
-    onToggleNodeLock:
-      options.controller.toggleSourceLock,
-    onRenameNode:
-      options.controller.renameSourceLayer,
-    onDeleteNode:
-      options.controller.deleteSourceLayer,
+    onToggleNodeVisibility: (nodeId) => {
+      const audioNode = nodes.flatMap((node) => node.children).find((node) => node.id === nodeId && node.contentKind === "audio");
+      if (audioNode) options.audio.toggleMuted(nodeId);
+      else options.controller.toggleSourceVisibility(nodeId);
+    },
+    onToggleNodeLock: options.controller.toggleSourceLock,
+    onToggleNodePlayback: options.audio.togglePlayback,
+    onRenameNode: (nodeId, name) => {
+      const audioNode = nodes.flatMap((node) => node.children).find((node) => node.id === nodeId && node.contentKind === "audio");
+      if (audioNode) options.audio.rename(nodeId, name);
+      else options.controller.renameSourceLayer(nodeId, name);
+    },
+    onDeleteNode: (nodeId) => {
+      const audioNode = nodes.flatMap((node) => node.children).find((node) => node.id === nodeId && node.contentKind === "audio");
+      if (audioNode) options.audio.delete(nodeId);
+      else options.controller.deleteSourceLayer(nodeId);
+    },
     onRefreshMainComp: (sourceId) => {
       setPicker({ kind: "refresh", sourceId });
       fileInputRef.current?.click();

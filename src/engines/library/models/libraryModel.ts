@@ -14,6 +14,12 @@ export type LibraryNodeViewModel = {
   id: string;
   type: "project" | "main" | "sub";
   entityKind: "layer" | "composition" | null;
+  contentKind: "visual" | "audio";
+  audioProvenance: "imported" | "recorded" | null;
+  playing: boolean;
+  muted: boolean;
+  sourceId: string | null;
+  layerDocumentId: string | null;
   name: string;
   depth: number;
   selected: boolean;
@@ -59,6 +65,7 @@ export type LibraryViewProps = {
   onSelectNode: (nodeId: string) => void;
   onToggleNodeVisibility: (nodeId: string) => void;
   onToggleNodeLock: (nodeId: string) => void;
+  onToggleNodePlayback: (nodeId: string) => void;
   onRenameNode: (nodeId: string, name: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onRefreshMainComp: (compId: string) => void;

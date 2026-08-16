@@ -261,6 +261,7 @@ export function useLayerDocumentPanelEnginePorts(
       timelineOwner,
       properties,
       libraryController,
+      librarySources: sources,
       canvasDraft,
       canvasCommands,
     };
@@ -378,6 +379,23 @@ export function useLayerDocumentPanelEnginePorts(
     timelineOwner: ports.timelineOwner,
     properties: ports.properties,
     libraryController: ports.libraryController,
+    libraryAudio: {
+      read: audioRuntime.read,
+      subscribe: audioRuntime.subscribe,
+      readSelectedLayerDocumentId,
+      select: ports.librarySources.selectLayerDocument,
+      togglePlayback: (layerDocumentId: string) => {
+        const state = audioRuntime.read();
+        if (state.status === "playing" && state.layerDocumentId === layerDocumentId) {
+          audioRuntime.stop();
+          return;
+        }
+        audioRuntime.play({ project: readProject(), layerDocumentId });
+      },
+      toggleMuted: ports.librarySources.toggleAudioMuted,
+      rename: ports.librarySources.renameLayerDocument,
+      delete: ports.librarySources.deleteLayerDocument,
+    },
     audioImport: {
       prepare: (file: File, explicitCutLayerDocumentId?: string | null) =>
         prepareLayerDocumentAudioImport({

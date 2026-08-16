@@ -107,6 +107,7 @@ EditorShellLayoutProps {
       controller:
         panelPorts.libraryController,
       audioImport: panelPorts.audioImport,
+      audio: panelPorts.libraryAudio,
       parentLayerDocumentId:
         scope.model.activeGroup.layerDocumentId,
       durationFrames:

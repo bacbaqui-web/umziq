@@ -5,6 +5,7 @@ import type {
 import {
   buildDeleteLayerDocumentTransaction,
   buildSetLayerDocumentNameTransaction,
+  buildUpdateLayerDocumentDomainTransaction,
   buildUpdateLayerDocumentCommonTransaction,
   type LayerDocumentTransactionResult,
 } from "@/models";
@@ -253,6 +254,38 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
           options.sourceResolution
         ),
     });
+  const deleteLayerDocument = (layerDocumentId: string) => {
+    const project = options.readProject();
+    const layers = Object.values(project.payload.layerDocumentsById);
+    const layer = project.payload.layerDocumentsById[layerDocumentId];
+    if (!layer || (layer.type === "group" && layer.data.role === "composition")) return;
+    const deletedLayerDocumentIds = new Set<string>();
+    const collect = (parentId: string) => {
+      deletedLayerDocumentIds.add(parentId);
+      layers.forEach((candidate) => {
+        if (candidate.common.placement.parentLayerDocumentId === parentId && !deletedLayerDocumentIds.has(candidate.layerDocumentId)) {
+          collect(candidate.layerDocumentId);
+        }
+      });
+    };
+    collect(layerDocumentId);
+    const deletedSourceIds = new Set(layers.flatMap((candidate) =>
+      deletedLayerDocumentIds.has(candidate.layerDocumentId) && candidate.common.source?.sourceId
+        ? [candidate.common.source.sourceId]
+        : []
+    ));
+    const deletion = buildDeleteLayerDocumentTransaction(project, { layerDocumentId });
+    if (deletion.ok) {
+      const retainedSourceIds = new Set(Object.values(deletion.transaction.after.payload.layerDocumentsById)
+        .flatMap((candidate) => candidate.common.source?.sourceId ? [candidate.common.source.sourceId] : []));
+      deletedSourceIds.forEach((sourceId) => {
+        if (!retainedSourceIds.has(sourceId)) {
+          delete deletion.transaction.after.payload.sourceRegistry.sourcesById[sourceId];
+        }
+      });
+    }
+    return options.commitLayer(deletion);
+  };
   return {
     readActiveGroupLayerDocumentId:
       options.readActiveGroupLayerDocumentId,
@@ -374,6 +407,34 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
         layerDocument.layerDocumentId
       );
     },
+    selectLayerDocument: (layerDocumentId: string) => {
+      const layer = options.readProject().payload.layerDocumentsById[layerDocumentId];
+      if (!layer) return;
+      const parentId = layer.common.placement.parentLayerDocumentId;
+      if (parentId && parentId !== options.readActiveGroupLayerDocumentId()) {
+        options.enterGroup(parentId);
+      }
+      if (layer.common.source?.sourceId) {
+        options.selectSource({
+          kind: "library-source",
+          sourceId: layer.common.source.sourceId,
+        });
+      }
+      return options.selectLayer(layerDocumentId);
+    },
+    readSelectedLayerDocumentId: options.readSelectedLayerDocumentId,
+    toggleAudioMuted: (layerDocumentId: string) => {
+      const project = options.readProject();
+      const layer = project.payload.layerDocumentsById[layerDocumentId];
+      if (!layer || layer.type !== "audio") return;
+      return options.commitLayer(buildUpdateLayerDocumentDomainTransaction(project, {
+        layerDocumentId,
+        update: { kind: "replace-audio-document", data: { ...layer.data, muted: !layer.data.muted } },
+      }));
+    },
+    renameLayerDocument: (layerDocumentId: string, name: string) =>
+      options.commitLayer(buildSetLayerDocumentNameTransaction(options.readProject(), { layerDocumentId, name })),
+    deleteLayerDocument,
     toggleSourceVisibility: (sourceId: string) => {
       const layer = Object.values(
         options.readProject().payload.layerDocumentsById
@@ -440,47 +501,7 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
         !layer ||
         (layer.type === "group" && layer.data.role === "composition")
       ) return;
-      const deletedLayerDocumentIds = new Set<string>();
-      const collect = (parentId: string) => {
-        deletedLayerDocumentIds.add(parentId);
-        layers.forEach((candidate) => {
-          if (
-            candidate.common.placement.parentLayerDocumentId === parentId &&
-            !deletedLayerDocumentIds.has(candidate.layerDocumentId)
-          ) collect(candidate.layerDocumentId);
-        });
-      };
-      collect(layer.layerDocumentId);
-      const deletedSourceIds = new Set(
-        layers.flatMap((candidate) =>
-          deletedLayerDocumentIds.has(candidate.layerDocumentId) &&
-          candidate.common.source?.sourceId
-            ? [candidate.common.source.sourceId]
-            : []
-        )
-      );
-      const deletion = buildDeleteLayerDocumentTransaction(
-        project,
-        { layerDocumentId: layer.layerDocumentId }
-      );
-      if (deletion.ok) {
-        const retainedSourceIds = new Set(
-          Object.values(
-            deletion.transaction.after.payload.layerDocumentsById
-          ).flatMap((candidate) =>
-            candidate.common.source?.sourceId
-              ? [candidate.common.source.sourceId]
-              : []
-          )
-        );
-        deletedSourceIds.forEach((deletedSourceId) => {
-          if (!retainedSourceIds.has(deletedSourceId)) {
-            delete deletion.transaction.after.payload
-              .sourceRegistry.sourcesById[deletedSourceId];
-          }
-        });
-      }
-      return options.commitLayer(deletion);
+      return deleteLayerDocument(layer.layerDocumentId);
     },
     readTree: () =>
       options.preparation.query.readTree({

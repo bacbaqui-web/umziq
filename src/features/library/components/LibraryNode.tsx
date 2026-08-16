@@ -51,6 +51,29 @@ function PsdFileIcon() {
   );
 }
 
+function AudioIcon({ provenance }: { provenance: "imported" | "recorded" | null }) {
+  return (
+    <span
+      aria-label={provenance === "recorded" ? "움직에서 녹음" : "불러온 오디오"}
+      style={{
+        width: 14, height: 14, display: "inline-flex", alignItems: "center",
+        justifyContent: "center", flex: "0 0 auto", color: "#65c98a",
+      }}
+    >
+      {provenance === "recorded" ? (
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+          <rect x="5" y="1.5" width="6" height="9" rx="3" />
+          <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5M5.5 14.5h5" />
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 10.5V3.7L12 2v7" /><circle cx="3" cy="11.5" r="2" /><circle cx="12" cy="10" r="2" />
+        </svg>
+      )}
+    </span>
+  );
+}
+
 function ActionButton({
   label,
   color,
@@ -104,6 +127,7 @@ export default function LibraryNode({
   onSelectNode,
   onToggleNodeVisibility,
   onToggleNodeLock,
+  onToggleNodePlayback,
   onRenameNode,
   onDeleteNode,
   onRefreshMainComp,
@@ -351,6 +375,8 @@ export default function LibraryNode({
         >
           {isMain ? (
             <PsdFileIcon />
+          ) : node.contentKind === "audio" ? (
+            <AudioIcon provenance={node.audioProvenance} />
           ) : (
             <span
               style={{
@@ -504,31 +530,52 @@ export default function LibraryNode({
         {!isMain && !isProject && (
           <div style={{ display: "flex", alignItems: "center", gap: 1, flex: "0 0 auto" }}>
             <ActionButton
-              label={`${node.name} ${node.locked ? "잠금 해제" : "잠금"}`}
-              color={node.locked ? "#9fc5e5" : "#657785"}
-              onClick={() => onToggleNodeLock(node.id)}
+              label={node.contentKind === "audio"
+                ? `${node.name} ${node.playing ? "재생 정지" : "재생"}`
+                : `${node.name} ${node.locked ? "잠금 해제" : "잠금"}`}
+              color={node.contentKind === "audio"
+                ? node.playing ? "#73d99a" : "#6f9d7d"
+                : node.locked ? "#9fc5e5" : "#657785"}
+              onClick={() => node.contentKind === "audio"
+                ? onToggleNodePlayback(node.id)
+                : onToggleNodeLock(node.id)}
               compact
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="5" y="10" width="14" height="10" rx="2" />
-                {node.locked
-                  ? <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                  : <path d="M8 10V7a4 4 0 0 1 7.5-2" />}
-              </svg>
+              {node.contentKind === "audio" ? (
+                node.playing
+                  ? <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
+                  : <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M3 2l7 4-7 4Z" /></svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="5" y="10" width="14" height="10" rx="2" />
+                  {node.locked ? <path d="M8 10V7a4 4 0 0 1 8 0v3" /> : <path d="M8 10V7a4 4 0 0 1 7.5-2" />}
+                </svg>
+              )}
             </ActionButton>
             <ActionButton
-              label={`${node.name} ${node.visible ? "숨기기" : "보이기"}`}
-              color={node.visible ? "#9fc5e5" : "#657785"}
+              label={node.contentKind === "audio"
+                ? `${node.name} ${node.muted ? "음소거 해제" : "음소거"}`
+                : `${node.name} ${node.visible ? "숨기기" : "보이기"}`}
+              color={node.contentKind === "audio"
+                ? node.muted ? "#657785" : "#73d99a"
+                : node.visible ? "#9fc5e5" : "#657785"}
               onClick={() => onToggleNodeVisibility(node.id)}
               compact
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {node.contentKind === "audio" ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 10v4h4l5 4V6L8 10H4Z" />
+                  {node.muted ? <path d="m17 9 4 6M21 9l-4 6" /> : <path d="M16 9.5a4 4 0 0 1 0 5" />}
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 {node.visible ? (
                   <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>
                 ) : (
                   <><path d="m3 3 18 18" /><path d="M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a15.7 15.7 0 0 1-2.2 2.8M6.2 6.2C3.5 8 2 12 2 12s3.5 6 10 6a10 10 0 0 0 3.4-.6" /></>
                 )}
-              </svg>
+                </svg>
+              )}
             </ActionButton>
             <ActionButton
               label={`${node.name} 이름 수정`}
@@ -583,6 +630,7 @@ export default function LibraryNode({
               onSelectNode={onSelectNode}
               onToggleNodeVisibility={onToggleNodeVisibility}
               onToggleNodeLock={onToggleNodeLock}
+              onToggleNodePlayback={onToggleNodePlayback}
               onRenameNode={onRenameNode}
               onDeleteNode={onDeleteNode}
               onRefreshMainComp={onRefreshMainComp}

@@ -3,9 +3,9 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~3, 5 완료
+- Task 0~5 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
-- Task 4 구현 대기
+- Task 4 완료
 - Browser QA 미실행
 
 ## 기준
@@ -453,6 +453,25 @@ Cut 아래에서 imported/recorded Audio를 구분하고 기본 관리 command�
 - Library 미리 듣기 상태가 Project/History에 저장되지 않음
 - 음소거와 이름 변경은 Owner transaction/History로 복원 가능
 - Layer 삭제와 공유 Source 삭제 의미가 섞이지 않음
+
+### 구현 결과 — 완료
+
+- Cut의 PSD composition 행 아래에 Audio Layer를 placement order대로 투영한다.
+  행 identity는 Source id가 아니라 `layerDocumentId`이므로 Library, Timeline,
+  Properties가 같은 선택을 공유하며, 같은 Source를 여러 행이 사용해도 서로
+  혼동하지 않는다.
+- 불러온 Audio는 음표, 움직에서 녹음한 Audio는 마이크 형태를 사용하고 두
+  아이콘 모두 초록색 계열로 표시한다. provenance는 Source Plain Data에서만
+  읽으며 audition 상태는 Runtime에서 구독해 Project와 History에 저장하지 않는다.
+- visual 행의 자물쇠/눈동자 열을 Audio 행에서는 재생·정지/음소거로 사용한다.
+  재생은 Task 5의 single-active Audio Runtime에 연결하고 음소거는 Audio domain
+  transaction으로 commit한다.
+- 이름 변경과 휴지통은 정확한 `layerDocumentId`의 단일 Layer transaction이다.
+  마지막 placement를 지울 때만 Source Registry record를 함께 제거하고, 공유
+  placement가 남아 있으면 Source와 Reconnect locator를 보존한다. Source 전체
+  삭제와 Reconnect는 기존 Source command를 계속 사용하며 행 휴지통과 섞지 않는다.
+- fake projection/command 검증에서 imported/recorded 구분, 선택/재생 projection,
+  audition 비영속성, mute/name undo·redo와 공유 Source 단일 행 삭제를 확인한다.
 
 ---
 
