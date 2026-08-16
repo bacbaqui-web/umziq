@@ -2,6 +2,7 @@ import {
   LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
   findNonPlainDataPath,
   migrateLayerDocumentProjectSchema1To2,
+  migrateLayerDocumentProjectSchema2To3,
   normalizeLayerDocumentProject,
   validateLayerDocumentProject,
   type LayerDocumentProject,
@@ -234,18 +235,38 @@ function migrateProjectForLoad(
   project: unknown
 ): LayerDocumentProjectPersistenceResult<{
   readonly project: unknown;
-  readonly migratedFromSchemaVersion: 1 | null;
+  readonly migratedFromSchemaVersion: 1 | 2 | null;
 }> {
   const version = schemaVersion(project);
   if (version === 1) {
-    const migrated =
+    const migratedTo2 =
       migrateLayerDocumentProjectSchema1To2(project);
+    const migrated = migratedTo2.ok
+      ? migrateLayerDocumentProjectSchema2To3(migratedTo2.value)
+      : migratedTo2;
     return migrated.ok
       ? {
           ok: true,
           value: {
             project: migrated.value,
             migratedFromSchemaVersion: 1,
+          },
+        }
+      : failure({
+          code: "invalid-project",
+          path: migrated.error.path,
+          message: migrated.error.message,
+        });
+  }
+  if (version === 2) {
+    const migrated =
+      migrateLayerDocumentProjectSchema2To3(project);
+    return migrated.ok
+      ? {
+          ok: true,
+          value: {
+            project: migrated.value,
+            migratedFromSchemaVersion: 2,
           },
         }
       : failure({

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
   migrateLayerDocumentProjectSchema1To2,
+  migrateLayerDocumentProjectSchema2To3,
   normalizeLayerDocumentProject,
   validateLayerDocumentProject,
   type LayerAnimation,
@@ -139,6 +140,9 @@ function createSourceRecords(): Record<string, SourceRegistryRecord> {
       data: {
         mimeType: "audio/wav",
         durationFrames: 90,
+        channelCount: 2,
+        sampleRate: 48_000,
+        provenance: "imported",
       },
     },
     "source-video": {
@@ -220,7 +224,12 @@ function createLayerDocuments(): Record<string, LayerDocument> {
       revision: 0,
       type: "audio",
       common: createCommon("root", 3, { sourceId: "source-audio" }),
-      data: {},
+      data: {
+        gain: 1,
+        muted: false,
+        fadeInFrames: 0,
+        fadeOutFrames: 0,
+      },
     },
     video: {
       layerDocumentId: "video",
@@ -438,6 +447,42 @@ if (migratedNode.kind === "psd-node") {
   );
 }
 
+const schema2 = clone(valid) as unknown as {
+  metadata: { schemaVersion: number };
+  payload: {
+    sourceRegistry: { sourcesById: Record<string, { kind: string; data: Record<string, unknown> }> };
+    layerDocumentsById: Record<string, { type: string; data: Record<string, unknown> }>;
+  };
+};
+schema2.metadata.schemaVersion = 2;
+schema2.payload.sourceRegistry.sourcesById["source-audio"].data = {
+  mimeType: "audio/wav",
+  durationFrames: 90,
+};
+schema2.payload.layerDocumentsById.audio.data = {};
+const migratedSchema2 = migrateLayerDocumentProjectSchema2To3(schema2);
+assert.equal(migratedSchema2.ok, true);
+if (!migratedSchema2.ok) throw new Error(migratedSchema2.error.message);
+const normalizedSchema2 = normalizeLayerDocumentProject(migratedSchema2.value);
+assert.equal(normalizedSchema2.ok, true);
+if (!normalizedSchema2.ok) throw new Error(JSON.stringify(normalizedSchema2.issues));
+assert.deepEqual(
+  normalizedSchema2.project.payload.sourceRegistry.sourcesById["source-audio"].data,
+  {
+    mimeType: "audio/wav",
+    durationFrames: 90,
+    channelCount: null,
+    sampleRate: null,
+    provenance: "imported",
+  }
+);
+assert.deepEqual(normalizedSchema2.project.payload.layerDocumentsById.audio.data, {
+  gain: 1,
+  muted: false,
+  fadeInFrames: 0,
+  fadeOutFrames: 0,
+});
+
 const future = clone(valid) as unknown as {
   payload: {
     layerDocumentsById: Record<string, {
@@ -490,7 +535,7 @@ assert.equal(
 const invalidSchema = clone(valid) as unknown as {
   metadata: { schemaVersion: number };
 };
-invalidSchema.metadata.schemaVersion = 3;
+invalidSchema.metadata.schemaVersion = 4;
 assert.equal(hasIssue(invalidSchema, "invalid-schema-version"), true);
 
 const invalidMetadata = {

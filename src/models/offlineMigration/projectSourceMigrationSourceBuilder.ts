@@ -286,6 +286,9 @@ function buildAudioSourceRecord(
     data: {
       mimeType: descriptor.mimeType,
       durationFrames: source.content.durationFrames,
+      channelCount: null,
+      sampleRate: null,
+      provenance: "imported",
     },
   };
   return { sourceId };

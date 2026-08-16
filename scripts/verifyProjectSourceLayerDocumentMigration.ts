@@ -1060,6 +1060,9 @@ assert.deepEqual(
       ? audioSource.content.descriptor.mimeType
       : null,
     durationFrames: audioSource.content.durationFrames,
+    channelCount: null,
+    sampleRate: null,
+    provenance: "imported",
   }
 );
 assert.equal(

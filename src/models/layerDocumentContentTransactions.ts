@@ -232,6 +232,8 @@ function expectedDomainType(
   update: LayerDocumentDomainUpdate
 ): LayerDocument["type"] {
   switch (update.kind) {
+    case "replace-audio-document":
+      return "audio";
     case "replace-drawing-document":
       return "drawing";
     case "replace-text-document":
@@ -275,6 +277,11 @@ export function buildUpdateLayerDocumentDomainTransaction(
   const next =
     after.payload.layerDocumentsById[command.layerDocumentId];
   switch (command.update.kind) {
+    case "replace-audio-document":
+      if (next.type === "audio") {
+        next.data = clonePlainData(command.update.data);
+      }
+      break;
     case "replace-drawing-document":
       if (next.type === "drawing") {
         next.data = clonePlainData(command.update.data);

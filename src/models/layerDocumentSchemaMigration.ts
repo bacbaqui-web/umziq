@@ -15,7 +15,8 @@ export type LayerDocumentSchemaMigrationResult =
         readonly code:
           | "non-plain-data"
           | "unsupported-schema-version"
-          | "invalid-schema-1";
+          | "invalid-schema-1"
+          | "invalid-schema-2";
         readonly path: string;
         readonly message: string;
       };
@@ -246,5 +247,76 @@ export function migrateLayerDocumentProjectSchema1To2(
       migrateSource(source),
     ])
   );
+  return { ok: true, value: project };
+}
+
+/** Adds the first persistent Audio editing contract with neutral defaults. */
+export function migrateLayerDocumentProjectSchema2To3(
+  value: unknown
+): LayerDocumentSchemaMigrationResult {
+  const nonPlainDataPath = findNonPlainDataPath(value);
+  if (nonPlainDataPath) {
+    return {
+      ok: false,
+      error: {
+        code: "non-plain-data",
+        path: nonPlainDataPath,
+        message: "Schema migration accepts Plain Data only",
+      },
+    };
+  }
+  const project = clonePlainData(value);
+  if (!isRecord(project)) {
+    return {
+      ok: false,
+      error: {
+        code: "invalid-schema-2",
+        path: "$",
+        message: "Schema 2 Project must be an object",
+      },
+    };
+  }
+  const metadata = isRecord(project.metadata) ? project.metadata : null;
+  const payload = isRecord(project.payload) ? project.payload : null;
+  const registry = payload && isRecord(payload.sourceRegistry)
+    ? payload.sourceRegistry
+    : null;
+  const sources = registry && isRecord(registry.sourcesById)
+    ? registry.sourcesById
+    : null;
+  const layers = payload && isRecord(payload.layerDocumentsById)
+    ? payload.layerDocumentsById
+    : null;
+  if (metadata?.schemaVersion !== 2 || !sources || !layers) {
+    return {
+      ok: false,
+      error: {
+        code: "invalid-schema-2",
+        path: "$.metadata.schemaVersion",
+        message: "Expected Layer Document schema version 2",
+      },
+    };
+  }
+  Object.values(sources).forEach((source) => {
+    if (!isRecord(source) || source.kind !== "audio") return;
+    const data = isRecord(source.data) ? source.data : {};
+    source.data = {
+      mimeType: data.mimeType ?? null,
+      durationFrames: data.durationFrames ?? null,
+      channelCount: null,
+      sampleRate: null,
+      provenance: "imported",
+    };
+  });
+  Object.values(layers).forEach((layer) => {
+    if (!isRecord(layer) || layer.type !== "audio") return;
+    layer.data = {
+      gain: 1,
+      muted: false,
+      fadeInFrames: 0,
+      fadeOutFrames: 0,
+    };
+  });
+  metadata.schemaVersion = 3;
   return { ok: true, value: project };
 }

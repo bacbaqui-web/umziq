@@ -152,6 +152,9 @@ function sources(): Record<string, SourceRegistryRecord> {
       data: {
         mimeType: "audio/wav",
         durationFrames: 120,
+        channelCount: 2,
+        sampleRate: 48_000,
+        provenance: "imported",
       },
     },
     "video-source": {
@@ -281,7 +284,12 @@ function projectFixture(): LayerDocumentProject {
         { sourceId: "audio-source" },
         5
       ),
-      data: {},
+      data: {
+        gain: 1,
+        muted: false,
+        fadeInFrames: 0,
+        fadeOutFrames: 0,
+      },
     },
     video: {
       layerDocumentId: "video",
@@ -511,8 +519,12 @@ assert.deepEqual(
   {
     status: "ready",
     layerDocumentId: "audio",
-    dataSchema: "empty",
-    domainEditing: "future",
+    data: {
+      gain: 1,
+      muted: false,
+      fadeInFrames: 0,
+      fadeOutFrames: 0,
+    },
   }
 );
 assert.equal(

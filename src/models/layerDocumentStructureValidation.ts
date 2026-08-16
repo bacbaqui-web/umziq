@@ -369,9 +369,30 @@ function validateLayerData(
   if (!data || typeof layer.type !== "string") return;
   switch (layer.type) {
     case "psd":
-    case "audio":
     case "video":
       validateExactKeys(data, [], dataPath, issues);
+      return;
+    case "audio":
+      validateExactKeys(
+        data,
+        ["gain", "muted", "fadeInFrames", "fadeOutFrames"],
+        dataPath,
+        issues
+      );
+      validateNumber(data.gain, `${dataPath}.gain`, issues, {
+        minimum: 0,
+      });
+      validateBoolean(data.muted, `${dataPath}.muted`, issues);
+      validateNumber(data.fadeInFrames, `${dataPath}.fadeInFrames`, issues, {
+        integer: true,
+        minimum: 0,
+        code: "invalid-timing",
+      });
+      validateNumber(data.fadeOutFrames, `${dataPath}.fadeOutFrames`, issues, {
+        integer: true,
+        minimum: 0,
+        code: "invalid-timing",
+      });
       return;
     case "drawing":
       validateExactKeys(data, ["documentVersion", "elements"], dataPath, issues);

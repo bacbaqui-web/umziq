@@ -6,9 +6,6 @@ import {
   type LayerDocumentTransactionResult,
 } from "@/models";
 import {
-  prepareLayerDocumentAudioFutureCommand,
-} from "@/layer-types";
-import {
   prepareLayerDocumentDrawingUpdate,
 } from "@/layer-types";
 import {
@@ -135,19 +132,12 @@ function futureDomainPreparation(options: {
     });
   }
   if (options.command.domain === "audio") {
-    const unsupported = prepareLayerDocumentAudioFutureCommand(
-      options.project,
-      {
-        layerDocumentId: options.command.layerDocumentId,
-        operation: "domain-update",
-      }
-    );
     return rejected({
-      project: unsupported.project,
+      project: options.project,
       selectedLayerDocumentId: options.selectedLayerDocumentId,
-      layerDocumentId: unsupported.layerDocumentId,
+      layerDocumentId: options.command.layerDocumentId,
       reason: "unsupported-capability",
-      message: "Audio domain data is empty and remains a future boundary.",
+      message: "Audio Properties controls are not connected yet.",
     });
   }
   return rejected({

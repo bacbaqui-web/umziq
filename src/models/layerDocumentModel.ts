@@ -1,7 +1,7 @@
 import type { PlainDataObject } from "@/models/plainDataModel";
 import type { Position, Scale } from "@/models/transformModel";
 
-export const LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION = 2 as const;
+export const LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION = 3 as const;
 
 export type LayerDocumentType =
   | "psd"
@@ -83,6 +83,9 @@ export interface PsdNodeSourceData {
 export interface AudioSourceData {
   mimeType: string | null;
   durationFrames: number | null;
+  channelCount: number | null;
+  sampleRate: number | null;
+  provenance: "imported" | "recorded";
 }
 
 export interface VideoSourceData {
@@ -237,6 +240,7 @@ export interface LayerDocumentCommon<
   transform: LayerTransform;
   placement: LayerPlacement;
   animation: LayerAnimation;
+  /** Ordered effect-chain envelope; array order is processing order. */
   effects: LayerEffect[];
   modifiers: LayerModifier[];
 }
@@ -257,7 +261,13 @@ export interface TextLayerData {
   };
 }
 
-export type AudioLayerData = Record<string, never>;
+export interface AudioLayerData {
+  /** Linear amplitude multiplier. 1 is the unmodified source level. */
+  gain: number;
+  muted: boolean;
+  fadeInFrames: number;
+  fadeOutFrames: number;
+}
 
 export type VideoLayerData = Record<string, never>;
 

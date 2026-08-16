@@ -3,8 +3,8 @@
 ## 상태
 
 - Sprint 계획 수립 완료
-- Task 0~1 완료
-- Task 2 구현 대기
+- Task 0~2 완료
+- Task 3 구현 대기
 - Browser QA 미실행
 
 ## 기준
@@ -356,6 +356,29 @@ PSD 전용 명칭을 Project file library 책임에 맞추되 기존 PSD 동작�
 - unknown/legacy Audio data의 normalize 또는 구조화 거부 정책 명확화
 - Runtime 객체 저장 0건
 - 사용자 action 한 번당 transaction/History 한 건
+
+### 구현 결과 — 완료
+
+- Project schema를 3으로 올리고 Audio Source에 `durationFrames`,
+  `channelCount`, `sampleRate`, `provenance(imported | recorded)`를 저장하는
+  Plain Data 계약을 추가했다. 아직 decode하지 않은 값은 metadata를 `null`로
+  둘 수 있으며 provenance는 반드시 명시한다.
+- Audio Layer data는 `gain`, `muted`, `fadeInFrames`, `fadeOutFrames`를 저장한다.
+  Cut 소속과 시작·길이·source offset은 별도 중복 필드 없이 기존
+  `common.placement`를 그대로 사용한다.
+- effect chain envelope는 모든 Layer가 이미 공유하는 순서 보존
+  `common.effects: LayerEffect[]`를 Audio도 사용한다. Task 10 전까지 effect
+  type별 DSP 의미는 추가하지 않았다.
+- schema 1은 1→2→3, schema 2는 2→3으로 migration한다. 기존 Audio Source는
+  `imported`와 미확정 metadata `null`, 기존 Audio Layer는 gain 1·unmuted·fade
+  0의 중립값을 받는다. 현재 schema의 unknown Audio field와 잘못된 수치는
+  구조 validation에서 거부한다.
+- `audioSupport`를 unsupported placeholder에서 clone query와
+  `replace-audio-document` preparation으로 전환했다. 최종 변경은 다른 domain과
+  동일하게 Project Owner commit을 거쳐 action당 transaction/History 한 건을
+  만든다.
+- file picking, decode, Audio Runtime, UI, Timeline row, effect processing과
+  Export audio는 이번 Task에 추가하지 않았다.
 
 ---
 

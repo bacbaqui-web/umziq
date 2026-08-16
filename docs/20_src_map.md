@@ -42,8 +42,8 @@ Timeline과 Canvas/Properties frame input 경계로 전달한다.
 - `payload.sourceRegistry.sourcesById`: 외부 원본 identity, linked-file locator, SHA-256 content fingerprint, reconciliation metadata
 - `layerDocumentId`: 저장·선택·편집·History의 canonical identity
 - `common.source`: Source Registry 참조
-- `common.transform`, `placement`, `animation`, `effects`, `modifiers`: 모든 Type의 공통 편집 데이터
-- `data`: PSD, Drawing, Text, Audio, Video, Shape, Group, Unknown별 discriminated data
+- `common.transform`, `placement`, `animation`, `effects`, `modifiers`: 모든 Type의 공통 편집 데이터. `effects` 배열 순서가 Audio를 포함한 effect chain 처리 순서다.
+- `data`: PSD, Drawing, Text, Audio, Video, Shape, Group, Unknown별 discriminated data. Audio는 gain/muted/fade를 저장하고 timing/Cut 소속은 common placement를 재사용한다.
 
 `renderItemId`는 저장 authority가 아니라 Render Runtime의
 renderable-content identity다. drawable에서는 Source Runtime visual ID,
@@ -53,7 +53,7 @@ entity가 아니며 `LayerDocument.common.placement`의 projection이다.
 ### LayerDocument 모델 파일
 
 - `layerDocumentNormalization.ts`: schema normalize와 기본값
-- `layerDocumentSchemaMigration.ts`: 저장 데이터만 다루는 pure schema 1→2 migration
+- `layerDocumentSchemaMigration.ts`: 저장 데이터만 다루는 pure schema 1→2와 2→3 migration
 - `layerDocumentSourceDescriptorHelpers.ts`: 저장 Source descriptor의 표시 경로와 visual fingerprint projection
 - `layerDocumentValidation.ts`: 전체 공개 validation 조립
 - `layerDocumentStructureValidation.ts`: Project/Layer 공통 구조 검증
@@ -314,22 +314,22 @@ Animation은 state, Runtime authority, Project 편집 원본을 소유하지 않
 Timeline/Properties/Canvas/Render는 모두 `@/animation`을 canonical
 public 경계로 사용하고 Project 편집은 계속 Owner command로 수행한다.
 
-- `src/layer-types/index.ts`: Drawing/Text query와 transaction preparation,
-  Audio unsupported capability의 단일 public entry
+- `src/layer-types/index.ts`: Drawing/Text/Audio query와 transaction preparation의
+  단일 public entry
 - `src/layer-types/drawingSupport.ts`: Drawing data clone query와 Owner에
   전달할 domain transaction 준비
 - `src/layer-types/textSupport.ts`: Text data clone query와 Owner에 전달할
   domain transaction 준비
-- `src/layer-types/audioSupport.ts`: 빈 Audio domain query와 변경 없는
-  unsupported preparation
-- `src/layer-types/ownerCommandSupport.ts`: Drawing/Text query와
-  preparation/Owner commit, Audio capability를 조합하는 최종 adapter
+- `src/layer-types/audioSupport.ts`: Audio data clone query와 Owner에 전달할
+  `replace-audio-document` transaction 준비
+- `src/layer-types/ownerCommandSupport.ts`: Drawing/Text/Audio query와
+  preparation/Owner commit을 조합하는 최종 adapter
 
 Drawing/Text/Audio는 독립 Panel과 Runtime authority가 없으므로 Engine이
 아니다. Properties Type section이 이 단일 entry를
 소비하며 실제 변경은 Owner transaction으로 commit한다. Drawing/Text의
-placeholder render와 최소 데이터 준비는 유지하고 Audio 편집/재생은 future
-work다. Video/Shape는 schema와 extension point만 있다.
+placeholder render와 Audio 저장·Owner command 계약은 유지하되 Audio
+decode/재생/UI는 future work다. Video/Shape는 schema와 extension point만 있다.
 
 ## 9. Feature UI
 
@@ -372,11 +372,10 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - duplicate/group/animation/effect/modifier
 - PSD import/refresh/source lifecycle/runtime GC
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
-- schema 1→2 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
+- schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration
 - pure Animation public entry의 keyframe/evaluation/frame conversion/modifier/motion-path 계산
-- Drawing/Text Owner transaction, Audio unsupported capability와 기존
-  placeholder descriptor
+- Drawing/Text/Audio Owner transaction과 기존 placeholder descriptor
 - Engine import boundary와 최종 public barrel/Editor wiring
 - Preview/Accurate contract, previous-scene reuse, dirty region,
   composition/surface/source cache

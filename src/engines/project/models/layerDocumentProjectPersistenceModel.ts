@@ -27,7 +27,7 @@ export interface LayerDocumentProjectFileEnvelope {
 export interface LayerDocumentProjectLoadCandidate {
   readonly project: LayerDocumentProject;
   readonly sourceByteLength: number;
-  readonly migratedFromSchemaVersion: 1 | null;
+  readonly migratedFromSchemaVersion: 1 | 2 | null;
 }
 
 export type LayerDocumentProjectPersistenceErrorCode =

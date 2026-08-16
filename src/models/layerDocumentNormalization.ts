@@ -10,6 +10,7 @@ import {
 } from "@/models/plainDataModel";
 import {
   migrateLayerDocumentProjectSchema1To2,
+  migrateLayerDocumentProjectSchema2To3,
 } from "@/models/layerDocumentSchemaMigration";
 
 const KNOWN_LAYER_TYPES = new Set([
@@ -148,9 +149,13 @@ export function normalizeLayerDocumentProject(
     isRecord(cloned.metadata)
     ? cloned.metadata.schemaVersion
     : null;
-  const migrated = schemaVersion === 1
+  const migratedTo2 = schemaVersion === 1
     ? migrateLayerDocumentProjectSchema1To2(cloned)
     : { ok: true as const, value: cloned };
+  const migrated = migratedTo2.ok &&
+    (schemaVersion === 1 || schemaVersion === 2)
+    ? migrateLayerDocumentProjectSchema2To3(migratedTo2.value)
+    : migratedTo2;
   if (!migrated.ok) {
     return {
       ok: false,

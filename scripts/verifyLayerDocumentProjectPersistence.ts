@@ -107,6 +107,31 @@ function projectFixture(): LayerDocumentProject {
     }),
     data: {},
   };
+  const audio: LayerDocument = {
+    layerDocumentId: "audio",
+    name: "Recorded voice",
+    revision: 2,
+    type: "audio",
+    common: {
+      ...common({
+        parentLayerDocumentId: "root",
+        order: 1,
+        sourceId: "audio-source",
+      }),
+      effects: [{
+        effectId: "future-noise-gate",
+        type: "noise-gate",
+        enabled: false,
+        parameters: { threshold: -36 },
+      }],
+    },
+    data: {
+      gain: 0.8,
+      muted: false,
+      fadeInFrames: 3,
+      fadeOutFrames: 6,
+    },
+  };
   return {
     metadata: {
       schemaVersion:
@@ -118,6 +143,7 @@ function projectFixture(): LayerDocumentProject {
       layerDocumentsById: {
         root,
         video,
+        audio,
       },
       sourceRegistry: {
         sourcesById: {
@@ -144,6 +170,27 @@ function projectFixture(): LayerDocumentProject {
               durationFrames: 90,
               width: 1080,
               height: 1920,
+            },
+          },
+          "audio-source": {
+            sourceId: "audio-source",
+            kind: "audio",
+            displayName: "recording.wav",
+            version: 1,
+            refresh: { status: "normal" },
+            locator: {
+              locatorId: "linked:audio-source",
+              kind: "linked-file",
+              suggestedFileName: "recording.wav",
+              relativePathHint: "media/recording.wav",
+            },
+            contentFingerprint: null,
+            data: {
+              mimeType: "audio/wav",
+              durationFrames: 75,
+              channelCount: 1,
+              sampleRate: 48_000,
+              provenance: "recorded",
             },
           },
         },
@@ -319,7 +366,7 @@ assert.equal(
 );
 assert.equal(
   migratedLoad.value.project.metadata.schemaVersion,
-  2
+  3
 );
 const migratedVideo =
   migratedLoad.value.project.payload.sourceRegistry
@@ -366,7 +413,7 @@ const futureSchema = structuredClone(
 ) as unknown as {
     metadata: { schemaVersion: number };
   };
-futureSchema.metadata.schemaVersion = 3;
+futureSchema.metadata.schemaVersion = 4;
 expectLoadError(
   encodeEnvelope(futureSchema),
   "unsupported-project-schema"

@@ -257,7 +257,12 @@ function projectFixture(): LayerDocumentProject {
       name: "Audio placement",
       type: "audio",
       common: common("root", 3),
-      data: {},
+      data: {
+        gain: 1,
+        muted: false,
+        fadeInFrames: 0,
+        fadeOutFrames: 0,
+      },
     },
   };
   return {
@@ -2021,16 +2026,37 @@ assert.equal(
   "ready"
 );
 assert.equal(
-  ports.domains.audio.prepareFutureCommand({
+  ports.domains.audio.update({
     layerDocumentId: "audio",
-    operation: "domain-update",
-  }).status,
-  "unsupported"
+    data: {
+      gain: 0.75,
+      muted: true,
+      fadeInFrames: 6,
+      fadeOutFrames: 9,
+    },
+  }).ok,
+  true
+);
+const updatedAudio = ports.domains.audio.query("audio");
+assert.deepEqual(
+  updatedAudio.status === "ready" ? updatedAudio.data : null,
+  {
+    gain: 0.75,
+    muted: true,
+    fadeInFrames: 6,
+    fadeOutFrames: 9,
+  }
 );
 
 callsBefore = transitionCallCount;
 assert.equal(ports.project.undo().ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
+const undoneAudio = ports.domains.audio.query("audio");
+assert.deepEqual(
+  undoneAudio.status === "ready" ? undoneAudio.data : null,
+  { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 }
+);
+assert.equal(ports.project.undo().ok, true);
 assert.equal(
   ports.domains.text.query("text").status,
   "ready"
@@ -2047,6 +2073,7 @@ assert.equal(
   "text"
 );
 assert.equal(ports.properties.describe().status, "ready");
+assert.equal(ports.project.redo().ok, true);
 assert.equal(ports.project.redo().ok, true);
 const redoneText = ports.domains.text.query("text");
 assert.equal(

@@ -1,14 +1,16 @@
-import type {
-  LayerDocumentProject,
-  LayerDocumentType,
+import {
+  buildUpdateLayerDocumentDomainTransaction,
+  type AudioLayerData,
+  type LayerDocumentProject,
+  type LayerDocumentTransactionResult,
+  type LayerDocumentType,
 } from "@/models";
 
 export type LayerDocumentAudioQueryResult =
   | {
       readonly status: "ready";
       readonly layerDocumentId: string;
-      readonly dataSchema: "empty";
-      readonly domainEditing: "future";
+      readonly data: AudioLayerData;
     }
   | {
       readonly status: "not-found";
@@ -21,20 +23,9 @@ export type LayerDocumentAudioQueryResult =
       readonly actualType: LayerDocumentType;
     };
 
-export interface LayerDocumentAudioFutureCommand {
+export interface ReplaceLayerDocumentAudioCommand {
   readonly layerDocumentId: string;
-  readonly operation: "domain-update";
-}
-
-export interface LayerDocumentAudioUnsupportedPreparation {
-  readonly ok: false;
-  readonly status: "unsupported";
-  readonly reason: "audio-domain-data-empty";
-  readonly layerDocumentId: string;
-  readonly project: LayerDocumentProject;
-  readonly projectUpdateCount: 0;
-  readonly transactionCount: 0;
-  readonly historyEntryCount: 0;
+  readonly data: AudioLayerData;
 }
 
 export interface LayerDocumentAudioPreparationPort {
@@ -42,21 +33,27 @@ export interface LayerDocumentAudioPreparationPort {
     project: LayerDocumentProject,
     layerDocumentId: string
   ) => LayerDocumentAudioQueryResult;
-  readonly prepareFutureCommand: (
+  readonly prepareUpdate: (
     project: LayerDocumentProject,
-    command: LayerDocumentAudioFutureCommand
-  ) => LayerDocumentAudioUnsupportedPreparation;
+    command: ReplaceLayerDocumentAudioCommand
+  ) => LayerDocumentTransactionResult;
+}
+
+function cloneAudioData(data: AudioLayerData): AudioLayerData {
+  return {
+    gain: data.gain,
+    muted: data.muted,
+    fadeInFrames: data.fadeInFrames,
+    fadeOutFrames: data.fadeOutFrames,
+  };
 }
 
 export function queryLayerDocumentAudio(
   project: LayerDocumentProject,
   layerDocumentId: string
 ): LayerDocumentAudioQueryResult {
-  const layer =
-    project.payload.layerDocumentsById[layerDocumentId];
-  if (!layer) {
-    return { status: "not-found", layerDocumentId };
-  }
+  const layer = project.payload.layerDocumentsById[layerDocumentId];
+  if (!layer) return { status: "not-found", layerDocumentId };
   if (layer.type !== "audio") {
     return {
       status: "type-mismatch",
@@ -68,30 +65,25 @@ export function queryLayerDocumentAudio(
   return {
     status: "ready",
     layerDocumentId,
-    dataSchema: "empty",
-    domainEditing: "future",
+    data: cloneAudioData(layer.data),
   };
 }
 
-export function prepareLayerDocumentAudioFutureCommand(
+export function prepareLayerDocumentAudioUpdate(
   project: LayerDocumentProject,
-  command: LayerDocumentAudioFutureCommand
-): LayerDocumentAudioUnsupportedPreparation {
-  return {
-    ok: false,
-    status: "unsupported",
-    reason: "audio-domain-data-empty",
+  command: ReplaceLayerDocumentAudioCommand
+): LayerDocumentTransactionResult {
+  return buildUpdateLayerDocumentDomainTransaction(project, {
     layerDocumentId: command.layerDocumentId,
-    project,
-    projectUpdateCount: 0,
-    transactionCount: 0,
-    historyEntryCount: 0,
-  };
+    update: {
+      kind: "replace-audio-document",
+      data: command.data,
+    },
+  });
 }
 
 export const LAYER_DOCUMENT_AUDIO_PREPARATION_PORT:
 LayerDocumentAudioPreparationPort = {
   query: queryLayerDocumentAudio,
-  prepareFutureCommand:
-    prepareLayerDocumentAudioFutureCommand,
+  prepareUpdate: prepareLayerDocumentAudioUpdate,
 };

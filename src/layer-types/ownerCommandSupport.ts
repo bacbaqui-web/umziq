@@ -70,16 +70,18 @@ export function createLayerTypeOwnerCommandAdapter<
           options.readProject(),
           layerDocumentId
         ),
-      prepareFutureCommand: (
+      update: (
         command: Parameters<
           LayerDocumentAudioPreparationPort[
-            "prepareFutureCommand"
+            "prepareUpdate"
           ]
         >[1]
       ) =>
-        options.audio.prepareFutureCommand(
-          options.readProject(),
-          command
+        options.commit(
+          options.audio.prepareUpdate(
+            options.readProject(),
+            command
+          )
         ),
     },
   };

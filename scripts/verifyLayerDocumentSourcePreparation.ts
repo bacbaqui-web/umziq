@@ -526,7 +526,12 @@ function projectFixture(): LayerDocumentProject {
         { sourceId: "audio-source" },
         3
       ),
-      data: {},
+      data: {
+        gain: 1,
+        muted: false,
+        fadeInFrames: 0,
+        fadeOutFrames: 0,
+      },
     },
   };
   const legacyProject = {

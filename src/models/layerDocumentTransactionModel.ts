@@ -1,4 +1,5 @@
 import type {
+  AudioLayerData,
   DrawingLayerData,
   GroupLayerData,
   LayerAnimation,
@@ -244,6 +245,10 @@ export interface UpdateLayerDocumentCommonCommand {
 }
 
 export type LayerDocumentDomainUpdate =
+  | {
+      kind: "replace-audio-document";
+      data: AudioLayerData;
+    }
   | {
       kind: "replace-drawing-document";
       data: DrawingLayerData;

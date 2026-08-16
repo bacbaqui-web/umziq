@@ -20,15 +20,14 @@ export type {
 } from "@/layer-types/textSupport";
 export {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
-  prepareLayerDocumentAudioFutureCommand,
+  prepareLayerDocumentAudioUpdate,
   queryLayerDocumentAudio,
 } from "@/layer-types/audioSupport";
 export {
   createLayerTypeOwnerCommandAdapter,
 } from "@/layer-types/ownerCommandSupport";
 export type {
-  LayerDocumentAudioFutureCommand,
   LayerDocumentAudioPreparationPort,
   LayerDocumentAudioQueryResult,
-  LayerDocumentAudioUnsupportedPreparation,
+  ReplaceLayerDocumentAudioCommand,
 } from "@/layer-types/audioSupport";

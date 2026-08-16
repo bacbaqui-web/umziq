@@ -363,7 +363,13 @@ function validateSourceData(
     case "audio":
       validateExactKeys(
         data,
-        ["mimeType", "durationFrames"],
+        [
+          "mimeType",
+          "durationFrames",
+          "channelCount",
+          "sampleRate",
+          "provenance",
+        ],
         dataPath,
         issues
       );
@@ -373,6 +379,27 @@ function validateSourceData(
         minimum: 1,
         nullable: true,
       });
+      validateNumber(data.channelCount, `${dataPath}.channelCount`, issues, {
+        integer: true,
+        minimum: 1,
+        nullable: true,
+      });
+      validateNumber(data.sampleRate, `${dataPath}.sampleRate`, issues, {
+        integer: true,
+        minimum: 1,
+        nullable: true,
+      });
+      if (
+        data.provenance !== "imported" &&
+        data.provenance !== "recorded"
+      ) {
+        addIssue(
+          issues,
+          "invalid-shape",
+          `${dataPath}.provenance`,
+          "Expected imported or recorded Audio provenance"
+        );
+      }
       return;
     case "video":
       validateExactKeys(

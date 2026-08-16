@@ -109,7 +109,15 @@ function buildLayerTypeAndData(
         });
         return null;
       }
-      return { type: "audio", data: {} };
+      return {
+        type: "audio",
+        data: {
+          gain: 1,
+          muted: false,
+          fadeInFrames: 0,
+          fadeOutFrames: 0,
+        },
+      };
     case "group": {
       const data = buildGroupData(
         context.document,

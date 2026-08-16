@@ -145,7 +145,12 @@ function projectFixture(): LayerDocumentProject {
       revision: 0,
       type: "audio",
       common: common("root", 4, null, 5),
-      data: {},
+      data: {
+        gain: 1,
+        muted: false,
+        fadeInFrames: 0,
+        fadeOutFrames: 0,
+      },
     },
     video: {
       layerDocumentId: "video",
