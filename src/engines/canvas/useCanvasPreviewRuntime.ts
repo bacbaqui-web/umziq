@@ -25,9 +25,32 @@ import {
   createPreviewSurfaceCacheRuntime,
 } from "@/engines/canvas/state/previewSurfaceCacheStore";
 
-export function useCanvasPreviewRuntime() {
-  const [preference, setPreference] =
-    useState<PreviewQualityPreference>("auto");
+export function useCanvasPreviewRuntime(projectId: string) {
+  const readPreference = (targetProjectId: string): PreviewQualityPreference => {
+    if (typeof window === "undefined") return "auto";
+    const stored = window.localStorage.getItem(
+      `umziq.project.${targetProjectId}.preview.quality`
+    );
+    return stored === "auto" || stored === "original" ||
+      stored === "high" || stored === "medium" || stored === "low"
+      ? stored
+      : "auto";
+  };
+  const [preferenceByProject, setPreferenceByProject] = useState<
+    Record<string, PreviewQualityPreference>
+  >(() => ({ [projectId]: readPreference(projectId) }));
+  const preference = preferenceByProject[projectId] ??
+    readPreference(projectId);
+  const setPreference = (next: PreviewQualityPreference) => {
+    window.localStorage.setItem(
+      `umziq.project.${projectId}.preview.quality`,
+      next
+    );
+    setPreferenceByProject((current) => ({
+      ...current,
+      [projectId]: next,
+    }));
+  };
   const [deviceMemoryGb] =
     useState(readPreviewDeviceMemoryGb);
   const [metrics] =

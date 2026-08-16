@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   applyPositionModifiers,
+  applyRotationModifiers,
   buildPositionMotionPathSamples,
   evaluatePositionKeyframes,
   evaluateScalarKeyframes,
@@ -15,6 +16,7 @@ import {
 } from "@/animation";
 import type {
   PositionKeyframe,
+  SwingModifierInstance,
   WiggleModifierInstance,
 } from "@/models";
 
@@ -30,6 +32,59 @@ assert.deepEqual(
     5
   ),
   { x: 10, y: 20 }
+);
+
+const swing: SwingModifierInstance = {
+  id: "layer-1:swing",
+  type: "swing",
+  frequency: 0.5,
+  amount: 10,
+};
+assert.equal(
+  applyRotationModifiers(5, [swing], 15, 30),
+  15,
+  "흔들흔들은 기준 회전값에 각도 진폭을 더해야 합니다."
+);
+assert.equal(
+  applyRotationModifiers(5, [{ ...swing, amount: 0 }], 15, 30),
+  5
+);
+assert.deepEqual(
+  normalizeModifierInstances(
+    [{ id: "", type: "swing", frequency: 2, amount: 12 }],
+    "layer-1"
+  ),
+  [{ id: "layer-1:swing", type: "swing", frequency: 2, amount: 12 }]
+);
+assert.deepEqual(
+  applyPositionModifiers(
+    { x: 3, y: 4 },
+    "layer-1",
+    [{
+      id: "layer-1:oscillate",
+      type: "oscillate",
+      angle: 0,
+      frequency: 0.5,
+      amount: 20,
+    }],
+    15,
+    30
+  ),
+  { x: 23, y: 4 },
+  "왔다갔다는 지정 각도를 따라 기준 위치 양쪽으로 움직여야 합니다."
+);
+assert.deepEqual(
+  normalizeModifierInstances(
+    [{ id: "", type: "oscillate", angle: 90, frequency: 2, amount: 30 }],
+    "layer-1"
+  ),
+  [{
+    id: "layer-1:oscillate",
+    type: "oscillate",
+    angle: 90,
+    frequency: 2,
+    amount: 30,
+  }]
 );
 assert.deepEqual(
   evaluatePositionKeyframes(

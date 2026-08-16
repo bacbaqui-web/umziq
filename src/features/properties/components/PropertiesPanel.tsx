@@ -5,9 +5,6 @@ import PropertiesTransformSection from "@/features/properties/sections/Propertie
 import type {
   PropertiesEngineViewProps,
 } from "@/engines/properties";
-import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
-import PropertiesSourceDetails from "@/features/properties/components/PropertiesSourceDetails";
-import PropertiesSourceHeader from "@/features/properties/components/PropertiesSourceHeader";
 
 export default function PropertiesPanel({
   readModel,
@@ -19,61 +16,6 @@ export default function PropertiesPanel({
         <div style={{ fontSize: 13, lineHeight: 1.6 }}>
           {readModel.targetName && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {readModel.sourceHeader ? (
-                <PropertiesSourceHeader
-                  source={readModel.sourceHeader}
-                  currentTimeText={readModel.currentTimeText}
-                />
-              ) : (
-                <div
-                  className="ui-card"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "7px 8px",
-                    borderRadius: 8,
-                    boxShadow: "none",
-                  }}
-                >
-                  <div
-                    style={{
-                      minWidth: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      color: "#f3f7fb",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {readModel.targetEntityKind && (
-                      <LayerCompositionIcon kind={readModel.targetEntityKind} size={14} />
-                    )}
-                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {readModel.targetName}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      flex: "0 0 auto",
-                      fontSize: 12,
-                      color: "#9db0c3",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {readModel.currentTimeText}
-                  </div>
-                </div>
-              )}
-
-              <PropertiesSourceDetails
-                detail={readModel.sourceDetail}
-                capabilities={readModel.capabilities}
-              />
               {readModel.transformSectionVisible && (
                 <PropertiesTransformSection
                   rows={readModel.rows}

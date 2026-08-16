@@ -89,12 +89,54 @@ export function useLayerDocumentEditorRuntime(
   const [sourceResolution] = useState(
     createLayerDocumentSourceRuntimeResolutionStore
   );
+  const [localHandles] = useState(() =>
+    new Map<
+      string,
+      {
+        readonly file: File;
+        readonly handle:
+          FileSystemFileHandle | null;
+        readonly permission:
+          "unknown" | "prompt" | "granted";
+      }
+    >()
+  );
   const [, setSourceResolutionRevision] = useState(0);
   useEffect(
     () => sourceResolution.subscribe(() => {
       setSourceResolutionRevision((revision) => revision + 1);
+      const project = owner.state.currentProject;
+      Object.values(
+        project.payload.sourceRegistry.sourcesById
+      ).forEach((source) => {
+        if (
+          source.kind !== "psd-document" &&
+          source.kind !== "audio" &&
+          source.kind !== "video"
+        ) return;
+        const resolution =
+          sourceResolution.read(source.sourceId);
+        if (
+          resolution.status !== "available" ||
+          !resolution.file
+        ) return;
+        localHandles.set(
+          buildLayerDocumentLocalHandleKey(
+            project.metadata.projectId,
+            source.locator.locatorId
+          ),
+          {
+            file: resolution.file,
+            handle: resolution.handle,
+            permission:
+              resolution.permission === "denied"
+                ? "unknown"
+                : resolution.permission,
+          }
+        );
+      });
     }),
-    [sourceResolution]
+    [localHandles, owner, sourceResolution]
   );
   const resourceDisposeTimer =
     useRef<number | null>(null);
@@ -248,18 +290,6 @@ export function useLayerDocumentEditorRuntime(
       browser:
         createLayerDocumentProjectBrowserWriteAdapter(),
     })
-  );
-  const [localHandles] = useState(() =>
-    new Map<
-      string,
-      {
-        readonly file: File;
-        readonly handle:
-          FileSystemFileHandle | null;
-        readonly permission:
-          "unknown" | "prompt" | "granted";
-      }
-    >()
   );
   const [openController] = useState(() =>
     createLayerDocumentProjectOpenController({

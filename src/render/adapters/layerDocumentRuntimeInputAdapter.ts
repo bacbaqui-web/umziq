@@ -483,6 +483,43 @@ type LayerDocumentFrameEvaluationOptions = {
   runtimeMetrics?: RuntimeMetricRecordPort;
 };
 
+const PROJECT_WORKSPACE_PADDING = 128;
+
+function getProjectWorkspaceGeometry(
+  root: GroupLayerDocument,
+  nodes: readonly EvaluatedSceneNode[]
+) {
+  const center = {
+    x: root.data.width / 2,
+    y: root.data.height / 2,
+  };
+  let halfWidth = root.data.width / 2;
+  let halfHeight = root.data.height / 2;
+
+  nodes.forEach((node) => {
+    const size = node.type === "composition" ? node.size : node.logicalSize;
+    // The project is a stable parent Group. Its viewport must never follow a
+    // child's animated/dragged position, otherwise moving a layer also moves
+    // the apparent workspace origin. Only intrinsic child sizes establish the
+    // fixed editing area; child transforms follow normal Group rules inside it.
+    halfWidth = Math.max(halfWidth, size.width / 2);
+    halfHeight = Math.max(halfHeight, size.height / 2);
+  });
+
+  halfWidth += PROJECT_WORKSPACE_PADDING;
+  halfHeight += PROJECT_WORKSPACE_PADDING;
+  return {
+    origin: {
+      x: center.x - halfWidth,
+      y: center.y - halfHeight,
+    },
+    size: {
+      width: halfWidth * 2,
+      height: halfHeight * 2,
+    },
+  };
+}
+
 function buildLayerDocumentFrameArtifacts(
   options: LayerDocumentFrameEvaluationOptions
 ):
@@ -530,13 +567,22 @@ function buildLayerDocumentFrameArtifacts(
     placementFrame: options.globalFrame,
   });
 
+  const geometry =
+    root.data.role === "project-root"
+      ? getProjectWorkspaceGeometry(root, nodes)
+      : {
+          origin: { x: 0, y: 0 },
+          size: {
+            width: root.data.width,
+            height: root.data.height,
+          },
+        };
+
   const scene = {
     compositionId: root.layerDocumentId,
     globalFrame: options.globalFrame,
-    size: {
-      width: root.data.width,
-      height: root.data.height,
-    },
+    size: geometry.size,
+    origin: geometry.origin,
     localFrameBySourceId: context.localFrameBySourceId,
     localFrameByLayerDocumentId:
       context.localFrameByLayerDocumentId,

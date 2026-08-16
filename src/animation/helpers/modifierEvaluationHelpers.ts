@@ -65,8 +65,36 @@ export function applyPositionModifiers(
   frameRate: number
 ): Position {
   return (modifiers ?? []).reduce((position, modifier) => {
-    if (modifier.type !== "wiggle") return position;
-    const offset = evaluateWiggleOffset(modifier, targetId, localFrame, frameRate);
-    return { x: position.x + offset.x, y: position.y + offset.y };
+    if (modifier.type === "wiggle") {
+      const offset = evaluateWiggleOffset(modifier, targetId, localFrame, frameRate);
+      return { x: position.x + offset.x, y: position.y + offset.y };
+    }
+    if (modifier.type === "oscillate" && modifier.frequency > 0 && modifier.amount > 0) {
+      const safeFrameRate = Math.max(1, Number(frameRate) || 1);
+      const seconds = Math.max(0, localFrame) / safeFrameRate;
+      const distance = Math.sin(seconds * modifier.frequency * Math.PI * 2) * modifier.amount;
+      const radians = modifier.angle * Math.PI / 180;
+      return {
+        x: position.x + Math.cos(radians) * distance,
+        y: position.y + Math.sin(radians) * distance,
+      };
+    }
+    return position;
   }, basePosition);
+}
+
+export function applyRotationModifiers(
+  baseRotation: number,
+  modifiers: readonly ModifierInstance[] | undefined,
+  localFrame: number,
+  frameRate: number
+) {
+  const safeFrameRate = Math.max(1, Number(frameRate) || 1);
+  return (modifiers ?? []).reduce((rotation, modifier) => {
+    if (modifier.type !== "swing" || modifier.frequency <= 0 || modifier.amount <= 0) {
+      return rotation;
+    }
+    const seconds = Math.max(0, localFrame) / safeFrameRate;
+    return rotation + Math.sin(seconds * modifier.frequency * Math.PI * 2) * modifier.amount;
+  }, baseRotation);
 }

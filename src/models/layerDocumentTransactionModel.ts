@@ -217,6 +217,10 @@ export type LayerDocumentCommonUpdate =
       visible: boolean;
     }
   | {
+      kind: "set-lock";
+      locked: boolean;
+    }
+  | {
       kind: "set-alias";
       alias: string | null;
     }

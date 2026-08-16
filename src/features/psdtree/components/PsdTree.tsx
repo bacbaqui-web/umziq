@@ -3,49 +3,7 @@ import PsdTreeNode from "@/features/psdtree/components/PsdTreeNode";
 import PsdImportPreviewDialog from "@/features/psdtree/components/PsdImportPreviewDialog";
 import PsdRefreshSummaryCard from "@/features/psdtree/components/PsdRefreshSummaryCard";
 import type { PsdTreeViewProps } from "@/engines/psd-tree";
-
-function ImportPsdIcon() {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        width: 34,
-        height: 40,
-        position: "relative",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
-        flex: "0 0 auto",
-        color: "#8da9c3",
-      }}
-    >
-      <svg
-        width="34"
-        height="40"
-        viewBox="0 0 34 40"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      >
-        <path d="M7 2.8h13.8L29 11v25.2a1.8 1.8 0 0 1-1.8 1.8H7a2 2 0 0 1-2-2V4.8a2 2 0 0 1 2-2Z" />
-        <path d="M20.5 3v8.4H29" />
-      </svg>
-      <span
-        style={{
-          position: "absolute",
-          bottom: 6,
-          fontSize: 8,
-          lineHeight: 1,
-          fontWeight: 800,
-          letterSpacing: 0.4,
-        }}
-      >
-        PSD
-      </span>
-    </span>
-  );
-}
+import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 
 function PsdTree({
   nodes,
@@ -59,6 +17,10 @@ function PsdTree({
   onImportClick,
   onFileInputChange,
   onSelectNode,
+  onToggleNodeVisibility,
+  onToggleNodeLock,
+  onRenameNode,
+  onDeleteNode,
   onRefreshMainComp,
   onDeleteMainComp,
   onBeginMainDrag,
@@ -68,12 +30,19 @@ function PsdTree({
   onCancelImport,
   onConfirmImport,
   onMoveImportNode,
+  onScaleImport,
+  onRenameImportNode,
+  onRemoveImportNode,
   onDismissRefreshSummary,
 }: PsdTreeViewProps) {
   const nodeHandlers = {
     draggedMainCompId,
     dropTarget,
     onSelectNode,
+    onToggleNodeVisibility,
+    onToggleNodeLock,
+    onRenameNode,
+    onDeleteNode,
     onRefreshMainComp,
     onDeleteMainComp,
     onBeginMainDrag,
@@ -81,9 +50,11 @@ function PsdTree({
     onDropMain,
     onEndMainDrag,
   };
+  const projectNode = nodes.find((node) => node.type === "project") ?? null;
+  const psdNodes = nodes.filter((node) => node.type !== "project");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <PsdImportPreviewDialog
         plan={importPlan}
         status={importPreviewStatus}
@@ -91,53 +62,10 @@ function PsdTree({
         onCancel={onCancelImport}
         onConfirm={onConfirmImport}
         onMoveNode={onMoveImportNode}
+        onScale={onScaleImport}
+        onRenameNode={onRenameImportNode}
+        onRemoveNode={onRemoveImportNode}
       />
-      <button
-        className="psd-import-button"
-        onClick={onImportClick}
-      >
-        <ImportPsdIcon />
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              display: "block",
-              fontSize: 14,
-              lineHeight: 1.3,
-              fontWeight: 700,
-              letterSpacing: -0.1,
-            }}
-          >
-            PSD 불러오기
-          </span>
-          <span
-            style={{
-              display: "block",
-              marginTop: 4,
-              color: "#8f979f",
-              fontSize: 11,
-              lineHeight: 1.35,
-              fontWeight: 400,
-            }}
-          >
-            PSD 파일을 프로젝트에 추가하세요
-          </span>
-        </span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#78828b"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          style={{ flex: "0 0 auto" }}
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
-      </button>
-
       {refreshSummary && (
         <PsdRefreshSummaryCard
           summary={refreshSummary}
@@ -159,23 +87,158 @@ function PsdTree({
         }}
       />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {nodes.length === 0 && (
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {projectNode && (
+          <div
+            style={{
+              height: 44,
+              padding: "0 8px 0 9px",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              border: projectNode.selected
+                ? "1px solid #4b6685"
+                : "1px solid #343d45",
+              borderRadius: 8,
+              background: projectNode.selected
+                ? "linear-gradient(90deg, rgba(47, 79, 127, 0.9), rgba(42, 64, 91, 0.62))"
+                : "linear-gradient(145deg, #23292f 0%, #1b2025 100%)",
+              boxShadow: projectNode.selected
+                ? "0 5px 16px rgba(0, 0, 0, 0.24), inset 0 0 0 1px rgba(111, 157, 204, 0.13)"
+                : "0 4px 14px rgba(0, 0, 0, 0.18)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => onSelectNode(projectNode.id)}
+              style={{
+                minWidth: 0,
+                flex: 1,
+                alignSelf: "stretch",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                border: 0,
+                background: "transparent",
+                color: "#f3f5f7",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <span
+                style={{
+                  width: 18,
+                  height: 18,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#8eb6d8",
+                  flex: "0 0 auto",
+                }}
+              >
+                <LayerCompositionIcon kind="composition" size={18} />
+              </span>
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontSize: 15,
+                  lineHeight: 1,
+                  fontWeight: 750,
+                  letterSpacing: -0.2,
+                }}
+              >
+                프로젝트
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onImportClick}
+              style={{
+                height: 27,
+                padding: "0 8px",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                border: "1px solid #46515b",
+                borderRadius: 6,
+                background: "rgba(20, 25, 30, 0.62)",
+                color: "#cbd7e1",
+                cursor: "pointer",
+                fontSize: 11.5,
+                fontWeight: 650,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 1.5v9M1.5 6h9" />
+              </svg>
+              PSD 추가
+            </button>
+          </div>
+        )}
+
+        <div
+          style={{
+            position: "relative",
+            marginLeft: 18,
+            paddingTop: 7,
+          }}
+        >
+        {psdNodes.length === 0 && (
           <div
             className="psd-empty-state"
+            style={{ marginLeft: 10 }}
           >
             아직 불러온 PSD가 없습니다.
           </div>
         )}
 
-        {nodes.map((node, index) => (
-          <PsdTreeNode
+        {psdNodes.map((node, index) => (
+          <div
             key={node.id}
+            style={{
+              position: "relative",
+              paddingLeft: 10,
+              paddingBottom: index === psdNodes.length - 1 ? 0 : 6,
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: 0,
+                top: index === 0 ? -20 : -7,
+                height: index === psdNodes.length - 1
+                  ? index === 0 ? 38 : 25
+                  : index === 0 ? "calc(100% + 20px)" : "calc(100% + 7px)",
+                borderLeft: "1px solid rgba(142, 182, 216, 0.82)",
+                transform: "translateX(-0.5px)",
+              }}
+            />
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 18,
+                width: 13,
+                borderTop: "1px solid rgba(142, 182, 216, 0.82)",
+                transform: "translateY(-0.5px)",
+              }}
+            />
+          <PsdTreeNode
             node={node}
             isFirstRoot={index === 0}
+            isLastSibling={index === psdNodes.length - 1}
             {...nodeHandlers}
           />
+          </div>
         ))}
+        </div>
       </div>
     </div>
   );

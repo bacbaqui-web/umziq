@@ -57,7 +57,11 @@ assert.match(
 assert.match(breadcrumbSource, /segment\.entityKind/);
 assert.match(breadcrumbSource, /selectionLabel\.entityKind/);
 assert.match(switcherSource, /LayerCompositionIcon kind="composition"/);
-assert.match(propertiesSource, /kind=\{readModel\.targetEntityKind\}/);
+assert.doesNotMatch(
+  propertiesSource,
+  /kind=\{readModel\.targetEntityKind\}/,
+  "Properties는 제거된 선택 정보 헤더 아이콘을 다시 표시하지 않습니다."
+);
 assert.match(
   propertiesModelSource,
   /targetEntityKind: "layer" \| "composition" \| null/
@@ -67,8 +71,10 @@ assert.match(
   psdTreeSource,
   /kind=\{node\.entityKind \?\? "layer"\}/
 );
-assert.match(importPreviewSource, /node\.kind === "group" \? "▱"/);
-assert.match(importPreviewSource, /LayerCompositionIcon kind="layer"/);
+assert.match(
+  importPreviewSource,
+  /kind=\{node\.kind === "group" \? "composition" : "layer"\}/
+);
 
 function collectSourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {

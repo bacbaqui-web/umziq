@@ -45,6 +45,89 @@ export interface PreparedLayerDocumentPsdImport {
   readonly command: ImportSourceRegistryCommand;
   readonly runtime: LayerDocumentPreparedRuntimeLifecycle;
   readonly resolution: PreparedLayerDocumentPsdResolution;
+  readonly previewImagesByLayerDocumentId?: Readonly<Record<string, string>>;
+  readonly previewSizesByLayerDocumentId?: Readonly<
+    Record<string, { width: number; height: number }>
+  >;
+}
+
+function buildPreviewImage(
+  _psd: Psd,
+  layers: readonly PsdLayer[]
+): { url: string | null; width: number; height: number } | null {
+  if (typeof document === "undefined") return null;
+  const candidates = layers.filter((layer) => layer.canvas);
+  if (!candidates.length) return null;
+  const visible = candidates.filter((layer) => !layer.hidden);
+  const bounds = candidates.reduce<{
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }>(
+    (result, layer) => {
+      const left = layer.left ?? 0;
+      const top = layer.top ?? 0;
+      const width = layer.canvas?.width ?? 0;
+      const height = layer.canvas?.height ?? 0;
+      return {
+        left: Math.min(result.left, left),
+        top: Math.min(result.top, top),
+        right: Math.max(result.right, left + width),
+        bottom: Math.max(result.bottom, top + height),
+      };
+    },
+    {
+      left: Number.POSITIVE_INFINITY,
+      top: Number.POSITIVE_INFINITY,
+      right: Number.NEGATIVE_INFINITY,
+      bottom: Number.NEGATIVE_INFINITY,
+    }
+  );
+  const contentWidth = Math.max(1, bounds.right - bounds.left);
+  const contentHeight = Math.max(1, bounds.bottom - bounds.top);
+  const maxSize = 220;
+  const scale = Math.min(
+    maxSize / contentWidth,
+    maxSize / contentHeight,
+    1
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(contentWidth * scale));
+  canvas.height = Math.max(1, Math.round(contentHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  [...visible].reverse().forEach((layer) => {
+    if (!layer.canvas) return;
+    context.globalAlpha =
+      normalizePsdOpacity(layer.opacity) / 100;
+    context.drawImage(
+      layer.canvas,
+      Math.round(((layer.left ?? 0) - bounds.left) * scale),
+      Math.round(((layer.top ?? 0) - bounds.top) * scale),
+      Math.max(1, Math.round(layer.canvas.width * scale)),
+      Math.max(1, Math.round(layer.canvas.height * scale))
+    );
+  });
+  context.globalAlpha = 1;
+  const pixels = context.getImageData(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  ).data;
+  let hasVisiblePixel = false;
+  for (let index = 3; index < pixels.length; index += 4) {
+    if ((pixels[index] ?? 0) > 0) {
+      hasVisiblePixel = true;
+      break;
+    }
+  }
+  return {
+    url: hasVisiblePixel ? canvas.toDataURL("image/png") : null,
+    width: Math.round(contentWidth),
+    height: Math.round(contentHeight),
+  };
 }
 
 export interface PreparedLayerDocumentPsdRefresh {
@@ -79,6 +162,7 @@ function common(options: {
     width: number;
     height: number;
   };
+  position?: { x: number; y: number };
 }): LayerDocumentCommon<LayerSourceReference> {
   const canvas = options.layer?.canvas;
   const logicalSize = options.logicalSize ?? canvas;
@@ -96,8 +180,8 @@ function common(options: {
     source: { sourceId: options.sourceId },
     transform: {
       position: {
-        x: sourceLeft + center.x,
-        y: sourceTop + center.y,
+        x: options.position?.x ?? sourceLeft + center.x,
+        y: options.position?.y ?? sourceTop + center.y,
       },
       transformOffset: { x: 0, y: 0 },
       anchor: center,
@@ -237,6 +321,11 @@ function buildTree(options: {
   const sources: PsdNodeSourceRecord[] = [];
   const layers: LayerDocument[] = [];
   const runtimeResources: LayerDocumentSourceRuntimeResource[] = [];
+  const previewImagesByLayerDocumentId: Record<string, string> = {};
+  const previewSizesByLayerDocumentId: Record<
+    string,
+    { width: number; height: number }
+  > = {};
 
   const visit = (
     nodes: typeof analysis.tree,
@@ -308,6 +397,32 @@ function buildTree(options: {
         const resource = runtimeResource({ source, layer: parsed });
         if (resource) runtimeResources.push(resource);
       }
+      const previewLayers = node.kind === "group"
+        ? (() => {
+            const descendants: PsdLayer[] = [];
+            const collect = (children: typeof node.children) => {
+              children.forEach((child) => {
+                const childLayer =
+                  analysis.sourceNodeByKey.get(child.sourceKey);
+                if (childLayer && child.kind === "layer") {
+                  descendants.push(childLayer);
+                }
+                collect(child.children);
+              });
+            };
+            collect(node.children);
+            return descendants;
+          })()
+        : [parsed];
+      const preview = buildPreviewImage(options.psd, previewLayers);
+      previewImagesByLayerDocumentId[layerDocumentId] =
+        preview?.url ?? "";
+      if (preview) {
+        previewSizesByLayerDocumentId[layerDocumentId] = {
+          width: preview.width,
+          height: preview.height,
+        };
+      }
     });
   };
   visit(
@@ -320,6 +435,8 @@ function buildTree(options: {
     sources,
     layers,
     runtimeResources,
+    previewImagesByLayerDocumentId,
+    previewSizesByLayerDocumentId,
   };
 }
 
@@ -329,6 +446,8 @@ export async function prepareLayerDocumentPsdImport(options: {
   parentLayerDocumentId: string;
   order: number;
   durationFrames: number;
+  parentWidth?: number;
+  parentHeight?: number;
   parsePsd?: (
     buffer: ArrayBuffer
   ) => Psd | Promise<Psd>;
@@ -380,6 +499,14 @@ export async function prepareLayerDocumentPsdImport(options: {
         width: psd.width,
         height: psd.height,
       },
+      position:
+        options.parentWidth !== undefined &&
+        options.parentHeight !== undefined
+          ? {
+              x: options.parentWidth / 2,
+              y: options.parentHeight / 2,
+            }
+          : undefined,
     }),
     data: {
       role: "composition",
@@ -412,6 +539,10 @@ export async function prepareLayerDocumentPsdImport(options: {
       ),
       file: options.file,
     },
+    previewImagesByLayerDocumentId:
+      tree.previewImagesByLayerDocumentId,
+    previewSizesByLayerDocumentId:
+      tree.previewSizesByLayerDocumentId,
   };
 }
 

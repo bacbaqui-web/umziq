@@ -29,6 +29,12 @@ export interface LayerDocumentPsdTreeCommandPort {
   readonly selectSource: (
     selection: PsdTreeSourceSelection | null
   ) => unknown;
+  readonly toggleSourceVisibility: (sourceId: string) => unknown;
+  readonly toggleSourceLock: (sourceId: string) => unknown;
+  readonly renameSourceLayer: (sourceId: string, name: string) => unknown;
+  readonly deleteSourceLayer: (sourceId: string) => unknown;
+  readonly openProject: () => unknown;
+  readonly readActiveGroupLayerDocumentId: () => string;
   readonly confirmImport: (
     prepared: PreparedLayerDocumentPsdImport
   ) => { readonly ok: boolean };
@@ -63,6 +69,7 @@ export interface LayerDocumentPsdImportPreviewNode {
 export interface LayerDocumentPsdImportPreviewPlan {
   readonly prepared: PreparedLayerDocumentPsdImport;
   readonly nodes: readonly LayerDocumentPsdImportPreviewNode[];
+  readonly scalePercent: number;
 }
 
 export interface LayerDocumentPsdRefreshDiffSummary {
@@ -101,6 +108,7 @@ function createImportPreviewPlan(
 ): LayerDocumentPsdImportPreviewPlan {
   return {
     prepared,
+    scalePercent: 100,
     nodes: prepared.command.layers.map((layer) => ({
       layerDocumentId: layer.layerDocumentId,
       parentLayerDocumentId:
@@ -108,6 +116,133 @@ function createImportPreviewPlan(
       order: layer.common.placement.order,
       canContainChildren: layer.type === "group",
     })),
+  };
+}
+
+function scaleImportPreviewPlan(
+  plan: LayerDocumentPsdImportPreviewPlan,
+  scalePercent: number
+): LayerDocumentPsdImportPreviewPlan {
+  if (
+    !Number.isFinite(scalePercent) ||
+    scalePercent < 1 ||
+    scalePercent > 400 ||
+    scalePercent === plan.scalePercent
+  ) return plan;
+  const ratio = scalePercent / plan.scalePercent;
+  const compositionId =
+    plan.prepared.command.selectLayerDocumentId;
+  const scalePoint = (point: { x: number; y: number }) => ({
+    x: point.x * ratio,
+    y: point.y * ratio,
+  });
+  const layers = plan.prepared.command.layers.map((layer) => {
+    if (
+      layer.layerDocumentId === compositionId &&
+      layer.type === "group"
+    ) {
+      const width = Math.max(1, Math.round(layer.data.width * ratio));
+      const height = Math.max(1, Math.round(layer.data.height * ratio));
+      return {
+        ...layer,
+        common: {
+          ...layer.common,
+          transform: {
+            ...layer.common.transform,
+            anchor: {
+              x: width / 2,
+              y: height / 2,
+            },
+          },
+        },
+        data: {
+          ...layer.data,
+          width,
+          height,
+        },
+      } as LayerDocument;
+    }
+    if (
+      layer.common.placement.parentLayerDocumentId !==
+      compositionId
+    ) return layer;
+    return {
+      ...layer,
+      common: {
+        ...layer.common,
+        transform: {
+          ...layer.common.transform,
+          position: scalePoint(layer.common.transform.position),
+          transformOffset: scalePoint(
+            layer.common.transform.transformOffset
+          ),
+          scale: scalePoint(layer.common.transform.scale),
+        },
+        animation: {
+          ...layer.common.animation,
+          positionKeyframes:
+            layer.common.animation.positionKeyframes.map(
+              (keyframe) => ({
+                ...keyframe,
+                value: scalePoint(keyframe.value),
+              })
+            ),
+          scaleKeyframes:
+            layer.common.animation.scaleKeyframes.map(
+              (keyframe) => ({
+                ...keyframe,
+                value: scalePoint(keyframe.value),
+              })
+            ),
+        },
+      },
+    } as LayerDocument;
+  });
+  return {
+    ...plan,
+    scalePercent,
+    prepared: {
+      ...plan.prepared,
+      width: Math.max(1, Math.round(plan.prepared.width * ratio)),
+      height: Math.max(1, Math.round(plan.prepared.height * ratio)),
+      command: {
+        ...plan.prepared.command,
+        layers,
+      },
+    },
+  };
+}
+
+function renameImportPreviewNode(
+  plan: LayerDocumentPsdImportPreviewPlan,
+  layerDocumentId: string,
+  name: string
+): LayerDocumentPsdImportPreviewPlan {
+  const nextName = name.trim();
+  if (!nextName) return plan;
+  const target = plan.prepared.command.layers.find(
+    (layer) => layer.layerDocumentId === layerDocumentId
+  );
+  if (!target || target.name === nextName) return plan;
+  const sourceId = target.common.source?.sourceId;
+  return {
+    ...plan,
+    prepared: {
+      ...plan.prepared,
+      command: {
+        ...plan.prepared.command,
+        layers: plan.prepared.command.layers.map((layer) =>
+          layer.layerDocumentId === layerDocumentId
+            ? { ...layer, name: nextName } as LayerDocument
+            : layer
+        ),
+        sources: plan.prepared.command.sources.map((source) =>
+          source.sourceId === sourceId
+            ? { ...source, displayName: nextName }
+            : source
+        ),
+      },
+    },
   };
 }
 
@@ -129,6 +264,29 @@ function descendantIds(
   };
   visit(layerDocumentId);
   return descendants;
+}
+
+function removeImportPreviewNode(
+  plan: LayerDocumentPsdImportPreviewPlan,
+  layerDocumentId: string
+): LayerDocumentPsdImportPreviewPlan {
+  if (
+    layerDocumentId ===
+    plan.prepared.command.selectLayerDocumentId
+  ) {
+    return plan;
+  }
+  const removedIds = descendantIds(plan.nodes, layerDocumentId);
+  removedIds.add(layerDocumentId);
+  if (!plan.nodes.some((node) => removedIds.has(node.layerDocumentId))) {
+    return plan;
+  }
+  return {
+    ...plan,
+    nodes: plan.nodes.filter(
+      (node) => !removedIds.has(node.layerDocumentId)
+    ),
+  };
 }
 
 function moveImportPreviewNode(
@@ -194,10 +352,10 @@ function materializeImportPreviewPlan(
   const placementById = new Map(
     plan.nodes.map((node) => [node.layerDocumentId, node])
   );
-  const layers: LayerDocument[] = plan.prepared.command.layers.map((layer) => {
+  const layers: LayerDocument[] = plan.prepared.command.layers.flatMap((layer) => {
     const placement = placementById.get(layer.layerDocumentId);
     return placement
-      ? {
+      ? [{
           ...layer,
           common: {
             ...layer.common,
@@ -207,14 +365,24 @@ function materializeImportPreviewPlan(
               order: placement.order,
             },
           },
-        } as LayerDocument
-      : layer;
+        } as LayerDocument]
+      : [];
   });
+  const retainedSourceIds = new Set(
+    layers.flatMap((layer) =>
+      layer.common.source?.sourceId
+        ? [layer.common.source.sourceId]
+        : []
+    )
+  );
   return {
     ...plan.prepared,
     command: {
       ...plan.prepared.command,
       layers,
+      sources: plan.prepared.command.sources.filter((source) =>
+        retainedSourceIds.has(source.sourceId)
+      ),
     },
   };
 }
@@ -292,12 +460,23 @@ export function createLayerDocumentPsdTreeController(options: {
           ? { kind: "psd-tree-source", sourceId }
           : null
       ),
+    toggleSourceVisibility:
+      options.port.toggleSourceVisibility,
+    toggleSourceLock: options.port.toggleSourceLock,
+    renameSourceLayer: options.port.renameSourceLayer,
+    deleteSourceLayer: options.port.deleteSourceLayer,
+    openProject: options.port.openProject,
+    readActiveGroupLayerDocumentId:
+      options.port.readActiveGroupLayerDocumentId,
     prepareImport: async (
       input: Parameters<typeof prepareLayerDocumentPsdImport>[0]
     ) => createImportPreviewPlan(
       await prepareLayerDocumentPsdImport(input)
     ),
     moveImportPreviewNode,
+    scaleImportPreview: scaleImportPreviewPlan,
+    renameImportPreviewNode,
+    removeImportPreviewNode,
     reorderImportPreviewNode: (
       plan: LayerDocumentPsdImportPreviewPlan,
       options: {

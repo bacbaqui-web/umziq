@@ -1,13 +1,16 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
   type MutableRefObject,
+  type RefObject,
   type SetStateAction,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import type { Position } from "@/models";
+import { getCanvasWheelZoom } from "@/engines/canvas/helpers/canvasViewportHelpers";
 
 export type CanvasPanDragState = {
   source: "space" | "middle";
@@ -19,28 +22,47 @@ export type CanvasPanDragState = {
 export function useCanvasPanController({
   zoom,
   pan,
+  viewportRef,
   panDragRef,
   panModifierRef,
   setPan,
-  setIsPanning,
-  setIsPanModifierActive,
   applyZoom,
 }: {
   zoom: number;
   pan: Position;
+  viewportRef: RefObject<HTMLDivElement | null>;
   panDragRef: MutableRefObject<CanvasPanDragState | null>;
   panModifierRef: MutableRefObject<boolean>;
   setPan: Dispatch<SetStateAction<Position>>;
-  setIsPanning: Dispatch<SetStateAction<boolean>>;
-  setIsPanModifierActive: Dispatch<SetStateAction<boolean>>;
   applyZoom: (nextZoom: number, clientX?: number, clientY?: number) => void;
 }) {
+  const wheelFrameRef = useRef<number | null>(null);
+  const panFrameRef = useRef<number | null>(null);
+  const pendingPanRef = useRef<Position | null>(null);
+  const wheelZoomRef = useRef(zoom);
+  const wheelPointerRef = useRef({ clientX: 0, clientY: 0 });
+
+  useEffect(() => {
+    if (wheelFrameRef.current === null) wheelZoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => () => {
+    if (wheelFrameRef.current !== null) {
+      window.cancelAnimationFrame(wheelFrameRef.current);
+      wheelFrameRef.current = null;
+    }
+    if (panFrameRef.current !== null) {
+      window.cancelAnimationFrame(panFrameRef.current);
+      panFrameRef.current = null;
+    }
+  }, []);
+
   const startPan = useCallback(
     (source: CanvasPanDragState["source"], clientX: number, clientY: number) => {
       panDragRef.current = { source, startClientX: clientX, startClientY: clientY, startPan: pan };
-      setIsPanning(true);
+      viewportRef.current?.classList.add("preview-viewport--panning");
     },
-    [pan, panDragRef, setIsPanning]
+    [pan, panDragRef, viewportRef]
   );
 
   useEffect(() => {
@@ -48,7 +70,7 @@ export function useCanvasPanController({
       if (!panDragRef.current) return;
       if (!source || panDragRef.current.source === source) {
         panDragRef.current = null;
-        setIsPanning(false);
+        viewportRef.current?.classList.remove("preview-viewport--panning");
       }
     };
     const handleMouseMove = (event: MouseEvent) => {
@@ -62,9 +84,16 @@ export function useCanvasPanController({
         stopPan();
         return;
       }
-      setPan({
+      pendingPanRef.current = {
         x: drag.startPan.x + event.clientX - drag.startClientX,
         y: drag.startPan.y + event.clientY - drag.startClientY,
+      };
+      if (panFrameRef.current !== null) return;
+      panFrameRef.current = window.requestAnimationFrame(() => {
+        panFrameRef.current = null;
+        const nextPan = pendingPanRef.current;
+        pendingPanRef.current = null;
+        if (nextPan) setPan(nextPan);
       });
     };
     const handleMouseUp = () => stopPan();
@@ -74,7 +103,7 @@ export function useCanvasPanController({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [panDragRef, panModifierRef, setIsPanning, setPan]);
+  }, [panDragRef, panModifierRef, setPan, viewportRef]);
 
   useEffect(() => {
     const isTypingTarget = (target: EventTarget | null) => {
@@ -87,20 +116,20 @@ export function useCanvasPanController({
     };
     const clearModifier = () => {
       panModifierRef.current = false;
-      setIsPanModifierActive(false);
+      viewportRef.current?.classList.remove("preview-viewport--pan-modifier");
     };
     const stopPan = (source?: CanvasPanDragState["source"]) => {
       if (!panDragRef.current) return;
       if (!source || panDragRef.current.source === source) {
         panDragRef.current = null;
-        setIsPanning(false);
+        viewportRef.current?.classList.remove("preview-viewport--panning");
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code !== "Space" || isTypingTarget(event.target)) return;
       event.preventDefault();
       panModifierRef.current = true;
-      setIsPanModifierActive(true);
+      viewportRef.current?.classList.add("preview-viewport--pan-modifier");
     };
     const handleKeyUp = (event: KeyboardEvent) => {
       if (event.code !== "Space") return;
@@ -124,14 +153,31 @@ export function useCanvasPanController({
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [panDragRef, panModifierRef, setIsPanModifierActive, setIsPanning]);
+  }, [panDragRef, panModifierRef, viewportRef]);
 
   const handleWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
       event.preventDefault();
-      applyZoom(zoom * Math.exp(-event.deltaY * 0.0015), event.clientX, event.clientY);
+      wheelPointerRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      };
+      if (wheelFrameRef.current !== null) return;
+      wheelZoomRef.current = getCanvasWheelZoom(
+        wheelZoomRef.current,
+        event.deltaY
+      );
+      wheelFrameRef.current = window.requestAnimationFrame(() => {
+        wheelFrameRef.current = null;
+        const pointer = wheelPointerRef.current;
+        applyZoom(
+          wheelZoomRef.current,
+          pointer.clientX,
+          pointer.clientY
+        );
+      });
     },
-    [applyZoom, zoom]
+    [applyZoom]
   );
   const handleMouseDownCapture = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {

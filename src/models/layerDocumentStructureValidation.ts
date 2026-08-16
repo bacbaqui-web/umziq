@@ -177,6 +177,7 @@ function validatePlacement(
       "sourceOffsetFrames",
       "visible",
       "alias",
+      ...(record.locked !== undefined ? ["locked"] : []),
     ],
     path,
     issues
@@ -213,6 +214,9 @@ function validatePlacement(
     }
   );
   validateBoolean(record.visible, `${path}.visible`, issues);
+  if (record.locked !== undefined) {
+    validateBoolean(record.locked, `${path}.locked`, issues);
+  }
   validateString(record.alias, `${path}.alias`, issues, { nullable: true });
 }
 
@@ -272,7 +276,7 @@ function validateModifiers(
     const modifierPath = `${path}[${index}]`;
     const modifier = requireRecord(entry, modifierPath, issues);
     if (!modifier) return;
-    if (modifier.type === "wiggle") {
+    if (modifier.type === "wiggle" || modifier.type === "swing") {
       validateExactKeys(
         modifier,
         ["modifierId", "type", "enabled", "frequency", "amount"],
@@ -285,6 +289,20 @@ function validateModifiers(
         issues,
         { minimum: 0 }
       );
+      validateNumber(modifier.amount, `${modifierPath}.amount`, issues, {
+        minimum: 0,
+      });
+    } else if (modifier.type === "oscillate") {
+      validateExactKeys(
+        modifier,
+        ["modifierId", "type", "enabled", "angle", "frequency", "amount"],
+        modifierPath,
+        issues
+      );
+      validateNumber(modifier.angle, `${modifierPath}.angle`, issues);
+      validateNumber(modifier.frequency, `${modifierPath}.frequency`, issues, {
+        minimum: 0,
+      });
       validateNumber(modifier.amount, `${modifierPath}.amount`, issues, {
         minimum: 0,
       });
@@ -395,8 +413,11 @@ function validateLayerData(
       return;
     case "group":
       validateExactKeys(
-        data,
-        ["role", "width", "height", "frameRate", "durationFrames"],
+        {
+          cameraScalePercent: data.cameraScalePercent ?? 100,
+          ...data,
+        },
+        ["role", "width", "height", "frameRate", "durationFrames", "cameraScalePercent"],
         dataPath,
         issues
       );
@@ -418,6 +439,12 @@ function validateLayerData(
         minimum: 1,
         code: "invalid-timing",
       });
+      validateNumber(
+        data.cameraScalePercent ?? 100,
+        `${dataPath}.cameraScalePercent`,
+        issues,
+        { minimum: 1 }
+      );
       return;
     case "unknown":
       validateExactKeys(data, ["originalType", "rawData"], dataPath, issues);

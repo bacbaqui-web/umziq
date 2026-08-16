@@ -22,6 +22,8 @@ export type CanvasViewportStatePort = {
   setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
   showSelectionHighlight: boolean;
   setShowSelectionHighlight: Dispatch<SetStateAction<boolean>>;
+  showWhiteBackground: boolean;
+  setShowWhiteBackground: Dispatch<SetStateAction<boolean>>;
 };
 
 export type CanvasViewportCoreStatePort = Pick<
@@ -64,11 +66,14 @@ export type CanvasGuideViewModel = {
   showShortformFrame: boolean;
   showSafeZoneGuides: boolean;
   safeZoneStrokeWidth: number;
+  cameraScalePercent: number;
 };
 
 export type CanvasGuideCommands = {
   toggleShortformFrame: () => void;
   toggleSafeZone: () => void;
+  setCameraScalePercent: (percent: number) => void;
+  commitCameraScalePercent: (percent: number) => void;
 };
 
 export type CanvasSelectionReadModel = {

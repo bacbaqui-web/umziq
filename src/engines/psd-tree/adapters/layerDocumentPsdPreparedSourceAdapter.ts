@@ -2,6 +2,12 @@ import type {
   LayerDocumentProject,
   PsdTreeSourceSelection,
 } from "@/models";
+import {
+  buildDeleteLayerDocumentTransaction,
+  buildSetLayerDocumentNameTransaction,
+  buildUpdateLayerDocumentCommonTransaction,
+  type LayerDocumentTransactionResult,
+} from "@/models";
 import type {
   LayerDocumentPreparedRuntimeLifecycle,
   LayerDocumentSourcePreparationPort,
@@ -184,6 +190,7 @@ export function createLayerDocumentPsdTreeSourceCommandAdapter(
       preparation:
         LayerDocumentSourceTransactionResult
     ) => LayerDocumentPsdSourceCommitResult;
+    commitLayer: (transaction: LayerDocumentTransactionResult) => unknown;
     bridge:
       LayerDocumentPsdRuntimeRegistrationBridge;
     sourceResolution:
@@ -247,6 +254,67 @@ export function createLayerDocumentPsdTreeSourceCommandAdapter(
         ),
     });
   return {
+    readActiveGroupLayerDocumentId:
+      options.readActiveGroupLayerDocumentId,
+    openProject: () => {
+      const project = options.readProject();
+      const root = Object.values(
+        project.payload.layerDocumentsById
+      ).find((layer) =>
+        layer.type === "group" &&
+        layer.data.role === "project-root"
+      );
+      if (!root) return;
+      const projectCenter = {
+        x: (root.data as { width: number }).width / 2,
+        y: (root.data as { height: number }).height / 2,
+      };
+      Object.values(project.payload.layerDocumentsById)
+        .filter((layer) =>
+          layer.common.placement.parentLayerDocumentId ===
+            root.layerDocumentId
+        )
+        .forEach((layer) => {
+          if (
+            layer.type !== "group" ||
+            layer.data.role !== "composition" ||
+            !("width" in layer.data) ||
+            !("height" in layer.data)
+          ) {
+            return;
+          }
+          if (
+            layer.common.transform.position.x !==
+              layer.common.transform.anchor.x ||
+            layer.common.transform.position.y !==
+              layer.common.transform.anchor.y
+          ) {
+            return;
+          }
+          options.commitLayer(
+            buildUpdateLayerDocumentCommonTransaction(
+              options.readProject(),
+              {
+                layerDocumentId: layer.layerDocumentId,
+                update: {
+                  kind: "set-transform",
+                  transform: {
+                    ...layer.common.transform,
+                    position: projectCenter,
+                    anchor: {
+                      x: (layer.data as { width: number }).width / 2,
+                      y: (layer.data as { height: number }).height / 2,
+                    },
+                  },
+                },
+              }
+            )
+          );
+        });
+      options.selectSource(null);
+      options.selectLayer(null);
+      return options.enterGroup(root.layerDocumentId);
+    },
     selectSource: (
       selection: PsdTreeSourceSelection | null
     ) => {
@@ -254,22 +322,9 @@ export function createLayerDocumentPsdTreeSourceCommandAdapter(
         options.selectSource(selection);
       if (!selection) return sourceResult;
       const project = options.readProject();
-      const selectedLayerDocumentId =
-        options.readSelectedLayerDocumentId();
-      const selectedLayer = selectedLayerDocumentId
-        ? project.payload.layerDocumentsById[
-            selectedLayerDocumentId
-          ]
-        : null;
-      if (
-        selectedLayer?.common.source?.sourceId ===
-        selection.sourceId
-      ) {
-        return sourceResult;
-      }
       const activeGroupLayerDocumentId =
         options.readActiveGroupLayerDocumentId();
-      const layerDocumentId = Object.values(
+      const layerDocument = Object.values(
         project.payload.layerDocumentsById
       )
         .filter(
@@ -296,10 +351,136 @@ export function createLayerDocumentPsdTreeSourceCommandAdapter(
             left.layerDocumentId.localeCompare(
               right.layerDocumentId
             );
-        })[0]?.layerDocumentId ?? null;
-      return layerDocumentId
-        ? options.selectLayer(layerDocumentId)
-        : sourceResult;
+        })[0] ?? null;
+      if (!layerDocument) return sourceResult;
+
+      if (layerDocument.type === "group") {
+        return options.enterGroup(
+          layerDocument.layerDocumentId
+        );
+      }
+
+      const parentLayerDocumentId =
+        layerDocument.common.placement
+          .parentLayerDocumentId;
+      if (
+        parentLayerDocumentId &&
+        parentLayerDocumentId !==
+          activeGroupLayerDocumentId
+      ) {
+        options.enterGroup(parentLayerDocumentId);
+      }
+      return options.selectLayer(
+        layerDocument.layerDocumentId
+      );
+    },
+    toggleSourceVisibility: (sourceId: string) => {
+      const layer = Object.values(
+        options.readProject().payload.layerDocumentsById
+      ).find((candidate) =>
+        candidate.common.source?.sourceId === sourceId
+      );
+      if (!layer) return;
+      return options.commitLayer(
+        buildUpdateLayerDocumentCommonTransaction(
+          options.readProject(),
+          {
+            layerDocumentId: layer.layerDocumentId,
+            update: {
+              kind: "set-visibility",
+              visible: !layer.common.placement.visible,
+            },
+          }
+        )
+      );
+    },
+    toggleSourceLock: (sourceId: string) => {
+      const layer = Object.values(
+        options.readProject().payload.layerDocumentsById
+      ).find((candidate) =>
+        candidate.common.source?.sourceId === sourceId
+      );
+      if (!layer) return;
+      return options.commitLayer(
+        buildUpdateLayerDocumentCommonTransaction(
+          options.readProject(),
+          {
+            layerDocumentId: layer.layerDocumentId,
+            update: {
+              kind: "set-lock",
+              locked: !layer.common.placement.locked,
+            },
+          }
+        )
+      );
+    },
+    renameSourceLayer: (sourceId: string, name: string) => {
+      const layer = Object.values(
+        options.readProject().payload.layerDocumentsById
+      ).find((candidate) =>
+        candidate.common.source?.sourceId === sourceId
+      );
+      if (!layer) return;
+      return options.commitLayer(
+        buildSetLayerDocumentNameTransaction(
+          options.readProject(),
+          { layerDocumentId: layer.layerDocumentId, name }
+        )
+      );
+    },
+    deleteSourceLayer: (sourceId: string) => {
+      const project = options.readProject();
+      const layers = Object.values(
+        project.payload.layerDocumentsById
+      );
+      const layer = layers.find((candidate) =>
+        candidate.common.source?.sourceId === sourceId
+      );
+      if (
+        !layer ||
+        (layer.type === "group" && layer.data.role === "composition")
+      ) return;
+      const deletedLayerDocumentIds = new Set<string>();
+      const collect = (parentId: string) => {
+        deletedLayerDocumentIds.add(parentId);
+        layers.forEach((candidate) => {
+          if (
+            candidate.common.placement.parentLayerDocumentId === parentId &&
+            !deletedLayerDocumentIds.has(candidate.layerDocumentId)
+          ) collect(candidate.layerDocumentId);
+        });
+      };
+      collect(layer.layerDocumentId);
+      const deletedSourceIds = new Set(
+        layers.flatMap((candidate) =>
+          deletedLayerDocumentIds.has(candidate.layerDocumentId) &&
+          candidate.common.source?.sourceId
+            ? [candidate.common.source.sourceId]
+            : []
+        )
+      );
+      const deletion = buildDeleteLayerDocumentTransaction(
+        project,
+        { layerDocumentId: layer.layerDocumentId }
+      );
+      if (deletion.ok) {
+        const retainedSourceIds = new Set(
+          Object.values(
+            deletion.transaction.after.payload.layerDocumentsById
+          ).flatMap((candidate) =>
+            candidate.common.source?.sourceId
+              ? [candidate.common.source.sourceId]
+              : []
+          )
+        );
+        deletedSourceIds.forEach((deletedSourceId) => {
+          if (!retainedSourceIds.has(deletedSourceId)) {
+            delete deletion.transaction.after.payload
+              .sourceRegistry.sourcesById[deletedSourceId];
+          }
+        });
+      }
+      return options.commitLayer(deletion);
     },
     readTree: () =>
       options.preparation.query.readTree({

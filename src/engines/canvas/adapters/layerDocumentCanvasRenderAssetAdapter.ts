@@ -15,6 +15,11 @@ export type LayerDocumentCanvasRuntimeResourceAdapter = (
   "sourceVisualIdentity"
 > | null;
 
+const nodeVisualResolverByAssets = new WeakMap<
+  LayerDocumentCanvasRenderAssetPort,
+  RenderNodeVisualResolver
+>();
+
 /**
  * Stateless typed view over the shared Source runtime cache. It owns neither
  * the cached resource nor a Project/History representation of that resource.
@@ -45,7 +50,9 @@ export function createLayerDocumentCanvasRenderAssetPort(options: {
 export function createLayerDocumentCanvasNodeVisualResolver(
   assets: LayerDocumentCanvasRenderAssetPort
 ): RenderNodeVisualResolver {
-  return (request) =>
+  const cached = nodeVisualResolverByAssets.get(assets);
+  if (cached) return cached;
+  const resolver: RenderNodeVisualResolver = (request) =>
     assets.resolve({
       layerDocumentId: request.layerDocumentId,
       sourceId: request.sourceId,
@@ -55,4 +62,6 @@ export function createLayerDocumentCanvasNodeVisualResolver(
       drawableId: request.drawableId,
       logicalSize: request.logicalSize,
     })?.source ?? null;
+  nodeVisualResolverByAssets.set(assets, resolver);
+  return resolver;
 }

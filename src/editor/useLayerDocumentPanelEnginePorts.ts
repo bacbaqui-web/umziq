@@ -167,6 +167,8 @@ export function useLayerDocumentPanelEnginePorts(
           LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
         commit:
           ownerCommands.commitSourcePreparation,
+        commitLayer:
+          ownerCommands.commitLayerPreparation,
         bridge: registrationBridge,
         sourceResolution,
       });
@@ -217,6 +219,12 @@ export function useLayerDocumentPanelEnginePorts(
           readTree: sources.readTree,
           readProject,
           selectSource: sources.selectSource,
+          toggleSourceVisibility:
+            sources.toggleSourceVisibility,
+          toggleSourceLock: sources.toggleSourceLock,
+          openProject: sources.openProject,
+          readActiveGroupLayerDocumentId:
+            sources.readActiveGroupLayerDocumentId,
           confirmImport:
             sources.confirmPreparedPsdImport,
           cancelImport:
@@ -228,6 +236,10 @@ export function useLayerDocumentPanelEnginePorts(
           refreshSource: sources.refreshSource,
           reconnect: sources.reconnect,
           deleteSource: sources.deleteSource,
+          renameSourceLayer:
+            sources.renameSourceLayer,
+          deleteSourceLayer:
+            sources.deleteSourceLayer,
         },
       });
     const canvasCommands =

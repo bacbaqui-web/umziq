@@ -424,6 +424,10 @@ function buildPreviewSceneFromEvaluatedSceneForPlayback({
   const sceneChanged =
     previousPreviewScene.compositionId !== evaluatedScene.compositionId ||
     previousPreviewScene.globalFrame !== evaluatedScene.globalFrame ||
+    !isSamePosition(
+      previousPreviewScene.origin ?? { x: 0, y: 0 },
+      evaluatedScene.origin ?? { x: 0, y: 0 }
+    ) ||
     !isSameSize(previousPreviewScene.logicalSize, evaluatedScene.size) ||
     previousPreviewScene.nodes.length !== nodes.length ||
     previousPreviewScene.nodes.some((node, index) => node !== nodes[index]);
@@ -434,6 +438,7 @@ function buildPreviewSceneFromEvaluatedSceneForPlayback({
           compositionId: evaluatedScene.compositionId,
           globalFrame: evaluatedScene.globalFrame,
           logicalSize: evaluatedScene.size,
+          origin: evaluatedScene.origin,
           nodes,
         }
       : previousPreviewScene,
@@ -467,6 +472,7 @@ export function buildPreviewSceneFromEvaluatedScene(
     compositionId: evaluatedScene.compositionId,
     globalFrame: evaluatedScene.globalFrame,
     logicalSize: evaluatedScene.size,
+    origin: evaluatedScene.origin,
     nodes: evaluatedScene.nodes.map((node) =>
       buildPreviewNode(node, evaluatedScene.globalFrame, null)
     ),

@@ -3,6 +3,8 @@ import type {
   ModifierInstance,
   ModifierNumberField,
   ModifierType,
+  OscillateModifierInstance,
+  SwingModifierInstance,
   WiggleModifierInstance,
 } from "@/models";
 
@@ -15,7 +17,7 @@ export type ModifierNumberSettingDefinition = {
 export type ModifierDefinition = {
   type: ModifierType;
   label: string;
-  appliesTo: "position";
+  appliesTo: "position" | "rotation";
   settings: readonly ModifierNumberSettingDefinition[];
 };
 
@@ -25,8 +27,27 @@ export const MODIFIER_DEFINITIONS: readonly ModifierDefinition[] = [
     label: "부들부들",
     appliesTo: "position",
     settings: [
-      { field: "frequency", label: "초당 얼마나", min: 0 },
+      { field: "frequency", label: "초당 횟수", min: 0 },
       { field: "amount", label: "흔들림 정도", min: 0 },
+    ],
+  },
+  {
+    type: "oscillate",
+    label: "왔다갔다",
+    appliesTo: "position",
+    settings: [
+      { field: "angle", label: "이동 각도", min: 0 },
+      { field: "frequency", label: "초당 횟수", min: 0 },
+      { field: "amount", label: "이동 거리", min: 0 },
+    ],
+  },
+  {
+    type: "swing",
+    label: "흔들흔들",
+    appliesTo: "rotation",
+    settings: [
+      { field: "frequency", label: "초당 횟수", min: 0 },
+      { field: "amount", label: "회전 각도", min: 0 },
     ],
   },
 ];
@@ -43,6 +64,23 @@ export function createDefaultModifier(
     return {
       id: `${targetId}:wiggle`,
       type,
+      frequency: 0,
+      amount: 0,
+    };
+  }
+  if (type === "swing") {
+    return {
+      id: `${targetId}:swing`,
+      type,
+      frequency: 0,
+      amount: 0,
+    };
+  }
+  if (type === "oscillate") {
+    return {
+      id: `${targetId}:oscillate`,
+      type,
+      angle: 0,
       frequency: 0,
       amount: 0,
     };
@@ -70,6 +108,35 @@ function normalizeWiggleModifier(
   };
 }
 
+function normalizeSwingModifier(
+  source: Partial<SwingModifierInstance>,
+  targetId: string
+): SwingModifierInstance {
+  return {
+    id: typeof source.id === "string" && source.id.length > 0
+      ? source.id
+      : `${targetId}:swing`,
+    type: "swing",
+    frequency: normalizeModifierNumber(source.frequency),
+    amount: normalizeModifierNumber(source.amount),
+  };
+}
+
+function normalizeOscillateModifier(
+  source: Partial<OscillateModifierInstance>,
+  targetId: string
+): OscillateModifierInstance {
+  return {
+    id: typeof source.id === "string" && source.id.length > 0
+      ? source.id
+      : `${targetId}:oscillate`,
+    type: "oscillate",
+    angle: Number.isFinite(Number(source.angle)) ? Number(source.angle) : 0,
+    frequency: normalizeModifierNumber(source.frequency),
+    amount: normalizeModifierNumber(source.amount),
+  };
+}
+
 export function normalizeModifierInstances(
   source: unknown,
   targetId: string
@@ -82,6 +149,12 @@ export function normalizeModifierInstances(
     const modifier = candidate as Partial<ModifierInstance>;
     if (modifier.type === "wiggle" && !normalized.has("wiggle")) {
       normalized.set("wiggle", normalizeWiggleModifier(modifier, targetId));
+    }
+    if (modifier.type === "swing" && !normalized.has("swing")) {
+      normalized.set("swing", normalizeSwingModifier(modifier, targetId));
+    }
+    if (modifier.type === "oscillate" && !normalized.has("oscillate")) {
+      normalized.set("oscillate", normalizeOscillateModifier(modifier, targetId));
     }
   });
 

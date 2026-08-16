@@ -2,6 +2,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -47,6 +48,9 @@ import {
 import {
   buildPreviewQualityControlViewModel,
 } from "@/engines/canvas/helpers/previewQualityControlHelpers";
+import {
+  getCanvasWheelZoom,
+} from "@/engines/canvas/helpers/canvasViewportHelpers";
 import type {
   CanvasInteractionStatePort,
 } from "@/engines/canvas/models/canvasInteractionModel";
@@ -101,6 +105,7 @@ export function useLayerDocumentCanvasEngine<
   TSelectionResult,
   TKeyframeResult,
 >(options: {
+  projectId: string;
   readPort: LayerDocumentCanvasReadPort;
   commandPort: LayerDocumentCanvasCommandPort<
     TCommitResult,
@@ -123,10 +128,18 @@ export function useLayerDocumentCanvasEngine<
   minWorkspaceHeight: number;
   shortformFrameWidth: number;
   shortformFrameHeight: number;
+  cameraScalePercent: number;
+  setCameraScalePercent: (percent: number) => void;
   resetRevision?: number;
 }) {
+  const [cameraScaleDraft, setCameraScaleDraft] = useState(
+    options.cameraScalePercent
+  );
+  useEffect(() => {
+    setCameraScaleDraft(options.cameraScalePercent);
+  }, [options.cameraScalePercent]);
   const previewRuntime =
-    useCanvasPreviewRuntime();
+    useCanvasPreviewRuntime(options.projectId);
   const runtimeMetrics = useMemo(
     () =>
       createRuntimeMetricRecordPort(
@@ -144,31 +157,38 @@ export function useLayerDocumentCanvasEngine<
     sourceSamplingQuality,
     runtimeMetrics,
   });
+  const evaluatedScene = consumer.runtime.ok
+    ? consumer.runtime.model.scene
+    : null;
+  const canvasScene = evaluatedScene
+    ? {
+        ...consumer.activeScene,
+        width: evaluatedScene.size.width,
+        height: evaluatedScene.size.height,
+      }
+    : consumer.activeScene;
+  const sceneOrigin = evaluatedScene?.origin ?? { x: 0, y: 0 };
   const selectedMeta = {
-    width: consumer.activeScene.width,
-    height: consumer.activeScene.height,
+    width: canvasScene.width,
+    height: canvasScene.height,
   };
+  const cameraScale = Math.max(1, cameraScaleDraft) / 100;
+  const cameraFitPadding = 1.02;
   const viewport = useCanvasViewportRuntime({
     minWorkspaceWidth:
       options.minWorkspaceWidth,
     minWorkspaceHeight:
       options.minWorkspaceHeight,
     shortformFrameWidth:
-      options.shortformFrameWidth,
+      options.shortformFrameWidth * cameraScale * cameraFitPadding,
     shortformFrameHeight:
-      options.shortformFrameHeight,
+      options.shortformFrameHeight * cameraScale * cameraFitPadding,
     project: {
       selectedCompId:
-        consumer.activeScene.layerDocumentId,
+        canvasScene.layerDocumentId,
       selectedMeta,
     },
     state: options.viewportState,
-    panState: {
-      setIsPreviewPanning:
-        options.setIsPreviewPanning,
-      setIsPreviewPanModifierActive:
-        options.setIsPreviewPanModifierActive,
-    },
   });
   const renderAssets = useMemo(
     () =>
@@ -181,7 +201,7 @@ export function useLayerDocumentCanvasEngine<
   const previousPreviewScene =
     useRef<PreviewScene | null>(null);
   const readResult = buildLayerDocumentCanvasReadModel({
-    activeScene: consumer.activeScene,
+    activeScene: canvasScene,
     runtime: consumer.runtime,
     selectedLayerDocumentId:
       consumer.selectedLayerDocumentId,
@@ -191,8 +211,14 @@ export function useLayerDocumentCanvasEngine<
         viewport.readModel.previewSize,
       viewportScale:
         viewport.readModel.previewZoom,
-      viewportOffset:
-        viewport.readModel.previewViewportOffset,
+      viewportOffset: {
+        x:
+          viewport.readModel.previewViewportOffset.x -
+          sceneOrigin.x * viewport.readModel.previewZoom,
+        y:
+          viewport.readModel.previewViewportOffset.y -
+          sceneOrigin.y * viewport.readModel.previewZoom,
+      },
     },
     renderAssets,
     previousPreviewScene:
@@ -263,6 +289,11 @@ export function useLayerDocumentCanvasEngine<
     setShowSafeZoneGuides:
       options.viewportState
         .setShowSafeZoneGuides,
+    cameraScalePercent: cameraScaleDraft,
+    setCameraScalePercent:
+      setCameraScaleDraft,
+    commitCameraScalePercent:
+      options.setCameraScalePercent,
   });
   useCanvasRenderController({
     canvasRef,
@@ -270,8 +301,7 @@ export function useLayerDocumentCanvasEngine<
       bridge.renderer.previewScene,
     resolveNodeVisual:
       bridge.renderer.resolveNodeVisual,
-    pixelScale:
-      PREVIEW_QUALITY_SCALE[previewQuality],
+    pixelScale: PREVIEW_QUALITY_SCALE[previewQuality],
     previewQuality,
     metrics: previewRuntime.metrics,
     compositionCache:
@@ -330,6 +360,10 @@ export function useLayerDocumentCanvasEngine<
       guide.commands.toggleShortformFrame,
     toggleSafeZone:
       guide.commands.toggleSafeZone,
+    setCameraScalePercent:
+      guide.commands.setCameraScalePercent,
+    commitCameraScalePercent:
+      guide.commands.commitCameraScalePercent,
     showSelectionHighlight:
       options.viewportState.showSelectionHighlight,
     toggleSelectionHighlight: () =>
@@ -337,12 +371,24 @@ export function useLayerDocumentCanvasEngine<
         .setShowSelectionHighlight(
           (current) => !current
         ),
+    showWhiteBackground:
+      options.viewportState.showWhiteBackground,
+    toggleWhiteBackground: () =>
+      options.viewportState.setShowWhiteBackground(
+        (current) => !current
+      ),
     resetPreviewView:
       viewport.commands.resetViewport,
     setOneToOnePreviewView:
       viewport.commands.setActualSize,
-    centerPreviewView:
-      viewport.commands.centerViewport,
+    zoomOutPreviewView: () =>
+      viewport.commands.applyZoom(
+        getCanvasWheelZoom(options.viewportState.previewZoom, 1)
+      ),
+    zoomInPreviewView: () =>
+      viewport.commands.applyZoom(
+        getCanvasWheelZoom(options.viewportState.previewZoom, -1)
+      ),
     handlePreviewViewportWheel:
       viewport.pan.handleWheel,
     handlePreviewViewportMouseDownCapture:

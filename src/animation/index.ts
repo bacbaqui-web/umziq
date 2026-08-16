@@ -37,5 +37,6 @@ export type {
 } from "@/animation/modifiers/modifierRegistry";
 export {
   applyPositionModifiers,
+  applyRotationModifiers,
   evaluateWiggleOffset,
 } from "@/animation/helpers/modifierEvaluationHelpers";

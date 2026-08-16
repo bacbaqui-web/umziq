@@ -9,11 +9,16 @@ export type PsdImportPlanNode = {
   originalName: string;
   displayName: string;
   autoRenamed: boolean;
+  previewUrl?: string;
+  previewEmpty?: boolean;
+  previewWidth?: number;
+  previewHeight?: number;
   children: PsdImportPlanNode[];
 };
 
 export type PsdImportPlanEntry = {
   token: string;
+  scalePercent: number;
   analysis: {
     fileName: string;
     width: number;

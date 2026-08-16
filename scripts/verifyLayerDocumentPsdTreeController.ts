@@ -146,6 +146,10 @@ const port: LayerDocumentPsdTreeCommandPort = {
   selectSource: (selection) => {
     sourceSelection = selection;
   },
+  toggleSourceVisibility: () => undefined,
+  toggleSourceLock: () => undefined,
+  openProject: () => undefined,
+  readActiveGroupLayerDocumentId: () => "root",
   confirmImport: confirmPreparedImport,
   cancelImport: (prepared) => prepared.runtime.cancel(),
   confirmRefresh: (
@@ -205,13 +209,59 @@ const group = importPlan.nodes.find((node) =>
   node.layerDocumentId.includes("id:10")
 );
 assert.ok(group);
+const compositionId =
+  importPlan.prepared.command.selectLayerDocumentId;
+const originalRootChild = importPlan.prepared.command.layers.find(
+  (layer) =>
+    layer.common.placement.parentLayerDocumentId ===
+    compositionId
+);
+assert.ok(originalRootChild);
+const scaledImportPlan = controller.scaleImportPreview(
+  importPlan,
+  50
+);
+assert.equal(scaledImportPlan.scalePercent, 50);
+assert.equal(
+  scaledImportPlan.prepared.width,
+  Math.round(importPlan.prepared.width / 2)
+);
+const scaledRootChild =
+  scaledImportPlan.prepared.command.layers.find(
+    (layer) =>
+      layer.layerDocumentId ===
+      originalRootChild.layerDocumentId
+  );
+assert.equal(
+  scaledRootChild?.common.transform.scale.x,
+  originalRootChild.common.transform.scale.x / 2
+);
+const renamedImportPlan = controller.renameImportPreviewNode(
+  scaledImportPlan,
+  originalRootChild.layerDocumentId,
+  "Renamed layer"
+);
+assert.equal(
+  renamedImportPlan.prepared.command.layers.find(
+    (layer) =>
+      layer.layerDocumentId === originalRootChild.layerDocumentId
+  )?.name,
+  "Renamed layer"
+);
+assert.equal(
+  renamedImportPlan.prepared.command.sources.find(
+    (source) =>
+      source.sourceId === originalRootChild.common.source?.sourceId
+  )?.displayName,
+  "Renamed layer"
+);
 const originalChildren = importPlan.nodes
   .filter((node) =>
     node.parentLayerDocumentId === group.layerDocumentId
   )
   .sort((left, right) => left.order - right.order);
 assert.equal(originalChildren.length, 2);
-const reordered = controller.reorderImportPreviewNode(importPlan, {
+const reordered = controller.reorderImportPreviewNode(renamedImportPlan, {
   parentLayerDocumentId: group.layerDocumentId,
   fromIndex: 0,
   toIndex: 1,

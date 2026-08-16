@@ -10,7 +10,6 @@ import {
   getCenteredCanvasPan,
 } from "@/engines/canvas/helpers/canvasViewportHelpers";
 import type {
-  CanvasPanStatePort,
   CanvasViewportProjectReadPort,
   CanvasViewportCoreStatePort,
 } from "@/engines/canvas/models/canvasEngineModel";
@@ -22,7 +21,6 @@ export function useCanvasViewportRuntime({
   shortformFrameHeight,
   project,
   state,
-  panState,
 }: {
   minWorkspaceWidth: number;
   minWorkspaceHeight: number;
@@ -30,7 +28,6 @@ export function useCanvasViewportRuntime({
   shortformFrameHeight: number;
   project: CanvasViewportProjectReadPort;
   state: CanvasViewportCoreStatePort;
-  panState: CanvasPanStatePort;
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
@@ -73,11 +70,10 @@ export function useCanvasViewportRuntime({
   const pan = useCanvasPanController({
     zoom: state.previewZoom,
     pan: state.previewPan,
+    viewportRef,
     panDragRef,
     panModifierRef,
     setPan: state.setPreviewPan,
-    setIsPanning: panState.setIsPreviewPanning,
-    setIsPanModifierActive: panState.setIsPreviewPanModifierActive,
     applyZoom: commands.applyZoom,
   });
   useCanvasWorkspaceController({

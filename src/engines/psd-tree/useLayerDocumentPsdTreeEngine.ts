@@ -68,6 +68,22 @@ function previewTree(
       originalName: layer.name,
       displayName: layer.name,
       autoRenamed: false,
+      previewUrl:
+        plan.prepared.previewImagesByLayerDocumentId?.[
+          layer.layerDocumentId
+        ] || undefined,
+      previewEmpty:
+        plan.prepared.previewImagesByLayerDocumentId?.[
+          layer.layerDocumentId
+        ] === "",
+      previewWidth:
+        plan.prepared.previewSizesByLayerDocumentId?.[
+          layer.layerDocumentId
+        ]?.width,
+      previewHeight:
+        plan.prepared.previewSizesByLayerDocumentId?.[
+          layer.layerDocumentId
+        ]?.height,
       children: plan.nodes
         .filter((candidate) =>
           candidate.parentLayerDocumentId === layerDocumentId
@@ -98,6 +114,7 @@ export function buildLayerDocumentPsdImportViewPlan(
   return {
     entries: plans.map((plan) => ({
       token: previewToken(plan),
+      scalePercent: plan.scalePercent,
       analysis: {
         fileName: plan.prepared.fileName,
         width: plan.prepared.width,
@@ -110,7 +127,10 @@ export function buildLayerDocumentPsdImportViewPlan(
       },
       settings: {
         compositionName:
-          plan.prepared.fileName.replace(/\.psd$/i, ""),
+          plan.prepared.command.layers.find((layer) =>
+            layer.layerDocumentId ===
+              plan.prepared.command.selectLayerDocumentId
+          )?.name ?? plan.prepared.fileName.replace(/\.psd$/i, ""),
         hiddenLayerMode: "preserve",
       },
       tree: previewTree(plan),
@@ -134,16 +154,23 @@ function treeNode(
   selectedSourceId: string | null,
   depth: number,
   children: PsdTreeNodeViewModel[],
-  documentActions: boolean
+  documentActions: boolean,
+  layerState: {
+    visible: boolean;
+    locked: boolean;
+    name: string;
+  } | null
 ): PsdTreeNodeViewModel {
   return {
     id: source.sourceId,
     type: depth === 0 ? "main" : "sub",
     entityKind:
       depth === 0 ? null : source.entityKind ?? "layer",
-    name: source.displayName,
+    name: layerState?.name ?? source.displayName,
     depth,
     selected: source.sourceId === selectedSourceId,
+    visible: layerState?.visible ?? true,
+    locked: layerState?.locked ?? false,
     sourceSyncStatus: source.refreshStatus,
     canRefresh: documentActions,
     canDelete: documentActions,
@@ -156,19 +183,43 @@ export function buildLayerDocumentPsdTreeNodes(
   controller: LayerDocumentPsdTreeController
 ): PsdTreeNodeViewModel[] {
   const tree = controller.read();
+  const project = controller.readProject();
+  const projectRoot = Object.values(
+    project.payload.layerDocumentsById
+  ).find((layer) =>
+    layer.type === "group" &&
+    layer.data.role === "project-root"
+  );
+  const layerState = (sourceId: string) => {
+    const layer = Object.values(
+      project.payload.layerDocumentsById
+    ).find((candidate) =>
+      candidate.common.source?.sourceId === sourceId
+    );
+    return layer
+      ? {
+          visible: layer.common.placement.visible,
+          locked: !!layer.common.placement.locked,
+          name: layer.name,
+        }
+      : null;
+  };
   const buildPsdNode = (
     node: (typeof tree.documents)[number]["children"][number],
     depth: number
-  ): PsdTreeNodeViewModel =>
-    treeNode(
+  ): PsdTreeNodeViewModel => {
+    const state = layerState(node.sourceId);
+    return treeNode(
       node,
       tree.selectedSourceId,
       depth,
       node.children.map((child) =>
         buildPsdNode(child, depth + 1)
       ),
-      false
+      false,
+      state
     );
+  };
   const documents = tree.documents.map((document) =>
     treeNode(
       document,
@@ -177,16 +228,48 @@ export function buildLayerDocumentPsdTreeNodes(
       document.children.map((child) =>
         buildPsdNode(child, 1)
       ),
-      true
+      true,
+      layerState(document.sourceId)
     )
   );
   const orphanNodes = tree.orphanNodes.map((node) =>
     buildPsdNode(node, 0)
   );
   const nonPsdSources = tree.nonPsdSources.map((source) =>
-    treeNode(source, tree.selectedSourceId, 0, [], false)
+    treeNode(
+      source,
+      tree.selectedSourceId,
+      0,
+      [],
+      false,
+      layerState(source.sourceId)
+    )
   );
-  return [...documents, ...orphanNodes, ...nonPsdSources];
+  const projectNode: PsdTreeNodeViewModel[] = projectRoot
+    ? [{
+        id: projectRoot.layerDocumentId,
+        type: "project",
+        entityKind: "composition",
+        name: "프로젝트",
+        depth: 0,
+        selected:
+          controller.readActiveGroupLayerDocumentId() ===
+          projectRoot.layerDocumentId,
+        visible: true,
+        locked: false,
+        sourceSyncStatus: "normal",
+        canRefresh: false,
+        canDelete: false,
+        canReorder: false,
+        children: [],
+      }]
+    : [];
+  return [
+    ...projectNode,
+    ...documents,
+    ...orphanNodes,
+    ...nonPsdSources,
+  ];
 }
 
 function refreshSummary(
@@ -264,6 +347,8 @@ export function useLayerDocumentPsdTreeEngine(options: {
   controller: LayerDocumentPsdTreeController;
   parentLayerDocumentId: string;
   durationFrames: number;
+  parentWidth: number;
+  parentHeight: number;
   nextOrder: () => number;
   cacheContext: () => SourceRegistryCacheInvalidationContext;
 }) {
@@ -282,6 +367,9 @@ export function useLayerDocumentPsdTreeEngine(options: {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] =
     useState<PsdRefreshSummaryViewModel | null>(null);
+  const pendingExternalImport = useRef<
+    ((imported: boolean) => void) | null
+  >(null);
   const session = useMemo<
     LayerDocumentPsdPreparedSessionController
   >(() => createLayerDocumentPsdPreparedSessionController({
@@ -291,13 +379,14 @@ export function useLayerDocumentPsdTreeEngine(options: {
   useEffect(
     () => () => {
       session.cancelActive();
+      pendingExternalImport.current?.(false);
+      pendingExternalImport.current = null;
     },
     [session]
   );
 
   const prepareImports = useCallback(async (
-    files: readonly File[],
-    confirmImmediately = false
+    files: readonly File[]
   ) => {
     const sequence = session.begin();
     setStatus("analyzing");
@@ -313,6 +402,8 @@ export function useLayerDocumentPsdTreeEngine(options: {
             options.parentLayerDocumentId,
           order: options.nextOrder() + index,
           durationFrames: options.durationFrames,
+          parentWidth: options.parentWidth,
+          parentHeight: options.parentHeight,
         }));
         if (sequence !== session.readSequence()) {
           prepared.forEach(options.controller.cancelImport);
@@ -330,36 +421,9 @@ export function useLayerDocumentPsdTreeEngine(options: {
     const accepted =
       session.acceptImports(sequence, prepared);
     if (!accepted.accepted) return false;
-    if (!confirmImmediately) {
-      setPlans(prepared);
-      setStatus(prepared.length ? "review" : "idle");
-      return prepared.length > 0;
-    }
-    setStatus("importing");
-    for (const plan of prepared) {
-      let result = options.controller.confirmImport(plan);
-      if (
-        !result.ok &&
-        plan.prepared.runtime.readState() ===
-          "runtime-registration-pending"
-      ) {
-        result = options.controller.confirmImport(plan);
-      }
-      if (!result.ok) {
-        prepared
-          .slice(prepared.indexOf(plan) + 1)
-          .forEach(options.controller.cancelImport);
-        setStatus("idle");
-        setError("PSD 불러오기에 실패했습니다.");
-        return false;
-      }
-    }
-    const completed = session.read();
-    if (completed) session.clearTransferred(completed);
-    setPlans([]);
-    setStatus("idle");
-    setError(null);
-    return true;
+    setPlans(prepared);
+    setStatus(prepared.length ? "review" : "idle");
+    return prepared.length > 0;
   }, [options, session]);
 
   const prepareRefresh = useCallback(async (
@@ -432,6 +496,8 @@ export function useLayerDocumentPsdTreeEngine(options: {
     setPlans([]);
     setStatus("idle");
     setError(null);
+    pendingExternalImport.current?.(false);
+    pendingExternalImport.current = null;
   }, [session]);
   const confirm = useCallback(async () => {
     const active = session.read();
@@ -462,6 +528,8 @@ export function useLayerDocumentPsdTreeEngine(options: {
     setPlans([]);
     setStatus("idle");
     setError(null);
+    pendingExternalImport.current?.(true);
+    pendingExternalImport.current = null;
   }, [options.controller, session]);
 
   const moveNode = useCallback((
@@ -485,6 +553,57 @@ export function useLayerDocumentPsdTreeEngine(options: {
     setPlans(next);
   }, [options.controller, plans, session]);
 
+  const scaleImport = useCallback((
+    token: string,
+    scalePercent: number
+  ) => {
+    const next = plans.map((plan) =>
+      previewToken(plan) === token
+        ? options.controller.scaleImportPreview(
+            plan,
+            scalePercent
+          )
+        : plan
+    );
+    session.replaceActiveImports(next);
+    setPlans(next);
+  }, [options.controller, plans, session]);
+
+  const renameImportNode = useCallback((
+    token: string,
+    layerDocumentId: string,
+    name: string
+  ) => {
+    const next = plans.map((plan) =>
+      previewToken(plan) === token
+        ? options.controller.renameImportPreviewNode(
+            plan,
+            layerDocumentId,
+            name
+          )
+        : plan
+    );
+    session.replaceActiveImports(next);
+    setPlans(next);
+  }, [options.controller, plans, session]);
+
+  const removeImportNode = useCallback((
+    token: string,
+    layerDocumentId: string
+  ) => {
+    const next = plans.map((plan) =>
+      previewToken(plan) === token
+        ? options.controller.removeImportPreviewNode(
+            plan,
+            layerDocumentId
+          )
+        : plan
+    );
+    session.replaceActiveImports(next);
+    setPlans(next);
+  }, [options.controller, plans, session]);
+
+
   const nodes = buildLayerDocumentPsdTreeNodes(
     options.controller
   );
@@ -505,7 +624,24 @@ export function useLayerDocumentPsdTreeEngine(options: {
       fileInputRef.current?.click();
     },
     onFileInputChange,
-    onSelectNode: options.controller.selectSource,
+    onSelectNode: (nodeId) => {
+      const node = nodes.find((candidate) =>
+        candidate.id === nodeId
+      );
+      if (node?.type === "project") {
+        options.controller.openProject();
+        return;
+      }
+      options.controller.selectSource(nodeId);
+    },
+    onToggleNodeVisibility:
+      options.controller.toggleSourceVisibility,
+    onToggleNodeLock:
+      options.controller.toggleSourceLock,
+    onRenameNode:
+      options.controller.renameSourceLayer,
+    onDeleteNode:
+      options.controller.deleteSourceLayer,
     onRefreshMainComp: (sourceId) => {
       setPicker({ kind: "refresh", sourceId });
       fileInputRef.current?.click();
@@ -522,11 +658,21 @@ export function useLayerDocumentPsdTreeEngine(options: {
       void confirm();
     },
     onMoveImportNode: moveNode,
+    onScaleImport: scaleImport,
+    onRenameImportNode: renameImportNode,
+    onRemoveImportNode: removeImportNode,
     onDismissRefreshSummary: () => setSummary(null),
   };
   const importFiles = useCallback(
-    (files: readonly File[]) =>
-      prepareImports(files, true),
+    async (files: readonly File[]) => {
+      pendingExternalImport.current?.(false);
+      pendingExternalImport.current = null;
+      const prepared = await prepareImports(files);
+      if (!prepared) return false;
+      return new Promise<boolean>((resolve) => {
+        pendingExternalImport.current = resolve;
+      });
+    },
     [prepareImports]
   );
   return { viewProps, session, importFiles };

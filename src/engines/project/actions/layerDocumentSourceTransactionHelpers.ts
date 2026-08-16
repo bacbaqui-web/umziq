@@ -351,6 +351,7 @@ export function completeSourceTransaction(options: {
   createdSourceIds?: readonly string[];
   deletedSourceIds?: readonly string[];
   createdLayerDocumentIds?: readonly string[];
+  deletedLayerDocumentIds?: readonly string[];
   cacheInvalidations?:
     readonly SourceRegistryCacheInvalidationDescriptor[];
 }): LayerDocumentSourceTransactionResult {
@@ -375,10 +376,16 @@ export function completeSourceTransaction(options: {
     layersBefore,
     layersAfter
   );
+  const actualDeletedLayerDocumentIds = deletedRecordIds(
+    layersBefore,
+    layersAfter
+  );
   const declaredCreatedSourceIds = options.createdSourceIds ?? [];
   const declaredDeletedSourceIds = options.deletedSourceIds ?? [];
   const declaredCreatedLayerDocumentIds =
     options.createdLayerDocumentIds ?? [];
+  const declaredDeletedLayerDocumentIds =
+    options.deletedLayerDocumentIds ?? [];
 
   if (
     !sameSortedIds(declaredCreatedSourceIds, actualCreatedSourceIds) ||
@@ -386,6 +393,10 @@ export function completeSourceTransaction(options: {
     !sameSortedIds(
       declaredCreatedLayerDocumentIds,
       actualCreatedLayerDocumentIds
+    ) ||
+    !sameSortedIds(
+      declaredDeletedLayerDocumentIds,
+      actualDeletedLayerDocumentIds
     )
   ) {
     return failSourceTransaction(
@@ -439,6 +450,8 @@ export function completeSourceTransaction(options: {
       deletedSourceIds: [...declaredDeletedSourceIds].sort(),
       createdLayerDocumentIds:
         [...declaredCreatedLayerDocumentIds].sort(),
+      deletedLayerDocumentIds:
+        [...declaredDeletedLayerDocumentIds].sort(),
       cacheInvalidations: options.cacheInvalidations ?? [],
     },
   };

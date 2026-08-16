@@ -100,7 +100,10 @@ export function commitLayerDocumentOwnerSourceTransaction(
       transaction.createdLayerDocumentIds,
       createdOwnerRecordIds(beforeLayers, afterLayers)
     ) ||
-    deletedOwnerRecordIds(beforeLayers, afterLayers).length > 0 ||
+    !ownerIdsMatch(
+      transaction.deletedLayerDocumentIds,
+      deletedOwnerRecordIds(beforeLayers, afterLayers)
+    ) ||
     (
       transaction.historyPolicy === "record-entry" &&
       transaction.historyEntry !== null &&

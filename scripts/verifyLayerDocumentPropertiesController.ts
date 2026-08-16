@@ -596,6 +596,42 @@ controller.changeModifierInput("modifier.wiggle.amount", "90");
 controller.keyDownModifierInput("modifier.wiggle.amount", "Escape");
 assert.equal(projectUpdateCount, beforeModifierEscape);
 
+controller.toggleModifier("swing");
+assert.equal(
+  project.payload.layerDocumentsById["psd-a"].common.modifiers.some(
+    (modifier) => modifier.type === "swing"
+  ),
+  true
+);
+controller.focusModifierInput("modifier.swing.frequency");
+controller.changeModifierInput("modifier.swing.frequency", "2");
+controller.blurModifierInput("modifier.swing.frequency");
+controller.focusModifierInput("modifier.swing.amount");
+controller.changeModifierInput("modifier.swing.amount", "15");
+controller.blurModifierInput("modifier.swing.amount");
+const addedSwing = project.payload.layerDocumentsById["psd-a"].common.modifiers.find(
+  (modifier) => modifier.type === "swing"
+);
+assert.equal(addedSwing?.type === "swing" && addedSwing.frequency, 2);
+assert.equal(addedSwing?.type === "swing" && addedSwing.amount, 15);
+
+controller.toggleModifier("oscillate");
+controller.focusModifierInput("modifier.oscillate.angle");
+controller.changeModifierInput("modifier.oscillate.angle", "90");
+controller.blurModifierInput("modifier.oscillate.angle");
+controller.focusModifierInput("modifier.oscillate.frequency");
+controller.changeModifierInput("modifier.oscillate.frequency", "3");
+controller.blurModifierInput("modifier.oscillate.frequency");
+controller.focusModifierInput("modifier.oscillate.amount");
+controller.changeModifierInput("modifier.oscillate.amount", "40");
+controller.blurModifierInput("modifier.oscillate.amount");
+const addedOscillate = project.payload.layerDocumentsById["psd-a"].common.modifiers.find(
+  (modifier) => modifier.type === "oscillate"
+);
+assert.equal(addedOscillate?.type === "oscillate" && addedOscillate.angle, 90);
+assert.equal(addedOscillate?.type === "oscillate" && addedOscillate.frequency, 3);
+assert.equal(addedOscillate?.type === "oscillate" && addedOscillate.amount, 40);
+
 controller.focusNumericInput("position.x");
 globalFrame += 1;
 assert.equal(controller.syncSelection(), true);

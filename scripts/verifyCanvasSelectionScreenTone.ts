@@ -21,36 +21,19 @@ assert.equal(
   0
 );
 
-function density(from: number, to: number) {
-  let active = 0;
-  let total = 0;
-  for (let y = 0; y < glow.height; y += 1) {
-    for (let x = 0; x < glow.width; x += 1) {
-      const distance = Math.max(
-        Math.abs(x - center),
-        Math.abs(y - center)
-      );
-      if (distance < from || distance > to) continue;
-      total += 1;
-      if (
-        (glow.rgba[(y * glow.width + x) * 4 + 3] ??
-          0) > 0
-      ) {
-        active += 1;
-      }
-    }
-  }
-  return active / total;
-}
-
-const outlineDensity = density(1, 2);
-const nearDensity = density(3, 5);
-const middleDensity = density(6, 9);
-const farDensity = density(10, glow.padding);
-assert.equal(outlineDensity, 1);
-assert.ok(nearDensity > middleDensity);
-assert.ok(middleDensity > farDensity);
-assert.ok(farDensity > 0);
+assert.equal(glow.padding, 8);
+const innerAlpha =
+  glow.rgba[(center * glow.width + center + 1) * 4 + 3] ?? 0;
+const outerAlpha =
+  glow.rgba[(center * glow.width + center + 2) * 4 + 3] ?? 0;
+const nearGlowAlpha =
+  glow.rgba[(center * glow.width + center + 3) * 4 + 3] ?? 0;
+const farGlowAlpha =
+  glow.rgba[(center * glow.width + center + 7) * 4 + 3] ?? 0;
+assert.equal(innerAlpha, 255);
+assert.ok(innerAlpha > outerAlpha);
+assert.ok(nearGlowAlpha > farGlowAlpha);
+assert.ok(farGlowAlpha > 0);
 
 const projection = {
   sourceToViewport: {
@@ -142,10 +125,29 @@ assert.deepEqual(reused, {
   scratchRebuilt: false,
 });
 assert.deepEqual(drawArguments[0]?.slice(1), [
-  -glow.offsetSourcePixels,
-  -glow.offsetSourcePixels,
-  glow.widthSourcePixels,
-  glow.heightSourcePixels,
+  -4,
+  -4,
+  entry.width + 8,
+  entry.height + 8,
+]);
+
+const zoomed = renderer.draw(target, {
+  ...input,
+  projection: {
+    ...projection,
+    sourceToViewport: {
+      ...projection.sourceToViewport,
+      a: 4,
+      d: 4,
+    },
+  },
+});
+assert.equal(zoomed?.scratchRebuilt, true);
+assert.deepEqual(drawArguments[2]?.slice(1), [
+  -2,
+  -2,
+  entry.width + 4,
+  entry.height + 4,
 ]);
 
 renderer.clearSelection(target);
@@ -153,5 +155,5 @@ assert.equal(target.width, 1);
 assert.equal(target.height, 1);
 
 console.log(
-  "Canvas outer gradient screen tone verification passed"
+  "Canvas 1px outline with cached outer glow verification passed"
 );

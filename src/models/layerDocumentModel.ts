@@ -154,6 +154,8 @@ export interface LayerPlacement {
   durationFrames: number;
   sourceOffsetFrames: number;
   visible: boolean;
+  /** Prevents direct transform edits while keeping the layer selectable. */
+  locked?: boolean;
   /**
    * The displayed Layer label is alias ?? LayerDocument.name.
    * Source Registry displayName describes the resource, not this edit label.
@@ -201,6 +203,21 @@ export type LayerModifier =
       modifierId: string;
       type: "wiggle";
       enabled: boolean;
+      frequency: number;
+      amount: number;
+    }
+  | {
+      modifierId: string;
+      type: "swing";
+      enabled: boolean;
+      frequency: number;
+      amount: number;
+    }
+  | {
+      modifierId: string;
+      type: "oscillate";
+      enabled: boolean;
+      angle: number;
       frequency: number;
       amount: number;
     }
@@ -255,6 +272,8 @@ export interface GroupLayerData {
   height: number;
   frameRate: number;
   durationFrames: number;
+  /** 100 means a 1080 x 1920 virtual-camera capture area. */
+  cameraScalePercent?: number;
 }
 
 export interface UnknownLayerData {

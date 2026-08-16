@@ -1076,10 +1076,41 @@ assert.equal(
 if (!parsedNestedLeaf?.common.source) {
   throw new Error("Parsed nested PSD source unavailable");
 }
+if (!parsedGroup?.common.source || !parsedCompositionId) {
+  throw new Error("Parsed PSD groups unavailable");
+}
+ports.sources.selectSource({
+  kind: "psd-tree-source",
+  sourceId: parsedGroup.common.source.sourceId,
+});
+assert.equal(
+  owner.state.session.activeGroupLayerDocumentId,
+  parsedGroup.layerDocumentId,
+  "Selecting a PSD folder should enter that folder timeline"
+);
+assert.equal(
+  owner.state.session.layerSelection?.layerDocumentId,
+  parsedCompositionId
+);
+ports.scope.enter("root");
+ports.sources.selectSource({
+  kind: "psd-tree-source",
+  sourceId: parsedPrepared.resolution.documentSourceId,
+});
+assert.equal(
+  owner.state.session.activeGroupLayerDocumentId,
+  parsedCompositionId,
+  "Selecting a PSD document should show its timeline"
+);
 ports.sources.selectSource({
   kind: "psd-tree-source",
   sourceId: parsedNestedLeaf.common.source.sourceId,
 });
+assert.equal(
+  owner.state.session.activeGroupLayerDocumentId,
+  parsedGroup.layerDocumentId,
+  "Selecting a nested PSD layer should show its parent timeline"
+);
 assert.equal(
   owner.state.session.layerSelection?.layerDocumentId,
   parsedNestedLeaf.layerDocumentId
@@ -2268,6 +2299,30 @@ assert.ok(resources.resolve({
   sourceId: "sentinel-source",
   sourceResourceCacheKey: "sentinel-key",
 }));
+
+const deleteDocumentResult = ports.sources.deleteSource({
+  sourceId: "document",
+});
+assert.equal(
+  deleteDocumentResult.ok,
+  true,
+  "Deleting a PSD document through the production port should commit"
+);
+assert.equal(
+  ports.project.read().payload.sourceRegistry.sourcesById.document,
+  undefined
+);
+assert.equal(
+  ports.project.read().payload.sourceRegistry.sourcesById.node,
+  undefined
+);
+assert.equal(
+  ports.project.read().payload.layerDocumentsById.psd,
+  undefined
+);
+assert.ok(
+  ports.project.read().payload.layerDocumentsById.root
+);
 
 assert.equal(
   effects.length,

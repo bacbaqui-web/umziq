@@ -41,10 +41,18 @@ export function createCanvasSelectionHighlightRenderer({
       CanvasSelectionHighlightRenderer["draw"]
     >[1]
   ) => {
+    const matrix = input.projection.sourceToViewport;
+    const screenScale = Math.max(
+      0.0001,
+      Math.hypot(matrix.a, matrix.b)
+    );
+    const radiusSourcePixels = 8 / screenScale;
+    const outlineSourcePixels = 1 / screenScale;
+    const scaleFingerprint = screenScale.toFixed(4);
     if (
       scratch &&
       scratchFingerprint ===
-        input.entry.visualFingerprint
+        `${input.entry.visualFingerprint}@${scaleFingerprint}`
     ) {
       return {
         canvas: scratch,
@@ -59,7 +67,8 @@ export function createCanvasSelectionHighlightRenderer({
     }
     releaseScratch();
     const glow = buildCanvasSelectionScreenToneGlow(
-      input.entry
+      input.entry,
+      { radiusSourcePixels, outlineSourcePixels }
     );
     const next = createCanvas();
     next.width = glow.width;
@@ -74,7 +83,7 @@ export function createCanvasSelectionHighlightRenderer({
     context.putImageData(imageData, 0, 0);
     scratch = next;
     scratchFingerprint =
-      input.entry.visualFingerprint;
+      `${input.entry.visualFingerprint}@${scaleFingerprint}`;
     scratchOffsetSourcePixels =
       glow.offsetSourcePixels;
     scratchWidthSourcePixels =

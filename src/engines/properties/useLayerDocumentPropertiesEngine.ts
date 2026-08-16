@@ -174,16 +174,16 @@ function modifierViews(
   descriptor: LayerDocumentPropertiesDescriptor,
   runtime: LayerDocumentPropertiesRuntimeState
 ): PropertiesModifierViewModel[] {
-  return descriptor.modifiers.flatMap((modifier) => {
-    if (modifier.type !== "wiggle") return [];
-    return [{
+  return descriptor.modifiers.flatMap((modifier): PropertiesModifierViewModel[] => {
+    if (modifier.type === "wiggle") return [{
       type: "wiggle" as const,
-      label: "Wiggle",
+      label: "부들부들",
       fields: [
         {
           id: "modifier.wiggle.frequency" as const,
           field: "frequency" as const,
-          label: "Frequency",
+          label: "초당 횟수",
+          suffix: "/s",
           value:
             runtime.inputDrafts["modifier.wiggle.frequency"] ??
             String(modifier.frequency),
@@ -191,13 +191,72 @@ function modifierViews(
         {
           id: "modifier.wiggle.amount" as const,
           field: "amount" as const,
-          label: "Amount",
+          label: "흔들림 정도",
+          suffix: "px",
           value:
             runtime.inputDrafts["modifier.wiggle.amount"] ??
             String(modifier.amount),
         },
       ],
     }];
+    if (modifier.type === "swing") return [{
+      type: "swing" as const,
+      label: "흔들흔들",
+      fields: [
+        {
+          id: "modifier.swing.frequency" as const,
+          field: "frequency" as const,
+          label: "초당 횟수",
+          suffix: "/s",
+          value:
+            runtime.inputDrafts["modifier.swing.frequency"] ??
+            String(modifier.frequency),
+        },
+        {
+          id: "modifier.swing.amount" as const,
+          field: "amount" as const,
+          label: "회전 각도",
+          suffix: "°",
+          value:
+            runtime.inputDrafts["modifier.swing.amount"] ??
+            String(modifier.amount),
+        },
+      ],
+    }];
+    if (modifier.type === "oscillate") return [{
+      type: "oscillate" as const,
+      label: "왔다갔다",
+      fields: [
+        {
+          id: "modifier.oscillate.angle" as const,
+          field: "angle" as const,
+          label: "이동 각도",
+          suffix: "°",
+          value:
+            runtime.inputDrafts["modifier.oscillate.angle"] ??
+            String(modifier.angle),
+        },
+        {
+          id: "modifier.oscillate.frequency" as const,
+          field: "frequency" as const,
+          label: "초당 횟수",
+          suffix: "/s",
+          value:
+            runtime.inputDrafts["modifier.oscillate.frequency"] ??
+            String(modifier.frequency),
+        },
+        {
+          id: "modifier.oscillate.amount" as const,
+          field: "amount" as const,
+          label: "이동 거리",
+          suffix: "px",
+          value:
+            runtime.inputDrafts["modifier.oscillate.amount"] ??
+            String(modifier.amount),
+        },
+      ],
+    }];
+    return [];
   });
 }
 
@@ -265,7 +324,12 @@ export function buildLayerDocumentPropertiesViewProps(options: {
             ).toFixed(1)}s`,
         }
       : null,
-    targetName: descriptor?.displayName ?? null,
+    // The synthetic project root is an editor implementation detail rather
+    // than a user-editable item, so the Properties panel stays empty for it.
+    targetName:
+      descriptor && !descriptor.isProjectRoot
+        ? descriptor.displayName
+        : null,
     targetEntityKind: descriptor
       ? descriptor.type === "group"
         ? "composition"
@@ -381,15 +445,35 @@ export function buildLayerDocumentPropertiesViewProps(options: {
     modifierLibrary: {
       visible:
         descriptor?.capabilities.modifiers.status === "editable",
-      items: [{
-        type: "wiggle",
-        label: "Wiggle",
-        active: Boolean(
-          descriptor?.modifiers.some(
-            (modifier) => modifier.type === "wiggle"
-          )
-        ),
-      }],
+      items: [
+        {
+          type: "wiggle",
+          label: "부들부들",
+          active: Boolean(
+            descriptor?.modifiers.some(
+              (modifier) => modifier.type === "wiggle"
+            )
+          ),
+        },
+        {
+          type: "swing",
+          label: "흔들흔들",
+          active: Boolean(
+            descriptor?.modifiers.some(
+              (modifier) => modifier.type === "swing"
+            )
+          ),
+        },
+        {
+          type: "oscillate",
+          label: "왔다갔다",
+          active: Boolean(
+            descriptor?.modifiers.some(
+              (modifier) => modifier.type === "oscillate"
+            )
+          ),
+        },
+      ],
     },
     importError: null,
     importNotice: null,

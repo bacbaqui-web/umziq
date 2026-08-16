@@ -80,6 +80,18 @@ export function buildUpdateLayerDocumentCommonTransaction(
     );
   }
   if (
+    layer.common.placement.locked &&
+    command.update.kind !== "set-lock" &&
+    command.update.kind !== "set-visibility"
+  ) {
+    return fail(
+      project,
+      "invalid-command",
+      `Layer Document is locked: ${command.layerDocumentId}`,
+      []
+    );
+  }
+  if (
     (
       command.update.kind === "commit-transform" ||
       command.update.kind === "upsert-position-keyframe"
@@ -185,6 +197,9 @@ export function buildUpdateLayerDocumentCommonTransaction(
       break;
     case "set-visibility":
       next.common.placement.visible = command.update.visible;
+      break;
+    case "set-lock":
+      next.common.placement.locked = command.update.locked;
       break;
     case "set-alias":
       next.common.placement.alias = command.update.alias;

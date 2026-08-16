@@ -21,7 +21,12 @@ export type PropertiesNumericProperty = AnimatableProperty | "anchor";
 
 export type PropertiesModifierInputId =
   | "modifier.wiggle.frequency"
-  | "modifier.wiggle.amount";
+  | "modifier.wiggle.amount"
+  | "modifier.swing.frequency"
+  | "modifier.swing.amount"
+  | "modifier.oscillate.angle"
+  | "modifier.oscillate.frequency"
+  | "modifier.oscillate.amount";
 
 export type PropertiesDraftInputId =
   | PropertiesNumericInputId
@@ -133,6 +138,8 @@ export type PropertiesModifierFieldViewModel = {
   id: PropertiesModifierInputId;
   field: ModifierNumberField;
   label: string;
+  prefix?: string;
+  suffix?: string;
   value: string;
 };
 

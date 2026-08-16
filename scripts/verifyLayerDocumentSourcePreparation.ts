@@ -1406,7 +1406,7 @@ assert.equal(
   true
 );
 
-for (const sourceId of ["shared-node", "psd-document", "audio-source"]) {
+for (const sourceId of ["shared-node", "audio-source"]) {
   const blockedDelete = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands
     .prepareDelete(project, { sourceId });
   assert.equal(blockedDelete.ok, false);
@@ -1415,6 +1415,31 @@ for (const sourceId of ["shared-node", "psd-document", "audio-source"]) {
     assert.strictEqual(blockedDelete.project, project);
   }
 }
+const deletedPsd = assertSuccess(
+  LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands.prepareDelete(
+    project,
+    { sourceId: "psd-document" }
+  )
+);
+assert.ok(deletedPsd.deletedSourceIds.includes("psd-document"));
+assert.equal(
+  Object.values(deletedPsd.after.payload.sourceRegistry.sourcesById)
+    .some(
+      (source) =>
+        source.kind === "psd-node" &&
+        source.data.documentSourceId === "psd-document"
+    ),
+  false
+);
+assert.equal(
+  Object.values(deletedPsd.after.payload.layerDocumentsById)
+    .some((layer) =>
+      deletedPsd.deletedSourceIds.includes(
+        layer.common.source?.sourceId ?? ""
+      )
+    ),
+  false
+);
 const deleted = assertSuccess(
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands.prepareDelete(
     project,

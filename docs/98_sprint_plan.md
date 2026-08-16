@@ -1,486 +1,515 @@
-# Pre-Feature Responsibility Boundary Cleanup Sprint
+# Library + Audio Foundation Sprint
 
 ## 상태
 
-- Sprint 완료
-- Task 0 PASS — Manifest/caller 및 Preserve 경계 확정
-- Task 1 PASS — Properties 전용 이름 정렬 및 공유 Preparation 계약 보존
-- Task 2 PASS — Project Controller/Source Store 책임 폴더 정렬
-- Task 3 PASS — Properties Engine/Controller 책임 폴더 정렬
-- Task 4 PASS — Timeline Controller 책임 폴더 정렬
-- Task 5 PASS — Playback Runtime 이름/위치 정렬, Scheduler 구조 보존
-- Task 6 PASS — Render Source Runtime Cache 책임 폴더 정렬
-- Task 7 PASS — legacy ProjectSource Offline Migration 경계 격리
-- Task 8 PASS — 코드 지도 동기화 및 old path audit 완료
-- Task 9 PASS — 전체 Verification 41/41 및 Build 통과
-- Browser QA 미실행 — 이번 Cleanup Sprint 범위에서 제외
+- Sprint 계획 수립 완료
+- 구현 미착수
+- Browser QA 미실행
 
 ## 기준
 
 - `docs/01_rule.md`
+- `docs/architecture/10_project_architecture.md`
+- `docs/architecture/12_timeline_playback_architecture.md`
+- `docs/architecture/13_history_draft_architecture.md`
+- `docs/architecture/15_source_architecture.md`
+- `docs/architecture/17_persistence_lifecycle_architecture.md`
 - `docs/20_src_map.md`
-- Naming & Responsibility Audit의 B 후보 중 승인된 1~3번
 
 ## Sprint 목적
 
-새 기능 개발 전에 잘못된 이름과 폴더 때문에 현재 책임을 오해할 수 있는
-경계를 정리한다. Architecture와 제품 동작은 바꾸지 않는다.
+현재 PSD 전용으로 보이는 PSD Tree를 Project의 모든 외부 파일과 그 파일에서
+생성된 Layer를 관리하는 Library Panel로 전환한다. 최상위 PSD Group 하나를
+하나의 Cut으로 해석하고, Cut별 Audio Layer import와 직접 녹음, Library
+미리 듣기·음소거, Cut/파일 순서 변경, Timeline playback과 Audio Effect
+기반을 추가한다.
+
+첫 Audio Effect는 Noise Gate 기반 `소음 줄이기`로 제한한다. 외부 VST
+plug-in hosting은 구현하지 않고 움직 내부 Audio Effect만 지원한다.
+
+## 확정 제품 결정
+
+### Library
+
+- 화면의 `PSD 트리` 명칭을 `라이브러리`로 변경한다.
+- Library는 현재 Project에 등록된 PSD, Audio와 이후 Image/Video Source를
+  관리하는 Panel이다.
+- 최상위 imported PSD Group 하나를 하나의 Cut으로 표시한다.
+- Cut 아래에는 PSD Layer와 해당 Cut에 배치된 Audio Layer를 함께 표시한다.
+- 같은 Audio Source를 여러 Cut에서 사용해도 Source Registry에는 한 번만
+  등록하고 각 사용 위치는 독립 Audio LayerDocument로 저장한다.
+- Library의 이름 변경은 disk 파일명을 바꾸지 않고 Project 안의 표시 이름만
+  변경한다.
+
+### Audio 표시와 행 command
+
+- imported Audio와 움직에서 직접 녹음한 Audio를 서로 다른 아이콘으로
+  표시한다.
+- 두 Audio 아이콘은 기존 visual Layer 아이콘과 구분되는 초록색 계열을
+  사용한다.
+- 색만으로 의미를 전달하지 않고 imported/recorded 아이콘 형태도 다르게
+  유지한다.
+- visual Layer 행의 자물쇠/눈동자 열은 그대로 유지한다.
+- Audio Layer 행의 같은 열에는 미리 듣기 재생/정지와 음소거 버튼을 둔다.
+- Library 미리 듣기는 저장되지 않는 Runtime이며 동시에 하나만 재생한다.
+- 음소거는 Project Data이며 Owner transaction과 History 대상이다.
+
+### Cut과 순서
+
+- 별도 Cut 저장 entity를 먼저 만들지 않는다.
+- 현재 최상위 PSD Group LayerDocument와 placement order를 Cut identity와
+  순서의 기준으로 재사용한다.
+- Cut 순서 변경은 최상위 Group placement order를 한 transaction으로
+  변경하며 해당 Cut의 PSD Layer와 Audio Layer는 함께 따라간다.
+- Audio를 다른 Cut으로 옮기는 것은 Audio LayerDocument의 parent Group을
+  변경하는 transaction이다.
+- Library 표시 순서와 실제 Timeline/Project 순서를 서로 다른 원본으로
+  저장하지 않는다.
+
+### Audio Properties와 Effect
+
+- 기존 Properties Engine은 선택된 Audio Layer의 기본 설정을 표시한다.
+- 기본 설정은 표시 이름, 볼륨, 음소거, 시작 위치, 길이, source offset과
+  fade in/out을 우선 대상으로 한다.
+- Compressor, Reverb, Delay와 Noise Reduction은 별도 Audio Effects Panel의
+  effect chain으로 확장한다.
+- 독립 Audio Effects Panel을 추가할 때 `Audio Effects Engine`을 둔다.
+- 첫 effect는 Noise Gate 기반 `소음 줄이기`다.
+- 이번 Noise Gate는 완전한 음성 분리나 AI denoise를 약속하지 않는다.
+
+## Architecture와 소유권
+
+| 데이터/기능 | 소유자 |
+|---|---|
+| Audio 파일 identity, locator, fingerprint, provenance | Source Registry |
+| Cut 소속, 순서, 시작, 길이, offset, 음소거 | Audio LayerDocument |
+| 볼륨, fade, effect chain과 effect parameter | Audio LayerDocument |
+| 현재 Project와 저장 변경 | Project Owner |
+| decoded AudioBuffer와 waveform cache | Editor Audio Runtime |
+| Library 미리 듣기 session | Editor Audio Runtime |
+| current frame, playback range, clock와 transport | Timeline Runtime |
+| Library projection과 사용자 intent | Library Engine |
+| Audio 기본 설정 UI와 command | Properties Engine |
+| effect chain Draft와 command | Audio Effects Engine |
+| 최종 Audio rendering/mux | Export lifecycle |
+
+다음 불변 조건을 유지한다.
+
+- Project와 LayerDocument에는 Plain Data만 저장한다.
+- File, MediaStream, AudioBuffer, AudioContext, AudioNode와 waveform bitmap은
+  저장하거나 History에 넣지 않는다.
+- Library, Timeline, Properties와 Audio Effects Engine은 Project object를
+  직접 mutation하지 않는다.
+- Panel Engine끼리 직접 import하거나 서로 새로고침을 요청하지 않는다.
+- 모든 저장 변경은 Project Owner의 검증된 transaction을 통한다.
+- current frame과 playback clock의 단일 소유자는 Timeline Runtime이다.
+- Audio Runtime은 Timeline 공개 port를 구독하며 두 번째 clock을 만들지 않는다.
+- Preview와 Export는 같은 effect data와 parameter 의미를 사용한다.
 
 ## 범위
 
-1. Properties 전용 `LayerDocumentPanel*` 이름을 Properties 책임으로 정렬
-2. `adapters`에 잘못 놓인 Controller, Store, Cache와 Runtime을 실제 owner
-   위치로 이동
-3. legacy ProjectSource 계열을 Offline Migration 폴더로 격리
+1. PSD Tree → Library 책임과 이름 전환
+2. Audio Source/Layer Plain Data, validation, normalize, migration과 persistence
+3. Cut별 imported Audio 추가와 Source Runtime 등록
+4. Library Audio 행, provenance 아이콘, 미리 듣기, 음소거, 이름 변경과 삭제
+5. Audio decode/waveform/playback Runtime과 Timeline 동기화
+6. Timeline Audio row, waveform, move/trim과 Cut 이동
+7. Cut과 Audio 순서 변경
+8. 움직 내 직접 녹음과 recorded Source 등록
+9. Audio 기본 Properties
+10. Audio Effects Panel/Engine 기반과 Noise Gate `소음 줄이기`
+11. Preview와 Export의 Audio/effect 결과 일치 기반
 
 ## 범위 밖
 
-- Public API/barrel 재설계
-- Render identity와 Frame Evaluation 명칭 정리
-- `src/engines/project` 전체 구조 변경
-- 제품 기능, UI, schema, History, Runtime 동작 변경
-- 완료 문서의 역사적 경로 일괄 수정
-- Browser QA
+- 외부 VST2/VST3/AU plug-in 검색, loading과 hosting
+- AI 음성 분리와 AI noise suppression
+- multi-track mixer, bus, send/return과 master channel
+- MIDI, instrument와 software synthesizer
+- pitch correction, time stretch와 spectral editor
+- recording 장치 고급 routing과 monitoring mix
+- Audio automation/keyframe 전체 구현
+- Video/Image Source 기능 구현
+- 별도 Cut schema/entity 도입
+- Library와 Timeline에 서로 다른 순서 원본 저장
+- 기존 완료 문서의 역사적 명칭 일괄 수정
+- 사용자 승인 없는 실제 Browser QA
 
-기존 barrel의 구조, 책임과 export 항목 수는 유지한다. Task 1에서는
-Properties 전용 exported identifier를 canonical 이름으로 교체하며, 그
-외 Task는 symbol 추가·삭제 없이 경로만 동기화한다.
+## 공통 구현 규칙
 
-## 공통 규칙
-
-- Manifest 밖 변경은 금지한다.
-- 파일 이동과 Rename은 동작 변경 없이 수행한다.
-- 각 Task는 독립 rollback 가능하게 유지한다.
-- verification의 경로·symbol은 동기화하되 검증 의미는 바꾸지 않는다.
-- completed 문서는 역사 기록으로 Preserve한다.
-- 새 폴더 책임을 만들지 않고 이미 존재하는 `controllers`, `state`와 domain
-  root를 사용한다.
-
-## Manifest
-
-### A. Properties 책임 명칭
-
-| 대상 | 최종 상태 | 비고 |
-|---|---|---|
-| Properties 전용 `LayerDocumentPanelCapability*` | `LayerDocumentPropertiesCapability*` | Rename |
-| `LayerDocumentPanelSourceDescriptor` | `LayerDocumentPropertiesSourceDescriptor` | Rename |
-| `LayerDocumentPanelTypeData` | `LayerDocumentPropertiesTypeData` | Rename |
-| `LayerDocumentPanelPlacementSummary` | `LayerDocumentPropertiesPlacementSummary` | Rename |
-| `LayerDocumentPanelDescriptor*` | `LayerDocumentPropertiesDescriptor*` | Rename |
-| `LayerDocumentPanelCommand*` | `LayerDocumentPropertiesCommand*` | Rename |
-| `buildLayerDocumentPanelDescriptor` | `buildLayerDocumentPropertiesDescriptor` | Rename |
-| `prepareLayerDocumentPanelCommand` | `prepareLayerDocumentPropertiesCommand` | Rename |
-| `layerDocumentPanelDescriptorHelpers.ts` | `layerDocumentPropertiesDescriptorHelpers.ts` | Rename |
-| `layerDocumentPanelCommandAdapter.ts` | `layerDocumentPropertiesCommandPreparationAdapter.ts` | Rename |
-
-### Properties Preserve
-
-다음 계약은 Canvas Draft도 함께 연결하므로 Properties 전용 이름으로 바꾸지
-않는다.
-
-- `LayerDocumentPanelPreparationPort`
-- `LAYER_DOCUMENT_PANEL_PREPARATION_PORT`
-- `layerDocumentPanelPreparationAdapter.ts`
-
-Properties 전용 model은 `layerDocumentPropertiesModel.ts`로 분리하고, 위
-공유 port 계약은 현재 이름과 책임을 유지한다.
-
-### B. 실제 owner 위치로 이동
-
-| 현재 파일 | 최종 위치 | 실제 책임 |
-|---|---|---|
-| `project/adapters/layerDocumentPsdPreparedSessionController.ts` | `project/controllers/` | prepared PSD session lifecycle |
-| `project/adapters/layerDocumentPsdTreeController.ts` | `project/controllers/` | PSD Tree Project command orchestration |
-| `project/adapters/layerDocumentSourceRuntimeResolutionStore.ts` | `project/state/` | Source resolution mutable Store |
-| `properties/adapters/layerDocumentPropertiesController.ts` | `properties/controllers/` | Properties Controller |
-| `properties/adapters/useLayerDocumentPropertiesEngine.ts` | `properties/` root | Properties Panel Engine |
-| `timeline/adapters/layerDocumentTimelineInteractionController.ts` | `timeline/controllers/` | Timeline interaction Controller |
-| `timeline/adapters/layerDocumentTimelineNavigationController.ts` | `timeline/controllers/` | Timeline navigation Controller |
-| `timeline/adapters/layerDocumentTimelinePlaybackAdapter.ts` | `timeline/state/layerDocumentTimelinePlaybackRuntime.ts` | 현재 Runtime 구현 전체를 변경 없이 이동 |
-| `render/adapters/layerDocumentSourceRuntimeResourceCache.ts` | `render/state/` | Source Runtime resource Cache |
-
-### C. Offline Migration 격리
-
-다음 11개 파일을 `src/models/offlineMigration/` 아래로 이동한다.
-
-- `compositionModel.ts`
-- `timelineItemModel.ts`
-- `selectionModel.ts`
-- `projectSourceModel.ts`
-- `projectSourceNormalization.ts`
-- `projectSourceValidation.ts`
-- `projectSourceToLayerDocumentMigration.ts`
-- `projectSourceMigrationIdentity.ts`
-- `projectSourceMigrationInputValidation.ts`
-- `projectSourceMigrationLayerBuilder.ts`
-- `projectSourceMigrationSourceBuilder.ts`
-
-`@/models/offlineMigration` public surface는 유지하며 runtime Editor/Engine이
-legacy 구현을 직접 import하지 않는 계약도 유지한다.
-
-## Rollback 단위
-
-| 단위 | 변경 |
-|---|---|
-| R1 | Properties 전용 명칭 정렬 |
-| R2 | Project Controller/Store 3개 이동 |
-| R3 | Properties Engine/Controller 2개 이동 |
-| R4 | Timeline Controller 2개 이동 |
-| R5 | Timeline Playback Runtime 파일명과 위치 정렬 |
-| R6 | Render Source Runtime Cache 이동 |
-| R7 | Offline Migration 11개 파일 일괄 이동 |
-| R8 | 현재 문서 동기화 |
+- 각 Task는 이전 Task의 공개 계약 위에서 독립적으로 검증 가능해야 한다.
+- rename-only Task와 기능 Task를 섞지 않는다.
+- 새 schema field는 normalize, validation, migration, round-trip fixture를 함께
+  추가한다.
+- Audio 작업 실패나 Cancel은 현재 Project와 기존 Runtime을 보존한다.
+- prepared Audio resource는 confirm 전까지 Project 밖에 두고 실패/Cancel에서
+  dispose한다.
+- PointerMove와 drag 중에는 Draft만 변경하고 drop/confirm에서 transaction과
+  History를 한 번만 만든다.
+- Source가 다른 Layer에서 사용 중이면 단일 Layer 삭제와 Source 전체 삭제를
+  구분한다.
+- Project Replace/Open/Close/Delete/Reconnect에서 Audio resource와 playback을
+  dispose-once로 정리한다.
+- 새 파일과 변경된 책임은 `docs/20_src_map.md`에 반영한다.
 
 ---
 
-## Task 0 — Manifest와 caller 확정
+## Task 0 — 현재 계약과 데이터 흐름 고정
 
 ### 목적
 
-이번 Sprint의 정확한 이동·Rename 범위를 고정한다.
+Library rename과 Audio 기능 전에 현재 PSD Tree, Source Registry, top-level
+Group order, Timeline Runtime, Export Audio 경계를 실제 코드로 확정한다.
 
 ### 작업 내용
 
-- Manifest definition, caller, public export와 verification path를 재확인한다.
-- Preserve 계약과 completed-history 제외 목록을 고정한다.
-- Manifest 밖 후보는 다음 Sprint로 보낸다.
-
-### 정적 확인
-
-- definition/caller/export 검색
-- runtime Editor/Engine의 legacy import 0건 확인
+- PSD Tree public model/view props/command와 caller를 조사한다.
+- 최상위 PSD Group과 placement order가 현재 저장되는 경로를 확정한다.
+- Source import/refresh/delete/reconnect transaction과 Runtime registration을
+  확인한다.
+- Timeline playback clock/transport와 Export Audio 경계를 확인한다.
+- 현재 Audio empty schema와 unsupported preparation의 교체 범위를 정한다.
 
 ### 완료 조건
 
-- Manifest와 실제 코드 일치
-- Public barrel 재설계 대상 0건
-- Task 1 canonical identifier 교체 외 공개 책임/항목 수 변화 0건
-- 범위 밖 후보 추가 0건
+- Library rename manifest와 public caller 목록 확정
+- Audio schema/Runtime/Panel port manifest 확정
+- 기존 dirty worktree와 충돌 파일 확인
+- 추측성 compatibility layer 추가 0건
 
 ---
 
-## Task 1 — Properties 책임 명칭 정렬
+## Task 1 — PSD Tree를 Library로 책임 전환
 
 ### 목적
 
-Properties 전용 계약이 범용 Panel 계약처럼 보이는 오해를 제거한다.
+PSD 전용 명칭을 Project file library 책임에 맞추되 기존 PSD 동작은 그대로
+보존한다.
 
 ### 작업 내용
 
-- Manifest A의 Properties 전용 파일·symbol·함수를 Rename한다.
-- model 파일에서 Properties 전용 계약과 공유 Preparation port를 구분한다.
-- Properties barrel과 관련 verification을 동기화한다.
-- Preserve 3개 계약은 이름과 역할을 유지한다.
-
-### 위험
-
-- 공유 Draft port까지 Properties로 Rename하면 실제 책임을 숨길 수 있다.
-- Timeline verification이 Properties preparation을 fixture로 사용한다.
-
-### 정적 검증
-
-- Properties Controller
-- Panel Preparation
-- Properties PSD Integration
-- Consumer Ports
-- Timeline 관련 preparation fixture
-- 변경 파일 lint, build, `git diff --check`
+- `psd-tree`, `psdtree`, `PsdTree*`의 active product 경계를 Library 명칭으로
+  정렬한다.
+- Library Engine, model, feature component와 Project controller port 이름을
+  동기화한다.
+- 화면 명칭을 `라이브러리`로 변경한다.
+- 기존 PSD import/refresh/delete/reconnect/selection UI를 보존한다.
+- Engine import boundary와 verification path를 동기화한다.
 
 ### 완료 조건
 
-- Properties 전용 `LayerDocumentPanel*` 잔여 0건
-- 공유 Preparation port 3개 Preserve
-- 제품 동작 변화 0
-- Properties 전용 exported identifier만 canonical 이름으로 교체하며
-  barrel의 책임과 export 항목 수 변화 0
-- R1 독립 rollback 가능
+- active product의 PSD 전용 Panel 책임 명칭 잔여 0건
+- 기존 PSD 동작과 public 의미 변화 0
+- Library Engine ↔ Library Panel 경계 성립
+- 변경 파일 lint, 관련 verification, build와 `git diff --check` 통과
 
 ---
 
-## Task 2 — Project Controller와 Source Store 위치 정렬
+## Task 2 — Audio Source와 LayerDocument 계약
 
 ### 목적
 
-Project adapter로 오해되는 Controller와 Store를 실제 책임 폴더로 이동한다.
+빈 Audio schema를 실제 저장 가능한 최소 Audio Layer 계약으로 교체한다.
 
 ### 작업 내용
 
-- Project Controller 2개를 `project/controllers`로 이동한다.
-- Source Runtime Resolution Store를 `project/state`로 이동한다.
-- Project barrel과 caller path만 동기화한다.
-
-### 위험
-
-- PSD Tree Engine과 Source lifecycle verification이 이전 경로를 직접 참조한다.
-
-### 정적 검증
-
-- PSD Tree Controller
-- Source Preparation/Resolution
-- Project Open/Reconnect/Lifecycle
-- Properties PSD Integration
-- 변경 파일 lint, build, `git diff --check`
+- Audio Source descriptor에 duration, channel count, sample rate와 provenance
+  (`imported | recorded`)를 Plain Data로 정의한다.
+- Audio Layer data에 gain, muted, fade와 effect chain 기본 envelope를 정의한다.
+- Cut 소속과 timing은 기존 common placement를 재사용한다.
+- normalization, structure/source validation, migration과 persistence codec을
+  확장한다.
+- Audio query와 Owner transaction preparation을 unsupported 상태에서 실제
+  command 계약으로 전환한다.
 
 ### 완료 조건
 
-- 세 파일의 owner와 폴더 일치
-- 공개 symbol과 동작 변화 0
-- R2 독립 rollback 가능
+- Audio Project save/open/save canonical round trip 일치
+- unknown/legacy Audio data의 normalize 또는 구조화 거부 정책 명확화
+- Runtime 객체 저장 0건
+- 사용자 action 한 번당 transaction/History 한 건
 
 ---
 
-## Task 3 — Properties Engine과 Controller 위치 정렬
+## Task 3 — Cut별 imported Audio 준비와 Confirm
 
 ### 목적
 
-Properties Panel Engine과 Controller가 Adapter처럼 보이는 오해를 제거한다.
+외부 Audio 파일을 현재 Cut에 안전하게 추가한다.
 
 ### 작업 내용
 
-- `useLayerDocumentPropertiesEngine.ts`를 Properties root로 이동한다.
-- `layerDocumentPropertiesController.ts`를 `properties/controllers`로
-  이동한다.
-- barrel, Editor Root와 verification path를 동기화한다.
+- WAV, MP3와 브라우저가 decode 가능한 후보 형식의 실제 지원 경계를 확정한다.
+- 파일 metadata/fingerprint/decode를 수행하는 prepared Audio session을 만든다.
+- 현재 선택 Cut 또는 명시적으로 선택한 Cut에 Audio Layer를 생성한다.
+- Confirm 성공 시 Source descriptor/Audio Layer transaction과 Runtime
+  registration을 일관되게 적용한다.
+- Cancel/failure/stale confirm에서 prepared resource를 dispose한다.
 
-### 위험
+### 완료 조건
 
-- Editor Root와 Engine boundary verification이 경로 문자열을 검사한다.
+- 성공 시 Source 1건과 Audio Layer 1건이 같은 action으로 생성
+- 실패/Cancel 시 Project update, transaction과 History 0건
+- 같은 Source 재사용 시 descriptor/resource 중복 생성 없음
+- Missing/Reconnect에 필요한 fingerprint와 locator 저장
 
-### 정적 검증
+---
 
-- Properties Controller
-- Editor Root
+## Task 4 — Library Audio 행과 file 관리 command
+
+### 목적
+
+Cut 아래에서 imported/recorded Audio를 구분하고 기본 관리 command를 제공한다.
+
+### 작업 내용
+
+- imported Audio와 recorded Audio 아이콘을 초록색 계열로 추가한다.
+- visual Layer의 자물쇠/눈동자 열과 같은 위치에 Audio 재생/정지와 음소거를
+  배치한다.
+- 이름 변경, Layer 삭제, Source 전체 삭제와 Reconnect command를 연결한다.
+- 사용 중 Source 삭제는 dependent Layer 범위를 보여주고 명시적으로 확인한다.
+- Library selection과 Timeline/Properties selection identity를 동일한
+  layerDocumentId로 유지한다.
+
+### 완료 조건
+
+- 아이콘 형태만으로 imported/recorded 구분 가능
+- Library 미리 듣기 상태가 Project/History에 저장되지 않음
+- 음소거와 이름 변경은 Owner transaction/History로 복원 가능
+- Layer 삭제와 공유 Source 삭제 의미가 섞이지 않음
+
+---
+
+## Task 5 — Audio Runtime과 Library 미리 듣기
+
+### 목적
+
+Audio resource lifecycle과 동시에 하나만 재생되는 Library audition을 만든다.
+
+### 작업 내용
+
+- decoded AudioBuffer/resource registry와 waveform cache를 Editor Runtime에
+  추가한다.
+- 재생/정지/교체/seek와 상태 구독 public port를 정의한다.
+- 다른 Audio 미리 듣기 시작 시 기존 audition을 정지한다.
+- Project Open/Replace/Close, Source Refresh/Delete/Reconnect와 component
+  cleanup에서 resource를 reconcile/invalidate/dispose한다.
+- UI thread를 불필요하게 막지 않는 decode/waveform 생성 경계를 둔다.
+
+### 완료 조건
+
+- 동시에 활성 audition 1개 이하
+- Project 교체 후 이전 Audio 재생 0건
+- stale resource 재사용 0건
+- resource dispose 중복 0건
+
+---
+
+## Task 6 — Timeline Audio row와 playback 동기화
+
+### 목적
+
+Audio Layer를 Timeline에서 배치하고 하나의 playback clock으로 Canvas와 Audio를
+동기화한다.
+
+### 작업 내용
+
+- Audio row와 waveform projection을 추가한다.
+- move, trim, source offset과 Cut 이동 Draft/commit을 연결한다.
+- Timeline play/pause/seek/range/loop에 Audio Runtime을 동기화한다.
+- current frame의 두 번째 owner나 별도 persistent playback state를 만들지
+  않는다.
+- 음소거, gain과 fade를 Preview playback에 적용한다.
+
+### 완료 조건
+
+- Timeline current frame의 단일 authority 유지
+- seek/pause/resume 뒤 Audio와 visual frame 동기화
+- drag 중 History 0건, drop 시 History 1건
+- hidden/muted/deleted Audio가 재생되지 않음
+
+---
+
+## Task 7 — Cut과 Audio 순서 변경
+
+### 목적
+
+Library에서 Cut 순서와 Audio 소속/순서를 직접 변경한다.
+
+### 작업 내용
+
+- top-level Cut drag/drop으로 기존 placement order를 변경한다.
+- Cut 전체 이동 시 child visual/Audio Layer 관계를 보존한다.
+- Audio를 다른 Cut에 drop하면 parent Group과 필요한 local timing을 한
+  transaction으로 갱신한다.
+- 같은 Cut 안의 Audio 표시 순서는 canonical placement order에서 계산한다.
+- invalid drop, self/descendant cycle과 stale drag를 거부한다.
+
+### 완료 조건
+
+- Library와 Timeline에서 Cut 순서 일치
+- Cut 이동 후 child Audio 누락 0건
+- Audio Cut 이동 후 source identity와 effect data 보존
+- Undo/Redo 한 번으로 전체 reorder 복원
+
+---
+
+## Task 8 — 움직 내 직접 녹음
+
+### 목적
+
+브라우저 마이크 녹음을 현재 Cut의 recorded Audio로 추가한다.
+
+### 작업 내용
+
+- microphone permission, start/stop/cancel과 error state를 명시한다.
+- 녹음 중 buffer/blob/stream은 prepared Runtime으로 유지한다.
+- Confirm에서 recorded Source descriptor와 Audio Layer를 현재 Cut에 생성한다.
+- recorded provenance, 자동 표시 이름과 전용 아이콘을 적용한다.
+- Cancel, permission denial, track end와 Project 교체에서 MediaStream track을
+  정리한다.
+
+### 완료 조건
+
+- 사용자 gesture와 permission 경계 명확화
+- Cancel 시 Project update/History 0건
+- 녹음 성공 시 imported Audio와 같은 playback/persistence 경로 사용
+- recording stream과 object URL 누수 0건
+
+---
+
+## Task 9 — Audio 기본 Properties
+
+### 목적
+
+선택한 Audio Layer의 저장 가능한 기본 설정을 기존 Properties Panel에
+제공한다.
+
+### 작업 내용
+
+- Audio 선택 시 Audio type section을 표시한다.
+- gain, muted, start/duration/source offset과 fade in/out command를 제공한다.
+- 연속 입력은 Draft, 확정은 Owner transaction 한 번으로 처리한다.
+- 다른 Layer Type Properties와 selection/history 규칙을 공유한다.
+
+### 완료 조건
+
+- Audio 선택 시 visual Transform 전용 UI를 잘못 노출하지 않음
+- Properties/Timeline/Library 선택 identity 일치
+- Undo/Redo 뒤 Runtime이 현재 Project에 맞게 재평가
+- 저장/재열기 후 동일한 Audio 기본 설정 복원
+
+---
+
+## Task 10 — Audio Effects Panel/Engine 기반
+
+### 목적
+
+오디오 기본 Properties와 분리된 effect chain 편집 경계를 만든다.
+
+### 작업 내용
+
+- Audio Effects Panel, Engine public view props와 command 계약을 추가한다.
+- effect add/remove/reorder/enable/bypass와 parameter Draft/commit을 정의한다.
+- effect chain은 Audio LayerDocument Plain Data에 저장한다.
+- Engine은 Project를 소유하지 않고 Owner preparation/transaction port를
+  사용한다.
+- 다른 Panel Engine은 Audio Effects Engine을 직접 import하지 않는다.
+
+### 완료 조건
+
+- 독립 Panel ↔ Engine 책임 성립
+- effect chain 저장 원본 1개
+- effect reorder/parameter 확정 action당 History 1건
+- Engine Import Boundary 검증 통과
+
+---
+
+## Task 11 — Noise Gate `소음 줄이기`
+
+### 목적
+
+첫 움직 내장 Audio Effect로 단순하고 예측 가능한 Noise Gate를 제공한다.
+
+### 작업 내용
+
+- UI는 `소음 줄이기` on/off와 강도 중심으로 제공한다.
+- threshold, attack, release와 floor/range의 내부 parameter 계약을 정의한다.
+- Preview는 AudioWorklet 또는 검증된 Audio graph 경계에서 처리한다.
+- Export는 같은 parameter와 알고리즘 의미로 full audio를 처리한다.
+- 강한 설정에서 음절 시작/끝 잘림과 pumping 위험을 제한한다.
+
+### 완료 조건
+
+- 무음/저레벨 구간 감쇠가 결정적으로 적용됨
+- 발화 중 지속 소음까지 완전히 제거한다고 표시하지 않음
+- Preview와 Export parameter/result 의미 일치
+- bypass 시 원본 audio sample 의미 보존
+
+---
+
+## Task 12 — Export Audio 연결
+
+### 목적
+
+Timeline 배치와 effect chain이 적용된 Audio를 기존 영상 출력에 결합한다.
+
+### 작업 내용
+
+- Accurate frame scheduling과 같은 Timeline range/fps/duration을 사용한다.
+- 각 Audio Layer의 start, duration, source offset, mute, gain, fade와 effect
+  chain을 반영한다.
+- MP4/WebM의 지원 codec/container 조합과 실패 결과를 명시한다.
+- Preview Runtime의 임시 audition state는 Export에 반영하지 않는다.
+
+### 완료 조건
+
+- Preview와 Export의 Audio timing/effect 의미 일치
+- muted/out-of-range Audio 제외
+- 원본 decode 또는 encode 실패 시 불완전 파일을 성공으로 보고하지 않음
+- Export 완료/취소/실패에서 encoder와 Audio resource 정리
+
+---
+
+## Task 13 — 문서 동기화와 최종 검증
+
+### 목적
+
+Library/Audio의 현재 구현 위치, 공개 경계와 회귀 결과를 문서와 검증에
+반영한다.
+
+### 작업 내용
+
+- `docs/20_src_map.md`를 Library Engine, Audio Runtime, Audio Effects Engine과
+  Source/Layer 계약에 맞게 갱신한다.
+- canonical Architecture에 새 영구 계약이 생기면 해당 문서를 갱신한다.
+- Audio schema/lifecycle/transaction/playback/effect/export fixture를 추가한다.
+- active code의 old PSD Tree 책임 명칭과 Audio unsupported 경계를 audit한다.
+
+### 최종 검증
+
+- 변경 파일 ESLint
+- Audio schema normalize/validation/migration/round-trip verification
+- Audio prepare/confirm/cancel/resource lifecycle verification
+- Library selection/delete/reorder/Source sharing verification
+- Timeline playback/seek/trim/Cut 이동 verification
+- Properties와 Audio Effects transaction/history verification
+- Noise Gate Preview/Export parity fixture
 - Engine Import Boundaries
-- Properties PSD Integration
-- 변경 파일 lint, build, `git diff --check`
-
-### 완료 조건
-
-- Properties Engine ↔ Panel 경계 유지
-- Controller 동작 변화 0
-- R3 독립 rollback 가능
-
----
-
-## Task 4 — Timeline Controller 위치 정렬
-
-### 목적
-
-Timeline interaction/navigation 수명 조정자가 Adapter처럼 보이는 오해를
-제거한다.
-
-### 작업 내용
-
-- Interaction Controller와 Navigation Controller를
-  `timeline/controllers`로 이동한다.
-- Timeline Engine, barrel과 verification path를 동기화한다.
-
-### 위험
-
-- Timeline UI boundary와 harness가 경로를 직접 검사한다.
-
-### 정적 검증
-
-- Timeline Controller Harness
-- Timeline UI Boundary/Integration
-- Public Keyframes/Reorder
-- Engine Import Boundaries
-- 변경 파일 lint, build, `git diff --check`
-
-### 완료 조건
-
-- 두 Controller의 owner와 폴더 일치
-- Timeline intent/command 변화 0
-- R4 독립 rollback 가능
-
----
-
-## Task 5 — Timeline Playback Runtime 위치 정렬
-
-### 목적
-
-Playback Runtime이 Adapter처럼 보이지 않도록 파일명과 위치를 실제 책임에
-맞춘다.
-
-### 작업 내용
-
-- `layerDocumentTimelinePlaybackAdapter.ts`를
-  `timeline/state/layerDocumentTimelinePlaybackRuntime.ts`로 이동한다.
-- 파일명, import, barrel과 caller 경로만 동기화한다.
-- Window scheduler를 포함한 현재 파일 내부 구현은 그대로 유지한다.
-- 기존 public factory와 Runtime port는 유지한다.
-
-### 위험
-
-- path 기반 verification이나 직접 import를 누락할 수 있다.
-- 파일 이동을 Runtime/Scheduler 구조 개선으로 확대할 수 있다.
-
-### 정적 검증
-
-- Playback Helpers
-- Timeline Controller/UI Integration
-- Project Lifecycle
-- Editor Root
-- current frame/Undo 계약 verification
-- 변경 파일 lint, build, `git diff --check`
-
-### 완료 조건
-
-- currentFrame/range/isPlaying/clock owner 변화 0
-- scheduler 동작 변화 0
-- 파일 내부 Runtime/Lifecycle 구현 변화 0
-- public API 변화 0
-- R5 독립 rollback 가능
-
----
-
-## Task 6 — Render Source Runtime Cache 위치 정렬
-
-### 목적
-
-stateful resource Cache를 변환 Adapter와 구분한다.
-
-### 작업 내용
-
-- `layerDocumentSourceRuntimeResourceCache.ts`를 `render/state`로 이동한다.
-- Render barrel과 caller path만 동기화한다.
-- 등록, suspend, invalidate와 dispose 로직은 변경하지 않는다.
-
-### 위험
-
-- Import/Refresh/Reconnect와 Preview Runtime이 동일 Cache를 공유한다.
-
-### 정적 검증
-
-- Preview Runtime Cache
-- Preview Backing Scale Lifecycle
-- Project Open/Reconnect
-- Consumer Ports
-- Runtime Metrics
-- 변경 파일 lint, build, `git diff --check`
-
-### 완료 조건
-
-- Cache 수명과 dispose 횟수 변화 0
-- public API 변화 0
-- R6 독립 rollback 가능
-
----
-
-## Task 7 — Offline Migration 격리
-
-### 목적
-
-legacy ProjectSource 모델을 현재 canonical model로 오해할 가능성을 제거한다.
-
-### 작업 내용
-
-- Manifest C의 11개 파일을 `src/models/offlineMigration`으로 함께 이동한다.
-- 내부 상호 import와 offline barrel 경로를 동기화한다.
-- `@/models/offlineMigration` 외 runtime import 금지 계약을 유지한다.
-
-### 위험
-
-- 11개 파일이 서로 참조하므로 일부만 이동하면 alias가 깨진다.
-- 과거 프로젝트 변환 결과가 달라져서는 안 된다.
-
-### 정적 검증
-
-- ProjectSource → LayerDocument Migration
-- LayerDocument Legacy Removal
-- Engine Import Boundaries
-- Schema/Normalization 관련 verification
-- 변경 파일 lint, build, `git diff --check`
-
-### 완료 조건
-
-- legacy 11개 파일의 `src/models` 루트 잔여 0건
-- runtime Editor/Engine legacy import 0건
-- migration 결과 변화 0
-- R7 일괄 rollback 가능
-
----
-
-## Task 8 — 문서 동기화와 Old Path Audit
-
-### 목적
-
-현재 코드 지도와 실제 경계를 일치시키고 이동 누락을 찾는다.
-
-### 작업 내용
-
-- `docs/20_src_map.md`를 현재 이름과 경로로 갱신한다.
-- `docs/98_sprint_plan.md`에 진행 상태를 간단히 기록한다.
-- completed 문서는 변경하지 않는다.
-- 이전 파일 경로와 Properties 전용 old symbol을 검색한다.
-
-### 정적 확인
-
-- Manifest old path의 active code/current docs 잔여 0건
-- 의도하지 않은 Properties 전용 `LayerDocumentPanel*` 잔여 0건
-- completed-history 제외 확인
-
-### 완료 조건
-
-- 현재 코드와 `20_src_map.md` 일치
-- Manifest 밖 변경 0건
-- R8 독립 rollback 가능
-
----
-
-## Task 9 — 최종 Verification / Build
-
-### 목적
-
-모든 Rename과 Move가 기존 제품 계약을 유지했는지 최종 확인한다.
-
-### 작업 내용
-
-- Task 8 Old Path Audit을 재확인한다.
-- 전체 Verification과 Build를 실행한다.
-- 실패 시 원인이 발생한 rollback 단위에서만 수정한다.
-
-### 검증
-
-- Old Path Audit
-- `npm run test`
+- 전체 `npm run test`
 - `npm run build`
 - `git diff --check`
+- Browser QA는 사용자 승인 시 별도 실행
 
-### 완료 조건
+### Sprint 완료 조건
 
-- 전체 Verification PASS
-- Build PASS
-- Old Path Audit PASS
-- 제품 동작, schema와 Architecture 변화 0
-- Public barrel 재설계와 공개 책임/항목 수 변화 0
-- Manifest 밖 변경 0건
-
-## Deferred Work — Playback Runtime / Scheduler Responsibility Refactoring
-
-이번 Sprint에서는 계획만 남기고 구현하지 않는다.
-
-후속 Playback Refactoring Sprint에서 다음을 별도로 검토한다.
-
-- Runtime과 Scheduler 책임 분리
-- Playback Lifecycle 정리
-- Clock/Listener ownership 검토
-- Dispose 구조 검토
-- Browser Scheduler 추상화 필요 여부
-
-이 작업은 새로운 책임 분리와 구조 리팩토링이므로 현재 Cleanup Sprint
-범위에 포함하지 않는다.
-
-## Browser QA
-
-이번 Sprint에서는 수행하지 않는다. 제품 기능 변경이 없으며 사용자가
-별도로 요청하기 전까지 자동 실행하지 않는다.
-
-## Sprint 완료 조건
-
-- Task 0~9 PASS
-- R1~R8 독립 rollback 가능
-- Verification, Build와 Old Path Audit PASS
-- Public API 재설계 0건
-- Task 1 canonical identifier 교체 외 공개 책임/항목 수 변화 0건
-- Browser QA 미실행
+- Task 0~13 PASS
+- Library에서 PSD와 Audio Source/Layer 관리 가능
+- imported/recorded Audio 구분, 미리 듣기와 음소거 동작
+- Cut reorder와 Cut별 Audio 배치/이동 동작
+- Timeline visual/audio 재생 clock 단일화 유지
+- Audio 기본 Properties와 독립 Audio Effects Panel 경계 성립
+- Noise Gate `소음 줄이기` Preview/Export 적용
+- 저장/열기/Missing/Reconnect/Delete/Undo/Redo 회귀 통과
+- 외부 VST hosting과 AI denoise 추가 0건
+- Architecture, `docs/20_src_map.md`와 실제 코드 일치

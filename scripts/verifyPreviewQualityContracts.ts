@@ -63,6 +63,7 @@ assert.match(
   composition,
   /pixelScale:\s*PREVIEW_QUALITY_SCALE\[previewQuality\]/
 );
+assert.doesNotMatch(composition, /settledPreviewZoom/);
 assert.match(composition, /previewQuality,/);
 assert.match(
   composition,

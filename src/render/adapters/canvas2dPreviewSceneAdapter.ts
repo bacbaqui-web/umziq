@@ -6,12 +6,10 @@ import {
 } from "@/render/adapters/canvas2dPreviewSurfaceAdapter";
 import {
   buildPreviewSceneDrawPlan,
-  shouldDrawNodeForDirtyBounds,
 } from "@/render/helpers/previewSceneDirtyRegionHelpers";
 import type {
   PreviewCanvasDrawState,
   PreviewCompositionCachePort,
-  PreviewNodeBounds,
   PreviewRenderSurfaceFactory,
   PreviewSurfaceCachePort,
 } from "@/render/models/previewCanvasRenderModel";
@@ -28,26 +26,14 @@ export type {
   PreviewCanvasDrawState,
   PreviewCompositionCacheKeyInput,
   PreviewCompositionCachePort,
-  PreviewNodeBounds,
   PreviewRenderSurface,
   PreviewRenderSurfaceFactory,
   PreviewSurfaceCacheAcquireInput,
   PreviewSurfaceCachePort,
 } from "@/render/models/previewCanvasRenderModel";
-
-function clearDirtyBounds(
-  context: Canvas2DRenderContext,
-  bounds: PreviewNodeBounds,
-  pixelScale: number
-) {
-  const left = Math.floor(bounds.left * pixelScale);
-  const top = Math.floor(bounds.top * pixelScale);
-  const right = Math.ceil(bounds.right * pixelScale);
-  const bottom = Math.ceil(bounds.bottom * pixelScale);
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.clearRect(left, top, right - left, bottom - top);
-  context.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
-}
+export type {
+  PreviewNodeBounds,
+} from "@/render/models/previewCanvasRenderModel";
 
 function retainSkippedCompositionSurfaces(
   nodes: readonly PreviewNode[],
@@ -83,6 +69,9 @@ export function drawPreviewSceneToContext(
   surfaceCache?: PreviewSurfaceCachePort,
   resolveNodeVisual?: RenderNodeVisualResolver
 ) {
+  const origin = previewScene.origin ?? { x: 0, y: 0 };
+  context.save();
+  context.translate(-origin.x, -origin.y);
   drawPreviewNodesToContext({
     context,
     nodes: previewScene.nodes,
@@ -94,6 +83,7 @@ export function drawPreviewSceneToContext(
     previewQuality,
     surfaceCache,
   });
+  context.restore();
 }
 
 export function renderPreviewSceneToCanvas({
@@ -154,42 +144,20 @@ export function renderPreviewSceneToCanvas({
 
   if (drawPlan.mode === "dirty") {
     runtimeMetrics?.increment("dirtyPartial");
-    retainSkippedCompositionSurfaces(
-      previewScene.nodes,
-      compositionCache,
-      previewQuality,
-      pixelSize.scale
-    );
-    clearDirtyBounds(context, drawPlan.dirtyBounds, pixelSize.scale);
-    context.save();
-    context.beginPath();
-    context.rect(
-      drawPlan.dirtyBounds.left,
-      drawPlan.dirtyBounds.top,
-      drawPlan.dirtyBounds.right - drawPlan.dirtyBounds.left,
-      drawPlan.dirtyBounds.bottom - drawPlan.dirtyBounds.top
-    );
-    context.clip();
-    const skippedCount = drawPreviewNodesToContext({
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, pixelSize.width, pixelSize.height);
+    context.setTransform(pixelSize.scale, 0, 0, pixelSize.scale, 0, 0);
+    drawPreviewSceneToContext(
       context,
-      nodes: previewScene.nodes,
-      resolveNodeVisual,
+      previewScene,
       createSurface,
-      pixelScale: pixelSize.scale,
+      pixelSize.scale,
       runtimeMetrics,
       compositionCache,
       previewQuality,
       surfaceCache,
-      shouldDrawNode: (node) =>
-        shouldDrawNodeForDirtyBounds({
-          node,
-          dirtyBounds: drawPlan.dirtyBounds,
-          previousNodeBoundsById: drawPlan.previousNodeBoundsById,
-          nextNodeBoundsById: drawPlan.nextNodeBoundsById,
-        }),
-    });
-    context.restore();
-    runtimeMetrics?.increment("drawImageSkipped", skippedCount);
+      resolveNodeVisual
+    );
     runtimeMetrics?.increment(
       "canvasDrawTime",
       Math.max(1, Math.ceil(performance.now() - startTime))

@@ -78,6 +78,8 @@ export type EvaluatedScene = {
   readonly compositionId: string;
   readonly globalFrame: number;
   readonly size: EvaluatedSceneSize;
+  /** World coordinate represented by the preview canvas top-left. */
+  readonly origin?: Position;
   readonly localFrameBySourceId: ReadonlyMap<string, number>;
   readonly localFrameByLayerDocumentId:
     ReadonlyMap<string, number>;

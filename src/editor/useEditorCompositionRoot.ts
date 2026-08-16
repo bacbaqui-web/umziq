@@ -1,6 +1,7 @@
 import {
   useEffect,
   useEffectEvent,
+  useMemo,
 } from "react";
 import {
   PREVIEW_MIN_WORKSPACE_HEIGHT,
@@ -45,15 +46,20 @@ import {
 import {
   useLayerDocumentPanelEnginePorts,
 } from "@/editor/useLayerDocumentPanelEnginePorts";
+import {
+  createFullResolutionProjectRenderer,
+  exportProject,
+} from "@/editor/projectExport";
 
 export function useEditorCompositionRoot():
 EditorShellLayoutProps {
   const shell = useEditorShellLayoutState();
+  const owner = useLayerDocumentEditorOwner();
   const canvasState = useEditorCanvasRuntimeState(
     PREVIEW_MIN_WORKSPACE_WIDTH,
-    PREVIEW_MIN_WORKSPACE_HEIGHT
+    PREVIEW_MIN_WORKSPACE_HEIGHT,
+    owner.state.currentProject.metadata.projectId
   );
-  const owner = useLayerDocumentEditorOwner();
   const runtime =
     useLayerDocumentEditorRuntime(owner);
   const panelPorts =
@@ -104,6 +110,8 @@ EditorShellLayoutProps {
       durationFrames:
         scope.model.activeGroup.data
           .durationFrames,
+      parentWidth: scope.model.activeGroup.data.width,
+      parentHeight: scope.model.activeGroup.data.height,
       nextOrder:
         panelPorts.nextPsdLayerOrder,
       cacheContext:
@@ -136,6 +144,13 @@ EditorShellLayoutProps {
         SHORTFORM_FRAME_WIDTH,
       shortformFrameHeight:
         SHORTFORM_FRAME_HEIGHT,
+      projectId:
+        runtime.owner.state.currentProject.metadata.projectId,
+      cameraScalePercent: canvasState.cameraScalePercent,
+      setCameraScalePercent: (percent) =>
+        canvasState.setCameraScalePercent(
+          Math.min(1000, Math.max(1, percent))
+        ),
       resetRevision:
         runtime.ownerEffect.revision,
     });
@@ -198,6 +213,24 @@ EditorShellLayoutProps {
     undo: panelPorts.history.undo,
     redo: panelPorts.history.redo,
   });
+  const fullResolutionProjectRenderer = useMemo(
+    () =>
+      createFullResolutionProjectRenderer({
+        readProject: () =>
+          runtime.owner.state.currentProject,
+        resources: runtime.resources,
+        readSourceResolutionStatus: (sourceId) =>
+          runtime.sourceResolution.read(sourceId).status,
+        cameraScalePercent:
+          canvasState.cameraScalePercent,
+      }),
+    [
+      canvasState.cameraScalePercent,
+      runtime.owner,
+      runtime.resources,
+      runtime.sourceResolution,
+    ]
+  );
   return {
     leftPanelWidth: shell.leftPanelWidth,
     rightPanelWidth: shell.rightPanelWidth,
@@ -239,7 +272,33 @@ EditorShellLayoutProps {
       properties.viewProps,
     timelinePanelProps:
       timeline.viewProps,
-    projectLifecycleProps:
-      runtime.projectLifecycleProps,
+    projectLifecycleProps: {
+      ...runtime.projectLifecycleProps,
+      exportOptions: {
+        projectName:
+          runtime.owner.state.currentProject.metadata.name,
+        prepare: () =>
+          panelPorts.psdTreeController.openProject(),
+        durationFrames:
+          scope.model.activeGroup.data.durationFrames,
+        frameRate:
+          scope.model.activeGroup.data.frameRate,
+        run: (format, destination, onProgress) =>
+          exportProject({
+            format,
+            projectName:
+              runtime.owner.state.currentProject.metadata.name,
+            renderFrame:
+              fullResolutionProjectRenderer,
+            playback: runtime.playback,
+            durationFrames:
+              scope.model.activeGroup.data.durationFrames,
+            frameRate:
+              scope.model.activeGroup.data.frameRate,
+            onProgress,
+            destination,
+          }),
+      },
+    },
   };
 }

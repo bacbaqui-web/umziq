@@ -233,6 +233,7 @@ export function buildCanvasGuideViewModel({
   zoom,
   showShortformFrame,
   showSafeZoneGuides,
+  cameraScalePercent,
 }: {
   previewSize: { width: number; height: number };
   shortformFrameWidth: number;
@@ -240,16 +241,19 @@ export function buildCanvasGuideViewModel({
   zoom: number;
   showShortformFrame: boolean;
   showSafeZoneGuides: boolean;
+  cameraScalePercent: number;
 }) {
+  const cameraScale = Math.max(1, cameraScalePercent) / 100;
   return {
     previewSize,
     geometry: buildPreviewGuideGeometry(
       previewSize,
-      shortformFrameWidth,
-      shortformFrameHeight
+      shortformFrameWidth * cameraScale,
+      shortformFrameHeight * cameraScale
     ),
     showShortformFrame,
     showSafeZoneGuides,
     safeZoneStrokeWidth: 1 / Math.max(zoom, 0.0001),
+    cameraScalePercent,
   };
 }

@@ -1074,9 +1074,10 @@ renderPreviewSceneToCanvas({
 });
 assert.deepEqual(directResolveCalls, [
   "layer-document-foreground",
+  "layer-document-separated",
   "layer-document-mover",
 ]);
-assert.deepEqual(clearCalls.at(-1), [8, 8, 35, 25]);
+assert.deepEqual(clearCalls.at(-1), [0, 0, 200, 100]);
 
 compositionCache.beginFrame();
 compositionCache.endFrame();

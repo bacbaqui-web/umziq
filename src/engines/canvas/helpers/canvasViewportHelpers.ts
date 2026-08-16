@@ -3,11 +3,32 @@ import type { CanvasSceneSize } from "@/engines/canvas/models/canvasEngineModel"
 import {
   PREVIEW_MAX_ZOOM,
   PREVIEW_MIN_ZOOM,
+  PREVIEW_WHEEL_ZOOM_STEPS,
 } from "@/engines/canvas/constants/canvasConstants";
 import type { CanvasSize } from "@/engines/canvas/models/canvasEngineModel";
 
 export function clampCanvasZoom(value: number) {
   return Math.min(PREVIEW_MAX_ZOOM, Math.max(PREVIEW_MIN_ZOOM, value));
+}
+
+export function getCanvasWheelZoom(currentZoom: number, deltaY: number) {
+  const epsilon = 0.0001;
+  if (deltaY < 0) {
+    return (
+      PREVIEW_WHEEL_ZOOM_STEPS.find(
+        (step) => step > currentZoom + epsilon
+      ) ?? PREVIEW_WHEEL_ZOOM_STEPS.at(-1)!
+    );
+  }
+  if (deltaY > 0) {
+    return (
+      [...PREVIEW_WHEEL_ZOOM_STEPS]
+        .reverse()
+        .find((step) => step < currentZoom - epsilon) ??
+      PREVIEW_WHEEL_ZOOM_STEPS[0]
+    );
+  }
+  return currentZoom;
 }
 
 export function getCenteredCanvasPan(

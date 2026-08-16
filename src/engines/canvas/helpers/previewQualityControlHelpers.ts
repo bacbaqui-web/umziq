@@ -26,15 +26,11 @@ const PREVIEW_QUALITY_PREFERENCES: readonly PreviewQualityPreference[] = [
 ];
 
 function buildOption(
-  preference: PreviewQualityPreference,
-  currentQuality: ResolvedPreviewQuality
+  preference: PreviewQualityPreference
 ): PreviewQualityOptionViewModel {
   return {
     preference,
-    label:
-      preference === "auto"
-        ? `자동 (현재: ${PREVIEW_QUALITY_LABELS[currentQuality]})`
-        : PREVIEW_QUALITY_LABELS[preference],
+    label: PREVIEW_QUALITY_LABELS[preference],
   };
 }
 
@@ -45,8 +41,6 @@ export function buildPreviewQualityControlViewModel(input: {
   return {
     preference: input.preference,
     currentQuality: input.quality,
-    options: PREVIEW_QUALITY_PREFERENCES.map((preference) =>
-      buildOption(preference, input.quality)
-    ),
+    options: PREVIEW_QUALITY_PREFERENCES.map(buildOption),
   };
 }

@@ -15,6 +15,9 @@ export function useCanvasGuideController({
   setShowShortformFrame,
   showSafeZoneGuides,
   setShowSafeZoneGuides,
+  cameraScalePercent,
+  setCameraScalePercent,
+  commitCameraScalePercent,
 }: {
   previewSize: CanvasSize;
   zoom: number;
@@ -24,6 +27,9 @@ export function useCanvasGuideController({
   setShowShortformFrame: Dispatch<SetStateAction<boolean>>;
   showSafeZoneGuides: boolean;
   setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
+  cameraScalePercent: number;
+  setCameraScalePercent: (percent: number) => void;
+  commitCameraScalePercent: (percent: number) => void;
 }) {
   const viewModel: CanvasGuideViewModel = useMemo(
     () =>
@@ -34,6 +40,7 @@ export function useCanvasGuideController({
         zoom,
         showShortformFrame,
         showSafeZoneGuides,
+        cameraScalePercent,
       }),
     [
       previewSize,
@@ -42,6 +49,7 @@ export function useCanvasGuideController({
       showSafeZoneGuides,
       showShortformFrame,
       zoom,
+      cameraScalePercent,
     ]
   );
   const toggleShortformFrame = useCallback(
@@ -52,7 +60,12 @@ export function useCanvasGuideController({
     () => setShowSafeZoneGuides((current) => !current),
     [setShowSafeZoneGuides]
   );
-  const commands: CanvasGuideCommands = { toggleShortformFrame, toggleSafeZone };
+  const commands: CanvasGuideCommands = {
+    toggleShortformFrame,
+    toggleSafeZone,
+    setCameraScalePercent,
+    commitCameraScalePercent,
+  };
 
   return { viewModel, commands };
 }

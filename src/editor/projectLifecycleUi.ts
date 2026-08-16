@@ -4,6 +4,7 @@ import type {
   LayerDocumentProjectReconnectController,
   LayerDocumentProjectReconnectReadItem,
   LayerDocumentProjectSaveController,
+  LayerDocumentProjectWriteTarget,
 } from "@/engines/project";
 import type {
   LayerDocumentProject,
@@ -16,6 +17,8 @@ export type ProjectLifecycleUiNotice = {
 } | null;
 
 export interface ProjectLifecycleUiViewModel {
+  readonly projectCreated: boolean;
+  readonly projectLocation: string | null;
   readonly document: "untitled" | "file-backed";
   readonly dirty: "clean" | "dirty";
   readonly operation: "idle" | "saving" | "loading";
@@ -25,11 +28,18 @@ export interface ProjectLifecycleUiViewModel {
   readonly notice: ProjectLifecycleUiNotice;
 }
 
+export type ProjectLifecycleNewProjectRequest = {
+  readonly projectName: string;
+  readonly directoryName: string;
+  readonly psdFiles: readonly File[];
+  readonly target: LayerDocumentProjectWriteTarget;
+};
+
 export interface ProjectLifecycleUiCommandPort {
   readonly read: () => ProjectLifecycleUiViewModel;
   readonly newProject: (
-    psdFiles?: readonly File[]
-  ) => Promise<void>;
+    request: ProjectLifecycleNewProjectRequest
+  ) => Promise<boolean>;
   readonly openProject: () => Promise<void>;
   readonly saveProject: () => Promise<void>;
   readonly saveProjectAs: () => Promise<void>;
@@ -66,6 +76,7 @@ export function createProjectLifecycleUiCommandPort(
   }
 ): ProjectLifecycleUiCommandPort {
   let notice: ProjectLifecycleUiNotice = null;
+  let projectLocation: string | null = null;
   const setNotice = (
     next: ProjectLifecycleUiNotice
   ) => {
@@ -108,6 +119,7 @@ export function createProjectLifecycleUiCommandPort(
       return;
     }
     options.save.commitTarget(null);
+    projectLocation = null;
     setNotice({
       tone: "info",
       code: intent,
@@ -136,6 +148,9 @@ export function createProjectLifecycleUiCommandPort(
       });
       return;
     }
+    projectLocation =
+      options.save.readTarget()?.fileName ??
+      projectLocation;
     setNotice({
       tone: "info",
       code: "saved",
@@ -146,6 +161,9 @@ export function createProjectLifecycleUiCommandPort(
     read: () => {
       const lifecycle = options.lifecycle.read();
       return {
+        projectCreated:
+          lifecycle.document === "file-backed",
+        projectLocation,
         document: lifecycle.document,
         dirty: lifecycle.dirty,
         operation: lifecycle.operation,
@@ -156,19 +174,26 @@ export function createProjectLifecycleUiCommandPort(
         notice,
       };
     },
-    newProject: async (psdFiles) => {
-      if (psdFiles && psdFiles.length === 0) {
-        setNotice({
-          tone: "warning",
-          code: "no-psd-files",
-          message: "선택한 폴더에 PSD 파일이 없습니다.",
-        });
-        return;
+    newProject: async ({
+      projectName,
+      directoryName,
+      psdFiles,
+      target,
+    }) => {
+      if (!await confirmIfDirty("new-project")) {
+        return false;
       }
-      if (!await confirmIfDirty("new-project")) return;
+      const createdProject =
+        options.createNewProject();
       const replaced =
         options.lifecycle.replaceProject({
-          project: options.createNewProject(),
+          project: {
+            ...createdProject,
+            metadata: {
+              ...createdProject.metadata,
+              name: projectName,
+            },
+          },
           document: "untitled",
         });
       if (!replaced.ok) {
@@ -177,28 +202,37 @@ export function createProjectLifecycleUiCommandPort(
           code: replaced.error.code,
           message: replaced.error.message,
         });
-        return;
+        return false;
       }
-      options.save.commitTarget(null);
-      if (psdFiles && options.importPsdFiles) {
-        const imported =
+      options.save.commitTarget(target);
+      let imported = true;
+      if (psdFiles.length > 0 && options.importPsdFiles) {
+        imported =
           await options.importPsdFiles(psdFiles);
-        setNotice({
-          tone: imported ? "info" : "error",
-          code: imported
-            ? "new-project"
-            : "psd-import-failed",
-          message: imported
-            ? `새 프로젝트에 PSD ${psdFiles.length}개를 불러왔습니다.`
-            : "새 프로젝트를 만들었지만 PSD를 불러오지 못했습니다.",
-        });
-        return;
       }
+      const saved = await options.save.save();
+      options.notify();
+      if (!saved.ok) {
+        setNotice({
+          tone: "error",
+          code: saved.error.code,
+          message: saved.error.message,
+        });
+        return false;
+      }
+      projectLocation = `${directoryName}/${target.fileName}`;
       setNotice({
-        tone: "info",
-        code: "new-project",
-        message: "새 프로젝트를 만들었습니다.",
+        tone: imported ? "info" : "warning",
+        code: imported
+          ? "new-project"
+          : "psd-import-cancelled",
+        message: !imported
+          ? `${projectName}.ziq 프로젝트를 만들었습니다. PSD 불러오기는 취소되었습니다.`
+          : psdFiles.length > 0
+            ? `${projectName}.ziq 프로젝트를 만들고 PSD ${psdFiles.length}개를 불러왔습니다.`
+            : `${projectName}.ziq 프로젝트를 만들었습니다.`,
       });
+      return true;
     },
     openProject: async () => {
       if (!await confirmIfDirty("open-project")) {
@@ -218,6 +252,9 @@ export function createProjectLifecycleUiCommandPort(
         });
         return;
       }
+      projectLocation =
+        options.save.readTarget()?.fileName ??
+        `${result.project.metadata.name}.ziq`;
       setNotice({
         tone:
           result.readiness === "ready"

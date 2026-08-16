@@ -63,11 +63,16 @@ export interface CanvasPreviewPaneProps {
   guide: CanvasGuideViewModel;
   toggleShortformFrame: () => void;
   toggleSafeZone: () => void;
+  setCameraScalePercent: (percent: number) => void;
+  commitCameraScalePercent: (percent: number) => void;
   showSelectionHighlight: boolean;
   toggleSelectionHighlight: () => void;
+  showWhiteBackground: boolean;
+  toggleWhiteBackground: () => void;
   resetPreviewView: () => void;
   setOneToOnePreviewView: () => void;
-  centerPreviewView: () => void;
+  zoomOutPreviewView: () => void;
+  zoomInPreviewView: () => void;
   handlePreviewViewportWheel:
     (event: WheelEvent<HTMLDivElement>) => void;
   handlePreviewViewportMouseDownCapture:

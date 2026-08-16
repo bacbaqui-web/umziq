@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import PreviewInteractionOverlay from "@/features/preview/components/PreviewInteractionOverlay";
 import PreviewCanvasFpsBadge from "@/features/preview/components/PreviewCanvasFpsBadge";
 import PreviewViewportLayers from "@/features/preview/components/PreviewViewportLayers";
@@ -33,11 +33,16 @@ export default function PreviewWorkspacePane({
   guide,
   toggleShortformFrame,
   toggleSafeZone,
+  setCameraScalePercent,
+  commitCameraScalePercent,
   showSelectionHighlight,
   toggleSelectionHighlight,
+  showWhiteBackground,
+  toggleWhiteBackground,
   resetPreviewView,
   setOneToOnePreviewView,
-  centerPreviewView,
+  zoomOutPreviewView,
+  zoomInPreviewView,
   handlePreviewViewportWheel,
   handlePreviewViewportMouseDownCapture,
   isPreviewPanning,
@@ -47,6 +52,7 @@ export default function PreviewWorkspacePane({
   directSelectionHover,
   interactionCommands,
 }: CanvasPreviewPaneProps) {
+  const [frameMenuOpen, setFrameMenuOpen] = useState(false);
   const isTransformDragging = isCanvasTransformDragActive(interactionViewModel);
   useEffect(() => {
     if (isTransformDragging) directSelectionHover.leaveTarget();
@@ -80,9 +86,10 @@ export default function PreviewWorkspacePane({
             style={{
               position: "absolute",
               inset: 0,
-              backgroundColor: "#171a1d",
-              backgroundImage:
-                "linear-gradient(45deg, rgba(255,255,255,0.035) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.035) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.035) 75%)",
+              backgroundColor: showWhiteBackground ? "#ffffff" : "#171a1d",
+              backgroundImage: showWhiteBackground
+                ? "none"
+                : "linear-gradient(45deg, rgba(255,255,255,0.035) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.035) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.035) 75%)",
               backgroundSize: "20px 20px",
               backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
               overflow: "hidden",
@@ -100,6 +107,13 @@ export default function PreviewWorkspacePane({
               handlePreviewViewportMouseDownCapture(event);
             }}
             onMouseMove={(event) => {
+              const panModifierActive =
+                event.currentTarget.classList.contains(
+                  "preview-viewport--pan-modifier"
+                );
+              const panning = event.currentTarget.classList.contains(
+                "preview-viewport--panning"
+              );
               const target = event.target;
               const isExcludedTarget = Boolean(
                 target instanceof Element && target.closest(
@@ -107,8 +121,9 @@ export default function PreviewWorkspacePane({
                 )
               );
               if (!shouldRunCanvasDirectSelectionHover({
-                isPreviewPanning,
-                isPreviewPanModifierActive,
+                isPreviewPanning: isPreviewPanning || panning,
+                isPreviewPanModifierActive:
+                  isPreviewPanModifierActive || panModifierActive,
                 isTransformDragging,
                 isExcludedTarget,
               })) {
@@ -130,10 +145,19 @@ export default function PreviewWorkspacePane({
               interactionCommands.pressTarget(event.clientX, event.clientY);
             }}
             onDoubleClick={(event) => {
+              const panModifierActive =
+                event.currentTarget.classList.contains(
+                  "preview-viewport--pan-modifier"
+                );
+              const panning = event.currentTarget.classList.contains(
+                "preview-viewport--panning"
+              );
               if (
                 event.button !== 0 ||
                 isPreviewPanning ||
+                panning ||
                 isPreviewPanModifierActive ||
+                panModifierActive ||
                 isTransformDragging
               ) return;
               const target = event.target;
@@ -148,15 +172,23 @@ export default function PreviewWorkspacePane({
           >
             <PreviewWorkspaceControls
               previewZoomPercent={previewZoomPercent}
+              cameraScalePercent={guide.cameraScalePercent}
               showShortformFrameOverlay={guide.showShortformFrame}
               toggleShortformFrame={toggleShortformFrame}
               showSafeZoneGuides={guide.showSafeZoneGuides}
               toggleSafeZone={toggleSafeZone}
+              setCameraScalePercent={setCameraScalePercent}
+              commitCameraScalePercent={commitCameraScalePercent}
+              frameMenuOpen={frameMenuOpen}
+              setFrameMenuOpen={setFrameMenuOpen}
               showSelectionHighlight={showSelectionHighlight}
               toggleSelectionHighlight={toggleSelectionHighlight}
+              showWhiteBackground={showWhiteBackground}
+              toggleWhiteBackground={toggleWhiteBackground}
               resetPreviewView={resetPreviewView}
               setOneToOnePreviewView={setOneToOnePreviewView}
-              centerPreviewView={centerPreviewView}
+              zoomOutPreviewView={zoomOutPreviewView}
+              zoomInPreviewView={zoomInPreviewView}
               previewQuality={previewQuality}
               previewQualityCommands={previewQualityCommands}
             />
@@ -172,6 +204,9 @@ export default function PreviewWorkspacePane({
               previewZoom={previewZoom}
               previewSize={previewSize}
               guide={guide}
+              cameraEditing={frameMenuOpen}
+              setCameraScalePercent={setCameraScalePercent}
+              commitCameraScalePercent={commitCameraScalePercent}
             />
             <PreviewInteractionOverlay
               previewOverlayRef={previewOverlayRef}

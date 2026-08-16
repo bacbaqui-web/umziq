@@ -52,6 +52,8 @@ assert.equal(
   "The initial bootstrap identity remains compatible"
 );
 let dirty: "clean" | "dirty" = "dirty";
+let document:
+  "untitled" | "file-backed" = "untitled";
 let operation:
   "idle" | "saving" | "loading" = "idle";
 let replacements = 0;
@@ -66,7 +68,7 @@ const replacedProjectIds: string[] = [];
 
 const lifecycle = {
   read: () => ({
-    document: "untitled" as const,
+    document,
     dirty,
     operation,
     operationToken: null,
@@ -74,12 +76,13 @@ const lifecycle = {
     currentProjectDigest:
       dirty === "dirty" ? "edited" : "saved",
   }),
-  replaceProject: ({ project }) => {
+  replaceProject: ({ project, document: nextDocument }) => {
     replacements += 1;
     replacedProjectIds.push(
       project.metadata.projectId
     );
     dirty = "clean";
+    document = nextDocument;
     return {
       ok: true as const,
       value: {
@@ -101,6 +104,7 @@ const save = {
     operation = "saving";
     await Promise.resolve();
     operation = "idle";
+    if (!saveFailure) document = "file-backed";
     return saveFailure
       ? {
           ok: false as const,
@@ -213,7 +217,31 @@ const commands =
     },
   });
 
-await commands.newProject();
+const projectTarget = {
+  kind: "native-file-system" as const,
+  fileName: "Test Project.ziq",
+  handle: {
+    name: "Test Project.ziq",
+    createWritable: async () => ({
+      write: async () => {},
+      close: async () => {},
+    }),
+  },
+};
+const newProjectRequest = (
+  projectName: string,
+  psdFiles: readonly File[] = []
+) => ({
+  projectName,
+  directoryName: "Selected Folder",
+  psdFiles,
+  target: projectTarget,
+});
+
+assert.equal(commands.read().projectCreated, false);
+await commands.newProject(
+  newProjectRequest("Cancelled Project")
+);
 assert.equal(confirmations, 1);
 assert.equal(replacements, 0);
 assert.equal(targetClears, 0);
@@ -225,8 +253,8 @@ await commands.closeProject();
 assert.equal(replacements, 1);
 assert.equal(targetClears, 1);
 assert.equal(commands.read().dirty, "clean");
-await commands.newProject();
-await commands.newProject();
+await commands.newProject(newProjectRequest("First"));
+await commands.newProject(newProjectRequest("Second"));
 const newProjectIds =
   replacedProjectIds.slice(-2);
 assert.equal(newProjectIds.length, 2);
@@ -247,23 +275,32 @@ assert.notEqual(
 );
 
 const replacementsBeforeEmptyFolder = replacements;
-await commands.newProject([]);
-assert.equal(replacements, replacementsBeforeEmptyFolder);
+await commands.newProject(
+  newProjectRequest("Empty Folder")
+);
+assert.equal(replacements, replacementsBeforeEmptyFolder + 1);
 assert.equal(
   commands.read().notice?.code,
-  "no-psd-files"
+  "new-project"
 );
-await commands.newProject([
-  new File([new Uint8Array([1])], "first.psd"),
-  new File([new Uint8Array([2])], "second.psd"),
-]);
+assert.equal(commands.read().projectCreated, true);
+assert.equal(
+  commands.read().projectLocation,
+  "Selected Folder/Test Project.ziq"
+);
+await commands.newProject(
+  newProjectRequest("PSD Project", [
+    new File([new Uint8Array([1])], "first.psd"),
+    new File([new Uint8Array([2])], "second.psd"),
+  ])
+);
 assert.deepEqual(
   importedPsdFileNames,
   ["first.psd", "second.psd"]
 );
 assert.equal(
   commands.read().notice?.message,
-  "새 프로젝트에 PSD 2개를 불러왔습니다."
+  "PSD Project.ziq 프로젝트를 만들고 PSD 2개를 불러왔습니다."
 );
 
 dirty = "dirty";
@@ -313,6 +350,9 @@ assert.match(
   barSource,
   /commands\.(newProject|openProject|saveProject|closeProject|reconnectSource)/
 );
+assert.match(barSource, /showDirectoryPicker/);
+assert.doesNotMatch(barSource, /webkitdirectory/);
+assert.match(barSource, /!viewModel\.projectCreated/);
 const commandSource = readFileSync(
   "src/editor/projectLifecycleUi.ts",
   "utf8"

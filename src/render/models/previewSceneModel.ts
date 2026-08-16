@@ -6,6 +6,7 @@ import type {
   EvaluatedSceneTransform,
 } from "@/render/models/evaluatedSceneModel";
 import type { LayerDocumentType } from "@/models";
+import type { Position } from "@/models";
 
 export type PreviewNodeKind = "layer" | "composition" | "placeholder";
 
@@ -61,5 +62,6 @@ export type PreviewScene = {
   readonly compositionId: string;
   readonly globalFrame: number;
   readonly logicalSize: EvaluatedSceneSize;
+  readonly origin?: Position;
   readonly nodes: PreviewNode[];
 };

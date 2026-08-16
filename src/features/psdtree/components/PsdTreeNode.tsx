@@ -2,24 +2,30 @@ import { useState, type ReactNode } from "react";
 import type { PsdTreeNodeProps } from "@/engines/psd-tree";
 import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 
+type Props = PsdTreeNodeProps & {
+  readonly parentGuideLeft?: number;
+  readonly isLastSibling?: boolean;
+};
+
 function PsdFileIcon() {
   return (
     <span
       aria-hidden="true"
       style={{
-        width: 24,
-        height: 28,
+        width: 16,
+        height: 19,
         position: "relative",
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "center",
         flex: "0 0 auto",
+        marginLeft: 2,
         color: "#82a7c9",
       }}
     >
       <svg
-        width="24"
-        height="28"
+        width="16"
+        height="19"
         viewBox="0 0 24 28"
         fill="none"
         stroke="currentColor"
@@ -32,8 +38,8 @@ function PsdFileIcon() {
       <span
         style={{
           position: "absolute",
-          bottom: 4,
-          fontSize: 6.5,
+          bottom: 2.5,
+          fontSize: 5,
           lineHeight: 1,
           fontWeight: 800,
           letterSpacing: 0.25,
@@ -50,11 +56,13 @@ function ActionButton({
   color,
   onClick,
   children,
+  compact = false,
 }: {
   label: string;
   color: string;
   onClick: () => void;
   children: ReactNode;
+  compact?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -68,8 +76,8 @@ function ActionButton({
       onMouseLeave={() => setHovered(false)}
       aria-label={label}
       style={{
-        width: 28,
-        height: 28,
+        width: compact ? 17 : 22,
+        height: compact ? 17 : 22,
         padding: 0,
         display: "flex",
         alignItems: "center",
@@ -77,7 +85,7 @@ function ActionButton({
         background: hovered ? "#2a3036" : "rgba(24, 28, 32, 0.45)",
         color,
         border: hovered ? "1px solid #46515b" : "1px solid #343a40",
-        borderRadius: 7,
+        borderRadius: compact ? 4 : 6,
         cursor: "pointer",
         opacity: hovered ? 1 : 0.86,
         transition: "background 140ms ease, border-color 140ms ease, opacity 140ms ease",
@@ -94,19 +102,40 @@ export default function PsdTreeNode({
   draggedMainCompId,
   dropTarget,
   onSelectNode,
+  onToggleNodeVisibility,
+  onToggleNodeLock,
+  onRenameNode,
+  onDeleteNode,
   onRefreshMainComp,
   onDeleteMainComp,
   onBeginMainDrag,
   onDragOverMain,
   onDropMain,
   onEndMainDrag,
-}: PsdTreeNodeProps) {
+  parentGuideLeft,
+  isLastSibling = false,
+}: Props) {
   const [rowHovered, setRowHovered] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState(node.name);
   const isRoot = node.depth === 0;
   const isMain = node.type === "main";
+  const isProject = node.type === "project";
   const hasChildren = node.children.length > 0;
-  const rowIndent = isMain ? 14 : 14 + (node.depth - 1) * 14;
-  const childGuideLeft = rowIndent + 4;
+  const baseRowIndent = isMain
+    ? 3
+    : 18 + (node.depth - 1) * 14;
+  const branchLeft = parentGuideLeft ?? 0;
+  const rowIndent = isMain
+    ? baseRowIndent
+    : node.depth === 1
+      ? Math.round(
+          branchLeft +
+          (baseRowIndent - branchLeft) * 0.75
+        )
+      : branchLeft + 10;
+  const childGuideLeft = isMain ? rowIndent + 5 : rowIndent + 19;
   const isDragging = node.canReorder && draggedMainCompId === node.id;
   const showDropBefore =
     node.canReorder &&
@@ -118,7 +147,9 @@ export default function PsdTreeNode({
     dropTarget.position === "after";
 
   const rowBackground = node.selected
-    ? "linear-gradient(90deg, rgba(47, 79, 127, 0.88), rgba(42, 64, 91, 0.58))"
+    ? isMain
+      ? "linear-gradient(90deg, rgba(47, 79, 127, 0.88), rgba(42, 64, 91, 0.58))"
+      : "transparent"
     : rowHovered
       ? isMain ? "rgba(45, 51, 57, 0.72)" : "rgba(42, 48, 54, 0.64)"
       : "transparent";
@@ -139,18 +170,18 @@ export default function PsdTreeNode({
       onDrop={() => onDropMain(node.id)}
       style={{
         position: "relative",
-        marginTop: isRoot && !isFirstRoot ? 10 : isMain ? 4 : 0,
+        marginTop: isRoot && !isFirstRoot ? 6 : isMain ? 2 : 0,
         border: isMain
           ? node.selected ? "1px solid #4b6685" : "1px solid #343a40"
           : "none",
-        borderRadius: isMain ? 12 : 7,
+        borderRadius: isMain ? 8 : 4,
         background: isMain
           ? "linear-gradient(145deg, #20252a 0%, #1a1e22 100%)"
           : isDragging ? "rgba(74, 84, 96, 0.22)" : "transparent",
         boxShadow: isMain
           ? node.selected
-            ? "0 10px 28px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(86, 126, 168, 0.08)"
-            : "0 8px 24px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.025)"
+            ? "0 6px 18px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(86, 126, 168, 0.08)"
+            : "0 4px 14px rgba(0, 0, 0, 0.18)"
           : "none",
         opacity: isDragging ? 0.62 : 1,
         transform: isDragging ? "scale(0.988)" : "scale(1)",
@@ -174,69 +205,146 @@ export default function PsdTreeNode({
         />
       )}
 
+      {!isMain && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: branchLeft,
+            top: 0,
+            height: isLastSibling ? 10 : "100%",
+            borderLeft:
+              "1px solid rgba(142, 182, 216, 0.82)",
+            transform: "translateX(-0.5px)",
+          }}
+        />
+      )}
+
       <div
         onMouseEnter={() => setRowHovered(true)}
         onMouseLeave={() => setRowHovered(false)}
         style={{
           position: "relative",
+          boxSizing: "border-box",
           display: "flex",
           alignItems: "center",
-          gap: 8,
-          minHeight: isMain ? 52 : 34,
-          padding: isMain ? "6px 9px" : "2px 8px",
+          gap: 2,
+          height: isMain ? 35 : 20,
+          padding: isMain ? "5px 7px" : "1px 6px",
           paddingLeft: rowIndent,
-          borderRadius: isMain ? (hasChildren ? "11px 11px 0 0" : 11) : 7,
+          borderRadius: isMain ? (hasChildren ? "7px 7px 0 0" : 7) : 4,
           background: rowBackground,
-          boxShadow: node.selected ? "inset 0 0 0 1px rgba(111, 157, 204, 0.16)" : "none",
+          boxShadow:
+            node.selected && isMain
+              ? "inset 0 0 0 1px rgba(111, 157, 204, 0.16)"
+              : "none",
           transition: "background 140ms ease, box-shadow 140ms ease",
         }}
       >
-        {node.selected && (
-          <span
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              left: 0,
-              top: isMain ? 9 : 6,
-              bottom: isMain ? 9 : 6,
-              width: 2,
-              borderRadius: "0 2px 2px 0",
-              background: "#6f9dcc",
-              boxShadow: "0 0 8px rgba(111, 157, 204, 0.35)",
-            }}
-          />
-        )}
-
         {!isMain && (
           <span
             aria-hidden="true"
             style={{
               position: "absolute",
-              left: rowIndent - 10,
-              top: "50%",
-              width: 10,
-              borderTop: "1px solid #343c44",
-              transform: "translateY(-50%)",
+              left: branchLeft,
+              top: 10,
+              width:
+                rowIndent - branchLeft +
+                (hasChildren ? 1 : 0),
+              borderTop:
+                "1px solid rgba(142, 182, 216, 0.82)",
+              transform: "translateY(-0.5px)",
             }}
           />
+        )}
+
+        {hasChildren && (
+          <button
+            type="button"
+            aria-label={`${node.name} ${expanded ? "접기" : "펼치기"}`}
+            aria-expanded={expanded}
+            onClick={(event) => {
+              event.stopPropagation();
+              setExpanded((value) => !value);
+            }}
+            style={{
+              width: 10,
+              height: 10,
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: "0 0 10px",
+              position: "relative",
+              overflow: "visible",
+              border:
+                "1px solid rgba(142, 182, 216, 0.72)",
+              borderRadius: 2,
+              background: "#182027",
+              color: "#9bb5ca",
+              cursor: "pointer",
+            }}
+          >
+            {expanded && isMain && (
+              <span
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "100%",
+                  height: 14,
+                  borderLeft:
+                    "1px solid rgba(142, 182, 216, 0.82)",
+                  transform: "translateX(-0.5px)",
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+            <svg
+              width="8"
+              height="8"
+              viewBox="0 0 8 8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M2 4h4" />
+              {!expanded && <path d="M4 2v4" />}
+            </svg>
+          </button>
         )}
 
         <button
           onClick={() => onSelectNode(node.id)}
           style={{
             flex: 1,
+            alignSelf: "stretch",
             minWidth: 0,
             padding: 0,
             display: "flex",
             alignItems: "center",
-            gap: isMain ? 9 : 8,
-            background: "transparent",
+            gap: 4,
+            background:
+              node.selected && !isMain
+                ? "linear-gradient(90deg, rgba(47, 79, 127, 0.88), rgba(42, 64, 91, 0.58))"
+                : "transparent",
             color: "#f2f4f5",
-            border: "1px solid transparent",
-            borderRadius: 0,
+            border:
+              node.selected && !isMain
+                ? "1px solid #4b6685"
+                : "1px solid transparent",
+            borderRadius:
+              node.selected && !isMain ? 5 : 0,
+            boxShadow:
+              node.selected && !isMain
+                ? "inset 0 0 0 1px rgba(111, 157, 204, 0.12)"
+                : "none",
             cursor: "pointer",
             textAlign: "left",
-            fontSize: isMain ? 13 : 12.5,
+            fontSize: isMain ? 12.5 : 12,
             lineHeight: 1.2,
             fontWeight: isMain ? 650 : 500,
           }}
@@ -251,25 +359,86 @@ export default function PsdTreeNode({
                 alignItems: "center",
                 justifyContent: "center",
                 flex: "0 0 auto",
+                position: "relative",
+                transform:
+                  node.entityKind === "layer"
+                    ? "translateY(3px)"
+                    : "translateY(1px)",
               }}
             >
               <LayerCompositionIcon
                 kind={node.entityKind ?? "layer"}
-                size={16}
+                size={14}
               />
+              {hasChildren && expanded && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "calc(100% + 2px)",
+                    height: 2,
+                    borderLeft:
+                      "1px solid rgba(142, 182, 216, 0.82)",
+                    transform: "translateX(-0.5px)",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
             </span>
           )}
 
-          <span
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              letterSpacing: -0.1,
-            }}
-          >
-            {node.name}
-          </span>
+          {editing && !isMain && !isProject ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              aria-label={`${node.name} 이름 수정`}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setNameDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") event.currentTarget.blur();
+                if (event.key === "Escape") {
+                  setNameDraft(node.name);
+                  setEditing(false);
+                }
+              }}
+              onBlur={() => {
+                const name = nameDraft.trim();
+                if (name) onRenameNode(node.id, name);
+                else setNameDraft(node.name);
+                setEditing(false);
+              }}
+              style={{
+                minWidth: 0,
+                flex: 1,
+                height: 18,
+                boxSizing: "border-box",
+                padding: "0 4px",
+                border: "1px solid #6687a3",
+                borderRadius: 3,
+                outline: "none",
+                background: "#11181e",
+                color: "#f2f4f5",
+                font: "inherit",
+              }}
+            />
+          ) : (
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                letterSpacing: -0.1,
+              }}
+            >
+              {isMain
+                ? node.name.replace(/\.psd$/i, "")
+                : node.name}
+            </span>
+          )}
 
           {node.sourceSyncStatus === "new" && (
             <span
@@ -279,36 +448,18 @@ export default function PsdTreeNode({
             </span>
           )}
 
-          {isMain && (
-            <span
-              style={{
-                padding: "3px 7px",
-                color: "#aab2b9",
-                background: "#2c3238",
-                border: "1px solid #3b434b",
-                borderRadius: 999,
-                fontSize: 9,
-                lineHeight: 1,
-                fontWeight: 700,
-                letterSpacing: 0.45,
-                flex: "0 0 auto",
-              }}
-            >
-              PSD
-            </span>
-          )}
         </button>
 
         {node.canRefresh && node.canDelete && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "0 0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
             <ActionButton
               label={`${node.name} 새로고침`}
               color="#7e9bb2"
               onClick={() => onRefreshMainComp(node.id)}
             >
               <svg
-                width="14"
-                height="14"
+                width="12"
+                height="12"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -330,8 +481,8 @@ export default function PsdTreeNode({
               onClick={() => onDeleteMainComp(node.id)}
             >
               <svg
-                width="14"
-                height="14"
+                width="12"
+                height="12"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -349,32 +500,79 @@ export default function PsdTreeNode({
             </ActionButton>
           </div>
         )}
+
+        {!isMain && !isProject && (
+          <div style={{ display: "flex", alignItems: "center", gap: 1, flex: "0 0 auto" }}>
+            <ActionButton
+              label={`${node.name} ${node.locked ? "잠금 해제" : "잠금"}`}
+              color={node.locked ? "#9fc5e5" : "#657785"}
+              onClick={() => onToggleNodeLock(node.id)}
+              compact
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="5" y="10" width="14" height="10" rx="2" />
+                {node.locked
+                  ? <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                  : <path d="M8 10V7a4 4 0 0 1 7.5-2" />}
+              </svg>
+            </ActionButton>
+            <ActionButton
+              label={`${node.name} ${node.visible ? "숨기기" : "보이기"}`}
+              color={node.visible ? "#9fc5e5" : "#657785"}
+              onClick={() => onToggleNodeVisibility(node.id)}
+              compact
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {node.visible ? (
+                  <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>
+                ) : (
+                  <><path d="m3 3 18 18" /><path d="M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a15.7 15.7 0 0 1-2.2 2.8M6.2 6.2C3.5 8 2 12 2 12s3.5 6 10 6a10 10 0 0 0 3.4-.6" /></>
+                )}
+              </svg>
+            </ActionButton>
+            <ActionButton
+              label={`${node.name} 이름 수정`}
+              color="#8199ad"
+              onClick={() => {
+                setNameDraft(node.name);
+                setEditing(true);
+              }}
+              compact
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+              </svg>
+            </ActionButton>
+            <ActionButton
+              label={`${node.name} 삭제`}
+              color="#9a7171"
+              onClick={() => onDeleteNode(node.id)}
+              compact
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 6h18" />
+                <path d="M8 6V4.8c0-.7.6-1.3 1.3-1.3h5.4c.7 0 1.3.6 1.3 1.3V6" />
+                <path d="M7 6l.8 13.2c0 .7.6 1.3 1.3 1.3h5.8c.7 0 1.3-.6 1.3-1.3L17 6" />
+              </svg>
+            </ActionButton>
+          </div>
+        )}
       </div>
 
-      {hasChildren && (
+      {hasChildren && expanded && (
         <div
           style={{
             position: "relative",
             display: "flex",
             flexDirection: "column",
-            gap: 2,
-            padding: isMain ? "7px 7px 9px" : "0",
-            borderTop: isMain ? "1px solid #2d3339" : "none",
-            borderRadius: isMain ? "0 0 11px 11px" : 0,
+            gap: 0,
+            padding: isMain ? "0 0 6px" : "0",
+            borderTop: "none",
+            borderRadius: isMain ? "0 0 7px 7px" : 0,
             background: isMain ? "rgba(18, 21, 24, 0.48)" : "transparent",
           }}
         >
-          <span
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              left: childGuideLeft,
-              top: isMain ? 8 : 0,
-              bottom: 17,
-              borderLeft: "1px solid #303840",
-            }}
-          />
-
           {node.children.map((child, index) => (
             <PsdTreeNode
               key={child.id}
@@ -383,12 +581,20 @@ export default function PsdTreeNode({
               draggedMainCompId={draggedMainCompId}
               dropTarget={dropTarget}
               onSelectNode={onSelectNode}
+              onToggleNodeVisibility={onToggleNodeVisibility}
+              onToggleNodeLock={onToggleNodeLock}
+              onRenameNode={onRenameNode}
+              onDeleteNode={onDeleteNode}
               onRefreshMainComp={onRefreshMainComp}
               onDeleteMainComp={onDeleteMainComp}
               onBeginMainDrag={onBeginMainDrag}
               onDragOverMain={onDragOverMain}
               onDropMain={onDropMain}
               onEndMainDrag={onEndMainDrag}
+              parentGuideLeft={childGuideLeft}
+              isLastSibling={
+                index === node.children.length - 1
+              }
             />
           ))}
         </div>

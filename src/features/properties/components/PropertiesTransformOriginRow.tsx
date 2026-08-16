@@ -22,6 +22,7 @@ export default function PropertiesTransformOriginRow({
       inputs={viewModel.inputs}
       tokens={viewModel.tokens}
       commands={commands}
+      neutral
       leadingControl={(
         <span
           aria-hidden="true"

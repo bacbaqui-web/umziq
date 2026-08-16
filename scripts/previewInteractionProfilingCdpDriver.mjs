@@ -386,7 +386,7 @@ async function importFixture(client, sessionId, fixturePath, fixture = PROFILING
   await waitForCondition(
     client,
     sessionId,
-    `document.body.innerText.includes("PSD 불러오기 미리보기") && [...document.querySelectorAll("button")].some((button) => button.textContent.trim() === "불러오기" && !button.disabled)`,
+    `document.body.innerText.includes("PSD 미리보기") && [...document.querySelectorAll("button")].some((button) => button.textContent.trim() === "불러오기" && !button.disabled)`,
     "product Import Preview"
   );
   process.stderr.write(`[import] ${fixture.id}: preview ready\n`);

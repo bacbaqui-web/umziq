@@ -133,6 +133,7 @@ export interface LayerDocumentSourceTransaction {
   readonly createdSourceIds: readonly string[];
   readonly deletedSourceIds: readonly string[];
   readonly createdLayerDocumentIds: readonly string[];
+  readonly deletedLayerDocumentIds: readonly string[];
   readonly cacheInvalidations:
     readonly SourceRegistryCacheInvalidationDescriptor[];
 }

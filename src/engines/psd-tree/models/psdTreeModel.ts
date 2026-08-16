@@ -12,11 +12,13 @@ export type PsdTreeDropTarget = {
 
 export type PsdTreeNodeViewModel = {
   id: string;
-  type: "main" | "sub";
+  type: "project" | "main" | "sub";
   entityKind: "layer" | "composition" | null;
   name: string;
   depth: number;
   selected: boolean;
+  visible: boolean;
+  locked: boolean;
   sourceSyncStatus:
     | "normal"
     | "updated"
@@ -52,6 +54,10 @@ export type PsdTreeViewProps = {
   onImportClick: () => void;
   onFileInputChange: (files: FileList | readonly File[]) => void;
   onSelectNode: (nodeId: string) => void;
+  onToggleNodeVisibility: (nodeId: string) => void;
+  onToggleNodeLock: (nodeId: string) => void;
+  onRenameNode: (nodeId: string, name: string) => void;
+  onDeleteNode: (nodeId: string) => void;
   onRefreshMainComp: (compId: string) => void;
   onDeleteMainComp: (compId: string) => void;
   onBeginMainDrag: (compId: string) => void;
@@ -71,10 +77,23 @@ export type PsdTreeViewProps = {
     targetId: string | null,
     position: "before" | "inside" | "after"
   ) => void;
+  onScaleImport: (
+    token: string,
+    scalePercent: number
+  ) => void;
+  onRenameImportNode: (
+    token: string,
+    layerDocumentId: string,
+    name: string
+  ) => void;
+  onRemoveImportNode: (
+    token: string,
+    layerDocumentId: string
+  ) => void;
   onDismissRefreshSummary: () => void;
 };
 
-export type PsdTreeNodeProps = Omit<PsdTreeViewProps, "nodes" | "fileInputRef" | "onImportClick" | "onFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onDismissRefreshSummary"> & {
+export type PsdTreeNodeProps = Omit<PsdTreeViewProps, "nodes" | "fileInputRef" | "onImportClick" | "onFileInputChange" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
   node: PsdTreeNodeViewModel;
   isFirstRoot: boolean;
 };

@@ -12,6 +12,7 @@ type PropertiesTransformRowProps = {
   tokens: PropertiesPropertyRowViewModel["tokens"];
   leadingControl: ReactNode;
   trailingControl?: ReactNode;
+  neutral?: boolean;
   commands: PropertiesCommand;
 };
 
@@ -22,11 +23,16 @@ export default function PropertiesTransformRow({
   tokens,
   leadingControl,
   trailingControl,
+  neutral = false,
   commands,
 }: PropertiesTransformRowProps) {
-  const rowTextColor = active ? tokens.label : "#73808d";
+  const rowTextColor = active
+    ? neutral ? "#d7dde3" : tokens.label
+    : "#73808d";
   const rowBackground = active ? "rgba(255,255,255,0.018)" : "transparent";
-  const rowBorder = active ? tokens.accentBorder : "rgba(255,255,255,0.06)";
+  const rowBorder = active && !neutral
+    ? tokens.accentBorder
+    : "rgba(255,255,255,0.06)";
 
   return (
     <div
@@ -41,7 +47,9 @@ export default function PropertiesTransformRow({
         background: rowBackground,
         color: rowTextColor,
         opacity: active ? 1 : 0.72,
-        boxShadow: active ? `inset 2px 0 0 ${tokens.accentMuted}` : "none",
+        boxShadow: active && !neutral
+          ? `inset 2px 0 0 ${tokens.accentMuted}`
+          : "none",
         transition: "background 120ms ease, border-color 120ms ease, opacity 120ms ease",
       }}
     >
@@ -86,7 +94,7 @@ export default function PropertiesTransformRow({
               }}
               style={{
                 width: input.width,
-                border: `1px solid ${active ? tokens.accentBorder : "#34383c"}`,
+                border: `1px solid ${active && !neutral ? tokens.accentBorder : "#34383c"}`,
                 background: active ? "rgba(19, 24, 30, 0.92)" : "#1d1d1d",
                 color: active ? "#fff" : "#7f8790",
                 colorScheme: "dark",

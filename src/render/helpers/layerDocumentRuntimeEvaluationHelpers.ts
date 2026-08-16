@@ -4,6 +4,7 @@ import type {
 } from "@/models";
 import {
   applyPositionModifiers,
+  applyRotationModifiers,
   buildPositionMotionPathSamples,
   clampOpacity,
   evaluatePositionKeyframes,
@@ -26,16 +27,27 @@ import {
 export function adaptLayerDocumentModifiers(
   layer: LayerDocument
 ): ModifierInstance[] {
-  return layer.common.modifiers.flatMap((modifier) =>
-    modifier.type === "wiggle" && modifier.enabled
-      ? [{
-          id: modifier.modifierId,
-          type: "wiggle" as const,
-          frequency: modifier.frequency,
-          amount: modifier.amount,
-        }]
-      : []
-  );
+  return layer.common.modifiers.flatMap((modifier): ModifierInstance[] => {
+    if (!modifier.enabled) return [];
+    if (modifier.type === "oscillate") {
+      return [{
+        id: modifier.modifierId,
+        type: "oscillate",
+        angle: modifier.angle,
+        frequency: modifier.frequency,
+        amount: modifier.amount,
+      }];
+    }
+    if (modifier.type === "wiggle" || modifier.type === "swing") {
+      return [{
+        id: modifier.modifierId,
+        type: modifier.type,
+        frequency: modifier.frequency,
+        amount: modifier.amount,
+      }];
+    }
+    return [];
+  });
 }
 
 export function evaluateLayerDocumentTransform(
@@ -70,13 +82,19 @@ export function evaluateLayerDocumentTransform(
         localFrame
       )
     : transform.scale;
-  const rotation = animation.enabledProperties.rotation
+  const baseRotation = animation.enabledProperties.rotation
     ? evaluateScalarKeyframes(
         transform.rotation,
         animation.rotationKeyframes,
         localFrame
       )
     : transform.rotation;
+  const rotation = applyRotationModifiers(
+    baseRotation,
+    adaptLayerDocumentModifiers(layer),
+    localFrame,
+    frameRate
+  );
   const opacity = clampOpacity(
     animation.enabledProperties.opacity
       ? evaluateScalarKeyframes(

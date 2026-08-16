@@ -40,71 +40,54 @@ export default function PropertiesModifierSection({
           >
             {modifier.label}
           </div>
-          <span aria-hidden="true" style={{ color: "#71808b" }}>-</span>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
               flex: "1 1 auto",
               minWidth: 0,
-              gap: 6,
+              gap: 5,
             }}
           >
-            {modifier.fields.map((field) => (
-              <label
-                key={field.id}
-                style={{
-                  position: "relative",
-                  display: "block",
-                  minWidth: 0,
-                }}
-              >
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 3,
-                    left: 7,
-                    zIndex: 1,
-                    maxWidth: "calc(100% - 14px)",
-                    overflow: "hidden",
-                    color: "#82919c",
-                    fontSize: 9,
-                    lineHeight: 1.2,
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {field.label}
-                </span>
-                <input
-                  className="ui-input"
-                  type="text"
-                  inputMode="decimal"
-                  value={field.value}
-                  onFocus={() => commands.focusModifierInput(field.id)}
-                  onChange={(event) =>
-                    commands.changeModifierInput(field.id, event.target.value)
-                  }
-                  onBlur={() => commands.blurModifierInput(field.id)}
-                  onKeyDown={(event) => {
-                    const intent = commands.keyDownModifierInput(field.id, event.key);
-                    if (intent === "blur") {
-                      event.preventDefault();
-                      event.currentTarget.blur();
+            {modifier.fields.map((field, index) => (
+              <div key={field.id} style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                {index > 0 && modifier.type === "swing" && (
+                  <span aria-hidden="true" style={{ color: "#71808b" }}>-</span>
+                )}
+                <label style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, color: "#aeb9c2", fontSize: 11 }}>
+                  {field.prefix && <span style={{ whiteSpace: "nowrap" }}>{field.prefix}</span>}
+                  <input
+                    className="ui-input"
+                    type="text"
+                    inputMode="decimal"
+                    value={field.value}
+                    onFocus={() => commands.focusModifierInput(field.id)}
+                    onChange={(event) =>
+                      commands.changeModifierInput(field.id, event.target.value)
                     }
-                  }}
-                  aria-label={`${modifier.label} ${field.label}`}
-                  style={{
-                    width: "100%",
-                    minWidth: 0,
-                    boxSizing: "border-box",
-                    padding: "14px 7px 3px",
-                    colorScheme: "dark",
-                    fontSize: 12,
-                  }}
-                />
-              </label>
+                    onBlur={() => commands.blurModifierInput(field.id)}
+                    onKeyDown={(event) => {
+                      const intent = commands.keyDownModifierInput(field.id, event.key);
+                      if (intent === "blur") {
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    aria-label={`${modifier.label} ${field.label}`}
+                    style={{
+                      width: 42,
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "4px 6px",
+                      textAlign: "right",
+                      colorScheme: "dark",
+                      fontSize: 12,
+                    }}
+                  />
+                  {field.suffix && <span style={{ whiteSpace: "nowrap" }}>{field.suffix}</span>}
+                </label>
+              </div>
             ))}
           </div>
         </section>

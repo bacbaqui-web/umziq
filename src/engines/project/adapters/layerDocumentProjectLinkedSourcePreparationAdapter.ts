@@ -73,12 +73,6 @@ LayerDocumentProjectLinkedSourcePreparationPort = {
           }];
         }
       );
-      const available = new Set([
-        source.sourceId,
-        ...resources.map((resource) =>
-          resource.sourceId
-        ),
-      ]);
       const dependentIds = existingSources.flatMap(
         (candidate) =>
           candidate.kind === "psd-node" &&
@@ -87,6 +81,15 @@ LayerDocumentProjectLinkedSourcePreparationPort = {
             ? [candidate.sourceId]
             : []
       );
+      const refreshedSourceIds = new Set(
+        prepared.resolution.sourceIds
+      );
+      const available = new Set([
+        source.sourceId,
+        ...dependentIds.filter((sourceId) =>
+          refreshedSourceIds.has(sourceId)
+        ),
+      ]);
       let ownership:
         "prepared" | "discarded" | "transferred" =
           "prepared";

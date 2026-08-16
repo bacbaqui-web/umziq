@@ -77,6 +77,7 @@ export {
 } from "@/render/state/layerDocumentSourceRuntimeResourceCache";
 export {
   buildLayerDocumentEditorFrameReadModel,
+  evaluateLayerDocumentFrame,
 } from "@/render/adapters/layerDocumentRuntimeInputAdapter";
 export {
   buildLayerDocumentResultCacheKey,
@@ -99,6 +100,7 @@ export {
 } from "@/render/renderers/previewRenderer";
 export {
   createReusableAccurateSurfaceFactory,
+  drawRenderCommandsToContext,
   renderAccurateFrameToCanvas,
 } from "@/render/adapters/canvas2dRenderAdapter";
 export type { ReusableAccurateSurfaceFactory } from "@/render/adapters/canvas2dRenderAdapter";

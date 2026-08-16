@@ -4,6 +4,7 @@ import type {
   LayerDocumentTimelineIntent,
   LayerModifier,
   LayerTransform,
+  ModifierType,
 } from "@/models";
 import { upsertKeyframeValue } from "@/models/keyframeTrackMutation";
 import type {
@@ -244,7 +245,8 @@ function modifierForInput(
 ) {
   const { type } = getModifierInputDescriptor(inputId);
   return descriptor.modifiers.find(
-    (modifier): modifier is Extract<LayerModifier, { type: "wiggle" }> =>
+    (modifier): modifier is Extract<LayerModifier, { type: "wiggle" | "swing" | "oscillate" }> =>
+      (modifier.type === "wiggle" || modifier.type === "swing" || modifier.type === "oscillate") &&
       modifier.type === type
   ) ?? null;
 }
@@ -459,7 +461,11 @@ export function createLayerDocumentPropertiesController(options: {
       focusedInputId: inputId,
       focusedTransform: null,
       inputDrafts: {
-        [inputId]: String(modifier[field]),
+        [inputId]: String(
+          field === "angle"
+            ? modifier.type === "oscillate" ? modifier.angle : 0
+            : modifier[field]
+        ),
       },
     });
     return true;
@@ -501,15 +507,22 @@ export function createLayerDocumentPropertiesController(options: {
     ) return null;
     const { field } = getModifierInputDescriptor(inputId);
     const value = normalizeModifierNumber(parsed.value);
-    if (modifier[field] === value) {
+    const currentValue = field === "angle"
+      ? modifier.type === "oscillate" ? modifier.angle : 0
+      : modifier[field];
+    if (currentValue === value) {
       replaceEmpty();
       return { ok: true as const, committed: false };
     }
-    const modifiers = descriptor.modifiers.map((candidate) =>
-      candidate.modifierId === modifier.modifierId
-        ? { ...candidate, [field]: value }
-        : candidate
-    );
+    const modifiers = descriptor.modifiers.map((candidate) => {
+      if (candidate.modifierId !== modifier.modifierId) return candidate;
+      if (field === "angle") {
+        return candidate.type === "oscillate"
+          ? { ...candidate, angle: value }
+          : candidate;
+      }
+      return { ...candidate, [field]: value };
+    });
     const result = dispatch({
       kind: "set-modifiers",
       layerDocumentId: descriptor.layerDocumentId,
@@ -667,7 +680,7 @@ export function createLayerDocumentPropertiesController(options: {
         localFrame: keyframe.localFrame,
       });
     },
-    toggleModifier: (type: "wiggle") => {
+    toggleModifier: (type: ModifierType) => {
       syncSelection();
       const { descriptor } = readScope();
       if (
@@ -677,19 +690,30 @@ export function createLayerDocumentPropertiesController(options: {
       const existing = descriptor.modifiers.find(
         (modifier) => modifier.type === type
       );
+      const newModifier: Extract<LayerModifier, { type: "wiggle" | "swing" | "oscillate" }> =
+        type === "oscillate"
+          ? {
+              modifierId: `${type}:${descriptor.layerDocumentId}`,
+              type,
+              enabled: true,
+              angle: 0,
+              frequency: 0,
+              amount: 0,
+            }
+          : {
+              modifierId: `${type}:${descriptor.layerDocumentId}`,
+              type,
+              enabled: true,
+              frequency: 0,
+              amount: 0,
+            };
       const modifiers = existing
         ? descriptor.modifiers.filter(
             (modifier) => modifier.modifierId !== existing.modifierId
           )
         : [
             ...descriptor.modifiers,
-            {
-              modifierId: `${type}:${descriptor.layerDocumentId}`,
-              type,
-              enabled: true,
-              frequency: 0,
-              amount: 0,
-            },
+            newModifier,
           ];
       return dispatch({
         kind: "set-modifiers",

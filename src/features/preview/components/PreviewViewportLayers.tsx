@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import PreviewGuideLayers from "@/features/preview/components/PreviewGuideLayers";
+import PreviewCameraFrameControls from "@/features/preview/components/PreviewCameraFrameControls";
 import type { CanvasGuideViewModel } from "@/engines/canvas";
 import type { Position } from "@/models";
 
@@ -15,6 +16,9 @@ type PreviewViewportLayersProps = {
     height: number;
   };
   guide: CanvasGuideViewModel;
+  cameraEditing: boolean;
+  setCameraScalePercent: (percent: number) => void;
+  commitCameraScalePercent: (percent: number) => void;
 };
 
 export default function PreviewViewportLayers({
@@ -26,6 +30,9 @@ export default function PreviewViewportLayers({
   previewZoom,
   previewSize,
   guide,
+  cameraEditing,
+  setCameraScalePercent,
+  commitCameraScalePercent,
 }: PreviewViewportLayersProps) {
   const previewStageStyle = {
     position: "absolute" as const,
@@ -65,13 +72,21 @@ export default function PreviewViewportLayers({
         aria-hidden="true"
         style={{
           ...previewStageStyle,
-          zIndex: 30,
+          zIndex: cameraEditing ? 70 : 30,
           pointerEvents: "none",
         }}
       >
         <PreviewGuideLayers
           guide={guide}
         />
+        {cameraEditing && (
+          <PreviewCameraFrameControls
+            guide={guide}
+            previewZoom={previewZoom}
+            onPreviewScale={setCameraScalePercent}
+            onCommitScale={commitCameraScalePercent}
+          />
+        )}
       </div>
     </>
   );

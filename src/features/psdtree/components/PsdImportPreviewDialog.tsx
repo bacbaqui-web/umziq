@@ -14,7 +14,82 @@ type Props = {
     targetId: string | null,
     position: "before" | "inside" | "after"
   ) => void;
+  onScale: (token: string, scalePercent: number) => void;
+  onRenameNode: (
+    token: string,
+    layerDocumentId: string,
+    name: string
+  ) => void;
+  onRemoveNode: (
+    token: string,
+    layerDocumentId: string
+  ) => void;
 };
+
+function PsdFileIcon() {
+  return (
+    <span aria-hidden="true" style={{ width: 16, height: 19, position: "relative", display: "flex", alignItems: "flex-end", justifyContent: "center", flex: "0 0 auto", color: "#82a7c9" }}>
+      <svg width="16" height="19" viewBox="0 0 24 28" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round">
+        <path d="M4.5 1.8h9.8l5.2 5.3v18a1.4 1.4 0 0 1-1.4 1.4H4.5A1.5 1.5 0 0 1 3 25V3.3a1.5 1.5 0 0 1 1.5-1.5Z" />
+        <path d="M14 2v5.5h5.3" />
+      </svg>
+      <span style={{ position: "absolute", bottom: 2.5, fontSize: 5, lineHeight: 1, fontWeight: 800, letterSpacing: 0.25 }}>PSD</span>
+    </span>
+  );
+}
+
+function DimensionInput({
+  value,
+  label,
+  align,
+  onCommit,
+}: {
+  value: number;
+  label: string;
+  align: "left" | "right";
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const next = Number(draft);
+    if (Number.isFinite(next) && next > 0) onCommit(next);
+    else setDraft(String(value));
+  };
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={draft}
+      aria-label={label}
+      className="dimension-input"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      onFocus={(event) => event.currentTarget.select()}
+      onChange={(event) => {
+        if (/^\d*$/.test(event.currentTarget.value)) {
+          setDraft(event.currentTarget.value);
+        }
+      }}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setDraft(String(value));
+        }
+      }}
+      style={{
+        width: 38,
+        textAlign: align,
+      }}
+    />
+  );
+}
 
 export default function PsdImportPreviewDialog({
   plan,
@@ -23,8 +98,19 @@ export default function PsdImportPreviewDialog({
   onCancel,
   onConfirm,
   onMoveNode,
+  onScale,
+  onRenameNode,
+  onRemoveNode,
 }: Props) {
   const [dragged, setDragged] = useState<{ token: string; nodeId: string } | null>(null);
+  const [hoverPreview, setHoverPreview] = useState<{
+    url: string;
+    name: string;
+    width?: number;
+    height?: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const open = status !== "idle";
 
   useEffect(() => {
@@ -64,7 +150,7 @@ export default function PsdImportPreviewDialog({
       <div
         className="preview-dialog-surface"
         style={{
-          width: "min(720px, 92vw)",
+          width: "min(460px, 92vw)",
           maxHeight: "min(780px, 88vh)",
           display: "flex",
           flexDirection: "column",
@@ -72,11 +158,8 @@ export default function PsdImportPreviewDialog({
           color: "#e8ebee",
         }}
       >
-        <header style={{ padding: "20px 22px 16px", borderBottom: "1px solid #30363c" }}>
-          <div style={{ fontSize: 16, fontWeight: 750 }}>PSD 불러오기 미리보기</div>
-          <div style={{ marginTop: 5, color: "#8f989f", fontSize: 12 }}>
-            계층과 순서를 확인한 뒤 불러오세요. 원본 PSD는 변경되지 않습니다.
-          </div>
+        <header style={{ padding: "16px 22px", borderBottom: "1px solid #30363c" }}>
+          <div style={{ fontSize: 16, fontWeight: 750 }}>PSD 미리보기</div>
         </header>
 
         <main style={{ padding: 18, overflow: "auto", minHeight: 180 }}>
@@ -92,35 +175,138 @@ export default function PsdImportPreviewDialog({
                 overflow: "hidden",
               }}
             >
-              <div style={{ padding: "14px 16px", borderBottom: "1px solid #2b3238" }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{entry.analysis.fileName}</div>
-                <div style={{ marginTop: 7, display: "flex", gap: 16, color: "#929ca4", fontSize: 11 }}>
-                  <span>{entry.analysis.width} × {entry.analysis.height}</span>
-                  <span>그룹 {entry.analysis.groupCount}</span>
-                  <span>레이어 {entry.analysis.layerCount}</span>
+              <div style={{ height: 35, padding: "5px 8px", boxSizing: "border-box", display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(145deg, #20252a 0%, #1a1e22 100%)" }}>
+                <PsdFileIcon />
+                <div style={{ minWidth: 0, flex: 1, fontSize: 12.5, fontWeight: 650, color: "#f2f4f5", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {entry.analysis.fileName.replace(/\.psd$/i, "")}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#78838c", fontSize: 10, whiteSpace: "nowrap" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <DimensionInput
+                      value={entry.analysis.width}
+                      label={`${entry.analysis.fileName} 가로 크기`}
+                      align="right"
+                      onCommit={(width) => {
+                        const originalWidth =
+                          entry.analysis.width /
+                          (entry.scalePercent / 100);
+                        onScale(
+                          entry.token,
+                          Math.min(
+                            400,
+                            Math.max(
+                              1,
+                              Math.round(
+                                (width / originalWidth) * 10000
+                              ) / 100
+                            )
+                          )
+                        );
+                      }}
+                    />
+                    ×
+                    <DimensionInput
+                      value={entry.analysis.height}
+                      label={`${entry.analysis.fileName} 세로 크기`}
+                      align="left"
+                      onCommit={(height) => {
+                        const originalHeight =
+                          entry.analysis.height /
+                          (entry.scalePercent / 100);
+                        onScale(
+                          entry.token,
+                          Math.min(
+                            400,
+                            Math.max(
+                              1,
+                              Math.round(
+                                (height / originalHeight) * 10000
+                              ) / 100
+                            )
+                          )
+                        );
+                      }}
+                    />
+                  </span>
+                  <span>그룹 {entry.analysis.groupCount}개</span>
+                  <span>레이어 {entry.analysis.layerCount}개</span>
+                  <label style={{ display: "flex", alignItems: "center", gap: 3, color: "#9aa6af" }}>
+                    크기
+                    <input
+                      className="dimension-input number-input--no-spinner"
+                      type="number"
+                      min={1}
+                      max={400}
+                      step={1}
+                      value={entry.scalePercent}
+                      onChange={(event) => {
+                        const value = Number(event.currentTarget.value);
+                        if (Number.isFinite(value)) onScale(entry.token, value);
+                      }}
+                      style={{
+                        width: 38,
+                        textAlign: "right",
+                      }}
+                      aria-label={`${entry.analysis.fileName} 불러오기 크기`}
+                    />
+                    %
+                  </label>
                 </div>
               </div>
               <div
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => handleRootDrop(event, entry.token)}
-                style={{ padding: "7px 8px 10px" }}
+                style={{ padding: "0 0 6px", background: "rgba(18, 21, 24, 0.48)" }}
               >
-                {entry.tree.map((node) => (
+                {(entry.tree.length === 1 && entry.tree[0].kind === "group"
+                  ? entry.tree[0].children
+                  : entry.tree
+                ).map((node, index, nodes) => (
                   <PsdImportPreviewNode
                     key={node.id}
                     node={node}
-                    depth={0}
+                    depth={1}
                     draggedId={dragged?.token === entry.token ? dragged.nodeId : null}
+                    parentGuideLeft={16}
+                    isLastSibling={index === nodes.length - 1}
                     onBeginDrag={(nodeId) => setDragged({ token: entry.token, nodeId })}
                     onEndDrag={() => setDragged(null)}
                     onMove={(draggedId, targetId, position) =>
                       onMoveNode(entry.token, draggedId, targetId, position)
                     }
+                    onPreview={(url, name, width, height, clientX, clientY) => {
+                      const previewWidth = 224;
+                      const diagonalGap = 20;
+                      const previewImageHeight = url && width && height
+                        ? Math.min(200, (height / width) * 208)
+                        : 120;
+                      const previewHeight = 28 + previewImageHeight + 12;
+                      const left = Math.min(
+                        clientX + diagonalGap,
+                        window.innerWidth - previewWidth - 12
+                      );
+                      const top = Math.min(
+                        clientY - diagonalGap - previewHeight,
+                        window.innerHeight - previewHeight - 12
+                      );
+                      setHoverPreview({
+                        url,
+                        name,
+                        width,
+                        height,
+                        x: Math.max(12, left),
+                        y: Math.max(12, top),
+                      });
+                    }}
+                    onPreviewEnd={() => setHoverPreview(null)}
+                    onRename={(layerDocumentId, name) =>
+                      onRenameNode(entry.token, layerDocumentId, name)
+                    }
+                    onRemove={(layerDocumentId) =>
+                      onRemoveNode(entry.token, layerDocumentId)
+                    }
                   />
                 ))}
-                <div style={{ padding: "8px 12px 2px", color: "#68737c", fontSize: 10 }}>
-                  빈 영역에 놓으면 root의 맨 아래로 이동합니다.
-                </div>
               </div>
             </section>
           ))}
@@ -148,6 +334,85 @@ export default function PsdImportPreviewDialog({
           </button>
         </footer>
       </div>
+      {hoverPreview && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            zIndex: 1010,
+            left: hoverPreview.x,
+            top: hoverPreview.y,
+            width: 220,
+            pointerEvents: "none",
+            overflow: "hidden",
+            border: "1px solid #50677b",
+            borderRadius: 8,
+            background: "#11161a",
+            boxShadow: "0 14px 34px rgba(0, 0, 0, 0.58)",
+          }}
+        >
+          <div
+            style={{
+              padding: "5px 7px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              overflow: "hidden",
+              color: "#dce8f2",
+              fontSize: 11,
+            }}
+          >
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {hoverPreview.name}
+            </span>
+            {hoverPreview.width !== undefined &&
+              hoverPreview.height !== undefined && (
+                <span style={{ flex: "0 0 auto", color: "#8798a6", fontVariantNumeric: "tabular-nums" }}>
+                  {hoverPreview.width} × {hoverPreview.height}px
+                </span>
+              )}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: 120,
+              padding: 6,
+              backgroundColor: "#20262b",
+              backgroundImage:
+                "linear-gradient(45deg, #2b3238 25%, transparent 25%), linear-gradient(-45deg, #2b3238 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2b3238 75%), linear-gradient(-45deg, transparent 75%, #2b3238 75%)",
+              backgroundSize: "16px 16px",
+              backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
+            }}
+          >
+            {hoverPreview.url ? (
+              <img
+                src={hoverPreview.url}
+                alt=""
+                style={{
+                  display: "block",
+                  maxWidth: "100%",
+                  maxHeight: 200,
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  padding: "36px 12px",
+                  color: "#aebbc6",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                빈 레이어
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
