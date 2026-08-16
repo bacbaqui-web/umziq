@@ -2,11 +2,10 @@
 
 ## 상태
 
-- Sprint 계획 수립 완료
-- Task 0~12 완료
+- Sprint 계획 수립 및 Task 0~13 완료
 - Task 5를 Library audition 선행 계약으로 Task 4보다 먼저 구현
 - Task 4 완료
-- Browser QA 미실행
+- 자동 검증 완료, 실제 브라우저 Audio/포인터 QA 미실행
 
 ## 기준
 
@@ -830,6 +829,10 @@ Timeline 배치와 effect chain이 적용된 Audio를 기존 영상 출력에 �
 
 ## Task 13 — 문서 동기화와 최종 검증
 
+### 상태
+
+- 완료
+
 ### 목적
 
 Library/Audio의 현재 구현 위치, 공개 경계와 회귀 결과를 문서와 검증에
@@ -860,13 +863,38 @@ Library/Audio의 현재 구현 위치, 공개 경계와 회귀 결과를 문서�
 
 ### Sprint 완료 조건
 
-- Task 0~13 PASS
-- Library에서 PSD와 Audio Source/Layer 관리 가능
-- imported/recorded Audio 구분, 미리 듣기와 음소거 동작
-- Cut reorder와 Cut별 Audio 배치/이동 동작
-- Timeline visual/audio 재생 clock 단일화 유지
-- Audio 기본 Properties와 독립 Audio Effects Panel 경계 성립
-- Noise Gate `소음 줄이기` Preview/Export 적용
-- 저장/열기/Missing/Reconnect/Delete/Undo/Redo 회귀 통과
-- 외부 VST hosting과 AI denoise 추가 0건
-- Architecture, `docs/20_src_map.md`와 실제 코드 일치
+- [x] Task 0~13 구현 및 자동 검증 PASS
+- [x] Library에서 PSD와 Audio Source/Layer 관리
+- [x] imported/recorded Audio 구분, 미리 듣기와 음소거 계약
+- [x] Cut reorder와 Cut별 Audio 배치/이동 계약
+- [x] Timeline visual/audio 재생 clock 단일화
+- [x] Audio 기본 Properties와 독립 Audio Effects Panel 경계
+- [x] Noise Gate `소음 줄이기` Preview/Export 적용
+- [x] 저장/열기/Missing/Reconnect/Delete/Undo/Redo 자동 회귀 검증
+- [x] 외부 VST hosting과 AI denoise 추가 0건
+- [x] Architecture, `docs/20_src_map.md`와 실제 코드 동기화
+
+### 구현 결과
+
+- Library는 PSD 전용 목록이 아니라 Project의 PSD와 Audio Source/Layer를
+  관리하고 이후 Image/Video asset으로 확장할 Panel 책임으로 정리했다.
+- schema v3의 Audio Source/Layer 영구 계약과 decoded resource, waveform,
+  AudioContext 같은 Editor Runtime 전용 자원의 경계를 문서화했다.
+- Library, Timeline, Properties가 같은 `layerDocumentId` 선택 identity를
+  사용하고 Timeline playback clock 하나가 visual/audio 재생을 소유한다.
+- 직접 녹음은 confirm 전 prepared runtime 상태이며 confirm 성공 시에만
+  recorded Source와 Audio Layer를 Owner 단일 transaction으로 생성한다.
+- Audio Properties와 독립 Audio Effects Panel, ordered effect envelope,
+  Noise Gate `소음 줄이기`의 Preview/Export 의미를 실제 구현과 맞췄다.
+- MP4/WebM은 Audio Layer를 영상과 함께 mix하고 GIF/animated WebP는 음원을
+  지원하지 않는 현재 Export 경계를 명시했다.
+- active code/canonical 문서의 PSD Tree 책임 명칭과 Audio unsupported 경계를
+  감사했다. Task 0/1의 이전→현재 명칭표와 완료 문서의 역사 기록은 유지한다.
+
+### 남은 수동 검증
+
+- 실제 브라우저의 마이크 권한 허용·거부와 MediaRecorder codec 조합
+- 실제 AudioWorklet 로드/CSP fallback, 여러 효과의 청감과 A/V sync
+- Library Cut/Audio drag-and-drop과 키보드 대체 조작
+- Timeline trim/move 및 Properties/Effects 숫자 drag·pointer 취소 동작
+- MP4/WebM 실제 파일의 브라우저별 codec 재생, 투명 WebM과 음원 포함 여부

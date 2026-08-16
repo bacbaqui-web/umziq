@@ -1,6 +1,6 @@
 # Source Map
 
-> 현재 기준: Editor Project Owner와 네 Panel Engine의 최종 구조
+> 현재 기준: Editor Project Owner와 다섯 Panel Engine의 최종 구조
 >
 > 영구 설계는 `docs/architecture/10_project_architecture.md`부터
 > `docs/architecture/17_persistence_lifecycle_architecture.md`까지의
@@ -22,13 +22,13 @@ main.tsx
       → shared Transform Draft / Timeline Runtime
       → useLayerDocumentPanelEnginePorts
       → Owner / Panel Engine / Render public port wiring
-      → Canvas / Timeline / Properties / Library Engine
+      → Canvas / Timeline / Properties / Library / Audio Effects Engine
   → EditorShellLayout
-      → Project Lifecycle Bar / Library / Canvas / Properties / Timeline UI
+      → Project Lifecycle Bar / Library / Canvas / Properties / Audio Effects / Timeline UI
 ```
 
 `src/editor/useEditorCompositionRoot.ts`가 제품 Composition Root다. 동일
-Project Owner와 저장되지 않는 Editor Runtime의 최소 port를 네 Panel
+Project Owner와 저장되지 않는 Editor Runtime의 최소 port를 다섯 Panel
 Engine에 주입하고 ViewProps를 Shell에 연결한다. Root는 current frame을
 저장하지 않으며 Timeline Runtime의 동일 read/subscribe/command port를
 Timeline과 Canvas/Properties frame input 경계로 전달한다.
@@ -133,7 +133,7 @@ Duplicate는 같은 Source를 참조하는 새 LayerDocument를 만들고 공통
 - `useLayerDocumentPanelEnginePorts.ts`: 최종 Owner/Panel Engine/동결된
   Render public port를 직접 연결하고 Canvas/Timeline/Properties/Library의
   최소 입력 port로 변환
-- `useEditorCompositionRoot.ts`: 네 Panel Engine 생성과 ViewProps 연결만 수행하는 Editor Composition Root
+- `useEditorCompositionRoot.ts`: 다섯 Panel Engine 생성과 ViewProps 연결만 수행하는 Editor Composition Root
 - `projectLifecycleUi.ts`: lifecycle 공개 포트만 사용하는 New/Open/Save/Save As/Close/Reconnect UI command와 구조화 ViewModel
 - `ProjectLifecycleBar.tsx`: clean/dirty/saving/loading, 오류, Missing Source와 Reconnect entry를 표시하는 Shell 상단 UI
 - `state/useEditorCanvasRuntimeState.ts`: drag, hover, pan 같은 Canvas 전용 세션 상태
@@ -413,6 +413,10 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
   단일 Owner transaction clamp/undo 계약
 - Audio Effects ordered envelope, Draft/단일 History command, stale selection 거부와
   audition graph reconcile
+- Noise Gate strength/threshold/floor/attack/release pure DSP, AudioWorklet/fallback
+  graph order와 비동기 준비 동기화/cleanup
+- MP4/WebM Audio timing/effect mix, fake MediaRecorder track 포함과 cancel cleanup,
+  GIF/WebP no-audio 경계
 - `.ziq` canonical round trip/container·schema migration/input-limit 거부
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration
@@ -428,7 +432,9 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 profiling identity와 painter clone, Dirty Region, Composition/Surface
 Cache의 최적화 전 정적 Baseline을 고정한다.
 
-정적 종료 검증은 `npm test`, `npm run lint`, `npm run build`, `git diff --check`다. Browser QA와 실제 조작 QA는 별도 요청이 있을 때만 수행한다.
+정적 종료 검증은 `npm test`, `npm run lint`, `npm run build`, `git diff --check`다.
+실제 Browser mic permission/MediaRecorder codec/AudioWorklet와 청감, Library drag,
+Timeline/Properties pointer 조작 QA는 아직 실행하지 않았으며 별도 요청이 있을 때 수행한다.
 
 ## 12. 영구 Architecture 지도
 

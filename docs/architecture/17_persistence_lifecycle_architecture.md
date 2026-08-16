@@ -20,6 +20,10 @@
 - container version: 파일 포장 형식
 - Project schema version: LayerDocumentProject 데이터 구조
 
+현재 Project schema version은 3이다. schema 1은 1→2→3, schema 2는 2→3으로
+순수 migration하며 Audio Source/Layer의 metadata, provenance, gain/mute/fade와
+ordered effect envelope도 Plain Data round trip 대상이다.
+
 ## 저장 대상
 
 저장:
@@ -32,6 +36,7 @@
 
 - File, handle와 permission
 - decoded Source resource
+- decoded AudioBuffer, waveform cache, AudioContext/AudioNode와 audition session
 - Canvas, ImageBitmap와 decoder
 - Selection과 active Group
 - current frame와 playback
@@ -93,7 +98,7 @@ Dirty는 UI flag나 object identity가 아니다. 현재 canonical Project diges
 ## Linked Source
 
 기본 정책은 Linked Source다. Project에는 Source descriptor만 저장하고 실제
-PSD/외부 파일은 Open 뒤 다시 읽는다.
+PSD/Audio/외부 파일은 Open 뒤 다시 읽는다.
 
 파일을 찾을 수 없으면 Project는 Ready-Degraded 상태로 열리며 Missing Source
 UI와 Reconnect command를 제공한다.

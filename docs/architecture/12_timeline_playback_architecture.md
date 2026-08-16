@@ -22,6 +22,11 @@ Placement가 소유하는 값:
 Timeline row는 Placement와 Animation의 projection이며 별도 Layer 사본이나
 편집 원본이 아니다.
 
+Audio row도 같은 `layerDocumentId`와 Placement를 사용한다. waveform은 decoded
+Audio Runtime에서 계산하는 session projection이며 Project나 History에 저장하지
+않는다. Audio move/trim은 visual Layer와 같은 Draft→단일 transaction 규칙을
+따르고 trim-start는 `sourceOffsetFrames`를 함께 조정한다.
+
 ## Timeline Runtime
 
 저장되지 않는 다음 값은 Timeline Runtime이 소유한다.
@@ -54,6 +59,11 @@ Timeline Runtime
 ```
 
 모든 소비자는 같은 frame 값을 사용한다.
+
+Editor Audio Runtime도 이 Timeline Runtime의 read/subscribe를 Composition Root
+public port로 받아 play/pause/seek/range/loop를 동기화한다. 일반 재생 중 별도
+Audio frame timer나 두 번째 current-frame owner를 만들지 않는다. Library의
+single-active 미리 듣기는 저장되지 않는 별도 audition session이다.
 
 ## Playback
 

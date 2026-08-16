@@ -5,6 +5,10 @@
 > QA: 미실행
 > 현재 Sprint 승격: 사용자 승인 후 `docs/98_sprint_plan.md`로 이동
 
+> 2026-08-17 동기화: 이 문서는 Timeline 재구성 제안 당시 기록이다. 아래의
+> Audio waveform/source trim 미구현 표기는 이후 `docs/98_sprint_plan.md`의
+> Library + Audio Foundation Sprint에서 구현되어 현재 상태가 아니다.
+
 ## 제안 방향
 
 프로젝트 철학은 After Effects를 그대로 복제하는 것이 아니라, 숏폼 제작에 필요한 핵심 편집 감각만 더 쉽고 가볍게 제공하는 것이다.

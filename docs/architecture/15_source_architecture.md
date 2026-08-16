@@ -11,7 +11,7 @@ Layer Document는 PSD Layer 자체가 아니다.
 
 ```text
 Source Registry
-└─ PSD/외부 파일 descriptor
+└─ PSD/Audio/외부 파일 descriptor
        ↑
 Layer Document A
 Layer Document B
@@ -33,6 +33,7 @@ Source Registry에는 Plain Data만 저장한다.
 - 추천 파일명과 optional path hint
 - content fingerprint와 byte length
 - PSD node key/path와 visual fingerprint
+- Audio provenance(imported/recorded), duration, channel count와 sample rate
 - reconciliation 상태
 
 Transform이나 Layer별 편집 데이터는 Source에 저장하지 않는다.
@@ -47,15 +48,24 @@ Transform이나 Layer별 편집 데이터는 Source에 저장하지 않는다.
 - decoded PSD visual
 - Canvas/ImageBitmap
 - decoder와 prepared resource
+- decoded AudioBuffer와 waveform peak cache
+- AudioContext, AudioNode와 audition/playback handle
 - Source visual Cache
 
 Source Runtime은 `(projectId, source identity)`로 Project 간 resource를
 격리하고 dispose-once를 보장한다.
 
-## PSD Tree
+## Library
 
-PSD Tree Panel과 Engine은 Source 구조, import/refresh/delete와 selection
-Intent를 표시한다. Project와 decoded resource를 직접 소유하지 않는다.
+Library Panel과 Engine은 현재 Project의 PSD와 Audio Source/Layer 구조,
+import/record/refresh/delete/reconnect와 selection Intent를 표시한다. 향후
+Image/Video asset도 같은 책임으로 확장한다. Project와 decoded resource를 직접
+소유하지 않는다.
+
+Library, Timeline과 Properties가 공유하는 배치 선택 identity는
+`layerDocumentId`다. Source 파일 전체 작업은 `sourceId`를 사용하므로 같은 Audio
+Source를 여러 Cut에 배치해도 Source 삭제/reconnect와 개별 Layer 삭제를 혼동하지
+않는다.
 
 준비된 Source는 확인 전까지 Project 밖에 있으며 confirm transaction이
 성공한 뒤 Source Registry와 Layer Document에 반영한다.
@@ -72,6 +82,12 @@ File 선택
 
 실패 또는 Cancel은 Project를 부분 변경하지 않고 prepared resource를
 dispose한다.
+
+Audio 파일 import와 직접 녹음도 같은 prepared lifecycle을 사용한다. File,
+MediaStream/MediaRecorder와 decoded AudioBuffer는 Confirm 전 Runtime에만 있고,
+Confirm 성공 시에만 Audio Source와 Audio Layer를 Owner transaction 한 번으로
+생성한다. Cancel, 권한 거부, decode 실패와 stale confirm은 Project/History 0건이며
+stream/track/object URL/resource를 정리한다.
 
 ## Refresh와 Replace
 

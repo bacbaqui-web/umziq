@@ -94,6 +94,12 @@ Timeline trim이나 Panel 고유 입력처럼 다른 Panel과 공유할 필요�
 임시값은 해당 Engine Runtime이 소유한다. 공통 Draft로 과도하게 확장하지
 않는다.
 
+Audio Properties의 gain/timing/source offset/fade와 Audio Effects의 parameter도
+연속 입력 중에는 해당 Engine Draft만 바꾸고 확정 시 Owner transaction 한 건을
+만든다. effect add/delete/reorder/bypass와 Audio mute/rename 같은 단발 command도
+사용자 action당 History 한 건이다. audition, waveform, 녹음 prepared session과
+export 진행 상태는 History에 들어가지 않는다.
+
 ## Persistence와 Dirty
 
 Draft는 Save 대상이 아니다. Save는 작업 시작 시점의 committed Project

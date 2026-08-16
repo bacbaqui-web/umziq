@@ -156,7 +156,7 @@ Composition hit/miss, Surface reuse와 drawImage 수를 측정하지만 제품 �
 `previewNodeReused`, `previewCompositionReused`처럼 Preview 책임 이름을
 사용한다. Source Runtime Cache metric은 이 Runtime에 억지로 합치지 않는다.
 
-## 미래 Export
+## Export
 
 Export는 세 번째 Renderer가 아니다.
 
@@ -168,8 +168,15 @@ Frame Evaluation
 → File
 ```
 
-Export lifecycle, Encoder, Audio mux와 파일 생성은 별도 후속 기능이며 현재
-Render Runtime에 미리 Store나 mode를 추가하지 않는다.
+현재 MP4/WebM Export는 Accurate Renderer의 1080×1920 full-resolution frame과
+Web Audio `MediaStreamDestination` mix를 MediaRecorder에 전달한다. 현재 export
+Group의 Cut/Layer Placement, source offset, gain/mute/fade와 ordered
+compressor/reverb/delay/Noise Gate를 반영한다. Audio가 있으면 AudioContext clock이
+video frame deadline과 audio schedule의 단일 기준이다.
+
+GIF와 animated WebP는 이미지 형식이므로 Audio를 포함하지 않는다. Export
+lifecycle, encoder, Audio graph/mux, cancel/cleanup과 파일 생성은 Editor Export
+Runtime 책임이며 Render Runtime에 Store나 사용자 renderer mode를 추가하지 않는다.
 
 ## 구현 규칙
 

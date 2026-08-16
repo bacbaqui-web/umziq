@@ -26,10 +26,11 @@ Editor
 │  └─ Selection Runtime
 ├─ Editor Composition Root
 └─ Panel Engine ↔ Panel
-   ├─ PSD Tree
+   ├─ Library
    ├─ Canvas
    ├─ Timeline
-   └─ Properties
+   ├─ Properties
+   └─ Audio Effects
 ```
 
 Project Owner는 Project의 유일한 mutation 경계다. Composition Root는 값을
@@ -68,6 +69,12 @@ Canvas Layer, Timeline row, Properties state와 Render item은 별도 편집 원
 아니다. Layer Document에서 계산되는 projection이거나 저장되지 않는
 Runtime이다.
 
+현재 Project schema version은 3이다. Audio Source descriptor는 locator,
+fingerprint, provenance(imported/recorded), duration/channel/sample-rate metadata를
+저장한다. Audio Layer는 `layerDocumentId`로 선택하며 Cut 소속·순서·timing은
+`common.placement`, gain/mute/fade는 Audio `data`, ordered effect chain은
+`common.effects`에 저장한다.
+
 ## Identity
 
 | Identity | 의미 |
@@ -100,6 +107,11 @@ state를 소유하지 않는다.
 - Panel Engine끼리는 서로의 내부 구현이나 상태를 직접 수정하지 않는다.
 - 여러 영역을 함께 바꾸는 작업은 Project Owner transaction으로 조합한다.
 - 독립 Panel이 없는 기능은 순수 모듈이나 기존 책임 안에 둔다.
+
+Library는 PSD 전용 Tree가 아니라 현재 Project의 PSD와 Audio Source/Layer를
+관리하며 이후 Image/Video asset까지 확장할 Panel이다. Audio 기본값은 기존
+Properties Engine이, ordered effect chain 편집은 독립 Audio Effects Engine과
+Panel이 담당한다.
 
 ## Composition Root
 
