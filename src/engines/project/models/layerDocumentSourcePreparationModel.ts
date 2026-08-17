@@ -172,6 +172,10 @@ export type LayerDocumentSourceTransactionResult =
 export interface ImportSourceRegistryCommand {
   readonly sources: readonly SourceRegistryRecord[];
   readonly layers: readonly LayerDocument[];
+  readonly parentDurationExtensions?: readonly {
+    readonly layerDocumentId: string;
+    readonly durationFrames: number;
+  }[];
   readonly selectSourceId: string;
   readonly selectLayerDocumentId: string | null;
 }

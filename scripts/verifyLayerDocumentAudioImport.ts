@@ -73,6 +73,43 @@ const prepared = await prepareLayerDocumentAudioImport({
 assert.equal(prepared.command.sources.length, 1);
 assert.equal(prepared.command.layers[0].common.placement.parentLayerDocumentId, "cut");
 assert.equal(prepared.command.layers[0].common.placement.durationFrames, 60);
+assert.deepEqual(prepared.command.parentDurationExtensions, [{
+  layerDocumentId: "cut",
+  durationFrames: 300,
+}]);
+
+const longPrepared = await prepareLayerDocumentAudioImport({
+  project: fixture(), file, token: "long", selectedLayerDocumentId: "cut",
+  decoder: {
+    decode: async () => ({
+      decodedAudio: { fixture: "long" },
+      metadata: { durationSeconds: 12.01, channelCount: 2, sampleRate: 48_000 },
+    }),
+  },
+});
+assert.equal(
+  longPrepared.command.layers[0].common.placement.durationFrames,
+  361,
+  "fractional Audio duration rounds up so the tail is not truncated"
+);
+const longTransaction = LAYER_DOCUMENT_SOURCE_PREPARATION_PORT.commands
+  .prepareImport(fixture(), longPrepared.command);
+assert.equal(longTransaction.ok, true);
+if (longTransaction.ok) {
+  assert.equal(
+    longTransaction.transaction.after.payload.layerDocumentsById.cut.type === "group" &&
+      longTransaction.transaction.after.payload.layerDocumentsById.cut.data.durationFrames,
+    361,
+    "Audio import extends the Cut to the full source duration"
+  );
+  assert.equal(
+    longTransaction.transaction.after.payload.layerDocumentsById.root.type === "group" &&
+      longTransaction.transaction.after.payload.layerDocumentsById.root.data.durationFrames,
+    361,
+    "Audio import extends ancestor playback duration with the Cut"
+  );
+}
+longPrepared.runtime.cancel();
 
 const audioRuntime = createLayerDocumentAudioRuntimeStore();
 const resolution = createLayerDocumentSourceRuntimeResolutionStore();

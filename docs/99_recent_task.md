@@ -1,28 +1,17 @@
-# Library + Audio Foundation Sprint 완료 보고
+# Audio QA Follow-up 완료 보고
 
 ## 최근 Task
 
-PSD 중심 Editor를 PSD와 Audio를 함께 관리하는 Library 기반 Editor로
-확장하고, Audio import/녹음/재생/편집/effect/export의 영구 계약과 Runtime
-경계를 구현했다.
+실제 Audio 사용 QA에서 확인된 Library 조작과 Timeline 재생 문제를 보완했다.
 
 ## 변경
 
-- Library는 PSD와 imported/recorded Audio Source/Layer를 Cut 아래에서 함께
-  관리한다. selection identity는 Library/Timeline/Properties 모두
-  `layerDocumentId`를 사용한다.
-- schema v3에 Audio provenance, metadata, gain/mute/fade와 ordered effects를
-  저장하며 decoded resource, waveform, playback handle은 저장하지 않는다.
-- Audio import와 직접 녹음은 prepared lifecycle을 거쳐 confirm 때만 Owner
-  단일 transaction으로 Source와 Layer를 생성한다.
-- Timeline clock 하나가 visual/audio 재생, seek, range를 소유하고 Audio
-  move/trim/source offset은 Draft 뒤 한 번의 History로 확정한다.
-- Audio 선택 시 Audio Properties를 표시하고, 독립 Audio Effects Panel에서
-  compressor/reverb/delay/Noise Gate envelope를 관리한다.
-- `소음 줄이기` Noise Gate는 Preview와 Export에 같은 ordered effect 의미로
-  적용된다.
-- MP4/WebM 출력은 eligible Audio Layer를 영상과 mix한다. GIF와 animated
-  WebP는 현재 음원을 포함하지 않는다.
+- imported Audio 아이콘을 단일 8분음표 모양으로 교체했다.
+- Audio import 프레임 수를 올림 처리하고, Audio가 더 길면 Cut과 상위 Group의
+  재생 길이를 함께 늘려 Timeline에서 뒤가 잘리지 않게 했다.
+- 음소거된 Audio는 Timeline 행과 트랙을 흐리게 표시한다.
+- Library의 Audio 탐색을 전체 계층 재귀 탐색으로 바꾸고, 행 내부 버튼의
+  pointer 이벤트가 드래그에 가로막히지 않게 해 삭제와 실행 취소 경로를 복구했다.
 
 ## 검증
 
@@ -30,13 +19,9 @@ PSD 중심 Editor를 PSD와 Audio를 함께 관리하는 Library 기반 Editor�
 - 전체 Verification: 50/50 PASS
 - TypeScript 및 Production Build: PASS
 - `git diff --check`: PASS
-- Browser Audio/포인터 QA: 미실행
+- Browser Audio/포인터 QA: 사용자 확인 필요
 
-## 남은 위험
+## 다음 작업
 
-- 실제 마이크 권한 허용·거부, MediaRecorder codec과 AudioWorklet/CSP fallback은
-  브라우저 수동 확인이 남았다.
-- Library drag-and-drop, Timeline/Properties/Effects pointer 조작과 취소는 실제
-  마우스·키보드로 확인해야 한다.
-- MP4/WebM codec 재생, 투명 WebM, 효과의 청감과 장시간 A/V sync는 실제 출력
-  파일로 확인해야 한다.
+- 모든 Library 항목에 같은 이동 규칙을 적용하는 작업은 별도 Task로 진행한다.
+- Audio Properties 개선도 별도 Task로 진행한다.

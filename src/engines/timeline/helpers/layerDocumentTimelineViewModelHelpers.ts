@@ -153,6 +153,7 @@ function viewItem(
         ? "composition"
         : "layer",
     mediaKind: layer.type === "audio" ? "audio" : "visual",
+    muted: layer.type === "audio" ? layer.data.muted : false,
     visible: layer.common.placement.visible,
     ...timing,
   };
@@ -395,7 +396,9 @@ export function buildLayerDocumentTimelineUiReadModel(
             : source.isDeletePending
               ? "rgba(133, 46, 52, 0.58)"
               : row.item.mediaKind === "audio"
-                ? "rgba(31, 75, 52, 0.9)"
+                ? row.item.muted
+                  ? "rgba(31, 75, 52, 0.38)"
+                  : "rgba(31, 75, 52, 0.9)"
                 : row.item.entityKind ===
                   "composition"
                 ? "#21334a"
@@ -412,7 +415,7 @@ export function buildLayerDocumentTimelineUiReadModel(
             : row.item.entityKind === "composition"
             ? "linear-gradient(90deg, #3a6ea5 0%, #4f83bc 100%)"
             : "linear-gradient(90deg, #4a4a4a 0%, #636363 100%)",
-        trackOpacity: row.item.visible
+        trackOpacity: row.item.visible && !row.item.muted
           ? 0.92
           : 0.42,
         waveform: (() => {

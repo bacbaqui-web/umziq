@@ -26,6 +26,10 @@ function addImportedLayers(options: {
   before: LayerDocumentProject;
   afterWithSources: LayerDocumentProject;
   layers: readonly LayerDocument[];
+  parentDurationExtensions?: readonly {
+    readonly layerDocumentId: string;
+    readonly durationFrames: number;
+  }[];
 }): LayerDocumentSourceTransactionResult | LayerDocumentProject {
   const after = cloneSourceTransactionData(options.afterWithSources);
   const inputIds = new Set<string>();
@@ -74,6 +78,57 @@ function addImportedLayers(options: {
         layer.common.placement.order
       )
     );
+  }
+  for (const extension of options.parentDurationExtensions ?? []) {
+    const parent = after.payload.layerDocumentsById[extension.layerDocumentId];
+    if (
+      !parent ||
+      parent.type !== "group" ||
+      !Number.isInteger(extension.durationFrames) ||
+      extension.durationFrames < 1
+    ) {
+      return failSourceTransaction(
+        options.before,
+        "layer-transaction-error",
+        `Invalid import parent duration extension: ${extension.layerDocumentId}`
+      );
+    }
+    if (extension.durationFrames > parent.data.durationFrames) {
+      parent.data = { ...parent.data, durationFrames: extension.durationFrames };
+      parent.common.placement = {
+        ...parent.common.placement,
+        durationFrames: Math.max(
+          parent.common.placement.durationFrames,
+          extension.durationFrames
+        ),
+      };
+      parent.revision += 1;
+      let child: LayerDocument = parent;
+      let ancestorId = child.common.placement.parentLayerDocumentId;
+      while (ancestorId) {
+        const ancestor = after.payload.layerDocumentsById[ancestorId];
+        if (!ancestor || ancestor.type !== "group") break;
+        const requiredDuration =
+          child.common.placement.startFrame +
+          child.common.placement.durationFrames;
+        if (requiredDuration > ancestor.data.durationFrames) {
+          ancestor.data = {
+            ...ancestor.data,
+            durationFrames: requiredDuration,
+          };
+          ancestor.common.placement = {
+            ...ancestor.common.placement,
+            durationFrames: Math.max(
+              ancestor.common.placement.durationFrames,
+              requiredDuration
+            ),
+          };
+          ancestor.revision += 1;
+        }
+        child = ancestor;
+        ancestorId = ancestor.common.placement.parentLayerDocumentId;
+      }
+    }
   }
   if (options.layers.length === 0) {
     const invalid = validateSourceTransactionAfter(
@@ -177,6 +232,7 @@ export function prepareSourceRegistryImport(
     before: project,
     afterWithSources,
     layers: command.layers,
+    parentDurationExtensions: command.parentDurationExtensions,
   });
   if ("ok" in layerResult) return layerResult;
   const invalidAfter = validateSourceTransactionAfter(

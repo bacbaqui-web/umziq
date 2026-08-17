@@ -67,7 +67,8 @@ function AudioIcon({ provenance }: { provenance: "imported" | "recorded" | null 
         </svg>
       ) : (
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M3 10.5V3.7L12 2v7" /><circle cx="3" cy="11.5" r="2" /><circle cx="12" cy="10" r="2" />
+          <path d="M9.5 11V2.2c2.9.35 4.2 1.65 4.2 3.55-1.05-.85-2.3-1.25-4.2-1.25" />
+          <ellipse cx="7" cy="11.5" rx="2.6" ry="2" transform="rotate(-18 7 11.5)" />
         </svg>
       )}
     </span>
@@ -91,6 +92,9 @@ function ActionButton({
 
   return (
     <button
+      onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
       onClick={(event) => {
         event.stopPropagation();
         onClick();

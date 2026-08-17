@@ -464,6 +464,17 @@ export function useLayerDocumentLibraryEngine(options: {
   cacheContext: () => SourceRegistryCacheInvalidationContext;
   resetRevision: number;
 }) {
+  const findLibraryNode = (
+    items: readonly LibraryNodeViewModel[],
+    nodeId: string
+  ): LibraryNodeViewModel | null => {
+    for (const item of items) {
+      if (item.id === nodeId) return item;
+      const child = findLibraryNode(item.children, nodeId);
+      if (child) return child;
+    }
+    return null;
+  };
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioRequest = useRef(0);
@@ -884,15 +895,7 @@ export function useLayerDocumentLibraryEngine(options: {
       }
     },
     onSelectNode: (nodeId) => {
-      const findNode = (items: readonly LibraryNodeViewModel[]): LibraryNodeViewModel | null => {
-        for (const item of items) {
-          if (item.id === nodeId) return item;
-          const child = findNode(item.children);
-          if (child) return child;
-        }
-        return null;
-      };
-      const node = findNode(nodes);
+      const node = findLibraryNode(nodes, nodeId);
       if (node?.type === "project") {
         options.controller.openProject();
         return;
@@ -904,19 +907,22 @@ export function useLayerDocumentLibraryEngine(options: {
       options.controller.selectSource(nodeId);
     },
     onToggleNodeVisibility: (nodeId) => {
-      const audioNode = nodes.flatMap((node) => node.children).find((node) => node.id === nodeId && node.contentKind === "audio");
+      const candidate = findLibraryNode(nodes, nodeId);
+      const audioNode = candidate?.contentKind === "audio" ? candidate : null;
       if (audioNode) options.audio.toggleMuted(nodeId);
       else options.controller.toggleSourceVisibility(nodeId);
     },
     onToggleNodeLock: options.controller.toggleSourceLock,
     onToggleNodePlayback: options.audio.togglePlayback,
     onRenameNode: (nodeId, name) => {
-      const audioNode = nodes.flatMap((node) => node.children).find((node) => node.id === nodeId && node.contentKind === "audio");
+      const candidate = findLibraryNode(nodes, nodeId);
+      const audioNode = candidate?.contentKind === "audio" ? candidate : null;
       if (audioNode) options.audio.rename(nodeId, name);
       else options.controller.renameSourceLayer(nodeId, name);
     },
     onDeleteNode: (nodeId) => {
-      const audioNode = nodes.flatMap((node) => node.children).find((node) => node.id === nodeId && node.contentKind === "audio");
+      const candidate = findLibraryNode(nodes, nodeId);
+      const audioNode = candidate?.contentKind === "audio" ? candidate : null;
       if (audioNode) options.audio.delete(nodeId);
       else options.controller.deleteSourceLayer(nodeId);
     },

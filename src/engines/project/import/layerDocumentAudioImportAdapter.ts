@@ -175,7 +175,7 @@ export async function prepareLayerDocumentAudioImport(options: {
     options.file.name
   );
   const layerDocumentId = stableId("audio-layer", options.token, cutId);
-  const durationFrames = Math.max(1, Math.round(
+  const durationFrames = Math.max(1, Math.ceil(
     decoded.metadata.durationSeconds * cut.data.frameRate
   ));
   const source: AudioSourceRecord = {
@@ -214,6 +214,10 @@ export async function prepareLayerDocumentAudioImport(options: {
     reusedSource: Boolean(shared),
     command: {
       sources: shared ? [] : [source], layers: [layer],
+      parentDurationExtensions: [{
+        layerDocumentId: cutId,
+        durationFrames: Math.max(cut.data.durationFrames, durationFrames),
+      }],
       selectSourceId: sourceId, selectLayerDocumentId: layerDocumentId,
     },
     runtime: createLayerDocumentPreparedRuntimeLifecycle([runtimeResource]),
