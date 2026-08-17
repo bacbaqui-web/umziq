@@ -487,3 +487,7 @@ Timeline/Properties pointer 조작 QA는 아직 실행하지 않았으며 별도
   명칭 기준의 Runtime, 소유권, Cache 계층, 비활성 잔여 경로 조사 기록
 - `docs/completed/61_render_runtime_bible.md`: 비개발자도 이해할 수 있도록 정리한 Render
   전체 흐름, 모든 관련 Runtime의 소유권·수명·사용 관계·용어·사용 여부
+- `docs/completed/62_preview_accurate_renderer_architecture.md`: Preview/Accurate
+  Renderer 역할 전환과 공용 EvaluatedScene 완료 기록
+- `docs/completed/63_library_audio_foundation.md`: Library 전환, Audio schema v3,
+  import/녹음/Timeline/Properties/Effects/Noise Gate/영상 출력 Audio mix 완료 기록
