@@ -2,6 +2,10 @@ import {
   prepareLayerDocumentPsdRefresh,
 } from "@/engines/project/import/layerDocumentPsdImportAdapter";
 import {
+  LAYER_DOCUMENT_BROWSER_AUDIO_DECODER,
+  type LayerDocumentAudioDecodePort,
+} from "@/engines/project/import/layerDocumentAudioImportAdapter";
+import {
   buildLayerDocumentSourceResourceCacheKey,
 } from "@/render";
 import type {
@@ -9,10 +13,62 @@ import type {
   PreparedLayerDocumentLinkedSourceRuntime,
 } from "@/engines/project/models/layerDocumentProjectOpenModel";
 
-export const
-LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION:
-LayerDocumentProjectLinkedSourcePreparationPort = {
+export function createLayerDocumentProjectLinkedSourcePreparation(options?: {
+  readonly audioDecoder?: LayerDocumentAudioDecodePort;
+}): LayerDocumentProjectLinkedSourcePreparationPort {
+  return {
   prepare: async ({ project, source, file, bytes }) => {
+    if (source.kind === "audio") {
+      try {
+        const buffer = bytes?.slice().buffer ?? await file.arrayBuffer();
+        const [decoded, digest] = await Promise.all([
+          (options?.audioDecoder ?? LAYER_DOCUMENT_BROWSER_AUDIO_DECODER)
+            .decode(buffer),
+          crypto.subtle.digest("SHA-256", buffer),
+        ]);
+        const contentFingerprint = {
+          algorithm: "sha-256" as const,
+          digestHex: Array.from(new Uint8Array(digest))
+            .map((byte) => byte.toString(16).padStart(2, "0"))
+            .join(""),
+          byteLength: buffer.byteLength,
+        };
+        let ownership: "prepared" | "discarded" | "transferred" = "prepared";
+        const audioResource = {
+          sourceId: source.sourceId,
+          fingerprint: contentFingerprint.digestHex,
+          decodedAudio: decoded.decodedAudio,
+          metadata: decoded.metadata,
+          dispose: decoded.dispose,
+        };
+        return {
+          ok: true,
+          value: {
+            contentFingerprint,
+            resources: [],
+            audioResources: [audioResource],
+            availableSourceIds: [source.sourceId],
+            unavailableSourceIds: [],
+            discard: () => {
+              if (ownership !== "prepared") return 0;
+              ownership = "discarded";
+              try { audioResource.dispose?.(); } catch { /* best effort */ }
+              return 1;
+            },
+            transfer: () => {
+              if (ownership === "prepared") ownership = "transferred";
+            },
+          },
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          message: error instanceof Error
+            ? error.message
+            : "Linked Audio runtime preparation failed",
+        };
+      }
+    }
     if (source.kind !== "psd-document") {
       return {
         ok: false,
@@ -133,4 +189,9 @@ LayerDocumentProjectLinkedSourcePreparationPort = {
       };
     }
   },
-};
+  };
+}
+
+export const
+LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION =
+  createLayerDocumentProjectLinkedSourcePreparation();

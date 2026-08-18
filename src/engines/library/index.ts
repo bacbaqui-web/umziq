@@ -3,10 +3,14 @@ export {
   buildLayerDocumentLibraryNodes,
   useLayerDocumentLibraryEngine,
 } from "@/engines/library/useLayerDocumentLibraryEngine";
+export {
+  createLayerDocumentLibraryPreviewReader,
+} from "@/engines/library/runtime/libraryHoverPreviewRuntime";
 export type {
   LibraryDropPosition,
   LibraryNodeViewModel,
   LibraryNodeProps,
+  LibraryHoverPreviewViewModel,
   LibraryViewProps,
 } from "@/engines/library/models/libraryModel";
 export {

@@ -79,6 +79,9 @@ export type LibrarySourceSelectionChange =
       readonly sourceId: string;
     }
   | {
+      readonly kind: "clear";
+    }
+  | {
       readonly kind: "preserve";
     };
 

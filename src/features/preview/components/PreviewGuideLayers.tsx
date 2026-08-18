@@ -32,7 +32,9 @@ export default function PreviewGuideLayers({ guide }: PreviewGuideLayersProps) {
       >
         {guide.showShortformFrame && (
           <g>
-            <g fill="rgba(0, 0, 0, 0.7)">
+            <g
+              fill={`rgba(0, 0, 0, ${guide.cameraDimOpacityPercent / 100})`}
+            >
               {guide.geometry.dimRects.map((rect, index) => (
                 <rect
                   key={`dim-${index}`}

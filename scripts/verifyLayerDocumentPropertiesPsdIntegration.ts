@@ -279,18 +279,18 @@ const properties =
 properties.syncSelection();
 assert.equal(
   properties.read().displayedTransform?.position.x,
-  170
+  -370
 );
 const transitionsBeforePreview = ownerTransitionCount;
 const historyBeforePreview = ownerState.undoStack.length;
 properties.focusNumericInput("position.x");
-properties.changeNumericInput("position.x", "190");
+properties.changeNumericInput("position.x", "-350");
 assert.equal(ownerTransitionCount, transitionsBeforePreview);
 assert.equal(ownerState.undoStack.length, historyBeforePreview);
 assert.equal(draft?.evaluatedTransform.position.x, 190);
 assert.equal(
   properties.read().displayedTransform?.position.x,
-  190
+  -350
 );
 assert.equal(
   properties.blurNumericInput("position.x")?.committed,

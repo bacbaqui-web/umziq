@@ -39,6 +39,9 @@ export default function TimelineRuler({ viewModel, commands, rulerRef }: Props) 
           ))}
         </div>
         <div style={{ position: "absolute", left: viewModel.indicator.left, top: 0, bottom: 0, width: viewModel.indicator.width, background: viewModel.indicator.background, boxShadow: viewModel.indicator.boxShadow, pointerEvents: "none", zIndex: viewModel.indicator.zIndex }} />
+        {viewModel.hoverIndicator && (
+          <div style={{ position: "absolute", left: viewModel.hoverIndicator.left, top: 0, bottom: 0, width: viewModel.hoverIndicator.width, background: viewModel.hoverIndicator.background, pointerEvents: "none", zIndex: viewModel.hoverIndicator.zIndex }} />
+        )}
         {viewModel.activeReadout && (
           <div style={{ position: "absolute", left: Math.max(4, viewModel.activeReadout.left - 18), top: "50%", transform: "translateY(-50%)", padding: "2px 6px", borderRadius: 999, background: viewModel.activeReadout.mode === "hover" ? "rgba(18, 22, 28, 0.94)" : "rgba(55, 59, 66, 0.92)", border: viewModel.activeReadout.mode === "hover" ? "1px solid #3d4d5c" : "1px solid rgba(132, 138, 150, 0.55)", color: viewModel.activeReadout.mode === "hover" ? "#dbe7f2" : "#eef2f6", fontSize: 11, lineHeight: 1.2, pointerEvents: "none", whiteSpace: "nowrap", zIndex: 10 }}>
             {viewModel.activeReadout.text}
@@ -46,8 +49,10 @@ export default function TimelineRuler({ viewModel, commands, rulerRef }: Props) 
         )}
       </div>
       {viewModel.showInteractionShield && (
-        <div onMouseMove={(event) => commands.moveRangeResize(event.clientX)} onMouseUp={commands.endRangeResize}
-          style={{ position: "fixed", inset: 0, cursor: "none", background: "transparent", zIndex: 999 }} />
+        <div
+          aria-hidden="true"
+          style={{ position: "fixed", inset: 0, cursor: "none", background: "transparent", zIndex: 999 }}
+        />
       )}
     </>
   );

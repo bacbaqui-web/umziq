@@ -7,6 +7,8 @@ import {
   applyRotationModifiers,
   buildPositionMotionPathSamples,
   clampOpacity,
+  evaluateMouthBasicOpacity,
+  remapAccelerationFrame,
   evaluatePositionKeyframes,
   evaluateScalarKeyframes,
   evaluateScaleKeyframes,
@@ -61,11 +63,19 @@ export function evaluateLayerDocumentTransform(
   const common = layer.common;
   const animation = common.animation;
   const transform = common.transform;
+  const acceleration = common.modifiers.find(
+    (modifier): modifier is Extract<typeof modifier, { type: "acceleration" }> =>
+      modifier.type === "acceleration" && modifier.enabled
+  );
+  const evaluationFrame = (property: "position" | "scale" | "rotation" | "opacity") =>
+    acceleration?.properties.includes(property)
+      ? remapAccelerationFrame(acceleration, localFrame)
+      : localFrame;
   const basePosition = animation.enabledProperties.position
     ? evaluatePositionKeyframes(
         transform.position,
         animation.positionKeyframes,
-        localFrame
+        evaluationFrame("position")
       )
     : transform.position;
   const position = applyPositionModifiers(
@@ -79,14 +89,14 @@ export function evaluateLayerDocumentTransform(
     ? evaluateScaleKeyframes(
         transform.scale,
         animation.scaleKeyframes,
-        localFrame
+        evaluationFrame("scale")
       )
     : transform.scale;
   const baseRotation = animation.enabledProperties.rotation
     ? evaluateScalarKeyframes(
         transform.rotation,
         animation.rotationKeyframes,
-        localFrame
+        evaluationFrame("rotation")
       )
     : transform.rotation;
   const rotation = applyRotationModifiers(
@@ -95,15 +105,24 @@ export function evaluateLayerDocumentTransform(
     localFrame,
     frameRate
   );
-  const opacity = clampOpacity(
+  let opacity = clampOpacity(
     animation.enabledProperties.opacity
       ? evaluateScalarKeyframes(
           transform.opacity,
           animation.opacityKeyframes,
-          localFrame
+          evaluationFrame("opacity")
         )
       : transform.opacity
   );
+  const mouth = common.modifiers.find(
+    (modifier): modifier is Extract<typeof modifier, { type: "mouth-basic" }> =>
+      modifier.type === "mouth-basic" && modifier.enabled
+  );
+  if (mouth) {
+    opacity = clampOpacity(
+      opacity * evaluateMouthBasicOpacity(mouth, localFrame) / 100
+    );
+  }
 
   return {
     transform: {

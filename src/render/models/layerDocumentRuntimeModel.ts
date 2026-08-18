@@ -127,7 +127,7 @@ export type LayerDocumentRuntimeContentDescriptor =
     }
   | {
       readonly kind: "unsupported";
-      readonly layerType: "video" | "shape" | "unknown";
+      readonly layerType: "audio" | "video" | "shape" | "unknown";
     };
 
 export interface LayerDocumentRuntimeInput {

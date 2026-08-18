@@ -20,13 +20,16 @@ export function cloneEffects(source: ProjectSource): LayerEffect[] {
 }
 
 export function cloneModifiers(source: ProjectSource): LayerModifier[] {
-  return source.modifiers.map((modifier) => ({
-    modifierId: modifier.id,
-    type: "wiggle",
-    enabled: true,
-    frequency: modifier.frequency,
-    amount: modifier.amount,
-  }));
+  return source.modifiers.flatMap((modifier): LayerModifier[] => {
+    if (modifier.type === "mouth-basic" || modifier.type === "acceleration") return [];
+    return [{
+      modifierId: modifier.id,
+      type: "wiggle",
+      enabled: true,
+      frequency: modifier.frequency,
+      amount: modifier.amount,
+    }];
+  });
 }
 
 export function hasDefaultTransform(source: ProjectSource): boolean {

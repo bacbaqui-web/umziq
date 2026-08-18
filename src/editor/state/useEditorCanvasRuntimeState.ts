@@ -17,6 +17,7 @@ type ProjectCanvasViewSettings = {
   showSafeZoneGuides: boolean;
   showSelectionHighlight: boolean;
   cameraScalePercent: number;
+  cameraDimOpacityPercent: number;
   showWhiteBackground: boolean;
 };
 
@@ -30,18 +31,23 @@ function readProjectCanvasViewSettings(
     );
     return stored === null ? fallback : stored === "true";
   };
-  const readNumber = (name: string, fallback: number) => {
+  const readNumber = (
+    name: string,
+    fallback: number,
+    minimum = 1
+  ) => {
     if (typeof window === "undefined") return fallback;
     const stored = Number(window.localStorage.getItem(
       `umziq.project.${projectId}.${name}`
     ));
-    return Number.isFinite(stored) && stored >= 1 ? stored : fallback;
+    return Number.isFinite(stored) && stored >= minimum ? stored : fallback;
   };
   return {
     showShortformFrameOverlay: readBoolean("camera.visible", true),
-    showSafeZoneGuides: readBoolean("safeZone.visible", false),
+    showSafeZoneGuides: readBoolean("safeZone.visible", true),
     showSelectionHighlight: readBoolean("selectionHighlight.visible", true),
     cameraScalePercent: readNumber("camera.scalePercent", 100),
+    cameraDimOpacityPercent: readNumber("camera.dimOpacityPercent", 50, 0),
     showWhiteBackground: readBoolean("background.white", false),
   };
 }
@@ -87,6 +93,7 @@ export function useEditorCanvasRuntimeState(
     showSafeZoneGuides,
     showSelectionHighlight,
     cameraScalePercent,
+    cameraDimOpacityPercent,
     showWhiteBackground,
   } = viewSettings;
   const setShowShortformFrameOverlay = persistedSetter(
@@ -100,6 +107,9 @@ export function useEditorCanvasRuntimeState(
   );
   const setCameraScalePercent = persistedSetter(
     "cameraScalePercent", "camera.scalePercent"
+  );
+  const setCameraDimOpacityPercent = persistedSetter(
+    "cameraDimOpacityPercent", "camera.dimOpacityPercent"
   );
   const setShowWhiteBackground = persistedSetter(
     "showWhiteBackground", "background.white"
@@ -158,6 +168,7 @@ export function useEditorCanvasRuntimeState(
     showSafeZoneGuides, setShowSafeZoneGuides,
     showSelectionHighlight, setShowSelectionHighlight,
     cameraScalePercent, setCameraScalePercent,
+    cameraDimOpacityPercent, setCameraDimOpacityPercent,
     showWhiteBackground, setShowWhiteBackground,
     isDraggingAnchor, setIsDraggingAnchor,
     isDraggingPosition, setIsDraggingPosition,

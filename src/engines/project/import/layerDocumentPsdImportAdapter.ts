@@ -130,6 +130,47 @@ function buildPreviewImage(
   };
 }
 
+function collectPixelLayers(layers: readonly PsdLayer[]): PsdLayer[] {
+  return layers.flatMap((layer) => [
+    ...(layer.canvas && !isGroupLayer(layer) ? [layer] : []),
+    ...collectPixelLayers(layer.children ?? []),
+  ]);
+}
+
+function contentCenterForLayers(layers: readonly PsdLayer[]) {
+  const pixels = collectPixelLayers(layers);
+  if (!pixels.length) return null;
+  const bounds = pixels.reduce<{
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }>(
+    (result, layer) => {
+      const left = layer.left ?? 0;
+      const top = layer.top ?? 0;
+      const width = layer.canvas?.width ?? 0;
+      const height = layer.canvas?.height ?? 0;
+      return {
+        left: Math.min(result.left, left),
+        top: Math.min(result.top, top),
+        right: Math.max(result.right, left + width),
+        bottom: Math.max(result.bottom, top + height),
+      };
+    },
+    {
+      left: Number.POSITIVE_INFINITY,
+      top: Number.POSITIVE_INFINITY,
+      right: Number.NEGATIVE_INFINITY,
+      bottom: Number.NEGATIVE_INFINITY,
+    }
+  );
+  return {
+    x: (bounds.left + bounds.right) / 2,
+    y: (bounds.top + bounds.bottom) / 2,
+  };
+}
+
 export interface PreparedLayerDocumentPsdRefresh {
   readonly command: Omit<
     RefreshPsdSourceRegistryCommand,
@@ -163,6 +204,7 @@ function common(options: {
     height: number;
   };
   position?: { x: number; y: number };
+  anchor?: { x: number; y: number };
 }): LayerDocumentCommon<LayerSourceReference> {
   const canvas = options.layer?.canvas;
   const logicalSize = options.logicalSize ?? canvas;
@@ -184,7 +226,7 @@ function common(options: {
         y: options.position?.y ?? sourceTop + center.y,
       },
       transformOffset: { x: 0, y: 0 },
-      anchor: center,
+      anchor: options.anchor ?? center,
       scale: { x: 100, y: 100 },
       scaleLinked: true,
       rotation: 0,
@@ -368,6 +410,10 @@ function buildTree(options: {
                 height: options.psd.height,
               }
             : undefined,
+        anchor:
+          node.kind === "group"
+            ? contentCenterForLayers(parsed.children ?? []) ?? undefined
+            : undefined,
       });
       if (node.kind === "group") {
         layers.push({
@@ -448,6 +494,7 @@ export async function prepareLayerDocumentPsdImport(options: {
   durationFrames: number;
   parentWidth?: number;
   parentHeight?: number;
+  relativePathHint?: string | null;
   parsePsd?: (
     buffer: ArrayBuffer
   ) => Psd | Promise<Psd>;
@@ -482,7 +529,7 @@ export async function prepareLayerDocumentPsdImport(options: {
     fileName: options.file.name,
     version: 1,
     locatorId: `linked:${documentSourceId}`,
-    relativePathHint: null,
+    relativePathHint: options.relativePathHint ?? null,
     contentFingerprint,
   });
   const composition: GroupLayerDocument = {
@@ -507,6 +554,8 @@ export async function prepareLayerDocumentPsdImport(options: {
               y: options.parentHeight / 2,
             }
           : undefined,
+      anchor:
+        contentCenterForLayers(psd.children ?? []) ?? undefined,
     }),
     data: {
       role: "composition",

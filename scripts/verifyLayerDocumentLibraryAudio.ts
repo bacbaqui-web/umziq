@@ -3,7 +3,6 @@ import {
   LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
   type LayerDocumentCommon,
   type LayerDocumentProject,
-  type LayerDocumentTransactionResult,
   buildLayerDocumentTimelineReadModel,
 } from "@/models";
 import { createLayerDocumentLibrarySourceCommandAdapter } from "@/engines/library";
@@ -23,6 +22,7 @@ let project: LayerDocumentProject = {
     sourceRegistry: { sourcesById: {
       doc: { sourceId: "doc", kind: "psd-document", displayName: "Cut.psd", version: 1, refresh: { status: "normal" }, locator: { locatorId: "doc-locator", kind: "linked-file", suggestedFileName: "Cut.psd", relativePathHint: null }, contentFingerprint: null, data: { importSettings: { compositionName: "Cut", hiddenLayerMode: "preserve" } } },
       doc2: { sourceId: "doc2", kind: "psd-document", displayName: "Cut 2.psd", version: 1, refresh: { status: "normal" }, locator: { locatorId: "doc2-locator", kind: "linked-file", suggestedFileName: "Cut 2.psd", relativePathHint: null }, contentFingerprint: null, data: { importSettings: { compositionName: "Cut 2", hiddenLayerMode: "preserve" } } },
+      pixel: { sourceId: "pixel", kind: "psd-node", displayName: "Pixel", version: 1, refresh: { status: "normal" }, data: { documentSourceId: "doc", sourceKey: "layer:pixel", sourcePath: "Folder/Pixel", visualFingerprint: null } },
       shared: { sourceId: "shared", kind: "audio", displayName: "voice.wav", version: 1, refresh: { status: "normal" }, locator: { locatorId: "audio-shared", kind: "linked-file", suggestedFileName: "voice.wav", relativePathHint: null }, contentFingerprint: null, data: { mimeType: "audio/wav", durationFrames: 90, channelCount: 1, sampleRate: 48_000, provenance: "imported" } },
       recorded: { sourceId: "recorded", kind: "audio", displayName: "take", version: 1, refresh: { status: "normal" }, locator: { locatorId: "audio-recorded", kind: "linked-file", suggestedFileName: "take.wav", relativePathHint: null }, contentFingerprint: null, data: { mimeType: "audio/wav", durationFrames: 90, channelCount: 1, sampleRate: 48_000, provenance: "recorded" } },
     } },
@@ -33,6 +33,8 @@ let project: LayerDocumentProject = {
       a: { layerDocumentId: "a", revision: 0, name: "Voice A", type: "audio", common: common("cut", 0, "shared"), data: { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 } },
       b: { layerDocumentId: "b", revision: 0, name: "Voice B", type: "audio", common: common("cut", 1, "shared"), data: { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 } },
       c: { layerDocumentId: "c", revision: 0, name: "Recorded", type: "audio", common: common("cut", 2, "recorded"), data: { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 } },
+      folder: { layerDocumentId: "folder", revision: 0, name: "Folder", type: "group", common: common("cut", 3, null), data: { role: "composition", width: 1080, height: 1920, frameRate: 30, durationFrames: 90 } },
+      pixelLayer: { layerDocumentId: "pixelLayer", revision: 0, name: "Pixel", type: "psd", common: common("folder", 0, "pixel"), data: {} },
     },
   },
 };
@@ -46,7 +48,7 @@ const controller = {
   readActiveGroupLayerDocumentId: () => "cut",
 } as never;
 const nodes = buildLayerDocumentLibraryNodes(controller, { selectedLayerDocumentId: "b", playingLayerDocumentId: "a" });
-const cut = nodes.find((node) => node.id === "doc");
+const cut = nodes.find((node) => node.id === "cut");
 assert.ok(cut);
 const audio = cut.children.filter((node) => node.contentKind === "audio");
 assert.deepEqual(audio.map((node) => node.id), ["a", "b", "c"]);
@@ -56,7 +58,7 @@ assert.equal(audio[0].playing, true);
 assert.equal(audio[1].selected, true);
 assert.equal(JSON.stringify(project).includes("playing"), false, "audition state must not persist in the project");
 
-const history: Array<Extract<LayerDocumentTransactionResult, { ok: true }>["transaction"]> = [];
+const history: Array<{ before: LayerDocumentProject; after: LayerDocumentProject }> = [];
 let selected: string | null = null;
 const commands = createLayerDocumentLibrarySourceCommandAdapter({
   readProject: () => project,
@@ -67,7 +69,12 @@ const commands = createLayerDocumentLibrarySourceCommandAdapter({
   selectSource: () => undefined,
   enterGroup: () => undefined,
   preparation: {} as never,
-  commit: () => ({ ok: false, stage: "preparation", message: "unused" }),
+  commit: (result) => {
+    if (!result.ok) return { ok: false as const, stage: "preparation" as const, message: result.error.message };
+    history.push(result.transaction);
+    project = result.transaction.after;
+    return { ok: true as const, transition: {} as never };
+  },
   commitLayer: (result) => {
     if (!result.ok) return result;
     history.push(result.transaction);
@@ -134,6 +141,11 @@ project = crossMove.before;
 assert.equal(project.payload.layerDocumentsById.b.common.placement.parentLayerDocumentId, "cut", "one undo restores Audio parent and timing");
 project = crossMove.after;
 assert.equal(project.payload.layerDocumentsById.b.common.placement.parentLayerDocumentId, "cut2", "one redo restores Audio Cut move");
+const historyBeforeGroupMove = history.length;
+commands.moveLibraryLayer({ layerDocumentId: "folder", targetLayerDocumentId: "cut2", position: "inside" });
+assert.equal(history.length, historyBeforeGroupMove + 1, "Group uses the same cross-parent move transaction");
+assert.equal(project.payload.layerDocumentsById.folder.common.placement.parentLayerDocumentId, "cut2");
+project = history.at(-1)!.before;
 const historyBeforeInvalid = history.length;
 commands.moveLibraryLayer({ layerDocumentId: "missing", targetLayerDocumentId: "cut", position: "inside" });
 commands.moveLibraryLayer({ layerDocumentId: "cut", targetLayerDocumentId: "cut", position: "inside" });
@@ -141,6 +153,28 @@ assert.equal(history.length, historyBeforeInvalid, "stale/self/invalid drops do 
 
 // Restore B beside A so shared-Source deletion semantics remain independently testable.
 project = crossMove.before;
+
+const historyBeforeVisualLeafDelete = history.length;
+commands.deleteLayerDocument("pixelLayer");
+assert.equal(history.length, historyBeforeVisualLeafDelete + 1, "visual leaf delete commits one Layer transaction");
+assert.equal(project.payload.layerDocumentsById.pixelLayer, undefined, "one visual leaf is deleted without deleting its PSD composition");
+assert.ok(project.payload.layerDocumentsById.folder, "visual leaf trash keeps its parent composition");
+assert.ok(project.payload.sourceRegistry.sourcesById.doc, "visual leaf trash keeps the PSD document Source and cache identity");
+assert.ok(project.payload.sourceRegistry.sourcesById.pixel, "visual leaf trash keeps the PSD node Source and cache identity");
+project = history.at(-1)!.before;
+assert.ok(project.payload.layerDocumentsById.pixelLayer, "one undo restores the visual leaf against the retained Source");
+
+commands.moveLibraryLayer({ layerDocumentId: "c", targetLayerDocumentId: "folder", position: "inside" });
+assert.equal(project.payload.layerDocumentsById.c.common.placement.parentLayerDocumentId, "folder");
+commands.deleteLayerDocument("folder");
+assert.equal(project.payload.layerDocumentsById.folder, undefined, "nested composition trash deletes the folder");
+assert.equal(project.payload.layerDocumentsById.c, undefined, "nested composition trash deletes descendants");
+assert.equal(project.payload.layerDocumentsById.pixelLayer, undefined, "source-backed visual child is deleted through the same Source transaction");
+assert.ok(project.payload.sourceRegistry.sourcesById.pixel, "PSD node registry metadata remains available for its document refresh lifecycle");
+const folderDeletion = history.at(-1)!;
+project = folderDeletion.before;
+assert.ok(project.payload.layerDocumentsById.folder, "one undo restores the deleted folder");
+assert.ok(project.payload.layerDocumentsById.c, "one undo restores descendants and their Source");
 
 commands.deleteLayerDocument("a");
 assert.equal(project.payload.layerDocumentsById.a, undefined);

@@ -136,6 +136,9 @@ Duplicate는 같은 Source를 참조하는 새 LayerDocument를 만들고 공통
 - `useEditorCompositionRoot.ts`: 다섯 Panel Engine 생성과 ViewProps 연결만 수행하는 Editor Composition Root
 - `projectLifecycleUi.ts`: lifecycle 공개 포트만 사용하는 New/Open/Save/Save As/Close/Reconnect UI command와 구조화 ViewModel
 - `ProjectLifecycleBar.tsx`: clean/dirty/saving/loading, 오류, Missing Source와 Reconnect entry를 표시하는 Shell 상단 UI
+- `projectAssetDirectoryRuntime.ts`: 현재 Browser session의 Project directory
+  권한과 `psd/`, `audio/` 복사, relative locator 준비, 마지막 recorded Audio
+  Layer 삭제 시 `audio/` 원본 파일의 제한된 삭제
 - `state/useEditorCanvasRuntimeState.ts`: drag, hover, pan 같은 Canvas 전용 세션 상태
 - `state/useEditorShellLayoutState.ts`: panel size 같은 Shell 세션 상태
 - `useEditorHistoryShortcuts.ts`: owner undo/redo에 keyboard intent 전달
@@ -262,6 +265,7 @@ Preview/Accurate 역할 전환 완료 기록은
   surface의 Browser Canvas adapter
 - `models/canvasSelectionHighlightModel.ts`: Selection Highlight view model
 - `state/compositionPreviewCacheStore.ts`: Preview Group composition surface cache
+- `engines/library/runtime/libraryHoverPreviewRuntime.ts`: 라이브러리 레이어·그룹 합성 이미지와 오디오 파형 호버 미리보기
 - `state/previewSurfaceCacheStore.ts`: quality/scale/size key surface pool과 LRU
 - `state/runtimeMetricsStore.ts`: Preview/Accurate/Dirty/Cache/Surface 관찰 counter
 - `state/canvasFpsRuntimeStore.ts`: 실제 Canvas paint 시각의 rolling FPS와
@@ -298,6 +302,8 @@ Projection만 갱신하며 Blur Glow는 사용하지 않는다.
 - `useLayerDocumentTimelineEngine.ts`: Timeline Engine facade
 - `helpers/layerDocumentTimelineViewModelHelpers.ts`: placement/animation/selection을 row와 keyframe으로 projection
 - `controllers/layerDocumentTimelineInteractionController.ts`: move/trim/reorder/keyframe Draft와 commit intent
+- `features/timeline/components/TimelineFormulaTrackRow.tsx`: `입뻥긋(기본)`
+  수식 클립 이동·리사이즈와 내부 전환선 조절 UI
 - `controllers/layerDocumentTimelineNavigationController.ts`: active Group/selection navigation
 - `state/layerDocumentTimelinePlaybackRuntime.ts`: current frame/range, isPlaying, clock, scheduler와 transport를 단독 소유하는 Timeline Runtime 및 validity command
 - `adapters/layerDocumentTimelineConsumerAdapter.ts`: placement/Source
@@ -327,20 +333,28 @@ Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Dr
 
 ### `src/engines/library`
 
-- `useLayerDocumentLibraryEngine.ts`: Library UI Engine
+- `useLayerDocumentLibraryEngine.ts`: canonical LayerDocument hierarchy projection,
+  PSD/Audio 다중 import와 Library drag/drop UI Engine
 - `models/libraryModel.ts`: Library node/view props와 drag/drop 표시 계약
 - `adapters/layerDocumentLibrarySourceCommandAdapter.ts`: PSD Owner Source
   preparation/commit과 Runtime registration의 confirm/retry 원자성 및
   Library Source command port 조합
 - 주입된 Project domain controller/port로
   import/refresh/delete/reorder/select intent를 연결
-- Source Registry와 Group LayerDocument graph를 Tree read model로 표시하며 Source 가용성은 runtime resolution에서 읽음
+- Source Registry는 파일 상태를 제공하고, 실제 Library 계층과 순서는
+  LayerDocument `parent/order`를 기준으로 표시한다. Source 가용성은 runtime
+  resolution에서 읽는다.
 
 ## 8. Pure Animation과 Layer Type 지원
 
 - `src/animation/index.ts`: keyframe 조회/불변 갱신, 보간 평가, global/local
   frame 변환, Modifier 정규화/결정적 계산, motion-path sampling의 단일 pure
   public entry
+- `src/animation/modifiers/mouthBasicAnalysis.ts`: decoded Audio PCM을
+  RMS·smoothing·hysteresis로 분석해 전환 frame을 만들고 opacity 0/100을
+  결정적으로 평가하는 pure 모듈
+- `src/animation/modifiers/accelerationEvaluation.ts`: 가속·감속 수식 클립의
+  네 가지 preset progress와 선택 속성용 평가 frame 재배치
 
 Animation은 state, Runtime authority, Project 편집 원본을 소유하지 않는다.
 Timeline/Properties/Canvas/Render는 모두 `@/animation`을 canonical
@@ -407,7 +421,10 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - Editor Audio single-active audition과 Project/Source lifecycle cleanup
 - Library Cut 하위 Audio Layer projection, imported/recorded 아이콘과 audition/mute/name/delete command
 - Timeline Audio row/waveform, source-bounded timing Draft와 single-clock Audio synchronization
-- Library Cut canonical reorder와 Audio same/cross-Cut drag/drop single-transaction command
+- Library Cut/Group/visual/Audio 공통 canonical hierarchy reorder와
+  same/cross-parent drag/drop single-transaction command
+- Project-root/Cut Audio import, 다중 Audio 선택, Project `psd/`·`audio/`
+  asset copy와 relative locator
 - fake microphone/recorder 기반 직접 녹음 cancel/error/stale/confirm과 자원 정리
 - Audio Properties 전용 name/gain/mute/timing/source offset/fade Runtime Draft와
   단일 Owner transaction clamp/undo 계약
@@ -421,6 +438,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - schema 1→2→3 migration, Source runtime resolution, 단일 PSD ArrayBuffer parse/hash
 - Canvas/Timeline/Properties/Library public port integration
 - pure Animation public entry의 keyframe/evaluation/frame conversion/modifier/motion-path 계산
+- Audio 분석 기반 `입뻥긋(기본)` 전환 생성과 opacity 평가
 - Drawing/Text/Audio Owner transaction과 기존 placeholder descriptor
 - Engine import boundary와 최종 public barrel/Editor wiring
 - Preview/Accurate contract, previous-scene reuse, dirty region,

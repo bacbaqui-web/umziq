@@ -1014,8 +1014,8 @@ assert.deepEqual(parsedGroup?.common.transform.position, {
   y: 90,
 });
 assert.deepEqual(parsedGroup?.common.transform.anchor, {
-  x: 160,
-  y: 90,
+  x: 28,
+  y: 24,
 });
 const parsedComposition = parsedPrepared.command.layers.find(
   (layer) =>
@@ -1026,8 +1026,8 @@ assert.deepEqual(parsedComposition?.common.transform.position, {
   y: 90,
 });
 assert.deepEqual(parsedComposition?.common.transform.anchor, {
-  x: 160,
-  y: 90,
+  x: 56,
+  y: 39,
 });
 callsBefore = transitionCallCount;
 const historyBeforeParsedConfirm = owner.state.undoStack.length;

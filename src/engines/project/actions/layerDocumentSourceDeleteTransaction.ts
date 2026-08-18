@@ -165,3 +165,84 @@ export function prepareSourceRegistryDelete(
     deletedSourceIds: [command.sourceId],
   });
 }
+
+export function prepareLayerDocumentDeleteWithOrphanSources(
+  project: LayerDocumentProject,
+  command: { readonly layerDocumentId: string }
+): LayerDocumentSourceTransactionResult {
+  const invalid = validateSourceTransactionBefore(project) ??
+    validateSourceCommandPlainData(project, command);
+  if (invalid) return invalid;
+  const layer = project.payload.layerDocumentsById[command.layerDocumentId];
+  if (!layer || (layer.type === "group" && layer.data.role === "project-root")) {
+    return failSourceTransaction(project, "invalid-input", "Deletable Layer not found");
+  }
+  const subtreeIds = new Set<string>();
+  const collect = (parentId: string) => {
+    subtreeIds.add(parentId);
+    Object.values(project.payload.layerDocumentsById).forEach((candidate) => {
+      if (
+        candidate.common.placement.parentLayerDocumentId === parentId &&
+        !subtreeIds.has(candidate.layerDocumentId)
+      ) collect(candidate.layerDocumentId);
+    });
+  };
+  collect(layer.layerDocumentId);
+  const sourceIds = new Set(
+    Object.values(project.payload.layerDocumentsById)
+      .filter((candidate) => subtreeIds.has(candidate.layerDocumentId))
+      .flatMap((candidate) => candidate.common.source?.sourceId
+        ? [candidate.common.source.sourceId]
+        : [])
+  );
+  const deletion = buildDeleteLayerDocumentTransaction(project, command);
+  if (!deletion.ok) {
+    return failSourceTransaction(project, "layer-transaction-error", deletion.error.message);
+  }
+  const after = cloneSourceTransactionData(deletion.transaction.after);
+  const deletedSourceIds: string[] = [];
+  sourceIds.forEach((sourceId) => {
+    const sourceStillReferenced = Object.values(after.payload.layerDocumentsById)
+      .some((candidate) => candidate.common.source?.sourceId === sourceId);
+    if (
+      !sourceStillReferenced &&
+      after.payload.sourceRegistry.sourcesById[sourceId]?.kind === "audio"
+    ) {
+      delete after.payload.sourceRegistry.sourcesById[sourceId];
+      deletedSourceIds.push(sourceId);
+    }
+  });
+  const invalidAfter = validateSourceTransactionAfter(project, after);
+  if (invalidAfter) return invalidAfter;
+  const affectedLayerDocumentIds = [
+    ...new Set([
+      ...Object.keys(project.payload.layerDocumentsById),
+      ...Object.keys(after.payload.layerDocumentsById),
+    ]),
+  ].filter((layerDocumentId) =>
+    !plainDataValuesEqual(
+      project.payload.layerDocumentsById[layerDocumentId],
+      after.payload.layerDocumentsById[layerDocumentId]
+    )
+  ).sort();
+  return completeSourceTransaction({
+    kind: "delete-source",
+    before: project,
+    after,
+    sourceSelectionChange: deletedSourceIds.length === 1
+      ? { kind: "clear-if-selected", sourceId: deletedSourceIds[0] }
+      : { kind: "clear" },
+    layerSelectionChange: { kind: "clear" },
+    historyPolicy: "record-entry",
+    historyEntry: {
+      label: `Delete ${layer.name}`,
+      affectedSourceIds: deletedSourceIds,
+      affectedLayerDocumentIds,
+    },
+    deletedSourceIds,
+    deletedLayerDocumentIds: [...subtreeIds].sort(),
+  });
+}
+
+export const prepareLayerDocumentDeleteWithOrphanAudioSource =
+  prepareLayerDocumentDeleteWithOrphanSources;

@@ -19,6 +19,9 @@ import type {
   PreparedLayerDocumentPsdRefresh,
   SourceRegistryCacheInvalidationContext,
 } from "@/engines/project";
+import {
+  prepareLayerDocumentDeleteWithOrphanSources,
+} from "@/engines/project";
 import type {
   LayerDocumentPsdRuntimeRegistrationBridge,
 } from "@/render";
@@ -257,35 +260,34 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
     });
   const deleteLayerDocument = (layerDocumentId: string) => {
     const project = options.readProject();
-    const layers = Object.values(project.payload.layerDocumentsById);
     const layer = project.payload.layerDocumentsById[layerDocumentId];
-    if (!layer || (layer.type === "group" && layer.data.role === "composition")) return;
-    const deletedLayerDocumentIds = new Set<string>();
+    if (!layer || (layer.type === "group" && layer.data.role === "project-root")) return;
+    if (layer.type === "group" && layer.data.role === "composition") {
+      const parent = layer.common.placement.parentLayerDocumentId
+        ? project.payload.layerDocumentsById[layer.common.placement.parentLayerDocumentId]
+        : null;
+      if (parent?.type === "group" && parent.data.role === "project-root") return;
+    }
+    const subtreeIds = new Set<string>();
     const collect = (parentId: string) => {
-      deletedLayerDocumentIds.add(parentId);
-      layers.forEach((candidate) => {
-        if (candidate.common.placement.parentLayerDocumentId === parentId && !deletedLayerDocumentIds.has(candidate.layerDocumentId)) {
-          collect(candidate.layerDocumentId);
-        }
+      subtreeIds.add(parentId);
+      Object.values(project.payload.layerDocumentsById).forEach((candidate) => {
+        if (
+          candidate.common.placement.parentLayerDocumentId === parentId &&
+          !subtreeIds.has(candidate.layerDocumentId)
+        ) collect(candidate.layerDocumentId);
       });
     };
     collect(layerDocumentId);
-    const deletedSourceIds = new Set(layers.flatMap((candidate) =>
-      deletedLayerDocumentIds.has(candidate.layerDocumentId) && candidate.common.source?.sourceId
-        ? [candidate.common.source.sourceId]
-        : []
-    ));
-    const deletion = buildDeleteLayerDocumentTransaction(project, { layerDocumentId });
-    if (deletion.ok) {
-      const retainedSourceIds = new Set(Object.values(deletion.transaction.after.payload.layerDocumentsById)
-        .flatMap((candidate) => candidate.common.source?.sourceId ? [candidate.common.source.sourceId] : []));
-      deletedSourceIds.forEach((sourceId) => {
-        if (!retainedSourceIds.has(sourceId)) {
-          delete deletion.transaction.after.payload.sourceRegistry.sourcesById[sourceId];
-        }
-      });
-    }
-    return options.commitLayer(deletion);
+    const containsAudio = Object.values(project.payload.layerDocumentsById)
+      .some((candidate) => subtreeIds.has(candidate.layerDocumentId) && candidate.type === "audio");
+    return containsAudio
+      ? options.commit(
+          prepareLayerDocumentDeleteWithOrphanSources(project, { layerDocumentId })
+        )
+      : options.commitLayer(
+          buildDeleteLayerDocumentTransaction(project, { layerDocumentId })
+        );
   };
   const moveLibraryLayer = (command: {
     layerDocumentId: string;
@@ -302,50 +304,37 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
     if (!root) return;
     const isCut = (layer: typeof dragged) => layer.type === "group" && layer.data.role === "composition" && layer.common.placement.parentLayerDocumentId === root.layerDocumentId;
     let nextParentId: string;
-    let audioIndex: number;
+    let nextOrder: number;
     if (isCut(dragged)) {
       if (!isCut(target) || command.position === "inside") return;
-      const cuts = Object.values(project.payload.layerDocumentsById)
-        .filter((layer) => isCut(layer) && layer.layerDocumentId !== dragged.layerDocumentId)
-        .sort((left, right) => left.common.placement.order - right.common.placement.order);
-      const targetIndex = cuts.findIndex((layer) => layer.layerDocumentId === target.layerDocumentId);
-      if (targetIndex < 0) return;
       nextParentId = root.layerDocumentId;
-      audioIndex = targetIndex + (command.position === "after" ? 1 : 0);
-    } else if (dragged.type === "audio") {
-      const targetCut = isCut(target)
-        ? target
-        : target.type === "audio"
-          ? project.payload.layerDocumentsById[target.common.placement.parentLayerDocumentId ?? ""]
-          : null;
-      if (!targetCut || !isCut(targetCut)) return;
-      nextParentId = targetCut.layerDocumentId;
-      const audioSiblings = Object.values(project.payload.layerDocumentsById)
-        .filter((layer) => layer.type === "audio" && layer.common.placement.parentLayerDocumentId === nextParentId && layer.layerDocumentId !== dragged.layerDocumentId)
-        .sort((left, right) => left.common.placement.order - right.common.placement.order);
-      if (isCut(target)) audioIndex = audioSiblings.length;
-      else {
-        const targetIndex = audioSiblings.findIndex((layer) => layer.layerDocumentId === target.layerDocumentId);
-        if (targetIndex < 0) return;
-        audioIndex = targetIndex + (command.position === "after" ? 1 : 0);
-      }
-      const visualCount = Object.values(project.payload.layerDocumentsById)
-        .filter((layer) => layer.type !== "audio" && layer.common.placement.parentLayerDocumentId === nextParentId).length;
-      audioIndex += visualCount;
-    } else return;
+      nextOrder = target.common.placement.order + (command.position === "after" ? 1 : 0);
+    } else if (command.position === "inside") {
+      if (target.type !== "group" || target.data.role === "project-root") return;
+      nextParentId = target.layerDocumentId;
+      nextOrder = Object.values(project.payload.layerDocumentsById)
+        .filter((layer) => layer.common.placement.parentLayerDocumentId === nextParentId)
+        .length;
+    } else {
+      const targetParentId = target.common.placement.parentLayerDocumentId;
+      if (!targetParentId) return;
+      if (targetParentId === root.layerDocumentId && dragged.type !== "audio") return;
+      nextParentId = targetParentId;
+      nextOrder = target.common.placement.order + (command.position === "after" ? 1 : 0);
+    }
     const moved = buildMoveLayerDocumentTransaction(project, {
       layerDocumentId: dragged.layerDocumentId,
       newParentLayerDocumentId: nextParentId,
-      newOrder: audioIndex,
+      newOrder: nextOrder,
     });
     if (!moved.ok) return;
     if (dragged.type !== "audio" || dragged.common.placement.parentLayerDocumentId === nextParentId) {
       return options.commitLayer(moved);
     }
-    const targetCut = moved.transaction.after.payload.layerDocumentsById[nextParentId];
-    if (targetCut.type !== "group") return;
-    const startFrame = Math.min(dragged.common.placement.startFrame, Math.max(0, targetCut.data.durationFrames - 1));
-    const durationFrames = Math.max(1, Math.min(dragged.common.placement.durationFrames, targetCut.data.durationFrames - startFrame));
+    const targetGroup = moved.transaction.after.payload.layerDocumentsById[nextParentId];
+    if (targetGroup.type !== "group") return;
+    const startFrame = Math.min(dragged.common.placement.startFrame, Math.max(0, targetGroup.data.durationFrames - 1));
+    const durationFrames = Math.max(1, Math.min(dragged.common.placement.durationFrames, targetGroup.data.durationFrames - startFrame));
     const timed = buildUpdateLayerDocumentCommonTransaction(moved.transaction.after, {
       layerDocumentId: dragged.layerDocumentId,
       update: { kind: "set-placement-timing", startFrame, durationFrames, sourceOffsetFrames: dragged.common.placement.sourceOffsetFrames },
@@ -484,15 +473,18 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
     selectLayerDocument: (layerDocumentId: string) => {
       const layer = options.readProject().payload.layerDocumentsById[layerDocumentId];
       if (!layer) return;
-      const parentId = layer.common.placement.parentLayerDocumentId;
-      if (parentId && parentId !== options.readActiveGroupLayerDocumentId()) {
-        options.enterGroup(parentId);
-      }
       if (layer.common.source?.sourceId) {
         options.selectSource({
           kind: "library-source",
           sourceId: layer.common.source.sourceId,
         });
+      }
+      if (layer.type === "group") {
+        return options.enterGroup(layer.layerDocumentId);
+      }
+      const parentId = layer.common.placement.parentLayerDocumentId;
+      if (parentId && parentId !== options.readActiveGroupLayerDocumentId()) {
+        options.enterGroup(parentId);
       }
       return options.selectLayer(layerDocumentId);
     },
@@ -509,6 +501,24 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
     renameLayerDocument: (layerDocumentId: string, name: string) =>
       options.commitLayer(buildSetLayerDocumentNameTransaction(options.readProject(), { layerDocumentId, name })),
     deleteLayerDocument,
+    toggleLayerVisibility: (layerDocumentId: string) => {
+      const project = options.readProject();
+      const layer = project.payload.layerDocumentsById[layerDocumentId];
+      if (!layer) return;
+      return options.commitLayer(buildUpdateLayerDocumentCommonTransaction(project, {
+        layerDocumentId,
+        update: { kind: "set-visibility", visible: !layer.common.placement.visible },
+      }));
+    },
+    toggleLayerLock: (layerDocumentId: string) => {
+      const project = options.readProject();
+      const layer = project.payload.layerDocumentsById[layerDocumentId];
+      if (!layer) return;
+      return options.commitLayer(buildUpdateLayerDocumentCommonTransaction(project, {
+        layerDocumentId,
+        update: { kind: "set-lock", locked: !layer.common.placement.locked },
+      }));
+    },
     moveLibraryLayer,
     toggleSourceVisibility: (sourceId: string) => {
       const layer = Object.values(

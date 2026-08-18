@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { AnimatableProperty } from "@/models";
+import type { AccelerationCurve, AnimatableProperty } from "@/models";
 import type { TimelineReadModel } from "@/engines/timeline/models/timelineViewModel";
 import type { TimelineSourceStatusViewModel } from "@/engines/timeline/models/timelineViewModel";
 
@@ -46,6 +46,16 @@ export type TimelineInteractionCommands = {
   selectKeyframe: (itemId: string, frame: number, property: AnimatableProperty) => void;
   beginMoveKeyframe: (clientX: number, itemId: string, frame: number, property: AnimatableProperty) => void;
   deleteKeyframe: (itemId: string, frame: number, property: AnimatableProperty) => void;
+  setMouthBasicClip: (itemId: string, clip: {
+    startFrame: number;
+    durationFrames: number;
+    transitionFrames: number[];
+  }) => void;
+  setAccelerationClip: (itemId: string, clip: {
+    startFrame: number;
+    durationFrames: number;
+    curve?: AccelerationCurve;
+  }) => void;
   deleteCanonicalTimelineItem: (itemId: string) => void;
   setCanonicalTimelineItemVisibility: (
     itemId: string,

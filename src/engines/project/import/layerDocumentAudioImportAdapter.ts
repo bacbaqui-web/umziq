@@ -86,6 +86,9 @@ export function resolveLayerDocumentAudioImportCut(options: {
       visited.add(id);
       const layer = options.project.payload.layerDocumentsById[id];
       if (!layer) return null;
+      if (layer.type === "group" && layer.data.role === "project-root") {
+        return layer.layerDocumentId;
+      }
       if (layer.type === "group" && layer.data.role === "composition") {
         const parentId = layer.common.placement.parentLayerDocumentId;
         const parent = parentId
@@ -139,6 +142,7 @@ export async function prepareLayerDocumentAudioImport(options: {
   order?: number;
   decoder?: LayerDocumentAudioDecodePort;
   provenance?: "imported" | "recorded";
+  relativePathHint?: string | null;
 }): Promise<PreparedLayerDocumentAudioImport> {
   const mimeType = options.file.type.toLowerCase();
   const hasAudioExtension = /\.(wav|mp3|m4a|aac|ogg|oga|webm|flac)$/i
@@ -147,7 +151,7 @@ export async function prepareLayerDocumentAudioImport(options: {
     throw new Error("Choose a browser-decodable audio/* file");
   }
   const cutId = resolveLayerDocumentAudioImportCut(options);
-  if (!cutId) throw new Error("Select a Cut before importing Audio");
+  if (!cutId) throw new Error("프로젝트 또는 컷(Cut)을 선택한 뒤 오디오를 추가해주세요.");
   const cut = options.project.payload.layerDocumentsById[cutId];
   if (!cut || cut.type !== "group") throw new Error("Audio import Cut not found");
   const buffer = await options.file.arrayBuffer();
@@ -183,7 +187,7 @@ export async function prepareLayerDocumentAudioImport(options: {
     version: 1, refresh: { status: "normal" },
     locator: {
       locatorId: `linked:${sourceId}`, kind: "linked-file",
-      suggestedFileName: options.file.name, relativePathHint: null,
+      suggestedFileName: options.file.name, relativePathHint: options.relativePathHint ?? null,
     },
     contentFingerprint,
     data: {

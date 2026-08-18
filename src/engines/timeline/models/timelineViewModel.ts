@@ -1,4 +1,5 @@
 import type {
+  AccelerationCurve,
   AnimatableProperty,
 } from "@/models";
 
@@ -105,7 +106,25 @@ export type TimelinePropertyRowViewModel = {
   draggingReadoutText: string | null;
 };
 
-export type TimelineTrackRowViewModel = TimelineItemRowViewModel | TimelinePropertyRowViewModel;
+export type TimelineFormulaRowViewModel = {
+  type: "formula";
+  formulaType: "mouth-basic" | "acceleration";
+  item: TimelineViewItem;
+  rowIndex: number;
+  label: string;
+  modifierId: string;
+  startFrame: number;
+  durationFrames: number;
+  transitionFrames: readonly number[];
+  pxPerFrame: number;
+  trackLeft: number;
+  trackWidth: number;
+  transitionLefts: readonly number[];
+  accelerationCurve?: AccelerationCurve;
+  accelerationProperties?: readonly AnimatableProperty[];
+};
+
+export type TimelineTrackRowViewModel = TimelineItemRowViewModel | TimelinePropertyRowViewModel | TimelineFormulaRowViewModel;
 
 export type TimelineTrackOverlayViewModel = {
   totalTrackGridRows: number;
@@ -162,6 +181,12 @@ export type TimelineRulerViewModel = {
     zIndex: number;
     boxShadow?: string;
   };
+  hoverIndicator: {
+    left: number;
+    width: number;
+    background: string;
+    zIndex: number;
+  } | null;
   hideCursor: boolean;
   showInteractionShield: boolean;
   rangeDuration: TimelineDurationViewModel;

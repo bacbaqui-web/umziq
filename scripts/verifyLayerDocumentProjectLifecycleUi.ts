@@ -353,6 +353,25 @@ assert.match(
 assert.match(barSource, /showDirectoryPicker/);
 assert.doesNotMatch(barSource, /webkitdirectory/);
 assert.match(barSource, /!viewModel\.projectCreated/);
+assert.match(barSource, /project-start-screen/);
+assert.match(barSource, /createPortal/);
+assert.match(barSource, /프로젝트 열기/);
+assert.match(
+  barSource,
+  /getDirectoryHandle\("psd"/
+);
+assert.match(
+  barSource,
+  /getDirectoryHandle\("audio"/
+);
+const shellLayoutSource = readFileSync(
+  "src/editor/EditorShellLayout.tsx",
+  "utf8"
+);
+assert.match(
+  shellLayoutSource,
+  /projectLifecycleProps\.viewModel[\s\S]*\.projectCreated[\s\S]*\? 10[\s\S]*: "auto"/
+);
 const commandSource = readFileSync(
   "src/editor/projectLifecycleUi.ts",
   "utf8"

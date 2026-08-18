@@ -100,21 +100,13 @@ export function useTimelinePlaybackUIController(options: Options) {
       : options.hoveredFrame !== null && hoveredPlayheadLeft !== null && isHoveringRuler
         ? { mode: "hover" as const, frame: options.hoveredFrame, left: hoveredPlayheadLeft }
         : null, [activeResizeHandle, hoveredPlayheadLeft, isHoveringRuler, options.hoveredFrame, options.isScrubbing, playheadLeft, range.endFrame, range.startFrame, rangeLeft, rangeRight, scrubFrame]);
-  const indicator = useMemo(() => activeReadout
+  const indicator = useMemo(() => activeReadout?.mode === "resize"
     ? {
-        left: activeReadout.left,
-        width: activeReadout.mode === "hover" ? 1 : 2,
-        background: activeReadout.mode === "hover"
-          ? "rgba(173, 216, 255, 0.75)"
-          : activeReadout.mode === "scrub"
-            ? "rgba(245,165,36,0.95)"
-            : "rgba(213, 219, 227, 0.82)",
-        zIndex: activeReadout.mode === "hover" ? 4 : 8,
-        boxShadow: activeReadout.mode === "scrub"
-          ? "0 0 0 1px rgba(245,165,36,0.18)"
-          : activeReadout.mode === "resize"
-            ? "0 0 0 1px rgba(213, 219, 227, 0.18)"
-            : undefined,
+        left: Math.round(activeReadout.left) - 1,
+        width: 2,
+        background: "rgba(213, 219, 227, 0.82)",
+        zIndex: 8,
+        boxShadow: "0 0 0 1px rgba(213, 219, 227, 0.18)",
       }
     : {
         left: Math.round(playheadLeft) - 1,
@@ -123,6 +115,14 @@ export function useTimelinePlaybackUIController(options: Options) {
         zIndex: 8,
         boxShadow: "0 0 0 1px rgba(223, 82, 70, 0.18)",
       }, [activeReadout, playheadLeft]);
+  const hoverIndicator = useMemo(() => activeReadout?.mode === "hover"
+    ? {
+        left: Math.round(activeReadout.left),
+        width: 1,
+        background: "rgba(173, 216, 255, 0.75)",
+        zIndex: 7,
+      }
+    : null, [activeReadout]);
   const ruler: TimelineRulerViewModel = useMemo(() => ({
     contentWidth,
     pxPerFrame,
@@ -143,6 +143,7 @@ export function useTimelinePlaybackUIController(options: Options) {
       ? { ...activeReadout, text: options.formatTime(activeReadout.frame, options.selectedMeta.frameRate) }
       : null,
     indicator,
+    hoverIndicator,
     hideCursor: !!activeReadout,
     showInteractionShield: options.isScrubbing || !!activeResizeHandle,
     rangeDuration: buildTimelineDurationViewModel(
@@ -161,6 +162,7 @@ export function useTimelinePlaybackUIController(options: Options) {
     contentWidth,
     durationFrames,
     hoveredPlayheadLeft,
+    hoverIndicator,
     indicator,
     options,
     playheadLeft,
@@ -198,22 +200,41 @@ export function useTimelinePlaybackUIController(options: Options) {
     if (frame !== null) options.playbackCommands.seek(frame);
   }, [getFrameFromPointer, options.playbackCommands]);
 
+  const seekFromPointerRef = useRef(seekFromPointer);
+  const setIsScrubbingRef = useRef(options.setIsScrubbing);
+  useLayoutEffect(() => {
+    seekFromPointerRef.current = seekFromPointer;
+    setIsScrubbingRef.current = options.setIsScrubbing;
+  }, [options.setIsScrubbing, seekFromPointer]);
+
   useEffect(() => {
-    const move = (event: MouseEvent) => {
-      if (scrubbingRef.current) seekFromPointer(event.clientX);
-    };
     const up = () => {
       if (!scrubbingRef.current) return;
       scrubbingRef.current = false;
-      options.setIsScrubbing(false);
+      setIsScrubbingRef.current(false);
+    };
+    const move = (event: MouseEvent) => {
+      if (!scrubbingRef.current) return;
+      if (event.buttons === 0) {
+        up();
+        return;
+      }
+      seekFromPointerRef.current(event.clientX);
+    };
+    const visibility = () => {
+      if (document.visibilityState === "hidden") up();
     };
     window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
+    document.addEventListener("mouseup", up, true);
+    window.addEventListener("blur", up);
+    document.addEventListener("visibilitychange", visibility);
     return () => {
       window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
+      document.removeEventListener("mouseup", up, true);
+      window.removeEventListener("blur", up);
+      document.removeEventListener("visibilitychange", visibility);
     };
-  }, [options, seekFromPointer]);
+  }, []);
 
   const setHoveredFrameFromPointer = useCallback((clientX: number) => {
     setIsHoveringRuler(true);
@@ -278,6 +299,28 @@ export function useTimelinePlaybackUIController(options: Options) {
     setActiveResizeHandle(null);
     options.duration.commitRangeEdit();
   }, [options.duration]);
+
+  useEffect(() => {
+    if (!activeResizeHandle) return;
+    const move = (event: MouseEvent) => {
+      if (event.buttons === 0) {
+        endRangeResize();
+        return;
+      }
+      moveRangeResize(event.clientX);
+    };
+    const finish = () => endRangeResize();
+    window.addEventListener("mousemove", move, true);
+    window.addEventListener("mouseup", finish, true);
+    window.addEventListener("blur", finish);
+    document.documentElement.addEventListener("mouseleave", finish);
+    return () => {
+      window.removeEventListener("mousemove", move, true);
+      window.removeEventListener("mouseup", finish, true);
+      window.removeEventListener("blur", finish);
+      document.documentElement.removeEventListener("mouseleave", finish);
+    };
+  }, [activeResizeHandle, endRangeResize, moveRangeResize]);
 
   const commitRangeDuration = useCallback((seconds: string, frames: string) => {
     const parsed = parseTimelineDurationParts(seconds, frames, options.selectedMeta?.frameRate ?? 1);

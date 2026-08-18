@@ -46,6 +46,10 @@ import {
   BROWSER_AUDIO_AUDITION_BACKEND,
   createEditorAudioRuntime,
 } from "@/editor/audio-runtime";
+import {
+  takeProjectOpenSelection,
+  findLinkedSourceInProjectAssets,
+} from "@/editor/projectAssetDirectoryRuntime";
 
 const NOOP_METRICS = {
   increment: () => {},
@@ -345,14 +349,25 @@ export function useLayerDocumentEditorRuntime(
     })
   );
   const [openController] = useState(() =>
-    createLayerDocumentProjectOpenController({
+  {
+    const browser =
+      createLayerDocumentProjectBrowserOpenAdapter();
+    return createLayerDocumentProjectOpenController({
       lifecycle,
-      browser:
-        createLayerDocumentProjectBrowserOpenAdapter(),
+      browser: {
+        ...browser,
+        chooseProjectFile: async () => {
+          const queued = takeProjectOpenSelection();
+          return queued
+            ? { ok: true, value: queued }
+            : browser.chooseProjectFile();
+        },
+      },
       linkedSourceAccess: {
         find: async ({
           projectId,
           locatorId,
+          source,
         }): Promise<
           LayerDocumentProjectLinkedSourceAccess
         > => {
@@ -363,10 +378,39 @@ export function useLayerDocumentEditorRuntime(
             )
           );
           if (!linked) {
+            if (
+              source.kind !== "psd-document" &&
+              source.kind !== "audio" &&
+              source.kind !== "video"
+            ) {
+              return {
+                status: "missing",
+                message: "The Source does not have a linked-file locator",
+              };
+            }
+            const recovered =
+              await findLinkedSourceInProjectAssets({
+                kind: source.kind,
+                suggestedFileName:
+                  source.locator.suggestedFileName,
+                relativePathHint:
+                  source.locator.relativePathHint,
+                contentFingerprint:
+                  source.contentFingerprint,
+              });
+            if (!recovered) {
+              return {
+                status: "missing",
+                message:
+                  "The linked Source was not found in the Project asset folders",
+              };
+            }
             return {
-              status: "missing",
-              message:
-                "No session-local handle is available",
+              status: "available",
+              file: recovered.file,
+              handle:
+                recovered.handle as FileSystemFileHandle,
+              permission: "granted",
             };
           }
           try {
@@ -389,9 +433,11 @@ export function useLayerDocumentEditorRuntime(
       linkedSourcePreparation:
         LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
       sourceRuntime: resources,
+      audioRuntime: audio.resources,
       sourceResolution,
       saveController,
-    })
+    });
+  }
   );
   const [reconnectController] = useState(() =>
     createLayerDocumentProjectReconnectController({
@@ -402,6 +448,7 @@ export function useLayerDocumentEditorRuntime(
       preparation:
         LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
       sourceRuntime: resources,
+      audioRuntime: audio.resources,
       sourceResolution,
       localHandles: {
         update: (linked) => {

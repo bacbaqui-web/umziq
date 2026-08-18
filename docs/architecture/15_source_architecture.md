@@ -70,6 +70,16 @@ Source를 여러 Cut에 배치해도 Source 삭제/reconnect와 개별 Layer 삭
 준비된 Source는 확인 전까지 Project 밖에 있으며 confirm transaction이
 성공한 뒤 Source Registry와 Layer Document에 반영한다.
 
+Library 계층과 표시 순서는 Source Tree가 아니라 LayerDocument의
+`parentLayerDocumentId/order`를 유일한 원본으로 사용한다. Project root에는
+Cut과 project-wide Audio가 함께 놓일 수 있고, Cut/Group 아래에는 visual과
+Audio Layer가 같은 규칙으로 섞여 배치된다.
+
+브라우저가 Project directory 권한을 가진 경우 import 전에 사용자가 선택하면
+PSD는 `psd/`, Audio는 `audio/`에 복사하고 locator의 `relativePathHint`를
+기록한다. 기존 Project 파일의 부모 directory는 브라우저가 자동으로 공개하지
+않으므로 권한이 없을 때는 사용자가 Project 폴더를 한 번 지정한다.
+
 ## Import
 
 ```text

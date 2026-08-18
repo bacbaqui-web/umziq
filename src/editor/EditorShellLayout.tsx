@@ -60,7 +60,11 @@ export function EditorShellLayout({
           gridColumn: "1 / -1",
           gridRow: "1",
           minWidth: 0,
-          zIndex: 10,
+          zIndex:
+            projectLifecycleProps.viewModel
+              .projectCreated
+              ? 10
+              : "auto",
         }}
       >
         <ProjectLifecycleBar

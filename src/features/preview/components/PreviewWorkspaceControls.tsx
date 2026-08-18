@@ -14,6 +14,8 @@ type PreviewWorkspaceControlsProps = {
   toggleSafeZone: () => void;
   setCameraScalePercent: (percent: number) => void;
   commitCameraScalePercent: (percent: number) => void;
+  cameraDimOpacityPercent: number;
+  setCameraDimOpacityPercent: (percent: number) => void;
   frameMenuOpen: boolean;
   setFrameMenuOpen: Dispatch<SetStateAction<boolean>>;
   showSelectionHighlight: boolean;
@@ -47,6 +49,8 @@ export default function PreviewWorkspaceControls({
   toggleSafeZone,
   setCameraScalePercent,
   commitCameraScalePercent,
+  cameraDimOpacityPercent,
+  setCameraDimOpacityPercent,
   frameMenuOpen,
   setFrameMenuOpen,
   showSelectionHighlight,
@@ -125,7 +129,7 @@ export default function PreviewWorkspaceControls({
                 position: "absolute",
                 left: 0,
                 top: "calc(100% + 6px)",
-                width: 148,
+                width: 184,
                 padding: 8,
                 display: "flex",
                 flexDirection: "column",
@@ -215,26 +219,52 @@ export default function PreviewWorkspaceControls({
                   %
                 </span>
               </label>
+              <div style={{ height: 1, background: "rgba(255,255,255,0.08)" }} />
+              <button
+                type="button"
+                className="ui-button"
+                aria-pressed={showSafeZoneGuides}
+                onClick={toggleSafeZone}
+                style={{
+                  justifyContent: "space-between",
+                  border: `1px solid ${
+                    showSafeZoneGuides
+                      ? "rgba(255, 116, 116, 0.34)"
+                      : "rgba(255,255,255,0.1)"
+                  }`,
+                  background: showSafeZoneGuides
+                    ? "rgba(255, 116, 116, 0.12)"
+                    : "rgba(255,255,255,0.04)",
+                }}
+              >
+                <span>세이프존</span>
+                <span style={{ fontSize: 10 }}>
+                  {showSafeZoneGuides ? "보임" : "안 보임"}
+                </span>
+              </button>
+              <label style={{ display: "grid", gap: 6, color: "#aeb9c3", fontSize: 11 }}>
+                <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <span>바깥 어둡기</span>
+                  <span>{Math.round(cameraDimOpacityPercent)}%</span>
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={cameraDimOpacityPercent}
+                  onChange={(event) =>
+                    setCameraDimOpacityPercent(
+                      Number(event.currentTarget.value)
+                    )
+                  }
+                  aria-label="촬영범위 바깥 어둡기"
+                  style={{ width: "100%", accentColor: "#76a5cf" }}
+                />
+              </label>
             </div>
           )}
         </div>
-        <button
-          className="ui-button"
-          type="button"
-          onClick={toggleSafeZone}
-          style={{
-            border: `1px solid ${
-              showSafeZoneGuides
-                ? "rgba(255, 116, 116, 0.34)"
-                : "rgba(255,255,255,0.1)"
-            }`,
-            background: showSafeZoneGuides
-              ? "rgba(255, 116, 116, 0.12)"
-              : "rgba(255,255,255,0.04)",
-          }}
-        >
-          세이프존
-        </button>
         <button
           className="ui-button"
           type="button"

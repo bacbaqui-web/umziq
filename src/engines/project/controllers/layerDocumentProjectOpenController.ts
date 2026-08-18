@@ -151,6 +151,7 @@ export function createLayerDocumentProjectOpenController(
           await options.linkedSourceAccess.find({
             projectId: project.metadata.projectId,
             locatorId: source.locator.locatorId,
+            source,
           });
         if (!activeTokenMatches(options, token)) {
           discardPrepared();
@@ -211,9 +212,18 @@ export function createLayerDocumentProjectOpenController(
       let resources = prepared.flatMap(
         (entry) => entry.runtime.resources
       );
+      let audioResources = prepared.flatMap(
+        (entry) => entry.runtime.audioResources ?? []
+      );
       const preflight =
         options.sourceRuntime.preflightBatch(resources);
-      if (!preflight.ok) {
+      const audioPreflight = audioResources.length === 0
+        ? { ok: true as const }
+        : options.audioRuntime?.preflight(audioResources) ?? {
+            ok: false as const,
+            message: "Audio runtime is unavailable",
+          };
+      if (!preflight.ok || !audioPreflight.ok) {
         prepared.forEach((entry) => {
           entry.runtime.availableSourceIds.forEach(
             (sourceId) =>
@@ -222,6 +232,7 @@ export function createLayerDocumentProjectOpenController(
           entry.runtime.discard();
         });
         resources = [];
+        audioResources = [];
       }
       if (!activeTokenMatches(options, token)) {
         discardPrepared();
@@ -262,6 +273,24 @@ export function createLayerDocumentProjectOpenController(
             );
             entry.runtime.discard();
           });
+        }
+      }
+      if (audioResources.length > 0) {
+        const registered =
+          options.audioRuntime!.register(audioResources);
+        if (registered.ok) {
+          prepared
+            .filter((entry) => (entry.runtime.audioResources?.length ?? 0) > 0)
+            .forEach((entry) => entry.runtime.transfer());
+        } else {
+          prepared
+            .filter((entry) => (entry.runtime.audioResources?.length ?? 0) > 0)
+            .forEach((entry) => {
+              entry.runtime.availableSourceIds.forEach(
+                (sourceId) => errorSourceIds.add(sourceId)
+              );
+              entry.runtime.discard();
+            });
         }
       }
       prepared.forEach((entry) => {

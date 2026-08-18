@@ -1,4 +1,5 @@
-export type ModifierType = "wiggle" | "swing" | "oscillate";
+export type ModifierType = "wiggle" | "swing" | "oscillate" | "mouth-basic" | "acceleration";
+export type AccelerationCurve = "ease-out-soft" | "ease-out-strong" | "ease-in-soft" | "ease-in-strong";
 
 export type WiggleModifierField = "frequency" | "amount";
 export type OscillateModifierField = WiggleModifierField | "angle";
@@ -25,8 +26,28 @@ export type OscillateModifierInstance = {
   amount: number;
 };
 
+export type MouthBasicModifierInstance = {
+  id: string;
+  type: "mouth-basic";
+  audioLayerDocumentId: string | null;
+  startFrame: number;
+  durationFrames: number;
+  transitionFrames: number[];
+};
+
+export type AccelerationModifierInstance = {
+  id: string;
+  type: "acceleration";
+  properties: ("position" | "scale" | "rotation" | "opacity")[];
+  curve: AccelerationCurve;
+  startFrame: number;
+  durationFrames: number;
+};
+
 export type ModifierInstance =
   | WiggleModifierInstance
   | SwingModifierInstance
-  | OscillateModifierInstance;
+  | OscillateModifierInstance
+  | MouthBasicModifierInstance
+  | AccelerationModifierInstance;
 export type ModifierNumberField = OscillateModifierField;

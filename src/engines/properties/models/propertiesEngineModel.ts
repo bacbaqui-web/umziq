@@ -1,4 +1,5 @@
 import type {
+  AccelerationCurve,
   AnimatableProperty,
   LayerDocumentType,
   ModifierNumberField,
@@ -171,6 +172,10 @@ export type PropertiesModifierViewModel = {
   type: ModifierType;
   label: string;
   fields: PropertiesModifierFieldViewModel[];
+  audioLayerDocumentId?: string | null;
+  audioOptions?: readonly { id: string; label: string }[];
+  accelerationProperties?: readonly AnimatableProperty[];
+  accelerationCurve?: AccelerationCurve;
 };
 
 export type PropertiesModifierLibraryItemViewModel = {
@@ -218,6 +223,9 @@ export type PropertiesCommand = {
   savePositionKeyframe: () => void;
   deleteSelectedKeyframe: () => void;
   toggleModifier: (type: ModifierType) => void;
+  setMouthBasicAudioLayer: (audioLayerDocumentId: string) => void;
+  toggleAccelerationProperty: (property: AnimatableProperty) => void;
+  setAccelerationCurve: (curve: AccelerationCurve) => void;
   focusModifierInput: (inputId: PropertiesModifierInputId) => void;
   changeModifierInput: (inputId: PropertiesModifierInputId, value: string) => void;
   blurModifierInput: (inputId: PropertiesModifierInputId) => void;

@@ -51,6 +51,18 @@ Modifier 적용 순서와 결과는 Renderer 경로에 따라 달라지지 않�
 Modifier Library의 과거 구현 기록은
 `docs/completed/40_modifier_library.md`에 보존한다.
 
+`입뻥긋(기본)`은 연결 Audio를 한 번 분석해 만든 전환 frame을 Modifier 안에
+저장한다. 분석 결과는 수많은 keyframe이 아니라 이동·길이 조절이 가능한
+하나의 Timeline 수식 클립으로 projection한다. 클립 내부 전환선은 Runtime
+Draft로 조절하고 pointer up에서 Modifier transaction 한 건으로 확정한다.
+재생과 출력은 저장된 전환 frame을 같은 opacity 평가 함수로 계산하므로 원본
+Audio를 다시 분석하지 않는다.
+
+`가속·감속`은 선택한 위치·크기·회전·투명도의 기존 keyframe 평가 frame만
+수식 클립 범위 안에서 재배치한다. 박스 시작과 끝은 원래 frame과 정확히
+일치하고, 범위 밖의 시간은 변경하지 않는다. 네 가지 preset 곡선은
+부드럽게/강하게 가속하거나 감속하는 pure progress 함수로 평가한다.
+
 ## Motion Path
 
 Motion Path는 Animation 원본이 아니라 Editor projection이다.

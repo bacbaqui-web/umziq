@@ -226,6 +226,26 @@ export type LayerModifier =
     }
   | {
       modifierId: string;
+      type: "mouth-basic";
+      enabled: boolean;
+      audioLayerDocumentId: string | null;
+      /** Source-local frame at which the editable formula clip begins. */
+      startFrame: number;
+      durationFrames: number;
+      /** Sorted offsets inside the clip. Every entry toggles 0 ↔ 100. */
+      transitionFrames: number[];
+    }
+  | {
+      modifierId: string;
+      type: "acceleration";
+      enabled: boolean;
+      properties: ("position" | "scale" | "rotation" | "opacity")[];
+      curve: import("@/models/modifierModel").AccelerationCurve;
+      startFrame: number;
+      durationFrames: number;
+    }
+  | {
+      modifierId: string;
       type: "unknown";
       enabled: boolean;
       originalType: string;

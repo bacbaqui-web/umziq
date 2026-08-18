@@ -148,6 +148,8 @@ export {
 export {
   preparePsdSourceNodeDiscovery,
   preparePsdSourceRegistryRefresh,
+  prepareLayerDocumentDeleteWithOrphanAudioSource,
+  prepareLayerDocumentDeleteWithOrphanSources,
   prepareSourceRegistryDelete,
   prepareSourceRegistryImport,
   prepareSourceRegistryReconnect,

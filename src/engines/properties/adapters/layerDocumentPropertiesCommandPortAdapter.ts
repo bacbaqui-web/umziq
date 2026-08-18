@@ -38,6 +38,88 @@ function frameRateForLayer(
     : 30;
 }
 
+function parentCenterForLayer(
+  project: LayerDocumentProject,
+  layerDocumentId: string
+) {
+  const layer = project.payload.layerDocumentsById[layerDocumentId];
+  const parentId = layer?.common.placement.parentLayerDocumentId;
+  const parent = parentId
+    ? project.payload.layerDocumentsById[parentId]
+    : null;
+  return parent?.type === "group"
+    ? { x: parent.data.width / 2, y: parent.data.height / 2 }
+    : { x: 0, y: 0 };
+}
+
+function toEditorPosition(
+  position: { readonly x: number; readonly y: number },
+  center: { readonly x: number; readonly y: number }
+) {
+  return { x: position.x - center.x, y: position.y - center.y };
+}
+
+function toStoredPosition(
+  position: { readonly x: number; readonly y: number },
+  center: { readonly x: number; readonly y: number }
+) {
+  return { x: position.x + center.x, y: position.y + center.y };
+}
+
+function descriptorInEditorCoordinates(
+  result: LayerDocumentPropertiesDescriptorResult,
+  center: { readonly x: number; readonly y: number }
+): LayerDocumentPropertiesDescriptorResult {
+  if (result.status !== "ready") return result;
+  const descriptor = result.descriptor;
+  return {
+    ...result,
+    descriptor: {
+      ...descriptor,
+      transform: {
+        ...descriptor.transform,
+        position: toEditorPosition(descriptor.transform.position, center),
+      },
+      animation: {
+        ...descriptor.animation,
+        positionKeyframes: descriptor.animation.positionKeyframes.map(
+          (keyframe) => ({
+            ...keyframe,
+            value: toEditorPosition(keyframe.value, center),
+          })
+        ),
+      },
+    },
+  };
+}
+
+function commandInStoredCoordinates(
+  command: LayerDocumentPropertiesCommand,
+  center: { readonly x: number; readonly y: number }
+): LayerDocumentPropertiesCommand {
+  if (command.kind === "upsert-position-keyframe") {
+    return {
+      ...command,
+      value: toStoredPosition(command.value, center),
+    };
+  }
+  if (command.kind === "set-animation") {
+    return {
+      ...command,
+      animation: {
+        ...command.animation,
+        positionKeyframes: command.animation.positionKeyframes.map(
+          (keyframe) => ({
+            ...keyframe,
+            value: toStoredPosition(keyframe.value, center),
+          })
+        ),
+      },
+    };
+  }
+  return command;
+}
+
 export function createLayerDocumentPropertiesCommandPort(
   options: {
     readDescriptor:
@@ -74,11 +156,11 @@ export function createLayerDocumentPropertiesCommandPort(
   }
 ): LayerDocumentPropertiesCommandPort {
   const read = () => {
-    const descriptor = options.readDescriptor();
+    const rawDescriptor = options.readDescriptor();
     const globalFrame = options.readGlobalFrame();
-    if (descriptor.status !== "ready") {
+    if (rawDescriptor.status !== "ready") {
       return {
-        descriptor,
+        descriptor: rawDescriptor,
         globalFrame,
         localFrame: null,
         displayedTransform: null,
@@ -86,16 +168,18 @@ export function createLayerDocumentPropertiesCommandPort(
     }
     const project = options.readProject();
     const layer = project.payload.layerDocumentsById[
-      descriptor.descriptor.layerDocumentId
+      rawDescriptor.descriptor.layerDocumentId
     ];
     if (!layer) {
       return {
-        descriptor,
+        descriptor: rawDescriptor,
         globalFrame,
         localFrame: null,
         displayedTransform: null,
       };
     }
+    const center = parentCenterForLayer(project, layer.layerDocumentId);
+    const descriptor = descriptorInEditorCoordinates(rawDescriptor, center);
     const localFrame =
       layerDocumentGlobalFrameToLocalFrame(
         globalFrame,
@@ -127,7 +211,7 @@ export function createLayerDocumentPropertiesCommandPort(
       globalFrame,
       localFrame,
       displayedTransform: {
-        position: { ...evaluated.transform.position },
+        position: toEditorPosition(evaluated.transform.position, center),
         transformOffset: {
           ...evaluated.transform.transformOffset,
         },
@@ -143,9 +227,16 @@ export function createLayerDocumentPropertiesCommandPort(
   return {
     read,
     preview: (layerDocumentId, patch) => {
+      const project = options.readProject();
+      const center = parentCenterForLayer(project, layerDocumentId);
       const prepared = options.previewDraft({
         layerDocumentId,
-        patch,
+        patch: patch.position
+          ? {
+              ...patch,
+              position: toStoredPosition(patch.position, center),
+            }
+          : patch,
         sourceSamplingQuality:
           options.sourceSamplingQuality ?? "preview",
         globalFrame: options.readGlobalFrame(),
@@ -154,7 +245,17 @@ export function createLayerDocumentPropertiesCommandPort(
     },
     commit: options.commitDraft,
     cancel: options.cancelDraft,
-    dispatchPanel: options.dispatchPanel,
+    dispatchPanel: (command) => {
+      const center = parentCenterForLayer(
+        options.readProject(),
+        command.kind === "commit-transform"
+          ? command.intent.layerDocumentId
+          : command.layerDocumentId
+      );
+      return options.dispatchPanel(
+        commandInStoredCoordinates(command, center)
+      );
+    },
     dispatchTimeline: options.dispatchTimeline,
     selectKeyframe: options.selectKeyframe,
     readSelectedKeyframe:

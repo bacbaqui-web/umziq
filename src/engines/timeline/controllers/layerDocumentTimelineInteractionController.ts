@@ -321,6 +321,39 @@ export function createLayerDocumentTimelineInteractionController(
       options.owner.timeline
         .selectTransformKeyframe(null);
     },
+    setMouthBasicClip: (layerDocumentId, clip) => {
+      const layer = itemById(layerDocumentId);
+      if (!layer) return;
+      const modifiers = layer.common.modifiers.map((modifier) =>
+        modifier.type === "mouth-basic"
+          ? {
+              ...modifier,
+              startFrame: Math.floor(clip.startFrame),
+              durationFrames: Math.max(1, Math.floor(clip.durationFrames)),
+              transitionFrames: [...new Set(clip.transitionFrames
+                .map((frame) => Math.floor(frame))
+                .filter((frame) => frame >= 0 && frame < clip.durationFrames))]
+                .sort((left, right) => left - right),
+            }
+          : modifier
+      );
+      options.owner.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });
+    },
+    setAccelerationClip: (layerDocumentId, clip) => {
+      const layer = itemById(layerDocumentId);
+      if (!layer) return;
+      const modifiers = layer.common.modifiers.map((modifier) =>
+        modifier.type === "acceleration"
+          ? {
+              ...modifier,
+              startFrame: Math.floor(clip.startFrame),
+              durationFrames: Math.max(1, Math.floor(clip.durationFrames)),
+              curve: clip.curve ?? modifier.curve,
+            }
+          : modifier
+      );
+      options.owner.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });
+    },
     deleteCanonicalTimelineItem: deleteLayer,
     setCanonicalTimelineItemVisibility: (
       layerDocumentId,

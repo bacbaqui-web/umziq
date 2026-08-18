@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
-  ProjectLifecycleNewProjectRequest,
   ProjectLifecycleUiCommandPort,
   ProjectLifecycleUiViewModel,
 } from "@/editor/projectLifecycleUi";
@@ -10,29 +10,19 @@ import type {
   ProjectExportFormat,
   ProjectExportProgress,
 } from "@/editor/projectExport";
+import {
+  queueProjectOpenSelection,
+  setProjectAssetDirectory,
+  type ProjectAssetDirectoryHandle,
+} from "@/editor/projectAssetDirectoryRuntime";
 
-type WritableFileStream = {
-  write(data: Uint8Array): Promise<void>;
-  close(): Promise<void>;
-  abort?(): Promise<void>;
-};
-
-type WritableFileHandle = {
-  readonly name: string;
-  createWritable(): Promise<WritableFileStream>;
-};
-
-type ProjectDirectoryHandle = {
+type ProjectDirectoryHandle = ProjectAssetDirectoryHandle & {
   readonly name: string;
   values(): AsyncIterable<{
     readonly kind: "file" | "directory";
     readonly name: string;
     getFile?: () => Promise<File>;
   }>;
-  getFileHandle(
-    name: string,
-    options: { readonly create: true }
-  ): Promise<WritableFileHandle>;
 };
 
 type DirectoryPickerWindow = Window & {
@@ -42,8 +32,8 @@ type DirectoryPickerWindow = Window & {
 };
 
 type PendingProject = {
-  readonly directory: ProjectDirectoryHandle;
-  readonly psdFiles: readonly File[];
+  readonly parentDirectory:
+    ProjectDirectoryHandle | null;
 };
 
 export type ProjectLifecycleBarProps = {
@@ -81,40 +71,61 @@ function safeProjectName(value: string) {
     .slice(0, 120);
 }
 
-async function readProjectFolder(
+async function readProjectFileFromFolder(
   directory: ProjectDirectoryHandle
 ) {
-  const psdFiles: File[] = [];
+  const projectFiles: File[] = [];
   for await (const entry of directory.values()) {
     if (
       entry.kind === "file" &&
-      /\.psd$/i.test(entry.name) &&
+      /\.ziq$/i.test(entry.name) &&
       entry.getFile
     ) {
-      psdFiles.push(await entry.getFile());
+      projectFiles.push(await entry.getFile());
     }
   }
-  return psdFiles.sort((left, right) =>
-    left.name.localeCompare(right.name)
+  if (projectFiles.length !== 1) {
+    return {
+      file: null,
+      count: projectFiles.length,
+    } as const;
+  }
+  const file = projectFiles[0];
+  const handle = await directory.getFileHandle(
+    file.name,
+    { create: false }
   );
+  return {
+    file,
+    count: 1,
+    selection: {
+      file,
+      bytes: new Uint8Array(
+        await file.arrayBuffer()
+      ),
+      handle,
+    },
+  } as const;
 }
 
 function NewProjectDialog({
   pending,
   busy,
   onCancel,
+  onChooseLocation,
   onCreate,
 }: {
   readonly pending: PendingProject;
   readonly busy: boolean;
   readonly onCancel: () => void;
-  readonly onCreate: (
-    request: ProjectLifecycleNewProjectRequest
-  ) => void;
+  readonly onChooseLocation: () => void;
+  readonly onCreate: (options: {
+    readonly projectName: string;
+    readonly parentDirectory:
+      ProjectDirectoryHandle;
+  }) => void;
 }) {
-  const [name, setName] = useState(
-    pending.directory.name
-  );
+  const [name, setName] = useState("");
   const projectName = safeProjectName(name);
   const fileName = `${projectName}.ziq`;
 
@@ -138,26 +149,15 @@ function NewProjectDialog({
         className="new-project-dialog preview-dialog-surface"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!projectName || busy) return;
+          if (
+            !projectName ||
+            !pending.parentDirectory ||
+            busy
+          ) return;
           onCreate({
             projectName,
-            directoryName: pending.directory.name,
-            psdFiles: pending.psdFiles,
-            target: {
-              kind: "native-file-system",
-              fileName,
-              handle: {
-                name: fileName,
-                createWritable: async () => {
-                  const handle =
-                    await pending.directory.getFileHandle(
-                      fileName,
-                      { create: true }
-                    );
-                  return handle.createWritable();
-                },
-              },
-            },
+            parentDirectory:
+              pending.parentDirectory,
           });
         }}
       >
@@ -179,22 +179,27 @@ function NewProjectDialog({
           <div className="new-project-dialog__filename">
             저장 파일: {projectName ? fileName : "이름을 입력하세요"}
           </div>
-          <section className="new-project-dialog__files">
-            <strong>
-              발견한 PSD 파일 {pending.psdFiles.length}개
-            </strong>
-            {pending.psdFiles.length > 0 ? (
-              <ul>
-                {pending.psdFiles.map((file) => (
-                  <li key={file.name}>{file.name}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>
-                PSD는 프로젝트를 만든 후에도 불러올 수 있습니다.
-              </p>
-            )}
+          <section className="new-project-dialog__location">
+            <div>
+              <strong>프로젝트 저장 위치</strong>
+              <span>
+                {pending.parentDirectory
+                  ? `${pending.parentDirectory.name}/${projectName || "프로젝트 이름"}`
+                  : "프로젝트를 보관할 상위 폴더를 선택해주세요."}
+              </span>
+            </div>
+            <button
+              className="ui-button"
+              type="button"
+              disabled={busy}
+              onClick={onChooseLocation}
+            >
+              위치 선택
+            </button>
           </section>
+          <p className="new-project-dialog__structure">
+            프로젝트 폴더 안에 .ziq 파일과 psd, audio 폴더가 자동으로 만들어집니다.
+          </p>
         </main>
         <footer className="new-project-dialog__actions">
           <button
@@ -208,7 +213,11 @@ function NewProjectDialog({
           <button
             className="ui-button ui-button--primary"
             type="submit"
-            disabled={busy || !projectName}
+            disabled={
+              busy ||
+              !projectName ||
+              !pending.parentDirectory
+            }
           >
             {busy ? "만드는 중" : "프로젝트 만들기"}
           </button>
@@ -229,9 +238,9 @@ export function ProjectLifecycleBar({
   const [exportOpen, setExportOpen] = useState(false);
   const busy =
     viewModel.commandsDisabled || creating;
-  const projectActionsDisabled =
+  const saveAsDisabled =
     busy || !viewModel.projectCreated;
-  const chooseProjectFolder = async () => {
+  const chooseNewProjectLocation = async () => {
     const picker =
       (window as DirectoryPickerWindow)
         .showDirectoryPicker;
@@ -245,9 +254,9 @@ export function ProjectLifecycleBar({
       const directory = await picker({
         mode: "readwrite",
       });
-      const psdFiles =
-        await readProjectFolder(directory);
-      setPendingProject({ directory, psdFiles });
+      setPendingProject({
+        parentDirectory: directory,
+      });
     } catch (error) {
       if (
         !(error instanceof DOMException) ||
@@ -259,9 +268,186 @@ export function ProjectLifecycleBar({
       }
     }
   };
+  const createProjectFolder = async ({
+    projectName,
+    parentDirectory,
+  }: {
+    readonly projectName: string;
+    readonly parentDirectory:
+      ProjectDirectoryHandle;
+  }) => {
+    setCreating(true);
+    try {
+      const directory =
+        await parentDirectory.getDirectoryHandle(
+          projectName,
+          { create: true }
+        ) as ProjectDirectoryHandle;
+      const existingProject =
+        await readProjectFileFromFolder(directory);
+      if (existingProject.count > 0) {
+        window.alert(
+          "같은 이름의 프로젝트 폴더에 이미 .ziq 파일이 있습니다. 다른 프로젝트 이름을 사용해주세요."
+        );
+        return;
+      }
+      await directory.getDirectoryHandle("psd", {
+        create: true,
+      });
+      await directory.getDirectoryHandle("audio", {
+        create: true,
+      });
+      setProjectAssetDirectory(directory);
+      const fileName = `${projectName}.ziq`;
+      const request = {
+        projectName,
+        directoryName: directory.name,
+        psdFiles: [],
+        target: {
+          kind: "native-file-system" as const,
+          fileName,
+          handle: {
+            name: fileName,
+            createWritable: async () => {
+              const handle =
+                await directory.getFileHandle(
+                  fileName,
+                  { create: true }
+                );
+              return handle.createWritable();
+            },
+          },
+        },
+      };
+      const created = await commands.newProject(request);
+      if (created) {
+        setPendingProject(null);
+      }
+    } catch (error) {
+      if (
+        !(error instanceof DOMException) ||
+        error.name !== "AbortError"
+      ) {
+        window.alert(
+          "프로젝트 폴더를 만들 수 없습니다. 폴더 접근 권한을 확인해주세요."
+        );
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+  const openProjectFolder = async () => {
+    const picker =
+      (window as DirectoryPickerWindow)
+        .showDirectoryPicker;
+    if (!picker) {
+      setProjectAssetDirectory(null);
+      await commands.openProject();
+      return;
+    }
+    try {
+      const directory = await picker({
+        mode: "readwrite",
+      });
+      const projectFile =
+        await readProjectFileFromFolder(directory);
+      if (!projectFile.file) {
+        window.alert(
+          projectFile.count === 0
+            ? "선택한 폴더에 .ziq 프로젝트 파일이 없습니다."
+            : "선택한 폴더에 .ziq 프로젝트 파일이 여러 개 있습니다. 프로젝트별로 폴더를 나누거나 열 파일을 하나만 남겨주세요."
+        );
+        return;
+      }
+      setProjectAssetDirectory(directory);
+      const clearQueuedSelection =
+        queueProjectOpenSelection(
+          projectFile.selection
+        );
+      try {
+        await commands.openProject();
+      } finally {
+        clearQueuedSelection();
+      }
+    } catch (error) {
+      if (
+        !(error instanceof DOMException) ||
+        error.name !== "AbortError"
+      ) {
+        window.alert(
+          "프로젝트 폴더를 열 수 없습니다. 폴더 접근 권한을 확인해주세요."
+        );
+      }
+    }
+  };
 
   return (
     <>
+      {!viewModel.projectCreated && createPortal(
+        <div className="project-start-screen">
+          <div className="project-start-screen__card preview-dialog-surface">
+            <div className="project-start-screen__actions">
+              <button
+                className="project-start-screen__action"
+                disabled={busy}
+                onClick={() => setPendingProject({
+                  parentDirectory: null,
+                })}
+              >
+                <span
+                  className="project-start-screen__action-icon project-start-screen__action-icon--plus"
+                  aria-hidden="true"
+                >
+                  +
+                </span>
+                <strong>새 프로젝트</strong>
+                <small>새 작업을 시작합니다</small>
+              </button>
+              <button
+                className="project-start-screen__action project-start-screen__action--open"
+                disabled={busy}
+                onClick={() => void openProjectFolder()}
+              >
+                <span
+                  className="project-start-screen__action-icon"
+                  aria-hidden="true"
+                >
+                  <svg
+                    width="58"
+                    height="58"
+                    viewBox="0 0 64 64"
+                    fill="none"
+                  >
+                    <path
+                      d="M7 18.5h19l5 6H57v28.5H7z"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M7 24.5v-9.5h18l5 6h15"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="m32 34 6 6-6 6M38 40H22"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <strong>프로젝트 열기</strong>
+                <small>기존 프로젝트 폴더를 엽니다</small>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       <header className="project-lifecycle-bar">
         <div className="project-lifecycle-bar__commands">
           <span className="project-lifecycle-bar__brand">
@@ -270,35 +456,43 @@ export function ProjectLifecycleBar({
           <button
             className="ui-button"
             disabled={busy}
-            onClick={() => void chooseProjectFolder()}
+            onClick={() => setPendingProject({
+              parentDirectory: null,
+            })}
           >
             새 프로젝트
           </button>
           <button
             className="ui-button"
             disabled={busy}
-            onClick={() => void commands.openProject()}
+            onClick={() => void openProjectFolder()}
           >
             열기
           </button>
           <button
             className="ui-button"
-            disabled={projectActionsDisabled}
+            disabled={busy}
             onClick={() => void commands.saveProject()}
           >
             저장
           </button>
           <button
             className="ui-button"
-            disabled={projectActionsDisabled}
+            disabled={saveAsDisabled}
             onClick={() => void commands.saveProjectAs()}
           >
             다른 이름으로 저장
           </button>
           <button
             className="ui-button"
-            disabled={projectActionsDisabled}
-            onClick={() => void commands.closeProject()}
+            disabled={busy}
+            onClick={() => {
+              void commands.closeProject().then(() => {
+                if (commands.read().document === "untitled") {
+                  setProjectAssetDirectory(null);
+                }
+              });
+            }}
           >
             닫기
           </button>
@@ -369,33 +563,29 @@ export function ProjectLifecycleBar({
           )}
         </div>
       </header>
-      {pendingProject && (
+      {pendingProject && createPortal(
         <NewProjectDialog
           pending={pendingProject}
           busy={creating}
           onCancel={() => setPendingProject(null)}
-          onCreate={(request) => {
-            const selected = pendingProject;
-            setPendingProject(null);
-            setCreating(true);
-            void commands.newProject(request)
-              .then((created) => {
-                if (!created) {
-                  setPendingProject(selected);
-                }
-              })
-              .finally(() => setCreating(false));
-          }}
-        />
+          onChooseLocation={() =>
+            void chooseNewProjectLocation()
+          }
+          onCreate={(options) =>
+            void createProjectFolder(options)
+          }
+        />,
+        document.body
       )}
-      {exportOpen && (
+      {exportOpen && createPortal(
         <ProjectExportDialog
           projectName={exportOptions.projectName}
           durationFrames={exportOptions.durationFrames}
           frameRate={exportOptions.frameRate}
           onCancel={() => setExportOpen(false)}
           onExport={exportOptions.run}
-        />
+        />,
+        document.body
       )}
     </>
   );

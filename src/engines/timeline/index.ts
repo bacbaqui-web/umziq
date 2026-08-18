@@ -84,6 +84,7 @@ export type {
   TimelineHeaderViewModel,
   TimelineItemRowViewModel,
   TimelinePropertyRowViewModel,
+  TimelineFormulaRowViewModel,
   TimelineRulerViewModel,
   TimelineTrackOverlayViewModel,
   TimelineViewItem,

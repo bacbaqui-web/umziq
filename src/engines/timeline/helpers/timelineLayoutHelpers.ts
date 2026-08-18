@@ -1,5 +1,5 @@
 type TimelineLayoutRow = {
-  readonly type: "item" | "property";
+  readonly type: "item" | "property" | "formula";
   readonly item: { readonly id: string };
 };
 

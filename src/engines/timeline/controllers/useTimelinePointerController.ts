@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { resolveTimelineAutoScroll } from "@/engines/timeline/helpers/timelineInteractionHelpers";
 
 type PointerSession = {
@@ -17,24 +17,40 @@ type Options<TSession extends PointerSession> = {
 export function useTimelinePointerController<
   TSession extends PointerSession,
 >(options: Options<TSession>) {
+  const optionsRef = useRef(options);
+  useLayoutEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
   const sessionRef = useRef<TSession | null>(null);
   const scrollStartLeftRef = useRef(0);
   const [activeType, setActiveType] =
     useState<TSession["type"] | null>(null);
   const begin = useCallback((session: TSession) => {
     sessionRef.current = session;
-    scrollStartLeftRef.current = options.scrollContainerRef.current?.scrollLeft ?? 0;
+    scrollStartLeftRef.current = optionsRef.current.scrollContainerRef.current?.scrollLeft ?? 0;
     setActiveType(session.type);
-  }, [options]);
+  }, []);
   const cancel = useCallback(() => {
     sessionRef.current = null;
     setActiveType(null);
   }, []);
 
   useEffect(() => {
+    const finish = () => {
+      const session = sessionRef.current;
+      if (!session) return;
+      optionsRef.current.end(session);
+      sessionRef.current = null;
+      setActiveType(null);
+    };
     const move = (event: MouseEvent) => {
       if (sessionRef.current) {
-        const scrollContainer = options.scrollContainerRef.current;
+        if (event.buttons === 0) {
+          finish();
+          return;
+        }
+        const currentOptions = optionsRef.current;
+        const scrollContainer = currentOptions.scrollContainerRef.current;
         if (scrollContainer) {
           const bounds = scrollContainer.getBoundingClientRect();
           scrollContainer.scrollLeft += resolveTimelineAutoScroll(
@@ -48,29 +64,24 @@ export function useTimelinePointerController<
         const clientX = event.clientX
           + (scrollContainer?.scrollLeft ?? 0)
           - scrollStartLeftRef.current;
-        const next = options.move(sessionRef.current, clientX);
+        const next = currentOptions.move(sessionRef.current, clientX);
         if (next) sessionRef.current = next;
       }
-    };
-    const finish = () => {
-      const session = sessionRef.current;
-      if (!session) return;
-      options.end(session);
-      sessionRef.current = null;
-      setActiveType(null);
     };
     const visibility = () => { if (document.visibilityState === "hidden") finish(); };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", finish, true);
     window.addEventListener("blur", finish);
+    document.documentElement.addEventListener("mouseleave", finish);
     document.addEventListener("visibilitychange", visibility);
     return () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", finish, true);
       window.removeEventListener("blur", finish);
+      document.documentElement.removeEventListener("mouseleave", finish);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [options]);
+  }, []);
 
   useEffect(() => {
     if (activeType !== "move-keyframe") return;

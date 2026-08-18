@@ -183,7 +183,8 @@ function typeDetail(
 
 function modifierViews(
   descriptor: LayerDocumentPropertiesDescriptor,
-  runtime: LayerDocumentPropertiesRuntimeState
+  runtime: LayerDocumentPropertiesRuntimeState,
+  mouthAudioOptions: readonly { id: string; label: string }[] = []
 ): PropertiesModifierViewModel[] {
   return descriptor.modifiers.flatMap((modifier): PropertiesModifierViewModel[] => {
     if (modifier.type === "wiggle") return [{
@@ -267,6 +268,20 @@ function modifierViews(
         },
       ],
     }];
+    if (modifier.type === "mouth-basic") return [{
+      type: "mouth-basic" as const,
+      label: "입뻥긋(기본)",
+      fields: [],
+      audioLayerDocumentId: modifier.audioLayerDocumentId,
+      audioOptions: mouthAudioOptions,
+    }];
+    if (modifier.type === "acceleration") return [{
+      type: "acceleration" as const,
+      label: "가속·감속",
+      fields: [],
+      accelerationProperties: modifier.properties,
+      accelerationCurve: modifier.curve,
+    }];
     return [];
   });
 }
@@ -277,6 +292,8 @@ export function buildLayerDocumentPropertiesViewProps(options: {
   frameRate?: number;
   audioDrafts?: Partial<Record<PropertiesAudioInputId, string>>;
   audioCommands?: Pick<PropertiesEngineViewProps["commands"], "focusAudioInput" | "changeAudioInput" | "blurAudioInput" | "keyDownAudioInput" | "toggleAudioMuted">;
+  mouthAudioOptions?: readonly { id: string; label: string }[];
+  setMouthBasicAudioLayer?: (audioLayerDocumentId: string) => void;
 }): PropertiesEngineViewProps {
   const read = options.controller.read();
   const descriptor = read.descriptor.status === "ready"
@@ -456,12 +473,26 @@ export function buildLayerDocumentPropertiesViewProps(options: {
       canDeleteSelected: Boolean(selected),
     },
     modifiers: descriptor && descriptor.type !== "audio"
-      ? modifierViews(descriptor, read.runtime)
+      ? modifierViews(descriptor, read.runtime, options.mouthAudioOptions)
       : [],
     modifierLibrary: {
       visible:
         descriptor?.type !== "audio" && descriptor?.capabilities.modifiers.status === "editable",
       items: [
+        {
+          type: "acceleration",
+          label: "가속·감속",
+          active: Boolean(
+            descriptor?.modifiers.some((modifier) => modifier.type === "acceleration")
+          ),
+        },
+        {
+          type: "mouth-basic",
+          label: "입뻥긋(기본)",
+          active: Boolean(
+            descriptor?.modifiers.some((modifier) => modifier.type === "mouth-basic")
+          ),
+        },
         {
           type: "wiggle",
           label: "부들부들",
@@ -528,6 +559,33 @@ export function buildLayerDocumentPropertiesViewProps(options: {
         options.controller.deleteSelectedKeyframe,
       toggleModifier:
         options.controller.toggleModifier,
+      setMouthBasicAudioLayer: options.setMouthBasicAudioLayer ?? (() => undefined),
+      toggleAccelerationProperty: (property) => {
+        const current = options.controller.read();
+        if (current.descriptor.status !== "ready") return;
+        const modifier = current.descriptor.descriptor.modifiers.find(
+          (candidate) => candidate.type === "acceleration"
+        );
+        if (!modifier || modifier.type !== "acceleration") return;
+        const properties = modifier.properties.includes(property)
+          ? modifier.properties.filter((candidate) => candidate !== property)
+          : [...modifier.properties, property];
+        if (properties.length === 0) return;
+        options.controller.setModifiers(current.descriptor.descriptor.modifiers.map((candidate) =>
+          candidate.modifierId === modifier.modifierId ? { ...modifier, properties } : candidate
+        ));
+      },
+      setAccelerationCurve: (curve) => {
+        const current = options.controller.read();
+        if (current.descriptor.status !== "ready") return;
+        const modifier = current.descriptor.descriptor.modifiers.find(
+          (candidate) => candidate.type === "acceleration"
+        );
+        if (!modifier || modifier.type !== "acceleration") return;
+        options.controller.setModifiers(current.descriptor.descriptor.modifiers.map((candidate) =>
+          candidate.modifierId === modifier.modifierId ? { ...modifier, curve } : candidate
+        ));
+      },
       focusModifierInput:
         options.controller.focusModifierInput,
       changeModifierInput:
@@ -569,6 +627,10 @@ export function useLayerDocumentPropertiesEngine(options: {
   formatTime?: (frame: number, frameRate: number) => string;
   frameRate?: number;
   resetRevision?: number;
+  mouthBasic?: {
+    readAudioOptions: () => readonly { id: string; label: string }[];
+    connect: (targetLayerDocumentId: string, audioLayerDocumentId: string) => void;
+  };
 }) {
   const [runtime, setRuntime] =
     useState<LayerDocumentPropertiesRuntimeState>(
@@ -702,6 +764,12 @@ export function useLayerDocumentPropertiesEngine(options: {
       frameRate: options.frameRate,
       audioDrafts: audioDraft.selectionId === (scope.descriptor.status === "ready" ? scope.descriptor.descriptor.layerDocumentId : null) ? audioDraft.values : {},
       audioCommands,
+      mouthAudioOptions: options.mouthBasic?.readAudioOptions() ?? [],
+      setMouthBasicAudioLayer: (audioLayerDocumentId) => {
+        const current = options.port.read().descriptor;
+        if (current.status !== "ready" || !audioLayerDocumentId) return;
+        options.mouthBasic?.connect(current.descriptor.layerDocumentId, audioLayerDocumentId);
+      },
     }),
   };
 }

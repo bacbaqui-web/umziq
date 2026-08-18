@@ -23,6 +23,10 @@ import type {
   LibraryNodeViewModel,
   LibraryViewProps,
 } from "@/engines/library/models/libraryModel";
+import {
+  copyFilesIntoProjectAssets,
+  deleteRecordedAudioProjectAsset,
+} from "@/editor/projectAssetDirectoryRuntime";
 
 function previewToken(
   plan: LayerDocumentPsdImportPreviewPlan
@@ -140,59 +144,15 @@ export function buildLayerDocumentPsdImportViewPlan(
   };
 }
 
-function treeNode(
-  source: {
-    readonly sourceId: string;
-    readonly displayName: string;
-    readonly refreshStatus:
-      | "normal"
-      | "updated"
-      | "new"
-      | "deletePending"
-      | "missing";
-    readonly entityKind?: "layer" | "composition";
-    readonly children?: readonly unknown[];
-  },
-  selectedSourceId: string | null,
-  depth: number,
-  children: LibraryNodeViewModel[],
-  documentActions: boolean,
-  layerState: {
-    visible: boolean;
-    locked: boolean;
-    name: string;
-  } | null
-): LibraryNodeViewModel {
-  return {
-    id: source.sourceId,
-    type: depth === 0 ? "main" : "sub",
-    entityKind:
-      depth === 0 ? null : source.entityKind ?? "layer",
-    contentKind: "visual",
-    audioProvenance: null,
-    playing: false,
-    muted: false,
-    sourceId: source.sourceId,
-    layerDocumentId: null,
-    name: layerState?.name ?? source.displayName,
-    depth,
-    selected: source.sourceId === selectedSourceId,
-    visible: layerState?.visible ?? true,
-    locked: layerState?.locked ?? false,
-    sourceSyncStatus: source.refreshStatus,
-    canRefresh: documentActions,
-    canDelete: documentActions,
-    canReorder: false,
-    children,
-  };
-}
-
 export function buildLayerDocumentLibraryNodes(
   controller: LayerDocumentLibraryController,
   audioState?: {
     readonly selectedLayerDocumentId: string | null;
     readonly playingLayerDocumentId: string | null;
-  }
+  },
+  readPreview?: (
+    layerDocumentId: string
+  ) => ReturnType<NonNullable<LibraryNodeViewModel["preview"]>>
 ): LibraryNodeViewModel[] {
   const tree = controller.read();
   const project = controller.readProject();
@@ -202,129 +162,70 @@ export function buildLayerDocumentLibraryNodes(
     layer.type === "group" &&
     layer.data.role === "project-root"
   );
-  const layerState = (sourceId: string) => {
-    const layer = Object.values(
-      project.payload.layerDocumentsById
-    ).find((candidate) =>
-      candidate.common.source?.sourceId === sourceId
-    );
-    return layer
-      ? {
-          visible: layer.common.placement.visible,
-          locked: !!layer.common.placement.locked,
-          name: layer.name,
-        }
-      : null;
+  const statusBySourceId = new Map<string, LibraryNodeViewModel["sourceSyncStatus"]>();
+  const collectSourceStatus = (items: readonly { sourceId: string; refreshStatus: LibraryNodeViewModel["sourceSyncStatus"]; children?: readonly unknown[] }[]) => {
+    items.forEach((item) => {
+      statusBySourceId.set(item.sourceId, item.refreshStatus);
+      collectSourceStatus((item.children ?? []) as readonly { sourceId: string; refreshStatus: LibraryNodeViewModel["sourceSyncStatus"]; children?: readonly unknown[] }[]);
+    });
   };
-  const buildPsdNode = (
-    node: (typeof tree.documents)[number]["children"][number],
-    depth: number
-  ): LibraryNodeViewModel => {
-    const state = layerState(node.sourceId);
-    return treeNode(
-      node,
-      tree.selectedSourceId,
-      depth,
-      node.children.map((child) =>
-        buildPsdNode(child, depth + 1)
-      ),
-      false,
-      state
-    );
-  };
-  const audioSources = new Map(
-    Object.values(project.payload.sourceRegistry.sourcesById)
-      .filter((source) => source.kind === "audio")
-      .map((source) => [source.sourceId, source])
-  );
+  collectSourceStatus(tree.documents);
+  collectSourceStatus(tree.orphanNodes);
+  collectSourceStatus(tree.nonPsdSources);
   const audioTreeStatus = new Map(
     tree.nonPsdSources
       .filter((source) => source.kind === "audio")
       .map((source) => [source.sourceId, source.refreshStatus])
   );
-  const audioNodesForCut = (cutLayerDocumentId: string | null) =>
-    Object.values(project.payload.layerDocumentsById)
-      .flatMap((layer) => layer.type === "audio" &&
-        layer.common.placement.parentLayerDocumentId === cutLayerDocumentId
-          ? [layer]
-          : [])
-      .sort((left, right) =>
-        left.common.placement.order - right.common.placement.order ||
-        left.layerDocumentId.localeCompare(right.layerDocumentId)
-      )
-      .map((layer): LibraryNodeViewModel => {
-        const sourceId = layer.common.source?.sourceId ?? null;
-        const source = sourceId ? audioSources.get(sourceId) : null;
-        return {
-          id: layer.layerDocumentId,
-          type: "sub",
-          entityKind: "layer",
-          contentKind: "audio",
-          audioProvenance: source?.data.provenance ?? "imported",
-          playing: audioState?.playingLayerDocumentId === layer.layerDocumentId,
-          muted: layer.data.muted,
-          sourceId,
-          layerDocumentId: layer.layerDocumentId,
-          name: layer.name,
-          depth: 1,
-          selected: audioState?.selectedLayerDocumentId === layer.layerDocumentId,
-          visible: !layer.data.muted,
-          locked: false,
-          sourceSyncStatus: sourceId
-            ? audioTreeStatus.get(sourceId) ?? "missing"
-            : "missing",
-          canRefresh: false,
-          canDelete: true,
-          canReorder: true,
-          children: [],
-        };
-      });
-  const documents = tree.documents.map((document) => {
-    const cut = Object.values(project.payload.layerDocumentsById).find((layer) =>
-      layer.type === "group" &&
-      layer.data.role === "composition" &&
-      layer.common.source?.sourceId === document.sourceId
-    );
-    const built = treeNode(
-      document,
-      tree.selectedSourceId,
-      0,
-      [
-        ...document.children.map((child) => buildPsdNode(child, 1)),
-        ...audioNodesForCut(cut?.layerDocumentId ?? null),
-      ],
-      true,
-      layerState(document.sourceId)
-    );
-    return {
-      ...built,
-      layerDocumentId: cut?.layerDocumentId ?? null,
-      canReorder: Boolean(cut),
-    };
-  }).sort((left, right) => {
-    const leftOrder = left.layerDocumentId
-      ? project.payload.layerDocumentsById[left.layerDocumentId]?.common.placement.order ?? 0
-      : 0;
-    const rightOrder = right.layerDocumentId
-      ? project.payload.layerDocumentsById[right.layerDocumentId]?.common.placement.order ?? 0
-      : 0;
-    return leftOrder - rightOrder || left.id.localeCompare(right.id);
+  const layers = project.payload.layerDocumentsById;
+  const childrenByParent = new Map<string, typeof layers[string][]>();
+  Object.values(layers).forEach((layer) => {
+    const parentId = layer.common.placement.parentLayerDocumentId;
+    if (!parentId) return;
+    const siblings = childrenByParent.get(parentId) ?? [];
+    siblings.push(layer);
+    childrenByParent.set(parentId, siblings);
   });
-  const orphanNodes = tree.orphanNodes.map((node) =>
-    buildPsdNode(node, 0)
-  );
-  const nonPsdSources = tree.nonPsdSources
-    .filter((source) => source.kind !== "audio")
-    .map((source) =>
-    treeNode(
-      source,
-      tree.selectedSourceId,
-      0,
-      [],
-      false,
-      layerState(source.sourceId)
-    )
-  );
+  childrenByParent.forEach((siblings) => siblings.sort((left, right) =>
+    left.common.placement.order - right.common.placement.order ||
+    left.layerDocumentId.localeCompare(right.layerDocumentId)
+  ));
+  const buildLayerNode = (layer: typeof layers[string], depth: number): LibraryNodeViewModel => {
+    const sourceId = layer.common.source?.sourceId ?? null;
+    const source = sourceId ? project.payload.sourceRegistry.sourcesById[sourceId] : null;
+    const isAudio = layer.type === "audio";
+    const isCut = layer.type === "group" && layer.data.role === "composition" &&
+      layer.common.placement.parentLayerDocumentId === projectRoot?.layerDocumentId;
+    return {
+      id: layer.layerDocumentId,
+      type: isCut ? "main" : "sub",
+      entityKind: layer.type === "group" ? "composition" : "layer",
+      contentKind: isAudio ? "audio" : "visual",
+      audioProvenance: isAudio && source?.kind === "audio" ? source.data.provenance : null,
+      playing: isAudio && audioState?.playingLayerDocumentId === layer.layerDocumentId,
+      muted: isAudio ? layer.data.muted : false,
+      sourceId,
+      layerDocumentId: layer.layerDocumentId,
+      name: layer.name,
+      depth,
+      selected: isAudio
+        ? audioState?.selectedLayerDocumentId === layer.layerDocumentId
+        : sourceId !== null && tree.selectedSourceId === sourceId,
+      visible: isAudio ? !layer.data.muted : layer.common.placement.visible,
+      locked: !!layer.common.placement.locked,
+      sourceSyncStatus: sourceId
+        ? statusBySourceId.get(sourceId) ?? (isAudio ? audioTreeStatus.get(sourceId) ?? "missing" : "normal")
+        : "normal",
+      canRefresh: isCut && source?.kind === "psd-document",
+      canDelete: !isCut || source?.kind === "psd-document",
+      canReorder: true,
+      preview: readPreview
+        ? () => readPreview(layer.layerDocumentId)
+        : null,
+      children: (childrenByParent.get(layer.layerDocumentId) ?? [])
+        .map((child) => buildLayerNode(child, depth + 1)),
+    };
+  };
   const projectNode: LibraryNodeViewModel[] = projectRoot
     ? [{
         id: projectRoot.layerDocumentId,
@@ -347,15 +248,15 @@ export function buildLayerDocumentLibraryNodes(
         canRefresh: false,
         canDelete: false,
         canReorder: false,
+        preview: null,
         children: [],
       }]
     : [];
-  return [
-    ...projectNode,
-    ...documents,
-    ...orphanNodes,
-    ...nonPsdSources,
-  ];
+  const hierarchy = projectRoot
+    ? (childrenByParent.get(projectRoot.layerDocumentId) ?? [])
+        .map((layer) => buildLayerNode(layer, layer.type === "group" && layer.data.role === "composition" ? 0 : 1))
+    : [];
+  return [...projectNode, ...hierarchy];
 }
 
 function refreshSummary(
@@ -432,7 +333,11 @@ function movePreviewPlan(options: {
 export function useLayerDocumentLibraryEngine(options: {
   controller: LayerDocumentLibraryController;
   audioImport: {
-    prepare: (file: File) => Promise<PreparedLayerDocumentAudioImport>;
+    prepare: (
+      file: File,
+      relativePathHint?: string | null,
+      order?: number
+    ) => Promise<PreparedLayerDocumentAudioImport>;
     confirm: (prepared: PreparedLayerDocumentAudioImport) => { readonly ok: boolean; readonly message?: string };
     cancel: (prepared: PreparedLayerDocumentAudioImport) => unknown;
   };
@@ -456,6 +361,11 @@ export function useLayerDocumentLibraryEngine(options: {
       position: "before" | "inside" | "after";
     }) => void;
   };
+  preview?: {
+    read: (
+      layerDocumentId: string
+    ) => ReturnType<NonNullable<LibraryNodeViewModel["preview"]>>;
+  };
   parentLayerDocumentId: string;
   durationFrames: number;
   parentWidth: number;
@@ -478,10 +388,18 @@ export function useLayerDocumentLibraryEngine(options: {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioRequest = useRef(0);
-  const activeAudioPrepared = useRef<PreparedLayerDocumentAudioImport | null>(null);
+  const activeAudioPrepared = useRef<PreparedLayerDocumentAudioImport[]>([]);
   const activeRecording = useRef<import("@/engines/project").LayerDocumentAudioRecordingSession | null>(null);
   const [audioRecordingStatus, setAudioRecordingStatus] = useState<LibraryViewProps["audioRecordingStatus"]>("idle");
   const [audioRecordingName, setAudioRecordingName] = useState<string | null>(null);
+  const [assetCopyPrompt, setAssetCopyPrompt] = useState<LibraryViewProps["assetCopyPrompt"]>(null);
+  const assetCopyResolver = useRef<((copy: boolean) => void) | null>(null);
+  const requestAssetCopy = useCallback((kind: "psd" | "audio", fileCount: number) =>
+    new Promise<boolean>((resolve) => {
+      assetCopyResolver.current?.(false);
+      assetCopyResolver.current = resolve;
+      setAssetCopyPrompt({ kind, fileCount });
+    }), []);
   const projectIdentity = `${options.controller.readProject().metadata.projectId}:${options.resetRevision}`;
   const previousProjectIdentity = useRef(projectIdentity);
   const audioImportRef = useRef(options.audioImport);
@@ -504,6 +422,23 @@ export function useLayerDocumentLibraryEngine(options: {
   const [error, setError] = useState<string | null>(null);
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<import("@/engines/library/models/libraryModel").LibraryDropTarget>(null);
+  const dropTargetRef = useRef<import("@/engines/library/models/libraryModel").LibraryDropTarget>(null);
+  const dragCandidateRef = useRef<{
+    targetId: string;
+    position: "before" | "inside" | "after";
+    since: number;
+  } | null>(null);
+  const replaceDropTarget = (
+    next: import("@/engines/library/models/libraryModel").LibraryDropTarget
+  ) => {
+    const current = dropTargetRef.current;
+    if (
+      current?.targetId === next?.targetId &&
+      current?.position === next?.position
+    ) return;
+    dropTargetRef.current = next;
+    setDropTarget(next);
+  };
   const [summary, setSummary] =
     useState<PsdRefreshSummaryViewModel | null>(null);
   const pendingExternalImport = useRef<
@@ -518,10 +453,8 @@ export function useLayerDocumentLibraryEngine(options: {
   useEffect(
     () => () => {
       audioRequest.current += 1;
-      if (activeAudioPrepared.current) {
-        audioImportRef.current.cancel(activeAudioPrepared.current);
-        activeAudioPrepared.current = null;
-      }
+      activeAudioPrepared.current.forEach(audioImportRef.current.cancel);
+      activeAudioPrepared.current = [];
       if (activeRecording.current) {
         audioRecordingRef.current.cancel(activeRecording.current);
         activeRecording.current = null;
@@ -529,6 +462,8 @@ export function useLayerDocumentLibraryEngine(options: {
       session.cancelActive();
       pendingExternalImport.current?.(false);
       pendingExternalImport.current = null;
+      assetCopyResolver.current?.(false);
+      assetCopyResolver.current = null;
     },
     [session]
   );
@@ -540,26 +475,28 @@ export function useLayerDocumentLibraryEngine(options: {
       audioRecordingRef.current.cancel(activeRecording.current);
       activeRecording.current = null;
     }
-    if (activeAudioPrepared.current) {
-      audioImportRef.current.cancel(activeAudioPrepared.current);
-      activeAudioPrepared.current = null;
-    }
+    activeAudioPrepared.current.forEach(audioImportRef.current.cancel);
+    activeAudioPrepared.current = [];
+    assetCopyResolver.current?.(false);
+    assetCopyResolver.current = null;
     const resetTimer = window.setTimeout(() => {
       setAudioRecordingStatus("idle");
       setAudioRecordingName(null);
+      setAssetCopyPrompt(null);
     }, 0);
     return () => window.clearTimeout(resetTimer);
   }, [projectIdentity]);
 
   const prepareImports = useCallback(async (
-    files: readonly File[]
+    files: readonly { file: File; relativePathHint: string | null }[]
   ) => {
     const sequence = session.begin();
     setStatus("analyzing");
     setError(null);
     const prepared: LayerDocumentPsdImportPreviewPlan[] = [];
     try {
-      for (const [index, file] of files.entries()) {
+      for (const [index, entry] of files.entries()) {
+        const file = entry.file;
         prepared.push(await options.controller.prepareImport({
           file,
           token:
@@ -570,6 +507,7 @@ export function useLayerDocumentLibraryEngine(options: {
           durationFrames: options.durationFrames,
           parentWidth: options.parentWidth,
           parentHeight: options.parentHeight,
+          relativePathHint: entry.relativePathHint,
         }));
         if (sequence !== session.readSequence()) {
           prepared.forEach(options.controller.cancelImport);
@@ -652,10 +590,13 @@ export function useLayerDocumentLibraryEngine(options: {
       const file = selected[0];
       if (file) void prepareRefresh(picker.sourceId, file);
     } else if (selected.length) {
-      void prepareImports(selected);
+      void requestAssetCopy("psd", selected.length)
+        .then((copy) => copyFilesIntoProjectAssets({ files: selected, kind: "psd", copy }))
+        .then((copied) => prepareImports(copied))
+        .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "PSD 파일 복사에 실패했습니다."));
     }
     setPicker(null);
-  }, [picker, prepareImports, prepareRefresh]);
+  }, [picker, prepareImports, prepareRefresh, requestAssetCopy]);
 
   const cancel = useCallback(() => {
     session.cancelActive();
@@ -781,7 +722,7 @@ export function useLayerDocumentLibraryEngine(options: {
   const nodes = buildLayerDocumentLibraryNodes(options.controller, {
     selectedLayerDocumentId: options.audio.readSelectedLayerDocumentId(),
     playingLayerDocumentId,
-  });
+  }, options.preview?.read);
   const viewProps: LibraryViewProps = {
     nodes,
     fileInputRef,
@@ -797,6 +738,7 @@ export function useLayerDocumentLibraryEngine(options: {
     refreshSummary: summary,
     audioRecordingStatus,
     audioRecordingName,
+    assetCopyPrompt,
     onImportClick: () => {
       setPicker({ kind: "import" });
       fileInputRef.current?.click();
@@ -804,24 +746,46 @@ export function useLayerDocumentLibraryEngine(options: {
     onFileInputChange,
     onAudioImportClick: () => audioFileInputRef.current?.click(),
     onAudioFileInputChange: (files) => {
-      const file = Array.from(files)[0];
-      if (!file) return;
+      const selectedFiles = Array.from(files);
+      if (selectedFiles.length === 0) return;
       const request = ++audioRequest.current;
-      if (activeAudioPrepared.current) {
-        options.audioImport.cancel(activeAudioPrepared.current);
-        activeAudioPrepared.current = null;
-      }
+      activeAudioPrepared.current.forEach(options.audioImport.cancel);
+      activeAudioPrepared.current = [];
       setError(null);
-      void options.audioImport.prepare(file).then((prepared) => {
-        if (request !== audioRequest.current) {
-          options.audioImport.cancel(prepared);
-          return;
+      void (async () => {
+        const copy = await requestAssetCopy("audio", selectedFiles.length);
+        const imports = await copyFilesIntoProjectAssets({ files: selectedFiles, kind: "audio", copy });
+        const preparedImports: PreparedLayerDocumentAudioImport[] = [];
+        let nextOrder: number | undefined;
+        for (const entry of imports) {
+          const prepared = await options.audioImport.prepare(
+            entry.file,
+            entry.relativePathHint,
+            nextOrder
+          );
+          if (request !== audioRequest.current) {
+            options.audioImport.cancel(prepared);
+            preparedImports.forEach(options.audioImport.cancel);
+            return;
+          }
+          preparedImports.push(prepared);
+          nextOrder = prepared.command.layers[0].common.placement.order + 1;
+          activeAudioPrepared.current = [...preparedImports];
         }
-        activeAudioPrepared.current = prepared;
-        const result = options.audioImport.confirm(prepared);
-        if (result.ok) activeAudioPrepared.current = null;
-        else setError(result.message ?? "오디오를 추가하지 못했습니다.");
-      }).catch((reason: unknown) => {
+        for (const prepared of preparedImports) {
+          const result = options.audioImport.confirm(prepared);
+          if (!result.ok) {
+            preparedImports
+              .filter((candidate) => candidate !== prepared)
+              .forEach(options.audioImport.cancel);
+            activeAudioPrepared.current = [];
+            setError(result.message ?? `${prepared.file.name} 파일을 추가하지 못했습니다.`);
+            return;
+          }
+          activeAudioPrepared.current = activeAudioPrepared.current
+            .filter((candidate) => candidate !== prepared);
+        }
+      })().catch((reason: unknown) => {
         if (request === audioRequest.current) {
           setError(reason instanceof Error ? reason.message : "오디오를 분석하지 못했습니다.");
         }
@@ -851,14 +815,47 @@ export function useLayerDocumentLibraryEngine(options: {
       if (!recording || audioRecordingStatus !== "recording") return;
       setAudioRecordingStatus("preparing");
       const request = audioRequest.current;
-      void options.audioRecording.stop(recording).then((prepared) => {
+      void options.audioRecording.stop(recording).then(async (prepared) => {
         if (request !== audioRequest.current) {
           options.audioImport.cancel(prepared);
           return;
         }
-        activeAudioPrepared.current = prepared;
+        const copied = await copyFilesIntoProjectAssets({
+          files: [prepared.file],
+          kind: "audio",
+          copy: true,
+        });
+        const stored = copied[0];
+        if (!stored?.relativePathHint) {
+          options.audioImport.cancel(prepared);
+          throw new Error("녹음 파일을 프로젝트의 audio 폴더에 저장하지 못했습니다.");
+        }
+        const storedPrepared: PreparedLayerDocumentAudioImport = {
+          ...prepared,
+          file: stored.file,
+          command: {
+            ...prepared.command,
+            sources: prepared.command.sources.map((source) =>
+              source.kind === "audio"
+                ? {
+                    ...source,
+                    locator: {
+                      ...source.locator,
+                      suggestedFileName: stored.file.name,
+                      relativePathHint: stored.relativePathHint,
+                    },
+                  }
+                : source
+            ),
+          },
+        };
+        if (request !== audioRequest.current) {
+          options.audioImport.cancel(storedPrepared);
+          return;
+        }
+        activeAudioPrepared.current = [storedPrepared];
         if (activeRecording.current === recording) activeRecording.current = null;
-        setAudioRecordingName(prepared.command.layers[0]?.name ?? "움직 녹음");
+        setAudioRecordingName(storedPrepared.command.layers[0]?.name ?? "움직 녹음");
         setAudioRecordingStatus("review");
       }).catch((reason: unknown) => {
         if (request === audioRequest.current) {
@@ -874,25 +871,29 @@ export function useLayerDocumentLibraryEngine(options: {
         options.audioRecording.cancel(activeRecording.current);
         activeRecording.current = null;
       }
-      if (activeAudioPrepared.current) {
-        options.audioImport.cancel(activeAudioPrepared.current);
-        activeAudioPrepared.current = null;
-      }
+      activeAudioPrepared.current.forEach(options.audioImport.cancel);
+      activeAudioPrepared.current = [];
       setAudioRecordingName(null);
       setAudioRecordingStatus("idle");
       setError(null);
     },
     onConfirmAudioRecording: () => {
-      const prepared = activeAudioPrepared.current;
+      const prepared = activeAudioPrepared.current[0];
       if (!prepared || audioRecordingStatus !== "review") return;
       const result = options.audioImport.confirm(prepared);
       if (result.ok) {
-        activeAudioPrepared.current = null;
+        activeAudioPrepared.current = [];
         setAudioRecordingName(null);
         setAudioRecordingStatus("idle");
       } else {
         setError(result.message ?? "녹음을 추가하지 못했습니다.");
       }
+    },
+    onResolveAssetCopy: (copy) => {
+      const resolve = assetCopyResolver.current;
+      assetCopyResolver.current = null;
+      setAssetCopyPrompt(null);
+      resolve?.(copy);
     },
     onSelectNode: (nodeId) => {
       const node = findLibraryNode(nodes, nodeId);
@@ -904,27 +905,66 @@ export function useLayerDocumentLibraryEngine(options: {
         options.audio.select(node.layerDocumentId);
         return;
       }
-      options.controller.selectSource(nodeId);
+      if (node?.type === "main" && node.sourceId) {
+        options.controller.selectSource(node.sourceId);
+        return;
+      }
+      if (node?.layerDocumentId) {
+        options.controller.selectLayerDocument(node.layerDocumentId);
+      }
     },
     onToggleNodeVisibility: (nodeId) => {
       const candidate = findLibraryNode(nodes, nodeId);
       const audioNode = candidate?.contentKind === "audio" ? candidate : null;
       if (audioNode) options.audio.toggleMuted(nodeId);
-      else options.controller.toggleSourceVisibility(nodeId);
+      else if (candidate?.layerDocumentId) options.controller.toggleLayerVisibility(candidate.layerDocumentId);
     },
-    onToggleNodeLock: options.controller.toggleSourceLock,
+    onToggleNodeLock: (nodeId) => {
+      const node = findLibraryNode(nodes, nodeId);
+      if (node?.layerDocumentId) options.controller.toggleLayerLock(node.layerDocumentId);
+    },
     onToggleNodePlayback: options.audio.togglePlayback,
     onRenameNode: (nodeId, name) => {
       const candidate = findLibraryNode(nodes, nodeId);
       const audioNode = candidate?.contentKind === "audio" ? candidate : null;
       if (audioNode) options.audio.rename(nodeId, name);
-      else options.controller.renameSourceLayer(nodeId, name);
+      else if (candidate?.layerDocumentId) options.controller.renameLayerDocument(candidate.layerDocumentId, name);
     },
     onDeleteNode: (nodeId) => {
       const candidate = findLibraryNode(nodes, nodeId);
       const audioNode = candidate?.contentKind === "audio" ? candidate : null;
-      if (audioNode) options.audio.delete(nodeId);
-      else options.controller.deleteSourceLayer(nodeId);
+      if (audioNode) {
+        const project = options.controller.readProject();
+        const layer = project.payload.layerDocumentsById[nodeId];
+        const sourceId = layer?.common.source?.sourceId ?? null;
+        const source = sourceId
+          ? project.payload.sourceRegistry.sourcesById[sourceId]
+          : null;
+        const referenceCount = sourceId
+          ? Object.values(project.payload.layerDocumentsById)
+              .filter((item) => item.common.source?.sourceId === sourceId).length
+          : 0;
+        const recordedAssetPath =
+          source?.kind === "audio" &&
+          source.data.provenance === "recorded" &&
+          referenceCount === 1
+            ? source.locator.relativePathHint
+            : null;
+        options.audio.delete(nodeId);
+        const wasDeleted = !options.controller.readProject().payload.layerDocumentsById[nodeId];
+        if (wasDeleted && recordedAssetPath) {
+          void deleteRecordedAudioProjectAsset(recordedAssetPath)
+            .then((deleted) => {
+              if (!deleted) {
+                setError("녹음 레이어는 삭제했지만 audio 폴더의 원본 파일은 지우지 못했습니다.");
+              }
+            })
+            .catch(() => {
+              setError("녹음 레이어는 삭제했지만 audio 폴더의 원본 파일은 지우지 못했습니다.");
+            });
+        }
+      }
+      else if (candidate?.layerDocumentId) options.controller.deleteLayerDocument(candidate.layerDocumentId);
     },
     onRefreshMainComp: (sourceId) => {
       setPicker({ kind: "refresh", sourceId });
@@ -935,7 +975,8 @@ export function useLayerDocumentLibraryEngine(options: {
     },
     onBeginMainDrag: (nodeId) => {
       setDraggedNodeId(nodeId);
-      setDropTarget(null);
+      dragCandidateRef.current = null;
+      replaceDropTarget(null);
     },
     onDragOverMain: (targetId, pointerY, nodeTop, nodeHeight) => {
       if (!draggedNodeId || draggedNodeId === targetId) return false;
@@ -947,13 +988,46 @@ export function useLayerDocumentLibraryEngine(options: {
       if (!dragged?.canReorder || !target) return false;
       const valid = dragged.type === "main"
         ? target.type === "main"
-        : dragged.contentKind === "audio" &&
-          (target.type === "main" || target.contentKind === "audio");
+        : target.type !== "project";
       if (!valid) return false;
-      const position = dragged.contentKind === "audio" && target.type === "main"
-        ? "inside"
-        : pointerY < nodeTop + nodeHeight / 2 ? "before" : "after";
-      setDropTarget({ targetId, position });
+      const relativeY = (pointerY - nodeTop) / Math.max(1, nodeHeight);
+      const canContain = target.type === "main" || target.entityKind === "composition";
+      const current = dropTargetRef.current;
+      const position = (() => {
+        if (current?.targetId === targetId) {
+          if (current.position === "before" && relativeY < 0.42) return "before";
+          if (current.position === "after" && relativeY > 0.58) return "after";
+          if (
+            current.position === "inside" &&
+            canContain &&
+            relativeY >= 0.2 &&
+            relativeY <= 0.8
+          ) return "inside";
+        }
+        return canContain && relativeY >= 0.3 && relativeY <= 0.7
+          ? "inside"
+          : relativeY < 0.5 ? "before" : "after";
+      })();
+      if (
+        current?.targetId === targetId &&
+        current.position === position
+      ) {
+        dragCandidateRef.current = null;
+        return true;
+      }
+      const now = performance.now();
+      const candidate = dragCandidateRef.current;
+      if (
+        candidate?.targetId !== targetId ||
+        candidate.position !== position
+      ) {
+        dragCandidateRef.current = { targetId, position, since: now };
+        return true;
+      }
+      if (now - candidate.since >= 120) {
+        replaceDropTarget({ targetId, position });
+        dragCandidateRef.current = null;
+      }
       return true;
     },
     onDropMain: (targetId) => {
@@ -971,11 +1045,13 @@ export function useLayerDocumentLibraryEngine(options: {
         });
       }
       setDraggedNodeId(null);
-      setDropTarget(null);
+      dragCandidateRef.current = null;
+      replaceDropTarget(null);
     },
     onEndMainDrag: () => {
       setDraggedNodeId(null);
-      setDropTarget(null);
+      dragCandidateRef.current = null;
+      replaceDropTarget(null);
     },
     onMoveNodeKeyboard: (nodeId, direction) => {
       const all = (items: readonly LibraryNodeViewModel[]): LibraryNodeViewModel[] =>
@@ -989,7 +1065,7 @@ export function useLayerDocumentLibraryEngine(options: {
           ?.common.placement.parentLayerDocumentId ?? null;
       const siblings = node.type === "main"
         ? nodes.filter((candidate) => candidate.type === "main" && candidate.canReorder)
-        : flat.filter((candidate) => candidate.contentKind === "audio" && candidate.depth === node.depth && candidate.layerDocumentId !== null && candidate !== node && candidate.children.length === 0 && projectParent(candidate.layerDocumentId) === projectParent(nodeLayerDocumentId));
+        : flat.filter((candidate) => candidate.type !== "project" && candidate.depth === node.depth && candidate.layerDocumentId !== null && candidate !== node && projectParent(candidate.layerDocumentId) === projectParent(nodeLayerDocumentId));
       const ordered = node.type === "main" ? siblings : [node, ...siblings].sort((left, right) => {
         const a = left.layerDocumentId ? options.controller.readProject().payload.layerDocumentsById[left.layerDocumentId]?.common.placement.order ?? 0 : 0;
         const b = right.layerDocumentId ? options.controller.readProject().payload.layerDocumentsById[right.layerDocumentId]?.common.placement.order ?? 0 : 0;
@@ -1014,7 +1090,7 @@ export function useLayerDocumentLibraryEngine(options: {
     async (files: readonly File[]) => {
       pendingExternalImport.current?.(false);
       pendingExternalImport.current = null;
-      const prepared = await prepareImports(files);
+      const prepared = await prepareImports(files.map((file) => ({ file, relativePathHint: null })));
       if (!prepared) return false;
       return new Promise<boolean>((resolve) => {
         pendingExternalImport.current = resolve;

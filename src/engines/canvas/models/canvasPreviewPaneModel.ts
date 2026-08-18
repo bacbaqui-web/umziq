@@ -65,6 +65,8 @@ export interface CanvasPreviewPaneProps {
   toggleSafeZone: () => void;
   setCameraScalePercent: (percent: number) => void;
   commitCameraScalePercent: (percent: number) => void;
+  cameraDimOpacityPercent: number;
+  setCameraDimOpacityPercent: (percent: number) => void;
   showSelectionHighlight: boolean;
   toggleSelectionHighlight: () => void;
   showWhiteBackground: boolean;

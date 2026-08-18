@@ -690,8 +690,28 @@ export function createLayerDocumentPropertiesController(options: {
       const existing = descriptor.modifiers.find(
         (modifier) => modifier.type === type
       );
-      const newModifier: Extract<LayerModifier, { type: "wiggle" | "swing" | "oscillate" }> =
-        type === "oscillate"
+      const newModifier: Exclude<LayerModifier, { type: "unknown" }> =
+        type === "mouth-basic"
+          ? {
+              modifierId: `${type}:${descriptor.layerDocumentId}`,
+              type,
+              enabled: true,
+              audioLayerDocumentId: null,
+              startFrame: 0,
+              durationFrames: Math.max(1, descriptor.placement.durationFrames),
+              transitionFrames: [],
+            }
+          : type === "acceleration"
+          ? {
+              modifierId: `${type}:${descriptor.layerDocumentId}`,
+              type,
+              enabled: true,
+              properties: ["position"],
+              curve: "ease-out-soft",
+              startFrame: 0,
+              durationFrames: Math.max(1, descriptor.placement.durationFrames),
+            }
+          : type === "oscillate"
           ? {
               modifierId: `${type}:${descriptor.layerDocumentId}`,
               type,

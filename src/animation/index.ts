@@ -40,3 +40,9 @@ export {
   applyRotationModifiers,
   evaluateWiggleOffset,
 } from "@/animation/helpers/modifierEvaluationHelpers";
+export {
+  analyzeMouthBasicTransitions,
+  evaluateMouthBasicOpacity,
+  type MouthBasicAudioBuffer,
+} from "@/animation/modifiers/mouthBasicAnalysis";
+export { evaluateAccelerationProgress, remapAccelerationFrame } from "@/animation/modifiers/accelerationEvaluation";

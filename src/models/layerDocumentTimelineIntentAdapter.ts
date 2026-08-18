@@ -32,6 +32,11 @@ export function buildLayerDocumentTimelineIntentTransaction(
   intent: LayerDocumentTimelineIntent
 ): LayerDocumentTransactionResult {
   switch (intent.kind) {
+    case "set-modifiers":
+      return buildUpdateLayerDocumentCommonTransaction(project, {
+        layerDocumentId: intent.layerDocumentId,
+        update: { kind: "set-modifiers", modifiers: intent.modifiers },
+      });
     case "set-timing":
       return buildUpdateLayerDocumentCommonTransaction(project, {
         layerDocumentId: intent.layerDocumentId,

@@ -1,6 +1,8 @@
 import type { TimelineInteractionCommands, TimelineReadModel } from "@/engines/timeline";
 import TimelineItemTrackRow from "@/features/timeline/components/TimelineItemTrackRow";
 import TimelinePropertyTrackRow from "@/features/timeline/components/TimelinePropertyTrackRow";
+import TimelineFormulaTrackRow from "@/features/timeline/components/TimelineFormulaTrackRow";
+import TimelineAccelerationTrackRow from "@/features/timeline/components/TimelineAccelerationTrackRow";
 import TimelineTrackOverlays from "@/features/timeline/components/TimelineTrackOverlays";
 
 export default function TimelineTrackRows({ readModel, interactions }: {
@@ -10,7 +12,13 @@ export default function TimelineTrackRows({ readModel, interactions }: {
   return (
     <>
       <TimelineTrackOverlays viewModel={readModel.overlay} contentWidth={readModel.ruler.contentWidth} />
-      {readModel.rows.map((row) => row.type === "property" ? (
+      {readModel.rows.map((row) => row.type === "formula" ? (
+        row.formulaType === "acceleration" ? (
+          <TimelineAccelerationTrackRow key={`${row.item.id}-${row.modifierId}`} viewModel={row} contentWidth={readModel.ruler.contentWidth} interactions={interactions} />
+        ) : (
+          <TimelineFormulaTrackRow key={`${row.item.id}-${row.modifierId}`} viewModel={row} contentWidth={readModel.ruler.contentWidth} interactions={interactions} />
+        )
+      ) : row.type === "property" ? (
         <TimelinePropertyTrackRow key={`${row.item.id}-${row.property}`} viewModel={row} contentWidth={readModel.ruler.contentWidth} interactions={interactions} />
       ) : (
         <TimelineItemTrackRow key={row.item.id} viewModel={row} contentWidth={readModel.ruler.contentWidth} interactions={interactions} />

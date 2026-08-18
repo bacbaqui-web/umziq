@@ -51,6 +51,8 @@ export function applyOwnerSourceSelectionChange(
       return current?.sourceId === change.sourceId
         ? null
         : normalizeOwnerSourceSelection(project, current);
+    case "clear":
+      return null;
     case "preserve":
       return normalizeOwnerSourceSelection(project, current);
   }

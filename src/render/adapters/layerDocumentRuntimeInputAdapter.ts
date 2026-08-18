@@ -208,6 +208,9 @@ function buildContentDescriptor(options: {
       },
     };
   }
+  if (layer.type === "audio") {
+    return { kind: "unsupported", layerType: "audio" };
+  }
   const placeholder = getEditorPlaceholderDescriptorForLayerType(
     layer.type
   );

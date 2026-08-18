@@ -1,6 +1,11 @@
 import { useEffect, useState, type DragEvent } from "react";
 import type { PsdImportPlan } from "@/engines/project";
 import PsdImportPreviewNode from "@/features/library/components/PsdImportPreviewNode";
+import LayerHoverPreviewCard from "@/shared/components/LayerHoverPreviewCard";
+import {
+  measureLayerHoverPreview,
+  positionLayerHoverPreview,
+} from "@/shared/helpers/layerHoverPreviewHelpers";
 
 type Props = {
   plan: PsdImportPlan | null;
@@ -275,27 +280,17 @@ export default function PsdImportPreviewDialog({
                       onMoveNode(entry.token, draggedId, targetId, position)
                     }
                     onPreview={(url, name, width, height, clientX, clientY) => {
-                      const previewWidth = 224;
-                      const diagonalGap = 20;
-                      const previewImageHeight = url && width && height
-                        ? Math.min(200, (height / width) * 208)
-                        : 120;
-                      const previewHeight = 28 + previewImageHeight + 12;
-                      const left = Math.min(
-                        clientX + diagonalGap,
-                        window.innerWidth - previewWidth - 12
-                      );
-                      const top = Math.min(
-                        clientY - diagonalGap - previewHeight,
-                        window.innerHeight - previewHeight - 12
-                      );
+                      const { cardHeight } = measureLayerHoverPreview({
+                        hasVisual: Boolean(url), width, height,
+                      });
+                      const position = positionLayerHoverPreview({ clientX, clientY, cardHeight });
                       setHoverPreview({
                         url,
                         name,
                         width,
                         height,
-                        x: Math.max(12, left),
-                        y: Math.max(12, top),
+                        x: position.x,
+                        y: position.y,
                       });
                     }}
                     onPreviewEnd={() => setHoverPreview(null)}
@@ -335,83 +330,16 @@ export default function PsdImportPreviewDialog({
         </footer>
       </div>
       {hoverPreview && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            zIndex: 1010,
-            left: hoverPreview.x,
-            top: hoverPreview.y,
-            width: 220,
-            pointerEvents: "none",
-            overflow: "hidden",
-            border: "1px solid #50677b",
-            borderRadius: 8,
-            background: "#11161a",
-            boxShadow: "0 14px 34px rgba(0, 0, 0, 0.58)",
-          }}
-        >
-          <div
-            style={{
-              padding: "5px 7px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              overflow: "hidden",
-              color: "#dce8f2",
-              fontSize: 11,
-            }}
-          >
-            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {hoverPreview.name}
-            </span>
-            {hoverPreview.width !== undefined &&
-              hoverPreview.height !== undefined && (
-                <span style={{ flex: "0 0 auto", color: "#8798a6", fontVariantNumeric: "tabular-nums" }}>
-                  {hoverPreview.width} × {hoverPreview.height}px
-                </span>
-              )}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 120,
-              padding: 6,
-              backgroundColor: "#20262b",
-              backgroundImage:
-                "linear-gradient(45deg, #2b3238 25%, transparent 25%), linear-gradient(-45deg, #2b3238 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2b3238 75%), linear-gradient(-45deg, transparent 75%, #2b3238 75%)",
-              backgroundSize: "16px 16px",
-              backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
-            }}
-          >
-            {hoverPreview.url ? (
-              <img
-                src={hoverPreview.url}
-                alt=""
-                style={{
-                  display: "block",
-                  maxWidth: "100%",
-                  maxHeight: 200,
-                  objectFit: "contain",
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  padding: "36px 12px",
-                  color: "#aebbc6",
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              >
-                빈 레이어
-              </span>
-            )}
-          </div>
-        </div>
+        <LayerHoverPreviewCard
+          name={hoverPreview.name}
+          width={hoverPreview.width}
+          height={hoverPreview.height}
+          imageUrl={hoverPreview.url}
+          status={hoverPreview.url ? "ready" : "empty"}
+          x={hoverPreview.x}
+          y={hoverPreview.y}
+          zIndex={1010}
+        />
       )}
     </div>
   );

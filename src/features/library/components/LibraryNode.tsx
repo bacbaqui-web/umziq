@@ -5,6 +5,7 @@ import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 type Props = LibraryNodeProps & {
   readonly parentGuideLeft?: number;
   readonly isLastSibling?: boolean;
+  readonly projectRootChild?: boolean;
 };
 
 function PsdFileIcon() {
@@ -92,7 +93,15 @@ function ActionButton({
 
   return (
     <button
+      draggable={false}
       onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
+      onMouseDown={(event) => {
+        event.stopPropagation();
+      }}
+      onDragStart={(event) => {
+        event.preventDefault();
         event.stopPropagation();
       }}
       onClick={(event) => {
@@ -141,8 +150,11 @@ export default function LibraryNode({
   onDropMain,
   onEndMainDrag,
   onMoveNodeKeyboard,
+  onPreviewMove,
+  onPreviewEnd,
   parentGuideLeft,
   isLastSibling = false,
+  projectRootChild = false,
 }: Props) {
   const [rowHovered, setRowHovered] = useState(false);
   const [expanded, setExpanded] = useState(true);
@@ -151,12 +163,15 @@ export default function LibraryNode({
   const isRoot = node.depth === 0;
   const isMain = node.type === "main";
   const isProject = node.type === "project";
+  const usesOuterProjectConnector = projectRootChild && !isMain;
   const hasChildren = node.children.length > 0;
   const baseRowIndent = isMain
     ? 3
     : 18 + (node.depth - 1) * 14;
   const branchLeft = parentGuideLeft ?? 0;
-  const rowIndent = isMain
+  const rowIndent = usesOuterProjectConnector
+    ? 3
+    : isMain
     ? baseRowIndent
     : node.depth === 1
       ? Math.round(
@@ -178,6 +193,7 @@ export default function LibraryNode({
     node.canReorder &&
     dropTarget?.targetId === node.id &&
     dropTarget.position === "inside";
+  const dropGap = isMain ? 37 : 22;
 
   const rowBackground = node.selected
     ? isMain
@@ -217,7 +233,10 @@ export default function LibraryNode({
       }}
       style={{
         position: "relative",
-        marginTop: isRoot && !isFirstRoot ? 6 : isMain ? 2 : 0,
+        marginTop:
+          (isRoot && !isFirstRoot ? 6 : isMain ? 2 : 0) +
+          (showDropBefore ? dropGap : 0),
+        marginBottom: showDropAfter ? dropGap : 0,
         border: isMain
           ? node.selected ? "1px solid #4b6685" : "1px solid #343a40"
           : "none",
@@ -234,7 +253,7 @@ export default function LibraryNode({
         outlineOffset: showDropInside ? 2 : 0,
         opacity: isDragging ? 0.62 : 1,
         transform: isDragging ? "scale(0.988)" : "scale(1)",
-        transition: "border-color 150ms ease, box-shadow 150ms ease, opacity 140ms ease, transform 140ms ease",
+        transition: "margin 170ms cubic-bezier(.2,.8,.2,1), border-color 150ms ease, box-shadow 150ms ease, opacity 140ms ease, transform 140ms ease",
       }}
     >
       {showDropBefore && (
@@ -254,7 +273,7 @@ export default function LibraryNode({
         />
       )}
 
-      {!isMain && (
+      {!isMain && !usesOuterProjectConnector && (
         <span
           aria-hidden="true"
           style={{
@@ -271,7 +290,16 @@ export default function LibraryNode({
 
       <div
         onMouseEnter={() => setRowHovered(true)}
-        onMouseLeave={() => setRowHovered(false)}
+        onMouseMove={(event) => {
+          if (node.preview && !editing && !isProject) {
+            const preview = node.preview();
+            if (preview) onPreviewMove(preview, event.clientX, event.clientY);
+          }
+        }}
+        onMouseLeave={() => {
+          setRowHovered(false);
+          onPreviewEnd();
+        }}
         style={{
           position: "relative",
           boxSizing: "border-box",
@@ -290,7 +318,33 @@ export default function LibraryNode({
           transition: "background 140ms ease, box-shadow 140ms ease",
         }}
       >
-        {!isMain && (
+        {usesOuterProjectConnector && (
+          <>
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: 0,
+                top: -7,
+                height: 17,
+                borderLeft: "1px solid rgba(142, 182, 216, 0.82)",
+                transform: "translateX(-0.5px)",
+              }}
+            />
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 10,
+                width: 3,
+                borderTop: "1px solid rgba(142, 182, 216, 0.82)",
+                transform: "translateY(-0.5px)",
+              }}
+            />
+          </>
+        )}
+        {!isMain && !usesOuterProjectConnector && (
           <span
             aria-hidden="true"
             style={{
@@ -514,7 +568,7 @@ export default function LibraryNode({
             <ActionButton
               label={`${node.name} 새로고침`}
               color="#7e9bb2"
-              onClick={() => onRefreshMainComp(node.id)}
+              onClick={() => node.sourceId && onRefreshMainComp(node.sourceId)}
             >
               <svg
                 width="12"
@@ -537,7 +591,7 @@ export default function LibraryNode({
             <ActionButton
               label={`${node.name} 삭제`}
               color="#9a7171"
-              onClick={() => onDeleteMainComp(node.id)}
+              onClick={() => node.sourceId && onDeleteMainComp(node.sourceId)}
             >
               <svg
                 width="12"
@@ -673,6 +727,8 @@ export default function LibraryNode({
               onDropMain={onDropMain}
               onEndMainDrag={onEndMainDrag}
               onMoveNodeKeyboard={onMoveNodeKeyboard}
+              onPreviewMove={onPreviewMove}
+              onPreviewEnd={onPreviewEnd}
               parentGuideLeft={childGuideLeft}
               isLastSibling={
                 index === node.children.length - 1

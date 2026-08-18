@@ -10,5 +10,7 @@ export {
   preparePsdSourceRegistryRefresh,
 } from "@/engines/project/actions/layerDocumentPsdRefreshTransaction";
 export {
+  prepareLayerDocumentDeleteWithOrphanAudioSource,
+  prepareLayerDocumentDeleteWithOrphanSources,
   prepareSourceRegistryDelete,
 } from "@/engines/project/actions/layerDocumentSourceDeleteTransaction";

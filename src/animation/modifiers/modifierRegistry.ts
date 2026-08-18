@@ -7,6 +7,7 @@ import type {
   SwingModifierInstance,
   WiggleModifierInstance,
 } from "@/models";
+import type { AccelerationModifierInstance, AnimatableProperty } from "@/models";
 
 export type ModifierNumberSettingDefinition = {
   field: ModifierNumberField;
@@ -17,11 +18,23 @@ export type ModifierNumberSettingDefinition = {
 export type ModifierDefinition = {
   type: ModifierType;
   label: string;
-  appliesTo: "position" | "rotation";
+  appliesTo: "position" | "rotation" | "opacity" | "multiple";
   settings: readonly ModifierNumberSettingDefinition[];
 };
 
 export const MODIFIER_DEFINITIONS: readonly ModifierDefinition[] = [
+  {
+    type: "acceleration",
+    label: "가속·감속",
+    appliesTo: "multiple",
+    settings: [],
+  },
+  {
+    type: "mouth-basic",
+    label: "입뻥긋(기본)",
+    appliesTo: "opacity",
+    settings: [],
+  },
   {
     type: "wiggle",
     label: "부들부들",
@@ -85,6 +98,26 @@ export function createDefaultModifier(
       amount: 0,
     };
   }
+  if (type === "mouth-basic") {
+    return {
+      id: `${targetId}:mouth-basic`,
+      type,
+      audioLayerDocumentId: null,
+      startFrame: 0,
+      durationFrames: 1,
+      transitionFrames: [],
+    };
+  }
+  if (type === "acceleration") {
+    return {
+      id: `${targetId}:acceleration`,
+      type,
+      properties: ["position"],
+      curve: "ease-out-soft",
+      startFrame: 0,
+      durationFrames: 1,
+    };
+  }
 
   throw new Error(`지원하지 않는 Modifier type: ${type satisfies never}`);
 }
@@ -137,6 +170,52 @@ function normalizeOscillateModifier(
   };
 }
 
+function normalizeMouthBasicModifier(
+  source: Partial<import("@/models").MouthBasicModifierInstance>,
+  targetId: string
+): import("@/models").MouthBasicModifierInstance {
+  const durationFrames = Math.max(1, Math.floor(Number(source.durationFrames) || 1));
+  const transitionFrames = Array.isArray(source.transitionFrames)
+    ? [...new Set(source.transitionFrames
+        .map((frame) => Math.floor(Number(frame)))
+        .filter((frame) => Number.isFinite(frame) && frame >= 0 && frame < durationFrames))]
+        .sort((left, right) => left - right)
+    : [];
+  return {
+    id: typeof source.id === "string" && source.id.length > 0
+      ? source.id
+      : `${targetId}:mouth-basic`,
+    type: "mouth-basic",
+    audioLayerDocumentId: typeof source.audioLayerDocumentId === "string"
+      ? source.audioLayerDocumentId
+      : null,
+    startFrame: Math.floor(Number(source.startFrame) || 0),
+    durationFrames,
+    transitionFrames,
+  };
+}
+
+function normalizeAccelerationModifier(
+  source: Partial<AccelerationModifierInstance>,
+  targetId: string
+): AccelerationModifierInstance {
+  const allowedProperties: readonly AnimatableProperty[] = ["position", "scale", "rotation", "opacity"];
+  const properties: AnimatableProperty[] = Array.isArray(source.properties)
+    ? allowedProperties.filter((property) => source.properties?.includes(property))
+    : ["position"];
+  const allowedCurves = ["ease-out-soft", "ease-out-strong", "ease-in-soft", "ease-in-strong"] as const;
+  return {
+    id: typeof source.id === "string" && source.id.length > 0 ? source.id : `${targetId}:acceleration`,
+    type: "acceleration",
+    properties: properties.length > 0 ? properties : ["position" as const],
+    curve: allowedCurves.includes(source.curve as typeof allowedCurves[number])
+      ? source.curve as typeof allowedCurves[number]
+      : "ease-out-soft",
+    startFrame: Math.floor(Number(source.startFrame) || 0),
+    durationFrames: Math.max(1, Math.floor(Number(source.durationFrames) || 1)),
+  };
+}
+
 export function normalizeModifierInstances(
   source: unknown,
   targetId: string
@@ -155,6 +234,12 @@ export function normalizeModifierInstances(
     }
     if (modifier.type === "oscillate" && !normalized.has("oscillate")) {
       normalized.set("oscillate", normalizeOscillateModifier(modifier, targetId));
+    }
+    if (modifier.type === "mouth-basic" && !normalized.has("mouth-basic")) {
+      normalized.set("mouth-basic", normalizeMouthBasicModifier(modifier, targetId));
+    }
+    if (modifier.type === "acceleration" && !normalized.has("acceleration")) {
+      normalized.set("acceleration", normalizeAccelerationModifier(modifier, targetId));
     }
   });
 

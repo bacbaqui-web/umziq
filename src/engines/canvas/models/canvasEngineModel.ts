@@ -20,6 +20,8 @@ export type CanvasViewportStatePort = {
   setShowShortformFrameOverlay: Dispatch<SetStateAction<boolean>>;
   showSafeZoneGuides: boolean;
   setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
+  cameraDimOpacityPercent: number;
+  setCameraDimOpacityPercent: Dispatch<SetStateAction<number>>;
   showSelectionHighlight: boolean;
   setShowSelectionHighlight: Dispatch<SetStateAction<boolean>>;
   showWhiteBackground: boolean;
@@ -67,6 +69,7 @@ export type CanvasGuideViewModel = {
   showSafeZoneGuides: boolean;
   safeZoneStrokeWidth: number;
   cameraScalePercent: number;
+  cameraDimOpacityPercent: number;
 };
 
 export type CanvasGuideCommands = {

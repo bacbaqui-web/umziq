@@ -16,6 +16,7 @@ export function useCanvasGuideController({
   showSafeZoneGuides,
   setShowSafeZoneGuides,
   cameraScalePercent,
+  cameraDimOpacityPercent,
   setCameraScalePercent,
   commitCameraScalePercent,
 }: {
@@ -28,6 +29,7 @@ export function useCanvasGuideController({
   showSafeZoneGuides: boolean;
   setShowSafeZoneGuides: Dispatch<SetStateAction<boolean>>;
   cameraScalePercent: number;
+  cameraDimOpacityPercent: number;
   setCameraScalePercent: (percent: number) => void;
   commitCameraScalePercent: (percent: number) => void;
 }) {
@@ -41,6 +43,7 @@ export function useCanvasGuideController({
         showShortformFrame,
         showSafeZoneGuides,
         cameraScalePercent,
+        cameraDimOpacityPercent,
       }),
     [
       previewSize,
@@ -50,6 +53,7 @@ export function useCanvasGuideController({
       showShortformFrame,
       zoom,
       cameraScalePercent,
+      cameraDimOpacityPercent,
     ]
   );
   const toggleShortformFrame = useCallback(

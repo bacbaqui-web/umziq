@@ -35,6 +35,8 @@ export default function PreviewWorkspacePane({
   toggleSafeZone,
   setCameraScalePercent,
   commitCameraScalePercent,
+  cameraDimOpacityPercent,
+  setCameraDimOpacityPercent,
   showSelectionHighlight,
   toggleSelectionHighlight,
   showWhiteBackground,
@@ -179,6 +181,8 @@ export default function PreviewWorkspacePane({
               toggleSafeZone={toggleSafeZone}
               setCameraScalePercent={setCameraScalePercent}
               commitCameraScalePercent={commitCameraScalePercent}
+              cameraDimOpacityPercent={cameraDimOpacityPercent}
+              setCameraDimOpacityPercent={setCameraDimOpacityPercent}
               frameMenuOpen={frameMenuOpen}
               setFrameMenuOpen={setFrameMenuOpen}
               showSelectionHighlight={showSelectionHighlight}

@@ -19,6 +19,10 @@ import type {
   LayerDocumentSourceRuntimeResource,
   LayerDocumentSourceRuntimeResourcePort,
 } from "@/render";
+import type {
+  LayerDocumentAudioRuntimePort,
+  LayerDocumentAudioRuntimeResource,
+} from "@/engines/project/models/layerDocumentAudioRuntimeModel";
 
 export type LayerDocumentProjectOpenCapability =
   | "native-file-system"
@@ -101,6 +105,7 @@ export interface LayerDocumentProjectLinkedSourceAccessPort {
   readonly find: (options: {
     readonly projectId: string;
     readonly locatorId: string;
+    readonly source: SourceRegistryRecord;
   }) => Promise<
     LayerDocumentProjectLinkedSourceAccess
   >;
@@ -111,6 +116,8 @@ export interface PreparedLayerDocumentLinkedSourceRuntime {
     LinkedSourceContentFingerprint;
   readonly resources:
     readonly LayerDocumentSourceRuntimeResource[];
+  readonly audioResources?:
+    readonly LayerDocumentAudioRuntimeResource[];
   readonly availableSourceIds:
     readonly string[];
   readonly unavailableSourceIds:
@@ -187,6 +194,8 @@ export interface CreateLayerDocumentProjectOpenControllerOptions {
     LayerDocumentProjectLinkedSourcePreparationPort;
   readonly sourceRuntime:
     LayerDocumentSourceRuntimeResourcePort;
+  readonly audioRuntime?:
+    LayerDocumentAudioRuntimePort;
   readonly sourceResolution:
     LayerDocumentSourceRuntimeResolutionPort;
   readonly saveController?:

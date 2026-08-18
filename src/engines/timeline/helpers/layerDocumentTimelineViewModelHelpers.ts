@@ -172,6 +172,12 @@ type NativeDisplayRow =
       readonly layer: LayerDocument;
       readonly property:
         LayerDocumentTransformProperty;
+    }
+  | {
+      readonly type: "formula";
+      readonly item: TimelineViewItem;
+      readonly layer: LayerDocument;
+      readonly modifier: Extract<LayerDocument["common"]["modifiers"][number], { type: "mouth-basic" | "acceleration" }>;
     };
 
 function displayRows(options: {
@@ -223,6 +229,11 @@ function displayRows(options: {
           layer,
           property,
         });
+      }
+    });
+    layer.common.modifiers.forEach((modifier) => {
+      if (modifier.type === "mouth-basic" || modifier.type === "acceleration") {
+        rows.push({ type: "formula", item, layer, modifier });
       }
     });
     return rows;
@@ -381,7 +392,7 @@ export function buildLayerDocumentTimelineUiReadModel(
         item: row.item,
         rowIndex,
         connectToProperties:
-          next?.type === "property" &&
+          (next?.type === "property" || next?.type === "formula") &&
           next.item.id === row.item.id,
         selected:
           options.timeline
@@ -447,6 +458,30 @@ export function buildLayerDocumentTimelineUiReadModel(
             .deleteDecisionLayerDocumentId ===
             row.item.id &&
           source.isDeletePending,
+      });
+      return;
+    }
+    if (row.type === "formula") {
+      const clipGlobalStart = row.item.startFrame + row.modifier.startFrame - row.item.sourceOffsetFrames;
+      const transitionFrames = row.modifier.type === "mouth-basic" ? row.modifier.transitionFrames : [];
+      rows.push({
+        type: "formula",
+        formulaType: row.modifier.type,
+        item: row.item,
+        rowIndex,
+        label: row.modifier.type === "mouth-basic" ? "입뻥긋(기본)" : "가속·감속",
+        modifierId: row.modifier.modifierId,
+        startFrame: row.modifier.startFrame,
+        durationFrames: row.modifier.durationFrames,
+        transitionFrames,
+        pxPerFrame: options.ruler.pxPerFrame,
+        trackLeft: clipGlobalStart * options.ruler.pxPerFrame,
+        trackWidth: row.modifier.durationFrames * options.ruler.pxPerFrame,
+        transitionLefts: transitionFrames.map(
+          (frame) => (clipGlobalStart + frame) * options.ruler.pxPerFrame
+        ),
+        accelerationCurve: row.modifier.type === "acceleration" ? row.modifier.curve : undefined,
+        accelerationProperties: row.modifier.type === "acceleration" ? row.modifier.properties : undefined,
       });
       return;
     }
@@ -560,8 +595,8 @@ export function buildLayerDocumentTimelineUiReadModel(
     ) {
       let propertyCount = 0;
       while (
-        nativeRows[index + propertyCount + 1]
-          ?.type === "property" &&
+        (nativeRows[index + propertyCount + 1]
+          ?.type === "property" || nativeRows[index + propertyCount + 1]?.type === "formula") &&
         nativeRows[index + propertyCount + 1]
           ?.item.id === row.item.id
       ) {

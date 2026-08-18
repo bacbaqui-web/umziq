@@ -33,6 +33,11 @@ export interface LayerDocumentLibraryCommandPort {
   readonly toggleSourceLock: (sourceId: string) => unknown;
   readonly renameSourceLayer: (sourceId: string, name: string) => unknown;
   readonly deleteSourceLayer: (sourceId: string) => unknown;
+  readonly selectLayerDocument: (layerDocumentId: string) => unknown;
+  readonly toggleLayerVisibility: (layerDocumentId: string) => unknown;
+  readonly toggleLayerLock: (layerDocumentId: string) => unknown;
+  readonly renameLayerDocument: (layerDocumentId: string, name: string) => unknown;
+  readonly deleteLayerDocument: (layerDocumentId: string) => unknown;
   readonly openProject: () => unknown;
   readonly readActiveGroupLayerDocumentId: () => string;
   readonly confirmImport: (
@@ -465,6 +470,11 @@ export function createLayerDocumentLibraryController(options: {
     toggleSourceLock: options.port.toggleSourceLock,
     renameSourceLayer: options.port.renameSourceLayer,
     deleteSourceLayer: options.port.deleteSourceLayer,
+    selectLayerDocument: options.port.selectLayerDocument,
+    toggleLayerVisibility: options.port.toggleLayerVisibility,
+    toggleLayerLock: options.port.toggleLayerLock,
+    renameLayerDocument: options.port.renameLayerDocument,
+    deleteLayerDocument: options.port.deleteLayerDocument,
     openProject: options.port.openProject,
     readActiveGroupLayerDocumentId:
       options.port.readActiveGroupLayerDocumentId,

@@ -306,6 +306,46 @@ function validateModifiers(
       validateNumber(modifier.amount, `${modifierPath}.amount`, issues, {
         minimum: 0,
       });
+    } else if (modifier.type === "mouth-basic") {
+      validateExactKeys(
+        modifier,
+        ["modifierId", "type", "enabled", "audioLayerDocumentId", "startFrame", "durationFrames", "transitionFrames"],
+        modifierPath,
+        issues
+      );
+      if (modifier.audioLayerDocumentId !== null) {
+        validateString(modifier.audioLayerDocumentId, `${modifierPath}.audioLayerDocumentId`, issues, { nonEmpty: true });
+      }
+      validateNumber(modifier.startFrame, `${modifierPath}.startFrame`, issues);
+      validateNumber(modifier.durationFrames, `${modifierPath}.durationFrames`, issues, { minimum: 1 });
+      if (!Array.isArray(modifier.transitionFrames)) {
+        addIssue(issues, "invalid-shape", `${modifierPath}.transitionFrames`, "Expected a frame array");
+      } else {
+        modifier.transitionFrames.forEach((frame, frameIndex) =>
+          validateNumber(frame, `${modifierPath}.transitionFrames[${frameIndex}]`, issues, { minimum: 0 })
+        );
+      }
+    } else if (modifier.type === "acceleration") {
+      validateExactKeys(
+        modifier,
+        ["modifierId", "type", "enabled", "properties", "curve", "startFrame", "durationFrames"],
+        modifierPath,
+        issues
+      );
+      if (!Array.isArray(modifier.properties) || modifier.properties.length === 0) {
+        addIssue(issues, "invalid-shape", `${modifierPath}.properties`, "Expected at least one animatable property");
+      } else {
+        modifier.properties.forEach((property, propertyIndex) => {
+          if (typeof property !== "string" || !["position", "scale", "rotation", "opacity"].includes(property)) {
+            addIssue(issues, "invalid-shape", `${modifierPath}.properties[${propertyIndex}]`, "Unsupported animatable property");
+          }
+        });
+      }
+      if (typeof modifier.curve !== "string" || !["ease-out-soft", "ease-out-strong", "ease-in-soft", "ease-in-strong"].includes(modifier.curve)) {
+        addIssue(issues, "invalid-shape", `${modifierPath}.curve`, "Unsupported acceleration curve");
+      }
+      validateNumber(modifier.startFrame, `${modifierPath}.startFrame`, issues);
+      validateNumber(modifier.durationFrames, `${modifierPath}.durationFrames`, issues, { minimum: 1 });
     } else if (modifier.type === "unknown") {
       validateExactKeys(
         modifier,

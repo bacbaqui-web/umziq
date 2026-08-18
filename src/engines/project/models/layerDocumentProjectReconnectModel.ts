@@ -16,6 +16,9 @@ import type {
 import type {
   LayerDocumentSourceRuntimeResourcePort,
 } from "@/render";
+import type {
+  LayerDocumentAudioRuntimePort,
+} from "@/engines/project/models/layerDocumentAudioRuntimeModel";
 
 export interface LayerDocumentProjectReconnectBrowserPort {
   readonly capability:
@@ -121,6 +124,8 @@ export interface CreateLayerDocumentProjectReconnectControllerOptions {
     LayerDocumentProjectLinkedSourcePreparationPort;
   readonly sourceRuntime:
     LayerDocumentSourceRuntimeResourcePort;
+  readonly audioRuntime?:
+    LayerDocumentAudioRuntimePort;
   readonly sourceResolution:
     LayerDocumentSourceRuntimeResolutionPort;
   readonly localHandles:

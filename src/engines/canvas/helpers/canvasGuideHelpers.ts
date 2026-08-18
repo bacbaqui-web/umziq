@@ -28,6 +28,8 @@ const SAFE_ZONE_FRAME_WIDTH =
 const SAFE_ZONE_FRAME_HEIGHT =
   SAFE_ZONE_REFERENCE.frame.bottom - SAFE_ZONE_REFERENCE.frame.top;
 
+const CAMERA_DIM_WORLD_EXTENT = 1_000_000;
+
 const SAFE_ZONE_RATIOS = {
   innerLeft:
     (SAFE_ZONE_REFERENCE.innerVertical.left - SAFE_ZONE_REFERENCE.frame.left) /
@@ -89,55 +91,41 @@ export function buildPreviewGuideGeometry(
     width: shortformFrameWidth,
     height: shortformFrameHeight,
   };
-  const visibleFrameBounds = {
-    left: Math.min(previewWorldSize.width, Math.max(0, frameRect.x)),
-    top: Math.min(previewWorldSize.height, Math.max(0, frameRect.y)),
-    right: Math.min(
-      previewWorldSize.width,
-      Math.max(0, frameRect.x + frameRect.width)
-    ),
-    bottom: Math.min(
-      previewWorldSize.height,
-      Math.max(0, frameRect.y + frameRect.height)
-    ),
-  };
-  const dimRects =
-    visibleFrameBounds.right > visibleFrameBounds.left &&
-    visibleFrameBounds.bottom > visibleFrameBounds.top
-      ? [
-          {
-            x: 0,
-            y: 0,
-            width: previewWorldSize.width,
-            height: visibleFrameBounds.top,
-          },
-          {
-            x: 0,
-            y: visibleFrameBounds.bottom,
-            width: previewWorldSize.width,
-            height: previewWorldSize.height - visibleFrameBounds.bottom,
-          },
-          {
-            x: 0,
-            y: visibleFrameBounds.top,
-            width: visibleFrameBounds.left,
-            height: visibleFrameBounds.bottom - visibleFrameBounds.top,
-          },
-          {
-            x: visibleFrameBounds.right,
-            y: visibleFrameBounds.top,
-            width: previewWorldSize.width - visibleFrameBounds.right,
-            height: visibleFrameBounds.bottom - visibleFrameBounds.top,
-          },
-        ].filter((rect) => rect.width > 0 && rect.height > 0)
-      : [
-          {
-            x: 0,
-            y: 0,
-            width: previewWorldSize.width,
-            height: previewWorldSize.height,
-          },
-        ];
+  const extent = Math.max(
+    CAMERA_DIM_WORLD_EXTENT,
+    previewWorldSize.width * 100,
+    previewWorldSize.height * 100,
+    frameRect.width * 100,
+    frameRect.height * 100
+  );
+  const frameRight = frameRect.x + frameRect.width;
+  const frameBottom = frameRect.y + frameRect.height;
+  const dimRects = [
+    {
+      x: -extent,
+      y: -extent,
+      width: extent * 2,
+      height: frameRect.y + extent,
+    },
+    {
+      x: -extent,
+      y: frameBottom,
+      width: extent * 2,
+      height: extent - frameBottom,
+    },
+    {
+      x: -extent,
+      y: frameRect.y,
+      width: frameRect.x + extent,
+      height: frameRect.height,
+    },
+    {
+      x: frameRight,
+      y: frameRect.y,
+      width: extent - frameRight,
+      height: frameRect.height,
+    },
+  ].filter((rect) => rect.width > 0 && rect.height > 0);
   const safeZone = {
     frameLeftX: frameRect.x,
     frameRightX: frameRect.x + frameRect.width,
@@ -234,6 +222,7 @@ export function buildCanvasGuideViewModel({
   showShortformFrame,
   showSafeZoneGuides,
   cameraScalePercent,
+  cameraDimOpacityPercent,
 }: {
   previewSize: { width: number; height: number };
   shortformFrameWidth: number;
@@ -242,6 +231,7 @@ export function buildCanvasGuideViewModel({
   showShortformFrame: boolean;
   showSafeZoneGuides: boolean;
   cameraScalePercent: number;
+  cameraDimOpacityPercent: number;
 }) {
   const cameraScale = Math.max(1, cameraScalePercent) / 100;
   return {
@@ -255,5 +245,9 @@ export function buildCanvasGuideViewModel({
     showSafeZoneGuides,
     safeZoneStrokeWidth: 1 / Math.max(zoom, 0.0001),
     cameraScalePercent,
+    cameraDimOpacityPercent: Math.min(
+      100,
+      Math.max(0, cameraDimOpacityPercent)
+    ),
   };
 }

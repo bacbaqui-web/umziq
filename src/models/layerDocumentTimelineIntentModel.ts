@@ -1,8 +1,12 @@
-import type {
-  LayerDocumentTransformProperty,
-} from "@/models/layerDocumentTransactionModel";
+import type { LayerModifier } from "@/models/layerDocumentModel";
+import type { LayerDocumentTransformProperty } from "@/models/layerDocumentTransactionModel";
 
 export type LayerDocumentTimelineIntent =
+  | {
+      kind: "set-modifiers";
+      layerDocumentId: string;
+      modifiers: LayerModifier[];
+    }
   | {
       kind: "set-timing";
       layerDocumentId: string;

@@ -446,19 +446,20 @@ if (refreshTransaction.ok) {
   );
   assert.equal(
     uiNodes.find((node) =>
-      node.id === documentSourceId
+      node.sourceId === documentSourceId
     )?.sourceSyncStatus,
     "updated"
   );
   assert.equal(
     uiNodes.find((node) =>
-      node.id === newSourceId
-    )?.sourceSyncStatus,
-    "new"
+      node.sourceId === newSourceId
+    ),
+    undefined,
+    "Library projects canonical LayerDocuments, not unplaced Source-only records"
   );
   assert.equal(
     uiNodes.find((node) =>
-      node.id === deletePendingId
+      node.sourceId === deletePendingId
     )?.sourceSyncStatus,
     "deletePending"
   );

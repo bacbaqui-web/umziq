@@ -253,6 +253,16 @@ export function useLayerDocumentPanelEnginePorts(
             sources.renameSourceLayer,
           deleteSourceLayer:
             sources.deleteSourceLayer,
+          selectLayerDocument:
+            sources.selectLayerDocument,
+          toggleLayerVisibility:
+            sources.toggleLayerVisibility,
+          toggleLayerLock:
+            sources.toggleLayerLock,
+          renameLayerDocument:
+            sources.renameLayerDocument,
+          deleteLayerDocument:
+            sources.deleteLayerDocument,
         },
       });
     const canvasCommands =
@@ -409,7 +419,7 @@ export function useLayerDocumentPanelEnginePorts(
       move: ports.librarySources.moveLibraryLayer,
     },
     audioImport: {
-      prepare: (file: File, explicitCutLayerDocumentId?: string | null) =>
+      prepare: (file: File, relativePathHint?: string | null, order?: number, explicitCutLayerDocumentId?: string | null) =>
         prepareLayerDocumentAudioImport({
           project: readProject(),
           file,
@@ -417,6 +427,8 @@ export function useLayerDocumentPanelEnginePorts(
           explicitCutLayerDocumentId,
           selectedLayerDocumentId: readSelectedLayerDocumentId(),
           activeGroupLayerDocumentId: readActiveGroupLayerDocumentId(),
+          relativePathHint,
+          order,
         }),
       confirm: (prepared: Awaited<ReturnType<typeof prepareLayerDocumentAudioImport>>) =>
         confirmLayerDocumentAudioPreparedSource({

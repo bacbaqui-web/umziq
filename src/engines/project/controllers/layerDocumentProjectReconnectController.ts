@@ -224,12 +224,22 @@ export function createLayerDocumentProjectReconnectController(
         options.sourceRuntime.preflightBatch(
           prepared.value.resources
         );
-      if (!preflight.ok) {
+      const audioResources = prepared.value.audioResources ?? [];
+      const audioPreflight = audioResources.length === 0
+        ? { ok: true as const }
+        : options.audioRuntime?.preflight(audioResources) ?? {
+            ok: false as const,
+            message: "Audio runtime is unavailable",
+          };
+      if (!preflight.ok || !audioPreflight.ok) {
         prepared.value.discard();
+        const message = preflight.ok
+          ? audioPreflight.ok ? "Runtime registration failed" : audioPreflight.message
+          : preflight.message;
         dependentIds.forEach((id) =>
           options.sourceResolution.setError(
             id,
-            preflight.message
+            message
           )
         );
         return {
@@ -237,7 +247,7 @@ export function createLayerDocumentProjectReconnectController(
           error: {
             code:
               "runtime-registration-failed",
-            message: preflight.message,
+            message,
           },
         };
       }
@@ -272,6 +282,26 @@ export function createLayerDocumentProjectReconnectController(
         options.sourceRuntime
           .disposeSuspendedSource(id)
       );
+      if (audioResources.length > 0) {
+        const audioRegistered =
+          options.audioRuntime!.register(audioResources);
+        if (!audioRegistered.ok) {
+          prepared.value.discard();
+          dependentIds.forEach((id) =>
+            options.sourceResolution.setError(
+              id,
+              audioRegistered.message
+            )
+          );
+          return {
+            ok: false,
+            error: {
+              code: "runtime-registration-failed",
+              message: audioRegistered.message,
+            },
+          };
+        }
+      }
       prepared.value.transfer();
       const available = new Set(
         prepared.value.availableSourceIds

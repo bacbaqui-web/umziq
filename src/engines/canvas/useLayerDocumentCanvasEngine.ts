@@ -290,6 +290,8 @@ export function useLayerDocumentCanvasEngine<
       options.viewportState
         .setShowSafeZoneGuides,
     cameraScalePercent: cameraScaleDraft,
+    cameraDimOpacityPercent:
+      options.viewportState.cameraDimOpacityPercent,
     setCameraScalePercent:
       setCameraScaleDraft,
     commitCameraScalePercent:
@@ -364,6 +366,12 @@ export function useLayerDocumentCanvasEngine<
       guide.commands.setCameraScalePercent,
     commitCameraScalePercent:
       guide.commands.commitCameraScalePercent,
+    cameraDimOpacityPercent:
+      options.viewportState.cameraDimOpacityPercent,
+    setCameraDimOpacityPercent: (percent) =>
+      options.viewportState.setCameraDimOpacityPercent(
+        Math.min(100, Math.max(0, percent))
+      ),
     showSelectionHighlight:
       options.viewportState.showSelectionHighlight,
     toggleSelectionHighlight: () =>
