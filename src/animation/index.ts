@@ -42,6 +42,7 @@ export {
 } from "@/animation/helpers/modifierEvaluationHelpers";
 export {
   analyzeMouthBasicTransitions,
+  buildMouthBasicConnectionClip,
   evaluateMouthBasicOpacity,
   type MouthBasicAudioBuffer,
 } from "@/animation/modifiers/mouthBasicAnalysis";

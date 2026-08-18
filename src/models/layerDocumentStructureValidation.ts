@@ -1,5 +1,11 @@
 import type { LayerDocumentValidationIssue, UnknownRecord } from "@/models/layerDocumentSourceValidation";
 import { addIssue, requireRecord, validateBoolean, validateExactKeys, validateNumber, validatePosition, validateString, validateStringArrayObjects } from "@/models/layerDocumentSourceValidation";
+import {
+  getLayerModifierDefinition,
+  validateKnownLayerModifier,
+  type KnownLayerModifier,
+  type KnownLayerModifierType,
+} from "@/models/layerModifierDefinition";
 
 const LAYER_TYPES = new Set([
   "psd",
@@ -276,10 +282,14 @@ function validateModifiers(
     const modifierPath = `${path}[${index}]`;
     const modifier = requireRecord(entry, modifierPath, issues);
     if (!modifier) return;
+    const knownDefinition = typeof modifier.type === "string" &&
+        ["wiggle", "swing", "oscillate", "mouth-basic", "acceleration"].includes(modifier.type)
+      ? getLayerModifierDefinition(modifier.type as KnownLayerModifierType)
+      : null;
     if (modifier.type === "wiggle" || modifier.type === "swing") {
       validateExactKeys(
         modifier,
-        ["modifierId", "type", "enabled", "frequency", "amount"],
+        [...(knownDefinition?.allowedKeys ?? [])],
         modifierPath,
         issues
       );
@@ -295,7 +305,7 @@ function validateModifiers(
     } else if (modifier.type === "oscillate") {
       validateExactKeys(
         modifier,
-        ["modifierId", "type", "enabled", "angle", "frequency", "amount"],
+        [...(knownDefinition?.allowedKeys ?? [])],
         modifierPath,
         issues
       );
@@ -309,7 +319,7 @@ function validateModifiers(
     } else if (modifier.type === "mouth-basic") {
       validateExactKeys(
         modifier,
-        ["modifierId", "type", "enabled", "audioLayerDocumentId", "startFrame", "durationFrames", "transitionFrames"],
+        [...(knownDefinition?.allowedKeys ?? [])],
         modifierPath,
         issues
       );
@@ -328,7 +338,7 @@ function validateModifiers(
     } else if (modifier.type === "acceleration") {
       validateExactKeys(
         modifier,
-        ["modifierId", "type", "enabled", "properties", "curve", "startFrame", "durationFrames"],
+        [...(knownDefinition?.allowedKeys ?? [])],
         modifierPath,
         issues
       );
@@ -385,6 +395,24 @@ function validateModifiers(
       { nonEmpty: true }
     );
     validateBoolean(modifier.enabled, `${modifierPath}.enabled`, issues);
+    if (knownDefinition) {
+      const canRunDefinitionValidation =
+        modifier.type === "mouth-basic"
+          ? Array.isArray(modifier.transitionFrames)
+          : modifier.type === "acceleration"
+            ? Array.isArray(modifier.properties)
+            : true;
+      if (canRunDefinitionValidation) {
+        validateKnownLayerModifier(
+          modifier as unknown as KnownLayerModifier
+        ).forEach((issue) => addIssue(
+          issues,
+          "invalid-shape",
+          `${modifierPath}.${issue.field}`,
+          issue.message
+        ));
+      }
+    }
     if (typeof modifier.modifierId === "string") {
       if (modifierIds.has(modifier.modifierId)) {
         addIssue(

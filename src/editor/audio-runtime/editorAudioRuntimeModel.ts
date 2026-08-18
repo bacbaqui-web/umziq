@@ -56,7 +56,9 @@ export interface EditorAudioRuntimePort {
     isPlaying: boolean;
   }) => void;
   readonly reconcileProject: (project: LayerDocumentProject) => void;
-  readonly invalidateSource: (sourceId: string) => boolean;
+  readonly suspendSource: (sourceId: string) => boolean;
+  readonly restoreSource: (sourceId: string) => boolean;
+  readonly disposeSource: (sourceId: string) => boolean;
   readonly replaceProject: (project: LayerDocumentProject | null) => void;
   readonly dispose: () => void;
 }

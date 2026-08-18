@@ -1,7 +1,8 @@
 import type {
   LayerDocument,
-  ModifierInstance,
+  LayerModifier,
 } from "@/models";
+import { layerModifierEvaluationKind } from "@/models";
 import {
   applyPositionModifiers,
   applyRotationModifiers,
@@ -26,29 +27,22 @@ import {
   buildLayerDocumentDraftIdentity,
 } from "@/render/helpers/layerDocumentRuntimeCacheKeyHelpers";
 
-export function adaptLayerDocumentModifiers(
-  layer: LayerDocument
-): ModifierInstance[] {
-  return layer.common.modifiers.flatMap((modifier): ModifierInstance[] => {
-    if (!modifier.enabled) return [];
-    if (modifier.type === "oscillate") {
-      return [{
-        id: modifier.modifierId,
-        type: "oscillate",
-        angle: modifier.angle,
-        frequency: modifier.frequency,
-        amount: modifier.amount,
-      }];
-    }
-    if (modifier.type === "wiggle" || modifier.type === "swing") {
-      return [{
-        id: modifier.modifierId,
-        type: modifier.type,
-        frequency: modifier.frequency,
-        amount: modifier.amount,
-      }];
-    }
-    return [];
+function motionModifiers(layer: LayerDocument): Extract<
+  LayerModifier,
+  { type: "wiggle" | "oscillate" | "swing" }
+>[] {
+  return layer.common.modifiers.flatMap((modifier) => {
+    if (
+      modifier.type !== "wiggle" &&
+      modifier.type !== "oscillate" &&
+      modifier.type !== "swing"
+    ) return [];
+    const evaluation = layerModifierEvaluationKind(modifier);
+    return evaluation === "position-wiggle" ||
+        evaluation === "position-oscillate" ||
+        evaluation === "rotation-swing"
+      ? [modifier]
+      : [];
   });
 }
 
@@ -65,7 +59,9 @@ export function evaluateLayerDocumentTransform(
   const transform = common.transform;
   const acceleration = common.modifiers.find(
     (modifier): modifier is Extract<typeof modifier, { type: "acceleration" }> =>
-      modifier.type === "acceleration" && modifier.enabled
+      modifier.type === "acceleration" &&
+      layerModifierEvaluationKind(modifier) === "frame-acceleration" &&
+      modifier.enabled
   );
   const evaluationFrame = (property: "position" | "scale" | "rotation" | "opacity") =>
     acceleration?.properties.includes(property)
@@ -81,7 +77,7 @@ export function evaluateLayerDocumentTransform(
   const position = applyPositionModifiers(
     basePosition,
     layer.layerDocumentId,
-    adaptLayerDocumentModifiers(layer),
+    motionModifiers(layer),
     localFrame,
     frameRate
   );
@@ -101,7 +97,7 @@ export function evaluateLayerDocumentTransform(
     : transform.rotation;
   const rotation = applyRotationModifiers(
     baseRotation,
-    adaptLayerDocumentModifiers(layer),
+    motionModifiers(layer),
     localFrame,
     frameRate
   );
@@ -116,7 +112,9 @@ export function evaluateLayerDocumentTransform(
   );
   const mouth = common.modifiers.find(
     (modifier): modifier is Extract<typeof modifier, { type: "mouth-basic" }> =>
-      modifier.type === "mouth-basic" && modifier.enabled
+      modifier.type === "mouth-basic" &&
+      layerModifierEvaluationKind(modifier) === "opacity-mouth" &&
+      modifier.enabled
   );
   if (mouth) {
     opacity = clampOpacity(
@@ -263,7 +261,7 @@ export function buildLayerDocumentMotionPathSamples(options: {
     sourceOffsetFrames: placement.sourceOffsetFrames,
     compositionDurationFrames: options.compositionDurationFrames,
     targetId: layer.layerDocumentId,
-    modifiers: adaptLayerDocumentModifiers(layer),
+    modifiers: motionModifiers(layer),
     frameRate: options.frameRate,
   });
 }

@@ -39,6 +39,18 @@ export {
   createLayerDocumentTimelineNavigationController,
 } from "@/engines/timeline/controllers/layerDocumentTimelineNavigationController";
 export {
+  useTimelinePointerDragSessionRuntime,
+} from "@/engines/timeline/state/useTimelinePointerDragSessionRuntime";
+export {
+  createTimelinePointerDragSessionController,
+} from "@/engines/timeline/controllers/timelinePointerDragSessionController";
+export type {
+  TimelinePointerDragBeginInput,
+  TimelinePointerDragCancelReason,
+  TimelinePointerDragCommitReason,
+  TimelinePointerDragEnvironment,
+} from "@/engines/timeline/models/timelinePointerDragSessionModel";
+export {
   buildLayerDocumentTimelineUiReadModel,
   projectLayerDocumentAudioWaveform,
 } from "@/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers";
@@ -93,6 +105,7 @@ export type {
   TimelineCommands,
   TimelineEngineViewProps,
   TimelineInteractionCommands,
+  TimelinePointerDragStart,
 } from "@/engines/timeline/models/timelineEngineTypes";
 export type {
   LayerDocumentTimelineKeyframeDrag,

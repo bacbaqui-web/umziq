@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampPlaybackFrame } from "@/engines/timeline/helpers/timelinePlaybackFrameHelpers";
 import {
   buildTimelineDurationViewModel,
@@ -7,9 +7,12 @@ import {
   resolveTimelinePxPerFrame,
 } from "@/engines/timeline/helpers/timelineLayoutHelpers";
 import type { TimelineRulerViewModel } from "@/engines/timeline/models/timelineViewModel";
+import type { TimelinePointerDragStart } from "@/engines/timeline/models/timelineEngineTypes";
+import { useTimelinePointerDragSessionRuntime } from "@/engines/timeline/state/useTimelinePointerDragSessionRuntime";
 
 type RangeHandle = "start" | "end";
 type RangeDrag = {
+  type: "range-resize";
   handle: RangeHandle;
   startClientX: number;
   initialStartFrame: number;
@@ -66,7 +69,6 @@ type Options = {
 export function useTimelinePlaybackUIController(options: Options) {
   const rulerRef = useRef<HTMLDivElement | null>(null);
   const rangeDragRef = useRef<RangeDrag | null>(null);
-  const scrubbingRef = useRef(false);
   const [availableWidth, setAvailableWidth] = useState(0);
   const [activeResizeHandle, setActiveResizeHandle] = useState<RangeHandle | null>(null);
   const [isHoveringRuler, setIsHoveringRuler] = useState(false);
@@ -200,41 +202,15 @@ export function useTimelinePlaybackUIController(options: Options) {
     if (frame !== null) options.playbackCommands.seek(frame);
   }, [getFrameFromPointer, options.playbackCommands]);
 
-  const seekFromPointerRef = useRef(seekFromPointer);
-  const setIsScrubbingRef = useRef(options.setIsScrubbing);
-  useLayoutEffect(() => {
-    seekFromPointerRef.current = seekFromPointer;
-    setIsScrubbingRef.current = options.setIsScrubbing;
-  }, [options.setIsScrubbing, seekFromPointer]);
-
-  useEffect(() => {
-    const up = () => {
-      if (!scrubbingRef.current) return;
-      scrubbingRef.current = false;
-      setIsScrubbingRef.current(false);
-    };
-    const move = (event: MouseEvent) => {
-      if (!scrubbingRef.current) return;
-      if (event.buttons === 0) {
-        up();
-        return;
-      }
-      seekFromPointerRef.current(event.clientX);
-    };
-    const visibility = () => {
-      if (document.visibilityState === "hidden") up();
-    };
-    window.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up, true);
-    window.addEventListener("blur", up);
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      window.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up, true);
-      window.removeEventListener("blur", up);
-      document.removeEventListener("visibilitychange", visibility);
-    };
-  }, []);
+  const scrubPointer =
+    useTimelinePointerDragSessionRuntime({
+      move: (session: { type: "scrub" }, clientX) => {
+        seekFromPointer(clientX);
+        return session;
+      },
+      commit: () => options.setIsScrubbing(false),
+      cancel: () => options.setIsScrubbing(false),
+    });
 
   const setHoveredFrameFromPointer = useCallback((clientX: number) => {
     setIsHoveringRuler(true);
@@ -246,22 +222,11 @@ export function useTimelinePlaybackUIController(options: Options) {
     if (!options.isScrubbing && !activeResizeHandle) options.setHoveredFrame(null);
   }, [activeResizeHandle, options]);
 
-  const beginScrub = useCallback((clientX: number) => {
-    seekFromPointer(clientX);
-    scrubbingRef.current = true;
+  const beginScrub = useCallback((start: TimelinePointerDragStart) => {
+    seekFromPointer(start.clientX);
     options.setIsScrubbing(true);
-  }, [options, seekFromPointer]);
-
-  const beginRangeResize = useCallback((clientX: number, handle: RangeHandle) => {
-    options.duration.beginRangeEdit();
-    setActiveResizeHandle(handle);
-    rangeDragRef.current = {
-      handle,
-      startClientX: clientX,
-      initialStartFrame: range.startFrame,
-      initialEndFrame: range.endFrame,
-    };
-  }, [options.duration, range.endFrame, range.startFrame]);
+    scrubPointer.begin({ type: "scrub" }, start);
+  }, [options, scrubPointer, seekFromPointer]);
 
   const moveRangeResize = useCallback((clientX: number) => {
     const drag = rangeDragRef.current;
@@ -300,27 +265,35 @@ export function useTimelinePlaybackUIController(options: Options) {
     options.duration.commitRangeEdit();
   }, [options.duration]);
 
-  useEffect(() => {
-    if (!activeResizeHandle) return;
-    const move = (event: MouseEvent) => {
-      if (event.buttons === 0) {
-        endRangeResize();
-        return;
-      }
-      moveRangeResize(event.clientX);
+  const rangePointer =
+    useTimelinePointerDragSessionRuntime({
+      move: (session: RangeDrag, clientX) => {
+        moveRangeResize(clientX);
+        return session;
+      },
+      commit: () => endRangeResize(),
+      cancel: (session) => {
+        rangeDragRef.current = null;
+        setActiveResizeHandle(null);
+        options.playbackCommands.setPlaybackRange(
+          session.initialStartFrame,
+          session.initialEndFrame
+        );
+      },
+    });
+  const beginRangeResize = useCallback((start: TimelinePointerDragStart, handle: RangeHandle) => {
+    options.duration.beginRangeEdit();
+    setActiveResizeHandle(handle);
+    const session: RangeDrag = {
+      type: "range-resize",
+      handle,
+      startClientX: start.clientX,
+      initialStartFrame: range.startFrame,
+      initialEndFrame: range.endFrame,
     };
-    const finish = () => endRangeResize();
-    window.addEventListener("mousemove", move, true);
-    window.addEventListener("mouseup", finish, true);
-    window.addEventListener("blur", finish);
-    document.documentElement.addEventListener("mouseleave", finish);
-    return () => {
-      window.removeEventListener("mousemove", move, true);
-      window.removeEventListener("mouseup", finish, true);
-      window.removeEventListener("blur", finish);
-      document.documentElement.removeEventListener("mouseleave", finish);
-    };
-  }, [activeResizeHandle, endRangeResize, moveRangeResize]);
+    rangeDragRef.current = session;
+    rangePointer.begin(session, start);
+  }, [options.duration, range.endFrame, range.startFrame, rangePointer]);
 
   const commitRangeDuration = useCallback((seconds: string, frames: string) => {
     const parsed = parseTimelineDurationParts(seconds, frames, options.selectedMeta?.frameRate ?? 1);

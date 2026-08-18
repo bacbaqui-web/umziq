@@ -1,4 +1,7 @@
-/** Pure Modifier definitions, normalization and lookup. */
+/**
+ * Legacy ProjectSource migration normalization.
+ * Canonical LayerDocument definitions live in models/layerModifierDefinition.
+ */
 import type {
   ModifierInstance,
   ModifierNumberField,

@@ -13,6 +13,12 @@ export type {
   LibraryHoverPreviewViewModel,
   LibraryViewProps,
 } from "@/engines/library/models/libraryModel";
+export type {
+  LibraryRecordingAssetStorePort,
+} from "@/engines/library/models/libraryEngineModel";
+export type {
+  LibraryRecordingEditRequest,
+} from "@/engines/library/models/libraryRecordingModel";
 export {
   confirmLayerDocumentPsdPreparedSource,
   createLayerDocumentLibrarySourceCommandAdapter,

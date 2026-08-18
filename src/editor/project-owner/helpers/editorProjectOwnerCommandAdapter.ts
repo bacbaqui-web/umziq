@@ -49,22 +49,18 @@ function applyRuntimeCacheEffect(
   }
   effect.sourceRestorationIds.forEach((sourceId) => {
     sourceRuntime.restoreSource(sourceId);
+    audioRuntime?.restoreSource(sourceId);
   });
   effect.sourceDisposalIds.forEach((sourceId) => {
     sourceRuntime.invalidate({
       kind: "source",
       sourceId,
     });
-    audioRuntime?.invalidateSource(sourceId);
+    audioRuntime?.disposeSource(sourceId);
   });
-  effect.suspendedSourceDisposalIds.forEach(
-    (sourceId) => {
-      sourceRuntime.disposeSuspendedSource(sourceId);
-    }
-  );
   effect.sourceInvalidationIds.forEach((sourceId) => {
     sourceRuntime.suspendSource(sourceId);
-    audioRuntime?.invalidateSource(sourceId);
+    audioRuntime?.suspendSource(sourceId);
   });
   const invalidatedKeys = new Set<string>();
   effect.cacheInvalidations.forEach((descriptor) => {

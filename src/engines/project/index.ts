@@ -182,11 +182,15 @@ export type {
 } from "@/engines/project/import/layerDocumentAudioImportAdapter";
 export {
   LAYER_DOCUMENT_BROWSER_AUDIO_RECORDING_PORT,
+  beginLayerDocumentAudioRecording,
   cancelLayerDocumentAudioRecording,
   startLayerDocumentAudioRecording,
   stopLayerDocumentAudioRecording,
 } from "@/engines/project/import/layerDocumentAudioRecordingAdapter";
 export type {
+  LayerDocumentAudioProcessingFeature,
+  LayerDocumentAudioProcessingSetting,
+  LayerDocumentAudioProcessingSnapshot,
   LayerDocumentAudioRecorderPort,
   LayerDocumentAudioRecordingBrowserPort,
   LayerDocumentAudioRecordingSession,

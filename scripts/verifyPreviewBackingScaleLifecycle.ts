@@ -58,7 +58,7 @@ assert.equal(
 );
 assert.equal(disposalCounts.get("import"), 1);
 
-// Delete invalidates the current Source resource.
+// Targeted replacement disposes the current Source resource.
 assert.equal(
   sourceRuntime.invalidate({
     kind: "source",

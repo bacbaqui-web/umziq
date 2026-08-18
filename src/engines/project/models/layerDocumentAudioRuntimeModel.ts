@@ -24,7 +24,9 @@ export interface LayerDocumentAudioRuntimePort {
     resources: readonly LayerDocumentAudioRuntimeResource[]
   ) => LayerDocumentAudioRuntimeRegistrationResult;
   readonly resolve: (sourceId: string) => LayerDocumentAudioRuntimeResource | null;
-  readonly invalidate: (sourceId: string) => boolean;
+  readonly suspendSource: (sourceId: string) => boolean;
+  readonly restoreSource: (sourceId: string) => boolean;
+  readonly disposeSource: (sourceId: string) => boolean;
   readonly clear: () => number;
   readonly dispose: () => void;
 }

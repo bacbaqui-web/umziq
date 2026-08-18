@@ -1,10 +1,4 @@
 import {
-  analyzeMouthBasicTransitions,
-} from "@/animation";
-import type {
-  LayerDocumentProject,
-} from "@/models";
-import {
   useEffect,
   useEffectEvent,
   useMemo,
@@ -24,6 +18,9 @@ import {
   createLayerDocumentLibraryPreviewReader,
   useLayerDocumentLibraryEngine,
 } from "@/engines/library";
+import {
+  createEditorLibraryRecordingAssetStoreAdapter,
+} from "@/editor/libraryRecordingAssetStoreAdapter";
 import {
   formatCompactTime,
   TIMELINE_NAME_COL_WIDTH,
@@ -58,20 +55,6 @@ import {
   createFullResolutionProjectRenderer,
   exportProject,
 } from "@/editor/projectExport";
-
-function absoluteLayerStart(project: LayerDocumentProject, layerDocumentId: string) {
-  let current: import("@/models").LayerDocument | null =
-    project.payload.layerDocumentsById[layerDocumentId] ?? null;
-  let start = 0;
-  const visited = new Set<string>();
-  while (current && !visited.has(current.layerDocumentId)) {
-    visited.add(current.layerDocumentId);
-    start += current.common.placement.startFrame;
-    const parentId: string | null = current.common.placement.parentLayerDocumentId;
-    current = parentId ? project.payload.layerDocumentsById[parentId] ?? null : null;
-  }
-  return start;
-}
 
 export function useEditorCompositionRoot():
 EditorShellLayoutProps {
@@ -125,60 +108,22 @@ EditorShellLayoutProps {
       resetRevision:
         runtime.ownerEffect.localUiRevision,
       mouthBasic: {
-        readAudioOptions: () => Object.values(runtime.owner.state.currentProject.payload.layerDocumentsById)
-          .filter((layer) => layer.type === "audio")
-          .map((layer) => ({ id: layer.layerDocumentId, label: layer.common.placement.alias ?? layer.name })),
-        connect: (targetLayerDocumentId, audioLayerDocumentId) => {
-          const project = runtime.owner.state.currentProject;
-          const target = project.payload.layerDocumentsById[targetLayerDocumentId];
-          const audio = project.payload.layerDocumentsById[audioLayerDocumentId];
-          if (!target || !audio || audio.type !== "audio" || target.type === "audio") return;
-          const sourceId = audio.common.source?.sourceId;
-          const resource = sourceId ? runtime.audio.resources.resolve(sourceId) : null;
+        readProject: () => runtime.owner.state.currentProject,
+        readDecodedAudio: (sourceId) => {
+          const resource = runtime.audio.resources.resolve(sourceId);
           const decoded = resource?.decodedAudio as {
             sampleRate?: unknown;
             duration?: unknown;
             numberOfChannels?: unknown;
             getChannelData?: unknown;
           } | null;
-          if (
+          return (
             !decoded || typeof decoded.sampleRate !== "number" ||
             typeof decoded.duration !== "number" || typeof decoded.numberOfChannels !== "number" ||
             typeof decoded.getChannelData !== "function"
-          ) return;
-          const parent = target.common.placement.parentLayerDocumentId
-            ? project.payload.layerDocumentsById[target.common.placement.parentLayerDocumentId]
-            : null;
-          const frameRate = parent?.type === "group" ? parent.data.frameRate : 30;
-          const analysis = analyzeMouthBasicTransitions(decoded as import("@/animation").MouthBasicAudioBuffer, frameRate);
-          const sourceStart = audio.common.placement.sourceOffsetFrames;
-          const durationFrames = Math.max(1, Math.min(
-            audio.common.placement.durationFrames,
-            analysis.durationFrames - sourceStart
-          ));
-          const sourceEnd = sourceStart + durationFrames;
-          const openAtStart = analysis.transitionFrames.filter((frame) => frame <= sourceStart).length % 2 === 1;
-          const relativeTransitions = analysis.transitionFrames
-            .filter((frame) => frame > sourceStart && frame < sourceEnd)
-            .map((frame) => frame - sourceStart);
-          if (openAtStart) relativeTransitions.unshift(0);
-          const startFrame = target.common.placement.sourceOffsetFrames +
-            absoluteLayerStart(project, audioLayerDocumentId) -
-            absoluteLayerStart(project, targetLayerDocumentId);
-          const modifiers = target.common.modifiers.map((modifier) =>
-            modifier.type === "mouth-basic" ? {
-              ...modifier,
-              audioLayerDocumentId,
-              startFrame,
-              durationFrames,
-              transitionFrames: relativeTransitions,
-            } : modifier
-          );
-          panelPorts.properties.dispatchPanel({
-            kind: "set-modifiers",
-            layerDocumentId: targetLayerDocumentId,
-            modifiers,
-          });
+          )
+            ? null
+            : decoded as import("@/animation").MouthBasicAudioBuffer;
         },
       },
     });
@@ -192,12 +137,17 @@ EditorShellLayoutProps {
       resources: runtime.resources,
       readAudioWaveform: runtime.audio.readWaveform,
     }), [runtime.audio, runtime.owner, runtime.resources]);
+  const recordingAssetStore = useMemo(
+    () => createEditorLibraryRecordingAssetStoreAdapter(),
+    []
+  );
   const library =
     useLayerDocumentLibraryEngine({
       controller:
         panelPorts.libraryController,
       audioImport: panelPorts.audioImport,
       audioRecording: panelPorts.audioRecording,
+      recordingAssetStore,
       audio: panelPorts.libraryAudio,
       preview: { read: libraryPreview },
       parentLayerDocumentId:

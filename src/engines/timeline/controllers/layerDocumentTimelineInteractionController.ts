@@ -3,6 +3,7 @@ import type {
 } from "@/models";
 import {
   layerDocumentLocalFrameToGlobalFrame,
+  normalizeKnownLayerModifier,
 } from "@/models";
 import type {
   LayerDocumentTimelineTimingOperation,
@@ -14,6 +15,7 @@ import type {
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 import type {
   TimelineInteractionCommands,
+  TimelinePointerDragStart,
 } from "@/engines/timeline/models/timelineEngineTypes";
 
 export interface LayerDocumentTimelineInteractionUiPort {
@@ -40,13 +42,13 @@ export interface LayerDocumentTimelineInteractionUiPort {
 
 export interface LayerDocumentTimelinePointerCommandPort {
   readonly beginTiming: (
-    clientX: number,
+    start: TimelinePointerDragStart,
     layerDocumentId: string,
     operation:
       LayerDocumentTimelineTimingOperation
   ) => void;
   readonly beginKeyframeMove: (
-    clientX: number,
+    start: TimelinePointerDragStart,
     layerDocumentId: string,
     localFrame: number,
     property: AnimatableProperty
@@ -326,7 +328,7 @@ export function createLayerDocumentTimelineInteractionController(
       if (!layer) return;
       const modifiers = layer.common.modifiers.map((modifier) =>
         modifier.type === "mouth-basic"
-          ? {
+          ? normalizeKnownLayerModifier({
               ...modifier,
               startFrame: Math.floor(clip.startFrame),
               durationFrames: Math.max(1, Math.floor(clip.durationFrames)),
@@ -334,7 +336,7 @@ export function createLayerDocumentTimelineInteractionController(
                 .map((frame) => Math.floor(frame))
                 .filter((frame) => frame >= 0 && frame < clip.durationFrames))]
                 .sort((left, right) => left - right),
-            }
+            })
           : modifier
       );
       options.owner.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });
@@ -344,12 +346,12 @@ export function createLayerDocumentTimelineInteractionController(
       if (!layer) return;
       const modifiers = layer.common.modifiers.map((modifier) =>
         modifier.type === "acceleration"
-          ? {
+          ? normalizeKnownLayerModifier({
               ...modifier,
               startFrame: Math.floor(clip.startFrame),
               durationFrames: Math.max(1, Math.floor(clip.durationFrames)),
               curve: clip.curve ?? modifier.curve,
-            }
+            })
           : modifier
       );
       options.owner.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });

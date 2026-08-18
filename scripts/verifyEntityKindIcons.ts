@@ -41,8 +41,8 @@ const propertiesModelSource = readFileSync(
   "src/engines/properties/models/propertiesEngineModel.ts",
   "utf8"
 );
-const librarySource = readFileSync(
-  "src/features/library/components/LibraryNode.tsx",
+const libraryIdentitySource = readFileSync(
+  "src/features/library/components/LibraryNodeIdentity.tsx",
   "utf8"
 );
 const importPreviewSource = readFileSync(
@@ -66,9 +66,9 @@ assert.match(
   propertiesModelSource,
   /targetEntityKind: "layer" \| "composition" \| null/
 );
-assert.match(librarySource, /<PsdFileIcon \/>/);
+assert.match(libraryIdentitySource, /<PsdFileIcon \/>/);
 assert.match(
-  librarySource,
+  libraryIdentitySource,
   /kind=\{node\.entityKind \?\? "layer"\}/
 );
 assert.match(

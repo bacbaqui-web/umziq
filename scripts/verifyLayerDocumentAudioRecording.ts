@@ -9,6 +9,7 @@ import {
   createLayerDocumentAudioRuntimeStore,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
+  beginLayerDocumentAudioRecording,
   startLayerDocumentAudioRecording,
   stopLayerDocumentAudioRecording,
   type LayerDocumentAudioRecordingBrowserPort,
@@ -46,6 +47,7 @@ function fakeBrowser(blob = new Blob([new Uint8Array([1, 2, 3])], { type: "audio
   const browser: LayerDocumentAudioRecordingBrowserPort = {
     request: async () => ({
       mimeType: "audio/webm",
+      start: () => undefined,
       stop: async () => { stops += 1; return blob; },
       cancel: () => { cancels += 1; },
       dispose: () => { disposals += 1; },
@@ -58,7 +60,21 @@ const decoder = { decode: async () => ({ decodedAudio: { recorded: true }, metad
 
 // Exercise the real browser adapter with fake getUserMedia/MediaRecorder.
 let fakeTrackStops = 0;
-class FakeTrack extends EventTarget { stop() { fakeTrackStops += 1; } }
+const appliedAudioConstraints: MediaTrackConstraints[] = [];
+class FakeTrack extends EventTarget {
+  kind = "audio";
+  private noiseSuppression = true;
+  stop() { fakeTrackStops += 1; }
+  getSettings() { return { noiseSuppression: this.noiseSuppression }; }
+  getCapabilities() { return { noiseSuppression: [true, false] }; }
+  async applyConstraints(constraints: MediaTrackConstraints) {
+    appliedAudioConstraints.push(constraints);
+    const requested = constraints.noiseSuppression;
+    if (typeof requested === "object" && requested && "exact" in requested) {
+      this.noiseSuppression = requested.exact === true;
+    }
+  }
+}
 class FakeMediaRecorder extends EventTarget {
   state: RecordingState = "inactive";
   mimeType = "audio/webm";
@@ -76,9 +92,34 @@ class FakeMediaRecorder extends EventTarget {
 const originalMediaRecorder = Object.getOwnPropertyDescriptor(globalThis, "MediaRecorder");
 const originalMediaDevices = Object.getOwnPropertyDescriptor(globalThis.navigator, "mediaDevices");
 const fakeTrack = new FakeTrack();
-Object.defineProperty(globalThis.navigator, "mediaDevices", { configurable: true, value: { getUserMedia: async () => ({ getTracks: () => [fakeTrack] }) } });
+let requestedMediaConstraints: MediaStreamConstraints | null = null;
+Object.defineProperty(globalThis.navigator, "mediaDevices", {
+  configurable: true,
+  value: {
+    getSupportedConstraints: () => ({ noiseSuppression: true }),
+    getUserMedia: async (constraints: MediaStreamConstraints) => {
+      requestedMediaConstraints = constraints;
+      return ({
+      getAudioTracks: () => [fakeTrack],
+      getTracks: () => [fakeTrack],
+    }); },
+  },
+});
 Object.defineProperty(globalThis, "MediaRecorder", { configurable: true, value: FakeMediaRecorder });
-const browserRecorder = await LAYER_DOCUMENT_BROWSER_AUDIO_RECORDING_PORT.request();
+const browserRecorder = await LAYER_DOCUMENT_BROWSER_AUDIO_RECORDING_PORT.request({
+  noiseSuppression: false,
+});
+assert.deepEqual(requestedMediaConstraints, {
+  audio: {
+    channelCount: { ideal: 1 },
+    noiseSuppression: { exact: false },
+  },
+});
+assert.equal(browserRecorder.audioProcessing?.noiseSuppression.enabled, true);
+const disabledProcessing = await browserRecorder.setAudioProcessing?.("noiseSuppression", false);
+assert.deepEqual(appliedAudioConstraints, [{ noiseSuppression: { exact: false } }]);
+assert.equal(disabledProcessing?.noiseSuppression.enabled, false);
+browserRecorder.start();
 assert.equal((await browserRecorder.stop()).size > 0, true);
 browserRecorder.dispose();
 assert.equal(fakeTrackStops, 1);
@@ -91,10 +132,13 @@ let project = fixture();
 const fake = fakeBrowser();
 const session = await startLayerDocumentAudioRecording({ project, selectedLayerDocumentId: "cut", browser: fake.browser, now: () => 100 });
 assert.equal(session.cutLayerDocumentId, "cut");
+assert.equal(session.state, "ready");
+assert.equal(beginLayerDocumentAudioRecording(session, () => 100), true);
+assert.equal(session.startedAt, 100);
 assert.deepEqual(fake.counts(), { stops: 0, cancels: 0, disposals: 0 });
 const prepared = await stopLayerDocumentAudioRecording({ session, project, token: "take", decoder, now: () => new Date("2026-08-17T01:02:03Z") });
 assert.deepEqual(fake.counts(), { stops: 1, cancels: 0, disposals: 1 });
-assert.match(prepared.command.layers[0].name, /^움직 녹음/);
+assert.match(prepared.command.layers[0].name, /^움직_녹음_\d{6}_\d{6}$/);
 assert.equal(prepared.command.sources[0]?.kind, "audio");
 assert.equal(prepared.command.sources[0]?.kind === "audio" && prepared.command.sources[0].data.provenance, "recorded");
 
@@ -121,6 +165,7 @@ assert.equal(project.payload.layerDocumentsById[prepared.layerDocumentId].type, 
 let failedPreparedDisposals = 0;
 const ownerFailureFake = fakeBrowser(new Blob(["different"], { type: "audio/webm" }));
 const ownerFailureSession = await startLayerDocumentAudioRecording({ project, selectedLayerDocumentId: "cut", browser: ownerFailureFake.browser });
+beginLayerDocumentAudioRecording(ownerFailureSession);
 const ownerFailurePrepared = await stopLayerDocumentAudioRecording({
   session: ownerFailureSession,
   project,
@@ -148,16 +193,19 @@ assert.equal(history, 1, "cancel does not update Project/History");
 
 const emptyFake = fakeBrowser(new Blob([], { type: "audio/webm" }));
 const empty = await startLayerDocumentAudioRecording({ project, selectedLayerDocumentId: "cut", browser: emptyFake.browser });
+beginLayerDocumentAudioRecording(empty);
 await assert.rejects(stopLayerDocumentAudioRecording({ session: empty, project, token: "empty", decoder }), /없습니다/);
 assert.equal(emptyFake.counts().disposals, 1);
 
 const decodeFake = fakeBrowser();
 const decodeFailure = await startLayerDocumentAudioRecording({ project, selectedLayerDocumentId: "cut", browser: decodeFake.browser });
+beginLayerDocumentAudioRecording(decodeFailure);
 await assert.rejects(stopLayerDocumentAudioRecording({ session: decodeFailure, project, token: "decode", decoder: { decode: async () => { throw new Error("decode failed"); } } }), /decode failed/);
 assert.equal(decodeFake.counts().disposals, 1);
 
 const staleFake = fakeBrowser();
 const stale = await startLayerDocumentAudioRecording({ project, selectedLayerDocumentId: "cut", browser: staleFake.browser });
+beginLayerDocumentAudioRecording(stale);
 const staleProject = fixture();
 delete staleProject.payload.layerDocumentsById.cut;
 await assert.rejects(stopLayerDocumentAudioRecording({ session: stale, project: staleProject, token: "stale", decoder }), /Cut/);

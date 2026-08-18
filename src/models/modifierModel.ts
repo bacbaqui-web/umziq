@@ -1,3 +1,7 @@
+/**
+ * Legacy ProjectSource migration/runtime projection model.
+ * Canonical saved editing data is LayerModifier.
+ */
 export type ModifierType = "wiggle" | "swing" | "oscillate" | "mouth-basic" | "acceleration";
 export type AccelerationCurve = "ease-out-soft" | "ease-out-strong" | "ease-in-soft" | "ease-in-strong";
 

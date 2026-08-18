@@ -297,11 +297,15 @@ export default function TimelineItemTrackRow({
             zIndex: 2,
             boxShadow: "inset 1px 0 0 rgba(0,0,0,0.26), inset -1px 0 0 rgba(0,0,0,0.26)",
           }}
-          onMouseDown={(event) => {
+          onPointerDown={(event) => {
             if (event.button !== 0) return;
             event.preventDefault();
             event.stopPropagation();
-            interactions.beginMoveTimelineItem(event.clientX, item.id);
+            interactions.beginMoveTimelineItem({
+              clientX: event.clientX,
+              pointerId: event.pointerId,
+              captureTarget: event.currentTarget,
+            }, item.id);
           }}
         >
           {item.mediaKind === "audio" && viewModel.waveform.length > 0 && (
@@ -318,11 +322,15 @@ export default function TimelineItemTrackRow({
             </svg>
           )}
           <div
-            onMouseDown={(event) => {
+            onPointerDown={(event) => {
               if (event.button !== 0) return;
               event.preventDefault();
               event.stopPropagation();
-              interactions.beginResizeTimelineItemStart(event.clientX, item.id);
+              interactions.beginResizeTimelineItemStart({
+                clientX: event.clientX,
+                pointerId: event.pointerId,
+                captureTarget: event.currentTarget,
+              }, item.id);
             }}
             style={{
               position: "absolute",
@@ -335,11 +343,15 @@ export default function TimelineItemTrackRow({
           />
 
           <div
-            onMouseDown={(event) => {
+            onPointerDown={(event) => {
               if (event.button !== 0) return;
               event.preventDefault();
               event.stopPropagation();
-              interactions.beginResizeTimelineItemEnd(event.clientX, item.id);
+              interactions.beginResizeTimelineItemEnd({
+                clientX: event.clientX,
+                pointerId: event.pointerId,
+                captureTarget: event.currentTarget,
+              }, item.id);
             }}
             style={{
               position: "absolute",

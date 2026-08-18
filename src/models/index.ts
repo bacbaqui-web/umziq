@@ -4,6 +4,7 @@ export * from "@/models/plainDataModel";
 export * from "@/models/psdSourceIdentityModel";
 export * from "@/models/psdImportSettingsModel";
 export * from "@/models/layerDocumentModel";
+export * from "@/models/layerModifierDefinition";
 export * from "@/models/layerDocumentGroupScopeModel";
 export * from "@/models/layerDocumentNormalization";
 export * from "@/models/layerDocumentSchemaMigration";

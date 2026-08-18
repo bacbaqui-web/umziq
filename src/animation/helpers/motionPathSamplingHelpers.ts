@@ -1,5 +1,5 @@
 /** Pure motion-path sampling from Layer Document inputs. */
-import type { ModifierInstance, Position, PositionKeyframe } from "@/models";
+import type { LayerModifier, Position, PositionKeyframe } from "@/models";
 import { evaluatePositionKeyframes } from "@/animation/helpers/animationEvaluationHelpers";
 import { applyPositionModifiers } from "@/animation/helpers/modifierEvaluationHelpers";
 import {
@@ -22,7 +22,7 @@ type BuildMotionPathSamplesOptions = {
   sourceOffsetFrames?: number;
   compositionDurationFrames: number;
   targetId?: string;
-  modifiers?: readonly ModifierInstance[];
+  modifiers?: readonly Extract<LayerModifier, { type: "wiggle" | "oscillate" | "swing" }>[];
   frameRate?: number;
 };
 

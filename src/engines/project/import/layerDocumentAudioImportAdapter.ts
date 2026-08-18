@@ -143,6 +143,7 @@ export async function prepareLayerDocumentAudioImport(options: {
   decoder?: LayerDocumentAudioDecodePort;
   provenance?: "imported" | "recorded";
   relativePathHint?: string | null;
+  reuseMatchingSource?: boolean;
 }): Promise<PreparedLayerDocumentAudioImport> {
   const mimeType = options.file.type.toLowerCase();
   const hasAudioExtension = /\.(wav|mp3|m4a|aac|ogg|oga|webm|flac)$/i
@@ -168,11 +169,13 @@ export async function prepareLayerDocumentAudioImport(options: {
     decoded.dispose?.();
     throw new Error("Decoded Audio metadata is invalid");
   }
-  const shared = Object.values(options.project.payload.sourceRegistry.sourcesById)
-    .find((source) => source.kind === "audio" &&
-      source.data.provenance === (options.provenance ?? "imported") &&
-      source.contentFingerprint?.digestHex === contentFingerprint.digestHex &&
-      source.contentFingerprint.byteLength === contentFingerprint.byteLength);
+  const shared = options.reuseMatchingSource === false
+    ? undefined
+    : Object.values(options.project.payload.sourceRegistry.sourcesById)
+      .find((source) => source.kind === "audio" &&
+        source.data.provenance === (options.provenance ?? "imported") &&
+        source.contentFingerprint?.digestHex === contentFingerprint.digestHex &&
+        source.contentFingerprint.byteLength === contentFingerprint.byteLength);
   const sourceId = shared?.sourceId ?? stableId(
     options.provenance === "recorded" ? "recorded-audio-source" : "audio-source",
     options.token,

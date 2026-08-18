@@ -590,17 +590,24 @@ assert.match(
 );
 assert.match(
   readFileSync(
-    "src/engines/properties/useLayerDocumentPropertiesEngine.ts",
+    "src/engines/properties/composers/propertiesViewPropsComposer.ts",
     "utf8"
   ),
   /PropertiesEngineViewProps/
 );
 assert.match(
   readFileSync(
-    "src/engines/library/useLayerDocumentLibraryEngine.ts",
+    "src/engines/library/composers/useLayerDocumentLibraryComposer.ts",
     "utf8"
   ),
   /LibraryViewProps/
+);
+assert.match(
+  readFileSync(
+    "src/engines/library/useLayerDocumentLibraryEngine.ts",
+    "utf8"
+  ),
+  /return useLayerDocumentLibraryComposer\(options\)/
 );
 assert.match(
   propertiesPortAdapterSource,

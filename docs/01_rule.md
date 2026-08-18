@@ -108,8 +108,27 @@
 ## 10. 구현 원칙
 
 - 하나의 파일은 하나의 주된 책임을 갖는다.
-- Composer는 여러 Controller 조립과 공개 API 구성만 담당한다.
-- Controller는 다른 Controller나 Composer를 직접 조립하지 않는다.
+- 기본 의존 방향은 `Engine → Composer → Controller → Helper`다.
+- Engine은 Panel 기능의 공개 경계이며 command, ViewModel과 ViewProps를 외부에
+  제공한다.
+- Composer는 관련된 여러 Controller 조립과 공개 API 구성만 담당한다. 제품
+  계산, Project mutation과 독립적인 Runtime 책임을 추가하지 않는다.
+- Composer는 Controller 사이의 실행 순서, 조건과 비즈니스 규칙을 결정하지
+  않는다. 여러 단계로 이어지는 하나의 사용자 흐름은 그 흐름을 소유하는 하나의
+  Controller가 담당하며, Composer는 독립 Controller를 조립해 공개 ViewProps와
+  command를 구성하기만 한다.
+- Controller는 하나의 사용자 동작 또는 하나의 Runtime 수명을 담당하며 해당
+  책임에 필요한 순수 Helper를 사용한다.
+- Helper는 저장 상태, UI state와 Runtime을 소유하지 않는 순수 계산만 담당한다.
+- Controller가 다른 Controller나 Composer를 직접 조립하거나 참조하지 않는다.
+- Composer가 다른 Composer를 직접 조립하거나 참조하지 않는다.
+- 여러 Controller를 함께 구성해야 하면 Controller wrapper가 아니라 Composer를
+  둔다.
+- 작은 Engine은 별도 Composer 파일 없이 Composer 역할을 겸할 수 있다. 여러
+  Controller 조립이나 공개 API 구성이 커져 한 파일 한 책임을 흐리면 명시적인
+  Composer로 분리한다.
+- Adapter는 서로 다른 공개 계약 사이의 변환만 담당하며 새로운 상태 원본이나
+  제품 정책을 만들지 않는다.
 - 관련 없는 파일과 제품 동작을 함께 변경하지 않는다.
 - 추측성 패치, 임시 예외, 강제 refresh와 중복 Runtime을 만들지 않는다.
 - 구조 변경 전 현재 데이터 흐름과 책임을 실제 코드로 확인한다.

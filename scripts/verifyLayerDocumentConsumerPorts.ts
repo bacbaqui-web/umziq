@@ -2320,7 +2320,11 @@ assert.equal(
 );
 assert.equal(owner.state.undoStack.length, 0);
 assert.equal(owner.state.redoStack.length, 0);
-assert.equal(orphanDisposed, 2);
+assert.equal(
+  orphanDisposed,
+  1,
+  "History branch removal must retain suspended resources for the Project session"
+);
 assert.equal(sentinelDisposed, 0);
 assert.ok(resources.resolve({
   sourceId: "sentinel-source",

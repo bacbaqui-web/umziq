@@ -1,136 +1,19 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import type { LibraryNodeProps } from "@/engines/library";
-import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
+import LibraryNodeActions from "@/features/library/components/LibraryNodeActions";
+import LibraryNodeIdentity from "@/features/library/components/LibraryNodeIdentity";
+import LibraryNodeRow from "@/features/library/components/LibraryNodeRow";
+import {
+  LibraryDropIndicator,
+  LibraryTreeBranchGuide,
+  LibraryTreeConnector,
+} from "@/features/library/components/LibraryTreeConnector";
 
 type Props = LibraryNodeProps & {
   readonly parentGuideLeft?: number;
   readonly isLastSibling?: boolean;
   readonly projectRootChild?: boolean;
 };
-
-function PsdFileIcon() {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        width: 16,
-        height: 19,
-        position: "relative",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
-        flex: "0 0 auto",
-        marginLeft: 2,
-        color: "#82a7c9",
-      }}
-    >
-      <svg
-        width="16"
-        height="19"
-        viewBox="0 0 24 28"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      >
-        <path d="M4.5 1.8h9.8l5.2 5.3v18a1.4 1.4 0 0 1-1.4 1.4H4.5A1.5 1.5 0 0 1 3 25V3.3a1.5 1.5 0 0 1 1.5-1.5Z" />
-        <path d="M14 2v5.5h5.3" />
-      </svg>
-      <span
-        style={{
-          position: "absolute",
-          bottom: 2.5,
-          fontSize: 5,
-          lineHeight: 1,
-          fontWeight: 800,
-          letterSpacing: 0.25,
-        }}
-      >
-        PSD
-      </span>
-    </span>
-  );
-}
-
-function AudioIcon({ provenance }: { provenance: "imported" | "recorded" | null }) {
-  return (
-    <span
-      aria-label={provenance === "recorded" ? "움직에서 녹음" : "불러온 오디오"}
-      style={{
-        width: 14, height: 14, display: "inline-flex", alignItems: "center",
-        justifyContent: "center", flex: "0 0 auto", color: "#65c98a",
-      }}
-    >
-      {provenance === "recorded" ? (
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
-          <rect x="5" y="1.5" width="6" height="9" rx="3" />
-          <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5M5.5 14.5h5" />
-        </svg>
-      ) : (
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9.5 11V2.2c2.9.35 4.2 1.65 4.2 3.55-1.05-.85-2.3-1.25-4.2-1.25" />
-          <ellipse cx="7" cy="11.5" rx="2.6" ry="2" transform="rotate(-18 7 11.5)" />
-        </svg>
-      )}
-    </span>
-  );
-}
-
-function ActionButton({
-  label,
-  color,
-  onClick,
-  children,
-  compact = false,
-}: {
-  label: string;
-  color: string;
-  onClick: () => void;
-  children: ReactNode;
-  compact?: boolean;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <button
-      draggable={false}
-      onPointerDown={(event) => {
-        event.stopPropagation();
-      }}
-      onMouseDown={(event) => {
-        event.stopPropagation();
-      }}
-      onDragStart={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      aria-label={label}
-      style={{
-        width: compact ? 17 : 22,
-        height: compact ? 17 : 22,
-        padding: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: hovered ? "#2a3036" : "rgba(24, 28, 32, 0.45)",
-        color,
-        border: hovered ? "1px solid #46515b" : "1px solid #343a40",
-        borderRadius: compact ? 4 : 6,
-        cursor: "pointer",
-        opacity: hovered ? 1 : 0.86,
-        transition: "background 140ms ease, border-color 140ms ease, opacity 140ms ease",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
 
 export default function LibraryNode({
   node,
@@ -162,7 +45,6 @@ export default function LibraryNode({
   const [nameDraft, setNameDraft] = useState(node.name);
   const isRoot = node.depth === 0;
   const isMain = node.type === "main";
-  const isProject = node.type === "project";
   const usesOuterProjectConnector = projectRootChild && !isMain;
   const hasChildren = node.children.length > 0;
   const baseRowIndent = isMain
@@ -256,110 +138,33 @@ export default function LibraryNode({
         transition: "margin 170ms cubic-bezier(.2,.8,.2,1), border-color 150ms ease, box-shadow 150ms ease, opacity 140ms ease, transform 140ms ease",
       }}
     >
-      {showDropBefore && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            zIndex: 2,
-            left: 5,
-            right: 5,
-            top: -4,
-            height: 2,
-            borderRadius: 999,
-            background: "#5d8fcb",
-            boxShadow: "0 0 0 1px rgba(93, 143, 203, 0.18), 0 0 8px rgba(93, 143, 203, 0.35)",
-          }}
-        />
-      )}
+      {showDropBefore && <LibraryDropIndicator edge="before" />}
 
-      {!isMain && !usesOuterProjectConnector && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            left: branchLeft,
-            top: 0,
-            height: isLastSibling ? 10 : "100%",
-            borderLeft:
-              "1px solid rgba(142, 182, 216, 0.82)",
-            transform: "translateX(-0.5px)",
-          }}
-        />
-      )}
+      <LibraryTreeBranchGuide
+        isMain={isMain}
+        usesOuterProjectConnector={usesOuterProjectConnector}
+        branchLeft={branchLeft}
+        isLastSibling={isLastSibling}
+      />
 
-      <div
-        onMouseEnter={() => setRowHovered(true)}
-        onMouseMove={(event) => {
-          if (node.preview && !editing && !isProject) {
-            const preview = node.preview();
-            if (preview) onPreviewMove(preview, event.clientX, event.clientY);
-          }
-        }}
-        onMouseLeave={() => {
-          setRowHovered(false);
-          onPreviewEnd();
-        }}
-        style={{
-          position: "relative",
-          boxSizing: "border-box",
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          height: isMain ? 35 : 20,
-          padding: isMain ? "5px 7px" : "1px 6px",
-          paddingLeft: rowIndent,
-          borderRadius: isMain ? (hasChildren ? "7px 7px 0 0" : 7) : 4,
-          background: rowBackground,
-          boxShadow:
-            node.selected && isMain
-              ? "inset 0 0 0 1px rgba(111, 157, 204, 0.16)"
-              : "none",
-          transition: "background 140ms ease, box-shadow 140ms ease",
-        }}
+      <LibraryNodeRow
+        node={node}
+        isMain={isMain}
+        editing={editing}
+        hasChildren={hasChildren}
+        rowIndent={rowIndent}
+        rowBackground={rowBackground}
+        onHoveredChange={setRowHovered}
+        onPreviewMove={onPreviewMove}
+        onPreviewEnd={onPreviewEnd}
       >
-        {usesOuterProjectConnector && (
-          <>
-            <span
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                left: 0,
-                top: -7,
-                height: 17,
-                borderLeft: "1px solid rgba(142, 182, 216, 0.82)",
-                transform: "translateX(-0.5px)",
-              }}
-            />
-            <span
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 10,
-                width: 3,
-                borderTop: "1px solid rgba(142, 182, 216, 0.82)",
-                transform: "translateY(-0.5px)",
-              }}
-            />
-          </>
-        )}
-        {!isMain && !usesOuterProjectConnector && (
-          <span
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              left: branchLeft,
-              top: 10,
-              width:
-                rowIndent - branchLeft +
-                (hasChildren ? 1 : 0),
-              borderTop:
-                "1px solid rgba(142, 182, 216, 0.82)",
-              transform: "translateY(-0.5px)",
-            }}
-          />
-        )}
+        <LibraryTreeConnector
+          isMain={isMain}
+          usesOuterProjectConnector={usesOuterProjectConnector}
+          branchLeft={branchLeft}
+          rowIndent={rowIndent}
+          hasChildren={hasChildren}
+        />
 
         {hasChildren && (
           <button
@@ -460,98 +265,16 @@ export default function LibraryNode({
             fontWeight: isMain ? 650 : 500,
           }}
         >
-          {isMain ? (
-            <PsdFileIcon />
-          ) : node.contentKind === "audio" ? (
-            <AudioIcon provenance={node.audioProvenance} />
-          ) : (
-            <span
-              style={{
-                color: "#8eb6d8",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flex: "0 0 auto",
-                position: "relative",
-                transform:
-                  node.entityKind === "layer"
-                    ? "translateY(3px)"
-                    : "translateY(1px)",
-              }}
-            >
-              <LayerCompositionIcon
-                kind={node.entityKind ?? "layer"}
-                size={14}
-              />
-              {hasChildren && expanded && (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "calc(100% + 2px)",
-                    height: 2,
-                    borderLeft:
-                      "1px solid rgba(142, 182, 216, 0.82)",
-                    transform: "translateX(-0.5px)",
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
-            </span>
-          )}
-
-          {editing && !isMain && !isProject ? (
-            <input
-              autoFocus
-              value={nameDraft}
-              aria-label={`${node.name} 이름 수정`}
-              onClick={(event) => event.stopPropagation()}
-              onPointerDown={(event) => event.stopPropagation()}
-              onFocus={(event) => event.currentTarget.select()}
-              onChange={(event) => setNameDraft(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-                if (event.key === "Enter") event.currentTarget.blur();
-                if (event.key === "Escape") {
-                  setNameDraft(node.name);
-                  setEditing(false);
-                }
-              }}
-              onBlur={() => {
-                const name = nameDraft.trim();
-                if (name) onRenameNode(node.id, name);
-                else setNameDraft(node.name);
-                setEditing(false);
-              }}
-              style={{
-                minWidth: 0,
-                flex: 1,
-                height: 18,
-                boxSizing: "border-box",
-                padding: "0 4px",
-                border: "1px solid #6687a3",
-                borderRadius: 3,
-                outline: "none",
-                background: "#11181e",
-                color: "#f2f4f5",
-                font: "inherit",
-              }}
-            />
-          ) : (
-            <span
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                letterSpacing: -0.1,
-              }}
-            >
-              {isMain
-                ? node.name.replace(/\.psd$/i, "")
-                : node.name}
-            </span>
-          )}
+          <LibraryNodeIdentity
+            node={node}
+            hasChildren={hasChildren}
+            expanded={expanded}
+            editing={editing}
+            draft={nameDraft}
+            setDraft={setNameDraft}
+            onRename={(name) => onRenameNode(node.id, name)}
+            onFinish={() => setEditing(false)}
+          />
 
           {node.sourceSyncStatus === "new" && (
             <span
@@ -563,136 +286,20 @@ export default function LibraryNode({
 
         </button>
 
-        {node.canRefresh && node.canDelete && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
-            <ActionButton
-              label={`${node.name} 새로고침`}
-              color="#7e9bb2"
-              onClick={() => node.sourceId && onRefreshMainComp(node.sourceId)}
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M21 12a8.5 8.5 0 0 1-14.6 6" />
-                <path d="M3 12A8.5 8.5 0 0 1 17.6 6" />
-                <path d="M7 18H4v-3" />
-                <path d="M17 6h3v3" />
-              </svg>
-            </ActionButton>
-
-            <ActionButton
-              label={`${node.name} 삭제`}
-              color="#9a7171"
-              onClick={() => node.sourceId && onDeleteMainComp(node.sourceId)}
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 6h18" />
-                <path d="M8 6V4.8c0-.7.6-1.3 1.3-1.3h5.4c.7 0 1.3.6 1.3 1.3V6" />
-                <path d="M7 6l.8 13.2c0 .7.6 1.3 1.3 1.3h5.8c.7 0 1.3-.6 1.3-1.3L17 6" />
-                <path d="M10 10.5v6" />
-                <path d="M14 10.5v6" />
-              </svg>
-            </ActionButton>
-          </div>
-        )}
-
-        {!isMain && !isProject && (
-          <div style={{ display: "flex", alignItems: "center", gap: 1, flex: "0 0 auto" }}>
-            <ActionButton
-              label={node.contentKind === "audio"
-                ? `${node.name} ${node.playing ? "재생 정지" : "재생"}`
-                : `${node.name} ${node.locked ? "잠금 해제" : "잠금"}`}
-              color={node.contentKind === "audio"
-                ? node.playing ? "#73d99a" : "#6f9d7d"
-                : node.locked ? "#9fc5e5" : "#657785"}
-              onClick={() => node.contentKind === "audio"
-                ? onToggleNodePlayback(node.id)
-                : onToggleNodeLock(node.id)}
-              compact
-            >
-              {node.contentKind === "audio" ? (
-                node.playing
-                  ? <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7" rx="1" /></svg>
-                  : <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M3 2l7 4-7 4Z" /></svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="5" y="10" width="14" height="10" rx="2" />
-                  {node.locked ? <path d="M8 10V7a4 4 0 0 1 8 0v3" /> : <path d="M8 10V7a4 4 0 0 1 7.5-2" />}
-                </svg>
-              )}
-            </ActionButton>
-            <ActionButton
-              label={node.contentKind === "audio"
-                ? `${node.name} ${node.muted ? "음소거 해제" : "음소거"}`
-                : `${node.name} ${node.visible ? "숨기기" : "보이기"}`}
-              color={node.contentKind === "audio"
-                ? node.muted ? "#657785" : "#73d99a"
-                : node.visible ? "#9fc5e5" : "#657785"}
-              onClick={() => onToggleNodeVisibility(node.id)}
-              compact
-            >
-              {node.contentKind === "audio" ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M4 10v4h4l5 4V6L8 10H4Z" />
-                  {node.muted ? <path d="m17 9 4 6M21 9l-4 6" /> : <path d="M16 9.5a4 4 0 0 1 0 5" />}
-                </svg>
-              ) : (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                {node.visible ? (
-                  <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>
-                ) : (
-                  <><path d="m3 3 18 18" /><path d="M10.6 6.1A11 11 0 0 1 12 6c6.5 0 10 6 10 6a15.7 15.7 0 0 1-2.2 2.8M6.2 6.2C3.5 8 2 12 2 12s3.5 6 10 6a10 10 0 0 0 3.4-.6" /></>
-                )}
-                </svg>
-              )}
-            </ActionButton>
-            <ActionButton
-              label={`${node.name} 이름 수정`}
-              color="#8199ad"
-              onClick={() => {
-                setNameDraft(node.name);
-                setEditing(true);
-              }}
-              compact
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
-              </svg>
-            </ActionButton>
-            <ActionButton
-              label={`${node.name} 삭제`}
-              color="#9a7171"
-              onClick={() => onDeleteNode(node.id)}
-              compact
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M3 6h18" />
-                <path d="M8 6V4.8c0-.7.6-1.3 1.3-1.3h5.4c.7 0 1.3.6 1.3 1.3V6" />
-                <path d="M7 6l.8 13.2c0 .7.6 1.3 1.3 1.3h5.8c.7 0 1.3-.6 1.3-1.3L17 6" />
-              </svg>
-            </ActionButton>
-          </div>
-        )}
-      </div>
+        <LibraryNodeActions
+          node={node}
+          onToggleVisibility={() => onToggleNodeVisibility(node.id)}
+          onToggleLock={() => onToggleNodeLock(node.id)}
+          onTogglePlayback={() => onToggleNodePlayback(node.id)}
+          onBeginRename={() => {
+            setNameDraft(node.name);
+            setEditing(true);
+          }}
+          onDelete={() => onDeleteNode(node.id)}
+          onRefresh={() => node.sourceId && onRefreshMainComp(node.sourceId)}
+          onDeleteSource={() => node.sourceId && onDeleteMainComp(node.sourceId)}
+        />
+      </LibraryNodeRow>
 
       {hasChildren && expanded && (
         <div
@@ -738,22 +345,7 @@ export default function LibraryNode({
         </div>
       )}
 
-      {showDropAfter && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            zIndex: 2,
-            left: 5,
-            right: 5,
-            bottom: -4,
-            height: 2,
-            borderRadius: 999,
-            background: "#5d8fcb",
-            boxShadow: "0 0 0 1px rgba(93, 143, 203, 0.18), 0 0 8px rgba(93, 143, 203, 0.35)",
-          }}
-        />
-      )}
+      {showDropAfter && <LibraryDropIndicator edge="after" />}
     </div>
   );
 }

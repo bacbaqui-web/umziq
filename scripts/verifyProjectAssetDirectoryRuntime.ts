@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import {
   copyFilesIntoProjectAssets,
-  deleteRecordedAudioProjectAsset,
   findLinkedSourceInProjectAssets,
   queueProjectOpenSelection,
   setProjectAssetDirectory,
@@ -32,20 +31,20 @@ assert.equal(linked[0].file, source);
 assert.equal(linked[0].relativePathHint, null);
 
 let written: Blob | Uint8Array | null = null;
-let deletedName: string | null = null;
 const copiedFile = new File(["copied"], "voice.wav", { type: "audio/wav" });
 const audioDirectory: ProjectAssetDirectoryHandle = {
   name: "audio",
   getDirectoryHandle: async () => audioDirectory,
-  getFileHandle: async () => ({
-    name: "voice.wav",
+  getFileHandle: async (name, options) => {
+    if (!options.create) throw new Error("missing");
+    return {
+    name,
     getFile: async () => copiedFile,
     createWritable: async () => ({
       write: async (data) => { written = data; },
       close: async () => undefined,
     }),
-  }),
-  removeEntry: async (name) => { deletedName = name; },
+  }},
 };
 const projectDirectory: ProjectAssetDirectoryHandle = {
   name: "project",
@@ -61,10 +60,72 @@ const copied = await copyFilesIntoProjectAssets({ files: [source], kind: "audio"
 assert.equal(written, source);
 assert.equal(copied[0].file, copiedFile);
 assert.equal(copied[0].relativePathHint, "audio/voice.wav");
-assert.equal(await deleteRecordedAudioProjectAsset("audio/voice.wav"), true);
-assert.equal(deletedName, "voice.wav");
-assert.equal(await deleteRecordedAudioProjectAsset("psd/voice.wav"), false);
-assert.equal(await deleteRecordedAudioProjectAsset("audio/../voice.wav"), false);
+
+let collisionWriteName: string | null = null;
+const collisionDirectory: ProjectAssetDirectoryHandle = {
+  name: "audio",
+  getDirectoryHandle: async () => collisionDirectory,
+  getFileHandle: async (name, options) => {
+    if (!options.create && name === "voice.wav") {
+      return {
+        name,
+        getFile: async () => copiedFile,
+        createWritable: async () => { throw new Error("unexpected overwrite"); },
+      };
+    }
+    if (!options.create) throw new Error("missing");
+    collisionWriteName = name;
+    return {
+      name,
+      getFile: async () => new File(["copy"], name),
+      createWritable: async () => ({
+        write: async () => undefined,
+        close: async () => undefined,
+      }),
+    };
+  },
+};
+setProjectAssetDirectory({
+  name: "project",
+  getDirectoryHandle: async () => collisionDirectory,
+  getFileHandle: async () => { throw new Error("unexpected root write"); },
+});
+const collisionCopy = await copyFilesIntoProjectAssets({
+  files: [source],
+  kind: "audio",
+  copy: true,
+});
+assert.equal(collisionWriteName, "voice (2).wav");
+assert.equal(collisionCopy[0].relativePathHint, "audio/voice (2).wav");
+
+let failedWriteCleanup: string | null = null;
+const failedWriteDirectory: ProjectAssetDirectoryHandle = {
+  name: "audio",
+  getDirectoryHandle: async () => failedWriteDirectory,
+  getFileHandle: async (name, options) => {
+    if (!options.create) throw new Error("missing");
+    return {
+      name,
+      getFile: async () => new File([], name),
+      createWritable: async () => ({
+        write: async () => { throw new Error("write failed"); },
+        close: async () => undefined,
+        abort: async () => undefined,
+      }),
+    };
+  },
+  removeEntry: async (name) => { failedWriteCleanup = name; },
+};
+setProjectAssetDirectory({
+  name: "project",
+  getDirectoryHandle: async () => failedWriteDirectory,
+  getFileHandle: async () => { throw new Error("unexpected root write"); },
+});
+await assert.rejects(
+  copyFilesIntoProjectAssets({ files: [source], kind: "audio", copy: true }),
+  /write failed/
+);
+assert.equal(failedWriteCleanup, "voice.wav");
 
 const digestHex = async (file: File) =>
   [...new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()))]
@@ -125,6 +186,5 @@ const missingPsd = await findLinkedSourceInProjectAssets({
 assert.equal(missingPsd, null);
 
 setProjectAssetDirectory(null);
-assert.equal(await deleteRecordedAudioProjectAsset("psd/voice.wav"), false);
 globalThis.window = originalWindow;
 console.log("Project asset directory runtime verification passed");

@@ -5,6 +5,8 @@ import {
   type LayerDocumentProject,
 } from "@/models";
 import {
+  createAudioPropertiesController,
+  createPropertiesNumericDraftController,
   buildLayerDocumentPropertiesDescriptor,
   buildLayerDocumentPropertiesViewProps,
   prepareLayerDocumentPropertiesCommand,
@@ -76,5 +78,65 @@ assert.equal(view.readModel.transformSectionVisible, false);
 assert.equal(view.readModel.keyframe.visible, false);
 assert.equal(view.readModel.modifiers.length, 0);
 assert.equal(view.readModel.modifierLibrary.visible, false);
+
+let audioDraftState: import("@/engines/properties").PropertiesNumericDraftState = {
+  scopeIdentity: "voice:2:0:0:0",
+  focusedInputId: null,
+  inputDrafts: {},
+};
+const audioDraft = createPropertiesNumericDraftController({
+  read: () => audioDraftState,
+  replace: (next) => { audioDraftState = next; },
+});
+const audioCommands: import("@/engines/properties").LayerDocumentPropertiesCommand[] = [];
+let audioScopeIdentity = audioDraftState.scopeIdentity;
+const audioController = createAudioPropertiesController({
+  port: {
+    read: () => ({
+      descriptor,
+      displayedTransform: descriptor.descriptor.transform,
+      globalFrame: 0,
+      localFrame: 0,
+    }),
+    preview: () => ({ ok: false }),
+    commit: () => null,
+    cancel: () => undefined,
+    dispatchPanel: (command) => {
+      audioCommands.push(command);
+      return { ok: true };
+    },
+    dispatchTimeline: () => ({ ok: false }),
+    selectKeyframe: () => undefined,
+    readSelectedKeyframe: () => null,
+  },
+  draft: audioDraft,
+  readScopeIdentity: () => audioScopeIdentity,
+});
+assert.equal(audioController.focusAudioInput("audio.name"), true);
+assert.equal(audioController.changeAudioInput("audio.name", "Narration"), true);
+assert.deepEqual(audioController.blurAudioInput("audio.name"), {
+  ok: true,
+  committed: true,
+});
+assert.equal(audioCommands.length, 1);
+assert.deepEqual(audioCommands[0], {
+  kind: "set-audio-properties",
+  layerDocumentId: "voice",
+  name: "Narration",
+  gain: 1,
+  muted: false,
+  startFrame: 5,
+  durationFrames: 60,
+  sourceOffsetFrames: 3,
+  fadeInFrames: 2,
+  fadeOutFrames: 3,
+});
+assert.equal(audioController.changeAudioInput("audio.gain", "3"), false);
+assert.equal(audioCommands.length, 1, "stale/unfocused Audio draft does not dispatch");
+audioScopeIdentity = "voice:3:0:0:0";
+assert.equal(audioController.focusAudioInput("audio.gain"), true);
+assert.equal(audioDraft.read().scopeIdentity, audioScopeIdentity);
+assert.equal(audioController.keyDownAudioInput("audio.gain", "Escape"), "blur");
+assert.equal(audioCommands.length, 1, "Escape keeps History at zero");
 
 console.log("Layer Document Audio Properties verification passed");

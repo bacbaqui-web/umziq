@@ -90,8 +90,6 @@ export interface LayerDocumentProjectOwnerEffect {
     readonly string[];
   readonly sourceDisposalIds:
     readonly string[];
-  readonly suspendedSourceDisposalIds:
-    readonly string[];
 }
 
 export type LayerDocumentProjectOwnerAction =

@@ -44,6 +44,13 @@ History snapshot에는 `LayerDocumentProject`만 들어간다.
 Undo/Redo는 Project snapshot만 교체한다. Runtime을 과거 값으로 복원하지
 않는다.
 
+Source descriptor가 History에서 사라졌다가 복원될 수 있으므로 현재 Project
+session의 decoded visual/audio resource는 active와 suspended 상태로 나눠 관리한다.
+삭제와 Redo는 active resource를 suspended로 옮기고 Undo는 같은 resource identity를
+active로 되돌린다. History branch가 바뀌어 descriptor snapshot이 더 이상 도달
+가능하지 않아도 Project를 닫거나 교체하기 전에는 suspended resource를 폐기하지
+않는다. Cache 자체는 여전히 History snapshot에 포함되지 않는다.
+
 Project 교체 후에는 최소한의 유효성 보정만 수행한다.
 
 - 삭제된 Layer를 가리키는 Selection 정리
@@ -70,6 +77,13 @@ PointerDown
 
 Cancel, Escape, scope 변경과 Owner effect는 Draft를 폐기하고 committed
 Project로 돌아간다.
+
+Timeline의 DOM drag 수명은 공통 Pointer Drag Session Controller가 관리한다.
+정상 `pointerup`뿐 아니라 buttons-zero, window blur, document leave, hidden
+visibility와 lost pointer capture도 마지막 유효 Draft를 한 번 확정한다.
+`pointercancel`, 명시적 reset, 새 session 교체와 unmount는 Draft를 폐기한다.
+여러 terminal event가 연이어 발생해도 commit/cancel은 총 한 번만 실행된다.
+제품별 Draft 계산과 Project transaction은 각 Engine/Controller의 기존 책임이다.
 
 ## Shared Transform Draft
 
@@ -99,6 +113,18 @@ Audio Properties의 gain/timing/source offset/fade와 Audio Effects의 parameter
 만든다. effect add/delete/reorder/bypass와 Audio mute/rename 같은 단발 command도
 사용자 action당 History 한 건이다. audition, waveform, 녹음 prepared session과
 export 진행 상태는 History에 들어가지 않는다.
+
+Properties의 Numeric Draft Controller는 Visual/Audio/Modifier가 함께 쓰는
+focused input과 문자열 Draft 수명만 소유한다. selection id, selected revision,
+global/local frame 또는 reset revision이 달라지면 scope를 교체하고 Draft를
+폐기한다. 이 Controller는 숫자 clamp, Transform Preview와 Project command를
+모르며 제품별 확정은 각 Visual/Audio/Modifier Controller가 담당한다.
+
+- Visual 연속 change는 shared Transform Preview만 갱신하고 blur/Enter의 의미 있는
+  변경만 commit한다.
+- Audio와 Modifier 연속 change는 문자열 Draft만 갱신하고 확정 시 기존 Owner
+  command 한 건을 보낸다.
+- Escape, scope 변경, stale/invalid/no-op은 Draft를 폐기하고 History를 만들지 않는다.
 
 ## Persistence와 Dirty
 

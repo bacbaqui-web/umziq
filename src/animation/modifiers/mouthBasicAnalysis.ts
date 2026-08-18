@@ -116,6 +116,44 @@ export function analyzeMouthBasicTransitions(buffer: MouthBasicAudioBuffer, fram
   return { durationFrames, transitionFrames: [...new Set(transitions)].sort((left, right) => left - right) };
 }
 
+export function buildMouthBasicConnectionClip(options: {
+  readonly buffer: MouthBasicAudioBuffer;
+  readonly frameRate: number;
+  readonly audioSourceOffsetFrames: number;
+  readonly audioDurationFrames: number;
+  readonly audioAbsoluteStartFrame: number;
+  readonly targetAbsoluteStartFrame: number;
+  readonly targetSourceOffsetFrames: number;
+}) {
+  const analysis = analyzeMouthBasicTransitions(
+    options.buffer,
+    options.frameRate
+  );
+  const sourceStart = options.audioSourceOffsetFrames;
+  const durationFrames = Math.max(
+    1,
+    Math.min(
+      options.audioDurationFrames,
+      analysis.durationFrames - sourceStart
+    )
+  );
+  const sourceEnd = sourceStart + durationFrames;
+  const openAtStart = analysis.transitionFrames
+    .filter((frame) => frame <= sourceStart).length % 2 === 1;
+  const transitionFrames = analysis.transitionFrames
+    .filter((frame) => frame > sourceStart && frame < sourceEnd)
+    .map((frame) => frame - sourceStart);
+  if (openAtStart) transitionFrames.unshift(0);
+  return {
+    startFrame:
+      options.targetSourceOffsetFrames +
+      options.audioAbsoluteStartFrame -
+      options.targetAbsoluteStartFrame,
+    durationFrames,
+    transitionFrames,
+  };
+}
+
 export function evaluateMouthBasicOpacity(
   modifier: Extract<LayerModifier, { type: "mouth-basic" }>,
   localFrame: number

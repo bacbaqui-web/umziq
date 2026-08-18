@@ -110,9 +110,14 @@ runtime.reconcileProject(current);
 assert.equal(currentGain, 0);
 assert.equal(runtime.read().status === "playing" ? runtime.read().muted : null, true);
 
-runtime.invalidateSource("source-b");
+const sourceBBeforeSuspend = resources.resolve("source-b");
+runtime.suspendSource("source-b");
 assert.equal(runtime.read().status, "idle");
 assert.equal(stops, 3);
+assert.equal(resources.resolve("source-b"), null);
+assert.equal(runtime.restoreSource("source-b"), true);
+assert.strictEqual(resources.resolve("source-b"), sourceBBeforeSuspend);
+assert.equal(runtime.disposeSource("source-b"), true);
 assert.equal(resources.resolve("source-b"), null);
 
 resources.register([{

@@ -330,8 +330,13 @@ export function useLayerDocumentEditorRuntime(
       runtime: {
         stopPlayback: playback.commands.pause,
         clearDraft: draftSession.clear,
-        invalidateSourceRuntime:
-          resources.invalidate,
+        invalidateSourceRuntime: (invalidation) => {
+          const removed = resources.invalidate(invalidation);
+          if (invalidation.kind === "all") {
+            audio.replaceProject(owner.state.currentProject);
+          }
+          return removed;
+        },
         resetSourceResolution:
           sourceResolution.reset,
         resetLocalUi: () => {},

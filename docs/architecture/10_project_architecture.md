@@ -113,6 +113,42 @@ Library는 PSD 전용 Tree가 아니라 현재 Project의 PSD와 Audio Source/La
 Properties Engine이, ordered effect chain 편집은 독립 Audio Effects Engine과
 Panel이 담당한다.
 
+복합 Panel Engine 내부 책임은 다음 경계를 따른다.
+
+```text
+Engine facade
+└─ Composer
+   ├─ Controller
+   │  └─ Helper
+   └─ Controller
+      └─ Helper
+```
+
+- Engine facade는 Composer 호출과 Panel 공개 결과만 남긴다.
+- Composer는 독립 Controller의 결과를 ViewProps와 공개 command로 조합한다.
+- Composer는 Controller 간 실행 순서, 조건이나 비즈니스 규칙을 결정하지 않는다.
+- 여러 단계의 사용자 흐름은 하나의 Controller가 처음부터 cleanup까지 소유한다.
+- Controller는 사용자 intent, 비동기 session과 Runtime 수명을 담당하되 다른
+  Controller나 Feature UI를 직접 참조하지 않는다.
+- Helper는 순수 입력→출력 계산이며 React state, File/Handle과 Runtime resource를
+  소유하지 않는다.
+
+현재 Library와 Properties Engine이 이 구조를 사용한다. Properties Composer는
+Numeric Draft, Visual, Audio, Modifier Controller의 독립 결과만 공개
+`PropertiesEngineViewProps`로 조립한다. 선택 종류는 순수 Helper가 판정하고 각
+Controller는 자신에게 맞지 않는 descriptor에서 command를 거부한다. Composer가
+Controller의 존재 여부를 조건 분기하거나 Controller A 뒤에 Controller B를
+호출하는 workflow를 만들지 않는다.
+
+Properties의 Numeric Draft Controller는 focus/string Draft/scope/reset/cancel만
+공유한다. Transform Preview와 Animation은 Visual Controller가, Audio clamp와
+`set-audio-properties`는 Audio Controller가, Modifier Definition과
+`set-modifiers`는 Modifier Controller가 소유한다. Audio Effects Engine은
+Properties와 직접 참조하지 않는 별도 Panel Engine이다.
+
+이 구조는 책임이 실제로 여러 개일 때만 적용하며 작은 Engine을 형식적으로
+분해하지 않는다.
+
 ## Composition Root
 
 Composition Root는 다음 작업만 한다.

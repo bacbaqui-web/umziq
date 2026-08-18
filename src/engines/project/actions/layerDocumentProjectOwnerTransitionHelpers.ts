@@ -3,7 +3,6 @@ import {
   validateLayerDocumentProject,
 } from "@/models";
 import type {
-  LayerDocumentOwnerHistoryEntry,
   LayerDocumentProjectOwnerEffect,
   LayerDocumentProjectOwnerErrorCode,
   LayerDocumentProjectOwnerState,
@@ -27,7 +26,6 @@ function noRuntimeEffect(): LayerDocumentProjectOwnerEffect {
     sourceInvalidationIds: [],
     sourceRestorationIds: [],
     sourceDisposalIds: [],
-    suspendedSourceDisposalIds: [],
   };
 }
 
@@ -40,7 +38,6 @@ export function projectTransitionEffect(options?: {
   sourceInvalidationIds?: readonly string[];
   sourceRestorationIds?: readonly string[];
   sourceDisposalIds?: readonly string[];
-  suspendedSourceDisposalIds?: readonly string[];
   stopPlayback?: boolean;
 }): LayerDocumentProjectOwnerEffect {
   const cacheInvalidations = cloneOwnerPlainData(
@@ -58,10 +55,6 @@ export function projectTransitionEffect(options?: {
     cloneOwnerPlainData(
       options?.sourceDisposalIds ?? []
     );
-  const suspendedSourceDisposalIds =
-    cloneOwnerPlainData(
-      options?.suspendedSourceDisposalIds ?? []
-    );
   return {
     clearDraft: true,
     resetLocalUi: true,
@@ -73,8 +66,7 @@ export function projectTransitionEffect(options?: {
         : (
           sourceInvalidationIds.length > 0 ||
           sourceRestorationIds.length > 0 ||
-          sourceDisposalIds.length > 0 ||
-          suspendedSourceDisposalIds.length > 0
+          sourceDisposalIds.length > 0
         )
           ? "apply-source-invalidations"
           : options?.sourceInvalidationsAreComplete &&
@@ -85,48 +77,7 @@ export function projectTransitionEffect(options?: {
     sourceInvalidationIds,
     sourceRestorationIds,
     sourceDisposalIds,
-    suspendedSourceDisposalIds,
   };
-}
-
-export function abandonedSourceRuntimeIds(options: {
-  previous: LayerDocumentProjectOwnerState;
-  nextUndo: readonly LayerDocumentOwnerHistoryEntry[];
-  nextRedo: readonly LayerDocumentOwnerHistoryEntry[];
-}): string[] {
-  const collect = (
-    entries: readonly LayerDocumentOwnerHistoryEntry[]
-  ) => entries.flatMap((entry) => {
-    const beforeIds = new Set(
-      Object.keys(
-        entry.before.payload.sourceRegistry.sourcesById
-      )
-    );
-    const afterIds = new Set(
-      Object.keys(
-        entry.after.payload.sourceRegistry.sourcesById
-      )
-    );
-    return [
-      ...[...beforeIds].filter(
-        (sourceId) => !afterIds.has(sourceId)
-      ),
-      ...[...afterIds].filter(
-        (sourceId) => !beforeIds.has(sourceId)
-      ),
-    ];
-  });
-  const previousIds = new Set([
-    ...collect(options.previous.undoStack),
-    ...collect(options.previous.redoStack),
-  ]);
-  const retainedIds = new Set([
-    ...collect(options.nextUndo),
-    ...collect(options.nextRedo),
-  ]);
-  return [...previousIds]
-    .filter((sourceId) => !retainedIds.has(sourceId))
-    .sort();
 }
 
 export function ownerSourceRuntimePresenceDiff(options: {

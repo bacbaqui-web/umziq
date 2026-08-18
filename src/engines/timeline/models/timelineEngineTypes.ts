@@ -2,6 +2,12 @@ import type { RefObject } from "react";
 import type { AccelerationCurve, AnimatableProperty } from "@/models";
 import type { TimelineReadModel } from "@/engines/timeline/models/timelineViewModel";
 import type { TimelineSourceStatusViewModel } from "@/engines/timeline/models/timelineViewModel";
+import type { TimelinePointerDragBeginInput } from "@/engines/timeline/models/timelinePointerDragSessionModel";
+
+export type TimelinePointerDragStart =
+  TimelinePointerDragBeginInput & {
+    readonly clientX: number;
+  };
 
 export type TimelineCommands = {
   toggleCompositionSwitcher: () => void;
@@ -14,8 +20,8 @@ export type TimelineCommands = {
   stepForward: () => void;
   setHoveredFrameFromPointer: (clientX: number) => void;
   leaveRuler: () => void;
-  beginScrub: (clientX: number) => void;
-  beginRangeResize: (clientX: number, handle: "start" | "end") => void;
+  beginScrub: (start: TimelinePointerDragStart) => void;
+  beginRangeResize: (start: TimelinePointerDragStart, handle: "start" | "end") => void;
   moveRangeResize: (clientX: number) => void;
   endRangeResize: () => void;
   commitRangeDuration: (seconds: string, frames: string) => void;
@@ -35,16 +41,16 @@ export type TimelineInteractionCommands = {
   deleteTimelineItem: (itemId: string) => void;
   reorderTimelineItem: (targetItemId: string) => void;
   setDraggedTimelineItemId: (itemId: string | null) => void;
-  beginMoveTimelineItem: (clientX: number, itemId: string) => void;
-  beginResizeTimelineItemStart: (clientX: number, itemId: string) => void;
-  beginResizeTimelineItemEnd: (clientX: number, itemId: string) => void;
+  beginMoveTimelineItem: (start: TimelinePointerDragStart, itemId: string) => void;
+  beginResizeTimelineItemStart: (start: TimelinePointerDragStart, itemId: string) => void;
+  beginResizeTimelineItemEnd: (start: TimelinePointerDragStart, itemId: string) => void;
   beginRenameTimelineItem: (itemId: string) => void;
   changeTimelineItemName: (name: string) => void;
   commitTimelineItemName: () => void;
   cancelTimelineItemName: () => void;
   handleTimelineItemNameKey: (key: string) => void;
   selectKeyframe: (itemId: string, frame: number, property: AnimatableProperty) => void;
-  beginMoveKeyframe: (clientX: number, itemId: string, frame: number, property: AnimatableProperty) => void;
+  beginMoveKeyframe: (start: TimelinePointerDragStart, itemId: string, frame: number, property: AnimatableProperty) => void;
   deleteKeyframe: (itemId: string, frame: number, property: AnimatableProperty) => void;
   setMouthBasicClip: (itemId: string, clip: {
     startFrame: number;

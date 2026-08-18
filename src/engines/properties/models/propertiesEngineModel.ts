@@ -29,10 +29,6 @@ export type PropertiesModifierInputId =
   | "modifier.oscillate.frequency"
   | "modifier.oscillate.amount";
 
-export type PropertiesDraftInputId =
-  | PropertiesNumericInputId
-  | PropertiesModifierInputId;
-
 export type PropertiesAudioInputId =
   | "audio.name"
   | "audio.gain"
@@ -41,6 +37,11 @@ export type PropertiesAudioInputId =
   | "audio.sourceOffsetFrames"
   | "audio.fadeInFrames"
   | "audio.fadeOutFrames";
+
+export type PropertiesDraftInputId =
+  | PropertiesNumericInputId
+  | PropertiesModifierInputId
+  | PropertiesAudioInputId;
 
 export type PropertiesAudioFieldViewModel = {
   id: PropertiesAudioInputId;

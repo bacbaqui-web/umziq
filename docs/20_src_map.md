@@ -76,11 +76,12 @@ Audio import 준비와 Runtime 경계:
 - `engines/project/models/layerDocumentAudioRuntimeModel.ts`: 저장되지 않는 decoded
   Audio resource와 registration public port
 - `engines/project/state/layerDocumentAudioRuntimeStore.ts`: sourceId/fingerprint 기반
-  decoded Audio 등록·재사용·dispose 경계
+  decoded Audio 등록·재사용, active/suspended 전환과 Project-session dispose 경계
 - `engines/library/adapters/layerDocumentAudioImportCommandAdapter.ts`: prepared
   lifecycle, Owner atomic confirm, Runtime 등록과 Source resolution 연결
 - `editor/audio-runtime/editorAudioRuntime.ts`: single-active audition,
-  play/stop/replace/seek/read/subscribe와 Project/Source reconcile
+  play/stop/replace/seek/read/subscribe, 삭제 시 handle 정지와 decoded/waveform
+  suspend/restore/targeted dispose를 분리한 Project/Source reconcile
 - `editor/audio-runtime/browserAudioAuditionBackend.ts`: AudioBufferSourceNode와
   GainNode 및 compressor/delay/reverb/Noise Gate ordered graph를 사용하는 브라우저
   playback adapter. handle 종료 때 processing callback, node와 AudioContext를 정리한다.
@@ -135,10 +136,33 @@ Duplicate는 같은 Source를 참조하는 새 LayerDocument를 만들고 공통
   최소 입력 port로 변환
 - `useEditorCompositionRoot.ts`: 다섯 Panel Engine 생성과 ViewProps 연결만 수행하는 Editor Composition Root
 - `projectLifecycleUi.ts`: lifecycle 공개 포트만 사용하는 New/Open/Save/Save As/Close/Reconnect UI command와 구조화 ViewModel
-- `ProjectLifecycleBar.tsx`: clean/dirty/saving/loading, 오류, Missing Source와 Reconnect entry를 표시하는 Shell 상단 UI
+- `ProjectLifecycleBar.tsx`: 기존 공개 props를 UI Controller, Composer와
+  `ProjectLifecycleView`에 연결하는 얇은 Project Lifecycle facade
+- `project-lifecycle/adapters/projectLifecycleBrowserDirectoryAdapter.ts`:
+  Browser directory picker, `.ziq` 단일 파일 탐색, 새 Project의 `psd/`·`audio/`
+  준비, queued open selection과 asset directory 연결/복구 경계
+- `project-lifecycle/controllers/projectLifecycleUiController.ts`: pending Project
+  위치, create/open/close, 중복 intent와 stale async cleanup, Export open/prepare를
+  소유하는 UI workflow Controller
+- `project-lifecycle/state/useProjectLifecycleUiController.ts`: UI workflow
+  Controller의 React 구독과 최신 Core/Export port 연결
+- `project-lifecycle/composers/projectLifecycleUiComposer.ts`: Core ViewModel과 UI
+  Controller 결과를 Toolbar, Start Screen, Dialog, Missing Source와 Export
+  ViewProps로만 조립하는 Composer
+- `project-lifecycle/helpers/projectLifecycleNameHelpers.ts`: Project 이름 정리,
+  `.ziq` 파일명과 pending 표시 경로의 순수 계산
+- `project-lifecycle/models/*`: Project Lifecycle presentation과 UI Controller의
+  공개 Plain ViewProps 계약
+- `features/project-lifecycle/components/*`: Toolbar, Start Screen, New Project
+  Dialog, Missing Source Banner와 최종 Project Lifecycle 표시. picker와 Project
+  mutation을 소유하지 않으며 overlay는 각 component가 한 번만 portal한다.
 - `projectAssetDirectoryRuntime.ts`: 현재 Browser session의 Project directory
-  권한과 `psd/`, `audio/` 복사, relative locator 준비, 마지막 recorded Audio
-  Layer 삭제 시 `audio/` 원본 파일의 제한된 삭제
+  권한과 `psd/`, `audio/` 충돌 없는 복사, relative locator 준비와 재열기 탐색.
+  실패한 신규 write entry는 best-effort 정리하며 Library 삭제에 따른 물리 원본
+  삭제는 제공하지 않는다.
+- `libraryRecordingAssetStoreAdapter.ts`: 확인된 임시 녹음을 `audio/`에 저장하고
+  실제 충돌 회피 파일명과 relative locator를 prepared command에 연결하는 Editor
+  경계
 - `state/useEditorCanvasRuntimeState.ts`: drag, hover, pan 같은 Canvas 전용 세션 상태
 - `state/useEditorShellLayoutState.ts`: panel size 같은 Shell 세션 상태
 - `useEditorHistoryShortcuts.ts`: owner undo/redo에 keyboard intent 전달
@@ -302,8 +326,17 @@ Projection만 갱신하며 Blur Glow는 사용하지 않는다.
 - `useLayerDocumentTimelineEngine.ts`: Timeline Engine facade
 - `helpers/layerDocumentTimelineViewModelHelpers.ts`: placement/animation/selection을 row와 keyframe으로 projection
 - `controllers/layerDocumentTimelineInteractionController.ts`: move/trim/reorder/keyframe Draft와 commit intent
+- `controllers/timelinePointerDragSessionController.ts`: Timeline pointer ID,
+  capture, global listener와 exactly-once commit/cancel DOM 수명
+- `state/useTimelinePointerDragSessionRuntime.ts`: 공통 Pointer Drag
+  Controller의 React wiring, active type과 선택적 auto-scroll 좌표 보정
 - `features/timeline/components/TimelineFormulaTrackRow.tsx`: `입뻥긋(기본)`
-  수식 클립 이동·리사이즈와 내부 전환선 조절 UI
+  opacity segment와 내부 전환선 content UI
+- `features/timeline/components/TimelineAccelerationTrackRow.tsx`: 가속·감속
+  curve content UI
+- `features/timeline/components/TimelineFormulaClip.tsx`: 수식 row label, box,
+  양끝 trim, Draft와 commit을 공유하는 shell. 입뻥긋과 가속·감속 content를
+  주입받고 공통 Pointer Drag Session Runtime을 사용한다.
 - `controllers/layerDocumentTimelineNavigationController.ts`: active Group/selection navigation
 - `state/layerDocumentTimelinePlaybackRuntime.ts`: current frame/range, isPlaying, clock, scheduler와 transport를 단독 소유하는 Timeline Runtime 및 validity command
 - `adapters/layerDocumentTimelineConsumerAdapter.ts`: placement/Source
@@ -315,8 +348,29 @@ Timeline은 Layer를 저장하지 않고 LayerDocument placement/animation을 �
 
 ### `src/engines/properties`
 
-- `controllers/layerDocumentPropertiesController.ts`: 선택 LayerDocument read/command controller
-- `useLayerDocumentPropertiesEngine.ts`: Properties Panel Engine
+- `useLayerDocumentPropertiesEngine.ts`: Composer만 호출하고 공개
+  `PropertiesEngineViewProps`를 반환하는 얇은 Properties Panel Engine facade
+- `composers/useLayerDocumentPropertiesComposer.ts`: 서로 독립인 Numeric Draft,
+  Visual, Audio, Modifier Controller 결과를 공개 Controller와 ViewProps로 조립한다.
+  Controller 실행 순서·조건과 제품 규칙은 결정하지 않는다.
+- `composers/propertiesViewPropsComposer.ts`: 선택 종류와 Controller read 결과를
+  기존 `PropertiesReadModel`/command 계약으로 조립한다.
+- `controllers/propertiesNumericDraftController.ts`: focused input, 문자열 Draft,
+  selection/revision/frame/reset scope와 cancel/reset 수명만 소유한다.
+- `controllers/visualPropertiesController.ts`: Transform Preview→commit/cancel,
+  scale link, Animation track와 keyframe selection command를 소유한다.
+- `controllers/audioPropertiesController.ts`: Audio 이름·gain·mute·timing·source
+  offset·fade Draft를 기존 `set-audio-properties` command 하나로 확정한다.
+- `controllers/modifierPropertiesController.ts`: Modifier library/toggle/숫자 Draft,
+  입뻥긋 연결 Audio와 가속·감속 command를 소유한다.
+- `controllers/layerDocumentPropertiesController.ts`: 분리 전 Controller import를
+  위한 호환 re-export이며 새 책임을 추가하지 않는다.
+- `helpers/propertiesSelectionHelpers.ts`: 선택 종류와 Draft scope identity 순수 계산
+- `helpers/propertiesDescriptorViewModelHelpers.ts`: type detail/capability/info 순수 projection
+- `helpers/visualPropertiesHelpers.ts`: Transform patch/Animation track 순수 계산
+- `helpers/visualPropertiesViewModelHelpers.ts`: Visual row/origin/keyframe 순수 projection
+- `helpers/audioPropertiesHelpers.ts`: Audio descriptor/value/field 순수 projection
+- `helpers/modifierPropertiesViewModelHelpers.ts`: Modifier view/library 순수 projection
 - `adapters/layerDocumentPanelPreparationAdapter.ts`: Type별 panel descriptor
 - `adapters/layerDocumentPropertiesCommandPreparationAdapter.ts`: Transform/Animation/Effect/Modifier command preparation
 - `adapters/layerDocumentPropertiesCommandPortAdapter.ts`: 현재 frame과
@@ -330,12 +384,44 @@ Timeline은 Layer를 저장하지 않고 LayerDocument placement/animation을 �
 - `models/layerDocumentPanelModel.ts`: Type별 preparation port 계약
 
 Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Draft를 읽고, 외부 Source 가용성은 주입된 runtime resolution에서 읽는다.
+Numeric Draft는 Project/Preview/History를 직접 바꾸지 않으며 각 type Controller가
+제품별 clamp와 Owner command를 소유한다. Audio Effects Engine은 Properties와
+직접 참조하지 않는 독립 형제 Engine이다.
 
 ### `src/engines/library`
 
-- `useLayerDocumentLibraryEngine.ts`: canonical LayerDocument hierarchy projection,
-  PSD/Audio 다중 import와 Library drag/drop UI Engine
+- `useLayerDocumentLibraryEngine.ts`: Composer를 호출하고 공개 결과만 반환하는
+  Library Panel Engine facade
+- `composers/useLayerDocumentLibraryComposer.ts`: 서로 독립인 Controller 결과를
+  `LibraryViewProps`와 외부 PSD import command로 조합한다. Controller의 실행
+  순서·조건·비즈니스 규칙은 소유하지 않는다.
+- `controllers/useLibraryPsdImportController.ts`: PSD picker, 다중 prepared plan,
+  미리보기 편집, confirm/cancel/refresh와 external import 수명
+- `controllers/useLibraryAudioImportController.ts`: 다중 Audio prepared resource,
+  순서 보존 confirm과 partial-failure/stale cleanup
+- `controllers/libraryRecordingSessionController.ts`: microphone request/start/stop,
+  임시 prepared 검토, 다시 녹음, 확인 시 asset 저장→Owner confirm 순서와 stale/
+  exactly-once cleanup을 소유하는 단일 workflow Controller
+- `adapters/useLibraryRecordingControllerAdapter.ts`: Recording Controller를 React
+  lifecycle과 external-store 구독에 연결하고 Project 교체 시 session을 dispose하는
+  얇은 Adapter
+- `controllers/useLibraryAssetCopyController.ts`: 원본 위치 유지/Project asset
+  복사 확인 Promise와 Project replace/unmount 취소
+- `controllers/useLibraryDragController.ts`: drag candidate 120ms 안정화,
+  before/inside/after, drop/end와 keyboard move
+- `controllers/useLibraryHoverPreviewController.ts`: 180ms hover delay,
+  pending preview 위치와 Project replace/unmount cleanup
+- `controllers/createLibraryNodeCommandController.ts`: visual/audio node의
+  select, lock, visibility/mute, playback, rename, delete와 refresh routing
+- `helpers/libraryPsdImportViewHelpers.ts`: PSD preview token/tree/plan과 순수
+  preview reorder projection
+- `helpers/libraryTreeProjectionHelpers.ts`: canonical Library tree projection,
+  flatten/find와 keyboard target 계산
+- `helpers/libraryDropTargetHelpers.ts`: drop 유효성, 위치와 hysteresis 계산
 - `models/libraryModel.ts`: Library node/view props와 drag/drop 표시 계약
+- `models/libraryEngineModel.ts`: Library Engine에 주입되는 Project/Audio/Recording/
+  Recording Asset Store/Copy 최소 port 계약
+- `models/libraryRecordingModel.ts`: 녹음 Dialog 상태와 가능한 intent snapshot 계약
 - `adapters/layerDocumentLibrarySourceCommandAdapter.ts`: PSD Owner Source
   preparation/commit과 Runtime registration의 confirm/retry 원자성 및
   Library Source command port 조합
@@ -345,20 +431,30 @@ Properties는 선택된 동일 `layerDocumentId`의 committed 값과 matching Dr
   LayerDocument `parent/order`를 기준으로 표시한다. Source 가용성은 runtime
   resolution에서 읽는다.
 
+Library Controller끼리는 직접 참조하지 않는다. 다단계 PSD/Audio/Recording
+사용자 흐름은 각각 하나의 Controller가 처음부터 cleanup까지 소유한다. Composer는
+Controller에 port를 주입하고 결과를 ViewProps로 모으기만 한다.
+
 ## 8. Pure Animation과 Layer Type 지원
 
+- `src/models/layerModifierDefinition.ts`: canonical `LayerModifier` type별
+  default, normalize/validate, Properties/Timeline descriptor와 evaluation kind를
+  연결하는 typed Definition registry. 저장 원본이나 Runtime state는 소유하지 않는다.
 - `src/animation/index.ts`: keyframe 조회/불변 갱신, 보간 평가, global/local
   frame 변환, Modifier 정규화/결정적 계산, motion-path sampling의 단일 pure
   public entry
 - `src/animation/modifiers/mouthBasicAnalysis.ts`: decoded Audio PCM을
-  RMS·smoothing·hysteresis로 분석해 전환 frame을 만들고 opacity 0/100을
-  결정적으로 평가하는 pure 모듈
+  RMS·smoothing·hysteresis로 분석해 전환 frame을 만들고, Audio/대상 placement를
+  source-local 수식 clip으로 projection하며 opacity 0/100을 결정적으로 평가하는
+  pure 모듈
 - `src/animation/modifiers/accelerationEvaluation.ts`: 가속·감속 수식 클립의
   네 가지 preset progress와 선택 속성용 평가 frame 재배치
 
 Animation은 state, Runtime authority, Project 편집 원본을 소유하지 않는다.
 Timeline/Properties/Canvas/Render는 모두 `@/animation`을 canonical
 public 경계로 사용하고 Project 편집은 계속 Owner command로 수행한다.
+Render는 저장된 `LayerModifier`를 legacy `ModifierInstance`로 복제하지 않고
+Definition evaluation kind를 통해 같은 Preview/Accurate 평가 경로에 연결한다.
 
 - `src/layer-types/index.ts`: Drawing/Text/Audio query와 transaction preparation의
   단일 public entry
@@ -382,7 +478,10 @@ decode/재생/UI는 future work다. Video/Shape는 schema와 extension point만 
 - `src/features/preview`: Canvas, overlay, gizmo, quality UI
 - `src/features/timeline`: Timeline rows, ruler, keyframes, interaction hooks
 - `src/features/properties`: Properties sections와 controlled input UI
-- `src/features/library`: Library, import dialog, refresh status UI
+- `src/features/library`: `LibraryPanel` 조립, `LibraryProjectHeader`, `LibraryTree`,
+  node 종류별 `LibraryNodeIdentity`, 공통 `LibraryNodeRow`/`LibraryNodeActions`/
+  `LibraryTreeConnector`, Audio menu, 중앙 recording review Dialog, asset-copy dialog와 hover
+  preview card presentation
 
 Feature UI는 Project object를 직접 mutation하지 않고 Engine view props와
 command를 사용한다. Engine barrel은 Feature component를 re-export하지
@@ -423,11 +522,15 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
 - Timeline Audio row/waveform, source-bounded timing Draft와 single-clock Audio synchronization
 - Library Cut/Group/visual/Audio 공통 canonical hierarchy reorder와
   same/cross-parent drag/drop single-transaction command
+- Library Engine facade, Composer/Controller/Helper import boundary와 순수 tree/drop
+  helper, Project replace 시 prompt/prepared/drag/hover cleanup
 - Project-root/Cut Audio import, 다중 Audio 선택, Project `psd/`·`audio/`
   asset copy와 relative locator
 - fake microphone/recorder 기반 직접 녹음 cancel/error/stale/confirm과 자원 정리
 - Audio Properties 전용 name/gain/mute/timing/source offset/fade Runtime Draft와
   단일 Owner transaction clamp/undo 계약
+- Properties Numeric Draft/Visual/Audio/Modifier Controller 분리, 선택 type별
+  command isolation과 Engine/Composer/Controller/Helper import boundary
 - Audio Effects ordered envelope, Draft/단일 History command, stale selection 거부와
   audition graph reconcile
 - Noise Gate strength/threshold/floor/attack/release pure DSP, AudioWorklet/fallback
@@ -509,3 +612,5 @@ Timeline/Properties pointer 조작 QA는 아직 실행하지 않았으며 별도
   Renderer 역할 전환과 공용 EvaluatedScene 완료 기록
 - `docs/completed/63_library_audio_foundation.md`: Library 전환, Audio schema v3,
   import/녹음/Timeline/Properties/Effects/Noise Gate/영상 출력 Audio mix 완료 기록
+- `docs/completed/84_library_engine_responsibility_split.md`: Library Engine을 얇은
+  facade와 Composer/Controller/Helper/UI presentation으로 분리한 완료 기록

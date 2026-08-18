@@ -18,12 +18,12 @@ export type ProjectAssetDirectoryHandle = {
     name: string,
     options: { readonly create: boolean }
   ): Promise<ProjectAssetFileHandle>;
+  removeEntry?(name: string): Promise<void>;
   values?(): AsyncIterableIterator<{
     readonly kind: "file" | "directory";
     readonly name: string;
     getFile?: () => Promise<File>;
   }>;
-  removeEntry?(name: string): Promise<void>;
 };
 
 let projectDirectory: ProjectAssetDirectoryHandle | null = null;
@@ -63,6 +63,10 @@ export function setProjectAssetDirectory(
 ) {
   projectDirectory = directory;
   projectDirectoryLookupDeclined = false;
+}
+
+export function readProjectAssetDirectory() {
+  return projectDirectory;
 }
 
 function isAbortError(error: unknown) {
@@ -184,40 +188,50 @@ export async function copyFilesIntoProjectAssets(options: {
   const assetDirectory = await directory.getDirectoryHandle(options.kind, { create: true });
   const copied = [];
   for (const file of options.files) {
-    const handle = await assetDirectory.getFileHandle(file.name, { create: true });
+    const extensionIndex = file.name.lastIndexOf(".");
+    const stem = extensionIndex > 0
+      ? file.name.slice(0, extensionIndex)
+      : file.name;
+    const extension = extensionIndex > 0
+      ? file.name.slice(extensionIndex)
+      : "";
+    let availableName: string | null = null;
+    for (let suffix = 1; suffix <= 10_000; suffix += 1) {
+      const candidate = suffix === 1
+        ? file.name
+        : `${stem} (${suffix})${extension}`;
+      try {
+        await assetDirectory.getFileHandle(candidate, { create: false });
+      } catch {
+        availableName = candidate;
+        break;
+      }
+    }
+    if (!availableName) {
+      throw new Error(`프로젝트 asset 이름을 만들 수 없습니다: ${file.name}`);
+    }
+    const handle = await assetDirectory.getFileHandle(availableName, { create: true });
     const writable = await handle.createWritable();
     try {
       await writable.write(file);
       await writable.close();
     } catch (error) {
       await writable.abort?.();
+      try {
+        await assetDirectory.removeEntry?.(availableName);
+      } catch {
+        // The failed write remains the primary error. Cleanup is best effort.
+      }
       throw error;
     }
     copied.push({
       file: await handle.getFile(),
-      relativePathHint: `${options.kind}/${file.name}`,
+      relativePathHint: `${options.kind}/${availableName}`,
     });
   }
   return copied;
 }
 
-export async function deleteRecordedAudioProjectAsset(
-  relativePathHint: string
-): Promise<boolean> {
-  const parts = relativePathHint.split("/");
-  if (
-    parts.length !== 2 ||
-    parts[0] !== "audio" ||
-    !parts[1] ||
-    parts[1] === "." ||
-    parts[1] === ".."
-  ) return false;
-  const directory = await requireProjectAssetDirectory();
-  const audioDirectory = await directory.getDirectoryHandle("audio", { create: true });
-  if (!audioDirectory.removeEntry) return false;
-  await audioDirectory.removeEntry(parts[1]);
-  return true;
-}
 import type {
   LayerDocumentProjectOpenSelection,
 } from "@/engines/project";

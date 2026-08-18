@@ -9,11 +9,17 @@ function dispose(resource: LayerDocumentAudioRuntimeResource) {
 
 export function createLayerDocumentAudioRuntimeStore(): LayerDocumentAudioRuntimePort {
   const resources = new Map<string, LayerDocumentAudioRuntimeResource>();
+  const suspendedResources = new Map<string, LayerDocumentAudioRuntimeResource>();
   let disposed = false;
   const clear = () => {
-    const count = resources.size;
-    resources.forEach(dispose);
+    const unique = new Set([
+      ...resources.values(),
+      ...suspendedResources.values(),
+    ]);
+    const count = unique.size;
+    unique.forEach(dispose);
     resources.clear();
+    suspendedResources.clear();
     return count;
   };
   return {
@@ -36,6 +42,11 @@ export function createLayerDocumentAudioRuntimeStore(): LayerDocumentAudioRuntim
       let registeredCount = 0;
       let reusedCount = 0;
       incoming.forEach((resource) => {
+        const suspended = suspendedResources.get(resource.sourceId);
+        if (suspended) {
+          suspendedResources.delete(resource.sourceId);
+          if (suspended !== resource) dispose(suspended);
+        }
         const previous = resources.get(resource.sourceId);
         if (previous?.fingerprint === resource.fingerprint) {
           if (previous !== resource) dispose(resource);
@@ -49,12 +60,35 @@ export function createLayerDocumentAudioRuntimeStore(): LayerDocumentAudioRuntim
       return { ok: true, registeredCount, reusedCount };
     },
     resolve: (sourceId) => resources.get(sourceId) ?? null,
-    invalidate: (sourceId) => {
+    suspendSource: (sourceId) => {
+      if (disposed) return false;
       const resource = resources.get(sourceId);
       if (!resource) return false;
+      const previous = suspendedResources.get(sourceId);
+      if (previous && previous !== resource) dispose(previous);
+      suspendedResources.set(sourceId, resource);
       resources.delete(sourceId);
-      dispose(resource);
       return true;
+    },
+    restoreSource: (sourceId) => {
+      if (disposed) return false;
+      const resource = suspendedResources.get(sourceId);
+      if (!resource) return false;
+      const previous = resources.get(sourceId);
+      if (previous && previous !== resource) dispose(previous);
+      resources.set(sourceId, resource);
+      suspendedResources.delete(sourceId);
+      return true;
+    },
+    disposeSource: (sourceId) => {
+      if (disposed) return false;
+      const active = resources.get(sourceId);
+      const suspended = suspendedResources.get(sourceId);
+      resources.delete(sourceId);
+      suspendedResources.delete(sourceId);
+      if (active) dispose(active);
+      if (suspended && suspended !== active) dispose(suspended);
+      return Boolean(active || suspended);
     },
     clear,
     dispose: () => {

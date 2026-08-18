@@ -19,12 +19,12 @@ export default function TimelineRuler({ viewModel, commands, rulerRef }: Props) 
         ref={rulerRef}
         onMouseMove={(event) => commands.setHoveredFrameFromPointer(event.clientX)}
         onMouseLeave={commands.leaveRuler}
-        onMouseDown={(event) => commands.beginScrub(event.clientX)}
+        onPointerDown={(event) => commands.beginScrub({ clientX: event.clientX, pointerId: event.pointerId, captureTarget: event.currentTarget })}
         style={{ position: "relative", height: 30, overflow: "hidden", border: "1px solid #3a3a3a", borderLeft: "none", borderRadius: "0 6px 6px 0", background: "#202020", cursor: viewModel.hideCursor ? "none" : "crosshair" }}
       >
         <div style={{ position: "absolute", left: viewModel.playbackRangeLeft, top: 3, height: 24, width: viewModel.playbackRangeWidth, borderRadius: 0, background: "rgba(245, 165, 36, 0.2)", border: "1px solid rgba(245, 165, 36, 0.7)", boxSizing: "border-box", pointerEvents: "none", zIndex: 2 }}>
           {(["start", "end"] as const).map((handle) => (
-            <div key={handle} onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); commands.beginRangeResize(event.clientX, handle); }}
+            <div key={handle} onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); commands.beginRangeResize({ clientX: event.clientX, pointerId: event.pointerId, captureTarget: event.currentTarget }, handle); }}
               style={{ position: "absolute", [handle === "start" ? "left" : "right"]: -4, top: -1, bottom: -1, width: 10, background: "transparent", cursor: "ew-resize", pointerEvents: "auto" }}>
               <div style={{ position: "absolute", [handle === "start" ? "left" : "right"]: 4, top: 1, bottom: 1, width: 2, borderRadius: 999, background: "rgba(255, 218, 128, 0.95)", boxShadow: "0 0 0 1px rgba(0,0,0,0.14)" }} />
             </div>

@@ -24,7 +24,10 @@ import {
   prepareLayerDocumentAudioImport,
   cancelLayerDocumentAudioRecording,
   startLayerDocumentAudioRecording,
+  beginLayerDocumentAudioRecording,
   stopLayerDocumentAudioRecording,
+  type LayerDocumentAudioProcessingFeature,
+  type PreparedLayerDocumentAudioImport,
   type LayerDocumentProjectOwnerPort,
   type LayerDocumentSourceRuntimeResolutionPort,
 } from "@/engines/project";
@@ -37,6 +40,7 @@ import { createAudioEffectsOwnerPort } from "@/engines/audio-effects";
 import {
   createLayerDocumentLibrarySourceCommandAdapter,
   confirmLayerDocumentAudioPreparedSource,
+  type LibraryRecordingEditRequest,
 } from "@/engines/library";
 import {
   createLayerDocumentTimelineCommandAdapter,
@@ -49,6 +53,7 @@ import {
   createEditorProjectOwnerCommandAdapter,
   readEditorOwnerGroupScope,
 } from "@/editor/project-owner";
+import { editRecordedAudioFile } from "@/editor/audioRecordingEditAdapter";
 
 type OwnerCommands = ReturnType<
   typeof createEditorProjectOwnerCommandAdapter
@@ -447,13 +452,18 @@ export function useLayerDocumentPanelEnginePorts(
         prepared.runtime.cancel(),
     },
     audioRecording: {
-      start: (explicitCutLayerDocumentId?: string | null) =>
+      start: (
+        audioProcessingPreferences: Partial<Record<LayerDocumentAudioProcessingFeature, boolean>>,
+        audioInputDeviceId?: string | null
+      ) =>
         startLayerDocumentAudioRecording({
           project: readProject(),
-          explicitCutLayerDocumentId,
+          audioProcessingPreferences,
+          audioInputDeviceId,
           selectedLayerDocumentId: readSelectedLayerDocumentId(),
           activeGroupLayerDocumentId: readActiveGroupLayerDocumentId(),
         }),
+      begin: beginLayerDocumentAudioRecording,
       stop: (session: Awaited<ReturnType<typeof startLayerDocumentAudioRecording>>) =>
         stopLayerDocumentAudioRecording({
           session,
@@ -461,6 +471,25 @@ export function useLayerDocumentPanelEnginePorts(
           token: `recording:${Date.now()}`,
         }),
       cancel: cancelLayerDocumentAudioRecording,
+      edit: async (
+        prepared: PreparedLayerDocumentAudioImport,
+        request: LibraryRecordingEditRequest
+      ) => {
+        const file = await editRecordedAudioFile(prepared.file, request);
+        const parentLayerDocumentId =
+          prepared.command.layers[0]?.common.placement.parentLayerDocumentId;
+        if (!parentLayerDocumentId) {
+          throw new Error("녹음을 넣을 위치를 찾지 못했습니다.");
+        }
+        return prepareLayerDocumentAudioImport({
+          project: readProject(),
+          file,
+          token: `recording-edit:${Date.now()}:${file.name}`,
+          explicitCutLayerDocumentId: parentLayerDocumentId,
+          provenance: "recorded",
+          reuseMatchingSource: false,
+        });
+      },
     },
     sourceStatus,
     allocateLayerDocumentId,

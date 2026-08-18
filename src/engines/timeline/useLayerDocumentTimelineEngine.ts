@@ -14,8 +14,8 @@ import {
   useTimelinePlaybackUIController,
 } from "@/engines/timeline/controllers/useTimelinePlaybackUIController";
 import {
-  useTimelinePointerController,
-} from "@/engines/timeline/controllers/useTimelinePointerController";
+  useTimelinePointerDragSessionRuntime,
+} from "@/engines/timeline/state/useTimelinePointerDragSessionRuntime";
 import {
   buildLayerDocumentTimelineUiReadModel,
 } from "@/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers";
@@ -37,6 +37,7 @@ import type {
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 import type {
   TimelineEngineViewProps,
+  TimelinePointerDragStart,
 } from "@/engines/timeline/models/timelineEngineTypes";
 import {
   createLayerDocumentTimelineInteractionController,
@@ -323,10 +324,17 @@ export function useLayerDocumentTimelineEngine(
     },
     [options.owner.timeline]
   );
-  const pointer = useTimelinePointerController({
+  const pointer = useTimelinePointerDragSessionRuntime({
     scrollContainerRef,
     move: movePointer,
-    end: endPointer,
+    commit: endPointer,
+    cancel: (session) => {
+      if (session.type === "move-keyframe") {
+        setKeyframeDrag(null);
+      } else {
+        setTimingDraft(null);
+      }
+    },
   });
   const cancelPointer = pointer.cancel;
   useEffect(() => {
@@ -354,7 +362,7 @@ export function useLayerDocumentTimelineEngine(
   );
   const beginTiming = useCallback(
     (
-      clientX: number,
+      start: TimelinePointerDragStart,
       layerDocumentId: string,
       operation:
         LayerDocumentTimelineTimingOperation
@@ -384,7 +392,7 @@ export function useLayerDocumentTimelineEngine(
               : "resize-end",
         operation,
         layerDocumentId,
-        startClientX: clientX,
+        startClientX: start.clientX,
         timelineDurationFrames:
           metadata.durationFrames,
         sourceDurationFrames:
@@ -393,13 +401,13 @@ export function useLayerDocumentTimelineEngine(
             : null,
         initial,
         draft: null,
-      });
+      }, start);
     },
     [itemById, metadata, pointer, project]
   );
   const beginKeyframePointer = useCallback(
     (
-      clientX: number,
+      start: TimelinePointerDragStart,
       layerDocumentId: string,
       localFrame: number,
       property: AnimatableProperty
@@ -416,8 +424,8 @@ export function useLayerDocumentTimelineEngine(
         property,
         originLocalFrame: localFrame,
         localFrame,
-        startClientX: clientX,
-      });
+        startClientX: start.clientX,
+      }, start);
     },
     [pointer]
   );

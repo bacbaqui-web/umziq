@@ -12,7 +12,6 @@ import {
   ownerStateWithStacks,
 } from "@/engines/project/helpers/layerDocumentProjectOwnerHelpers";
 import {
-  abandonedSourceRuntimeIds,
   changedOwnerRecordIds,
   createdOwnerRecordIds,
   deletedOwnerRecordIds,
@@ -131,12 +130,6 @@ export function commitLayerDocumentOwnerTransaction(
     state: nextState,
     effect: projectTransitionEffect({
       preserveSourceRuntime: true,
-      suspendedSourceDisposalIds:
-        abandonedSourceRuntimeIds({
-          previous: state,
-          nextUndo,
-          nextRedo: [],
-        }),
     }),
   });
 }

@@ -974,7 +974,6 @@ assert.deepEqual(
     "sourceInvalidationIds",
     "sourceRestorationIds",
     "stopPlayback",
-    "suspendedSourceDisposalIds",
   ]
 );
 assert.doesNotMatch(

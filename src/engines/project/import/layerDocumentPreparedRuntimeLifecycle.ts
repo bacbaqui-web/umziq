@@ -8,6 +8,7 @@ export type LayerDocumentPreparedRuntimeState =
   | "runtime-registration-pending"
   | "transferred"
   | "cancelled"
+  | "abandoned-after-owner"
   | "failed-before-owner";
 
 export type LayerDocumentPreparedRuntimeClaim<TResource = LayerDocumentSourceRuntimeResource> =
@@ -23,6 +24,7 @@ export type LayerDocumentPreparedRuntimeClaim<TResource = LayerDocumentSourceRun
       readonly reason:
         | "already-transferred"
         | "already-cancelled"
+        | "already-abandoned"
         | "already-failed"
         | "confirm-in-progress";
     };
@@ -43,6 +45,8 @@ export interface LayerDocumentPreparedRuntimeLifecycle<TResource = LayerDocument
   readonly failBeforeOwner: () =>
     LayerDocumentPreparedRuntimeDisposition;
   readonly cancel: () => LayerDocumentPreparedRuntimeDisposition;
+  readonly disposeForSessionEnd: () =>
+    LayerDocumentPreparedRuntimeDisposition;
 }
 
 function disposeResources(
@@ -98,9 +102,11 @@ export function createLayerDocumentPreparedRuntimeLifecycle<
           ? "already-transferred"
           : state === "cancelled"
             ? "already-cancelled"
-            : state === "failed-before-owner"
-              ? "already-failed"
-              : "confirm-in-progress";
+            : state === "abandoned-after-owner"
+              ? "already-abandoned"
+              : state === "failed-before-owner"
+                ? "already-failed"
+                : "confirm-in-progress";
       return { ok: false, state, reason };
     },
     markOwnerCommitted: () => {
@@ -131,6 +137,17 @@ export function createLayerDocumentPreparedRuntimeLifecycle<
         return { changed: false, state, disposedCount: 0 };
       }
       state = "cancelled";
+      return {
+        changed: true,
+        state,
+        disposedCount: disposeOnce(),
+      };
+    },
+    disposeForSessionEnd: () => {
+      if (state !== "prepared" && state !== "runtime-registration-pending") {
+        return { changed: false, state, disposedCount: 0 };
+      }
+      state = state === "prepared" ? "cancelled" : "abandoned-after-owner";
       return {
         changed: true,
         state,

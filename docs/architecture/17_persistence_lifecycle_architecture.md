@@ -83,8 +83,11 @@ New/Open에서 Project 교체는 하나의 lifecycle 경계다.
 - Draft와 Panel local state reset
 - Source resolution 재구축
 - Render/Source Cache invalidate
+- visual/audio active·suspended Source resource와 waveform dispose-once
 
 실패하거나 stale한 작업은 현재 Project를 그대로 유지한다.
+실패, Cancel 또는 stale Project 작업은 현재 active/suspended cache와 재생 가능한
+Source resource도 그대로 유지한다.
 
 ## Dirty와 Clean
 
@@ -122,6 +125,34 @@ mutation을 수행하지 않는다.
 유효한 current Project는 `Save → Load → Save`에서 같은 canonical bytes를
 만들어야 한다. 알 수 없는 type/version과 제한 초과 입력은 구조화 오류로
 거부한다.
+
+## Project Lifecycle UI와 Browser Directory Runtime
+
+Project Lifecycle Core Controller와 UI Command Port가 Project replace, dirty,
+save/open/reconnect와 notice의 authority를 유지한다. 표시 계층은 이 공개 port만
+사용하며 Owner나 Project를 직접 변경하지 않는다.
+
+- Browser Directory Adapter는 `showDirectoryPicker`, `.ziq` 단일 파일 탐색,
+  새 Project 폴더와 `psd/`·`audio/` 준비를 브라우저 Runtime 결과로 변환한다.
+- `DirectoryHandle`, 선택한 `File`, queued open selection과 현재 asset directory는
+  저장되지 않는 Browser session Runtime이다.
+- UI Controller 하나가 Create/Open/Close 흐름의 시작부터 성공, 실패, 취소와
+  cleanup까지 소유한다. 실패하거나 dirty 확인이 취소된 Open은 이전 asset
+  directory를 복구하고 queued selection은 정확히 한 번 해제한다.
+- Composer는 Core ViewModel과 UI Controller 결과를 공개 ViewProps로 조립할 뿐
+  Controller 실행 순서, picker와 Project mutation을 소유하지 않는다.
+- Start Screen, New Project Dialog와 Export Dialog는 각 overlay가 자기 portal을
+  한 번만 소유한다. Export Runtime과 codec/destination 계약은 Lifecycle UI와
+  분리되어 있다.
+- 직접 녹음의 정지·검토·다시 녹음은 Project directory를 쓰지 않는 session Runtime
+  흐름이다. 사용자가 `확인`한 뒤에만 Editor Recording Asset Store Adapter가 현재
+  directory의 `audio/`에 충돌 없는 이름으로 한 번 저장하고 Recording Controller가
+  그 결과를 기존 Audio prepared confirm과 Owner transaction 한 건으로 연결한다.
+  Project 교체와 unmount는 확인 전 recorder/prepared Runtime을 폐기한다.
+
+이 Runtime 경계는 `.ziq` envelope나 Project schema를 확장하지 않는다. 실제
+Browser 권한은 저장할 수 없으므로 새 session에서 descriptor를 기준으로 Source를
+다시 준비하고 필요하면 Missing/Reconnect 흐름으로 들어간다.
 
 ## 불변 조건
 

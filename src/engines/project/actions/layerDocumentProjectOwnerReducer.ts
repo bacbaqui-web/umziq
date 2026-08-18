@@ -130,7 +130,6 @@ function updateSession(
       runtimeCachePolicy: "preserve",
       cacheInvalidations: [],
       sourceInvalidationIds: [], sourceRestorationIds: [], sourceDisposalIds: [],
-      suspendedSourceDisposalIds: [],
     },
   });
 }

@@ -88,6 +88,24 @@ Move, trim, reorder, visibility와 Alias 변경은 Placement command다.
 Animation과 keyframe 편집은 `docs/architecture/16_animation_architecture.md`를
 따른다.
 
+## 공통 Pointer Drag Session
+
+Timeline의 Playhead, Playback Range, Layer move/trim, Keyframe, 입뻥긋 clip과
+가속·감속 clip은 같은 Pointer Drag Session Controller로 DOM 수명을 관리한다.
+
+- 공통 Controller는 활성 session 하나, pointer ID, pointer capture와 global
+  listener cleanup을 소유한다.
+- `pointerup`, buttons-zero, blur, document leave, hidden visibility와 lost capture는
+  마지막 유효 Draft를 정상 종료한다.
+- `pointercancel`, 명시적 reset, session 교체와 unmount는 Draft를 취소한다.
+- terminal event가 겹쳐도 commit 또는 cancel은 정확히 한 번만 실행한다.
+- clientX를 frame/clip/range로 바꾸는 계산과 Owner command는 기존 동작별
+  Controller에 남는다. 공통 Controller는 Project나 제품 모델을 알지 않는다.
+
+Playhead와 Playback Range는 Timeline Runtime만 갱신하므로 Project History를 만들지
+않는다. Layer, Keyframe과 Modifier clip은 move 동안 Draft만 갱신하고 변경된 정상
+종료에서만 기존 Owner intent 한 건을 commit한다.
+
 ## Project 교체와 Undo/Redo
 
 New/Open/Replace는 playback을 안전하게 정지시키고 새 Project 범위를

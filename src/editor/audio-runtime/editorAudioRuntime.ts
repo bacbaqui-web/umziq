@@ -246,7 +246,16 @@ export function createEditorAudioRuntime(options: {
       });
     },
     reconcileProject,
-    invalidateSource: (sourceId) => {
+    suspendSource: (sourceId) => {
+      if (active?.sourceId === sourceId) stop();
+      [...timelineHandles.entries()].forEach(([id, entry]) => {
+        if (entry.sourceId === sourceId) stopTimeline(id);
+      });
+      return options.resources.suspendSource(sourceId);
+    },
+    restoreSource: (sourceId) =>
+      options.resources.restoreSource(sourceId),
+    disposeSource: (sourceId) => {
       if (active?.sourceId === sourceId) stop();
       [...timelineHandles.entries()].forEach(([id, entry]) => {
         if (entry.sourceId === sourceId) stopTimeline(id);
@@ -254,7 +263,7 @@ export function createEditorAudioRuntime(options: {
       [...waveformCache.keys()].forEach((key) => {
         if (key.startsWith(`${sourceId}:`)) waveformCache.delete(key);
       });
-      return options.resources.invalidate(sourceId);
+      return options.resources.disposeSource(sourceId);
     },
     replaceProject: (nextProject) => {
       stop();

@@ -1,7 +1,11 @@
 import type {
+  LayerModifier,
   ModifierNumberField,
   ModifierType,
 } from "@/models";
+import type {
+  LayerDocumentPropertiesDescriptor,
+} from "@/engines/properties/models/layerDocumentPropertiesModel";
 import type {
   PropertiesModifierInputId,
 } from "@/engines/properties/models/propertiesEngineModel";
@@ -15,4 +19,25 @@ export function getModifierInputDescriptor(
     ModifierNumberField,
   ];
   return { type, field };
+}
+
+export function findModifierForInput(
+  descriptor: LayerDocumentPropertiesDescriptor,
+  inputId: PropertiesModifierInputId
+) {
+  const { type } = getModifierInputDescriptor(inputId);
+  return descriptor.modifiers.find(
+    (modifier): modifier is Extract<
+      LayerModifier,
+      { type: "wiggle" | "swing" | "oscillate" }
+    > => (
+      modifier.type === "wiggle" ||
+      modifier.type === "swing" ||
+      modifier.type === "oscillate"
+    ) && modifier.type === type
+  ) ?? null;
+}
+
+export function normalizeModifierNumber(value: number) {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 }

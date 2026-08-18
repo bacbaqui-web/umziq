@@ -56,6 +56,21 @@ export {
   type LayerDocumentPropertiesRuntimeState,
 } from "@/engines/properties/controllers/layerDocumentPropertiesController";
 export {
+  createModifierPropertiesController,
+  type ModifierPropertiesControllerPort,
+} from "@/engines/properties/controllers/modifierPropertiesController";
+export {
+  createAudioPropertiesController,
+} from "@/engines/properties/controllers/audioPropertiesController";
+export {
+  createPropertiesNumericDraftController,
+} from "@/engines/properties/controllers/propertiesNumericDraftController";
+export type {
+  PropertiesNumericDraftController,
+  PropertiesNumericDraftRuntimePort,
+  PropertiesNumericDraftState,
+} from "@/engines/properties/models/propertiesNumericDraftModel";
+export {
   createLayerDocumentPropertiesCommandPort,
 } from "@/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter";
 export {

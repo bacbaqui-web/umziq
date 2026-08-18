@@ -5,6 +5,7 @@ import type {
   LayerDocumentTransformProperty,
 } from "@/models";
 import {
+  getLayerModifierDefinition,
   projectVisibleLayerDocumentKeyframeFrame,
 } from "@/models";
 import type {
@@ -232,7 +233,11 @@ function displayRows(options: {
       }
     });
     layer.common.modifiers.forEach((modifier) => {
-      if (modifier.type === "mouth-basic" || modifier.type === "acceleration") {
+      if (
+        modifier.type !== "unknown" &&
+        getLayerModifierDefinition(modifier.type).timeline.kind === "formula" &&
+        (modifier.type === "mouth-basic" || modifier.type === "acceleration")
+      ) {
         rows.push({ type: "formula", item, layer, modifier });
       }
     });
@@ -469,7 +474,7 @@ export function buildLayerDocumentTimelineUiReadModel(
         formulaType: row.modifier.type,
         item: row.item,
         rowIndex,
-        label: row.modifier.type === "mouth-basic" ? "입뻥긋(기본)" : "가속·감속",
+        label: getLayerModifierDefinition(row.modifier.type).label,
         modifierId: row.modifier.modifierId,
         startFrame: row.modifier.startFrame,
         durationFrames: row.modifier.durationFrames,

@@ -2,6 +2,14 @@ import type { RefObject } from "react";
 import type {
   PsdImportPlan,
 } from "@/engines/project";
+import type {
+  LibraryRecordingEditRequest,
+  LibraryRecordingStatus,
+} from "@/engines/library/models/libraryRecordingModel";
+import type {
+  LayerDocumentAudioProcessingFeature,
+  LayerDocumentAudioProcessingSnapshot,
+} from "@/engines/project";
 
 export type LibraryDropPosition = "before" | "inside" | "after";
 
@@ -77,19 +85,45 @@ export type LibraryViewProps = {
   importPlan: PsdImportPlan | null;
   importPreviewStatus: "idle" | "analyzing" | "review" | "importing";
   importPreviewError: string | null;
-  audioRecordingStatus: "idle" | "requesting" | "recording" | "preparing" | "review";
+  audioRecordingStatus: LibraryRecordingStatus;
   audioRecordingName: string | null;
+  audioRecordingFile: File | null;
+  audioRecordingLiveWaveform: ((target: Float32Array) => void) | null;
+  audioRecordingProcessing: LayerDocumentAudioProcessingSnapshot | null;
+  audioRecordingChangingProcessing: LayerDocumentAudioProcessingFeature | null;
+  audioRecordingProcessingError: string | null;
+  audioRecordingError: string | null;
+  audioRecordingCanCancel: boolean;
+  audioRecordingCanRetry: boolean;
+  audioRecordingCanConfirm: boolean;
   assetCopyPrompt: { readonly kind: "psd" | "audio"; readonly fileCount: number } | null;
+  hoverPreview: {
+    readonly preview: LibraryHoverPreviewViewModel;
+    readonly x: number;
+    readonly y: number;
+  } | null;
   refreshSummary: PsdRefreshSummaryViewModel | null;
   onImportClick: () => void;
   onFileInputChange: (files: FileList | readonly File[]) => void;
   onAudioImportClick: () => void;
   onAudioFileInputChange: (files: FileList | readonly File[]) => void;
   onStartAudioRecording: () => void;
+  onBeginAudioRecording: (deviceId?: string | null) => void;
   onStopAudioRecording: () => void;
+  onSetAudioRecordingProcessing: (
+    feature: LayerDocumentAudioProcessingFeature,
+    enabled: boolean
+  ) => void;
+  onRetryAudioRecording: () => void;
   onCancelAudioRecording: () => void;
-  onConfirmAudioRecording: () => void;
+  onConfirmAudioRecording: (request: LibraryRecordingEditRequest) => void;
   onResolveAssetCopy: (copy: boolean) => void;
+  onPreviewMove: (
+    preview: LibraryHoverPreviewViewModel,
+    clientX: number,
+    clientY: number
+  ) => void;
+  onPreviewEnd: () => void;
   onSelectNode: (nodeId: string) => void;
   onToggleNodeVisibility: (nodeId: string) => void;
   onToggleNodeLock: (nodeId: string) => void;
@@ -132,7 +166,7 @@ export type LibraryViewProps = {
   onDismissRefreshSummary: () => void;
 };
 
-export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "audioFileInputRef" | "onImportClick" | "onFileInputChange" | "onAudioImportClick" | "onAudioFileInputChange" | "audioRecordingStatus" | "audioRecordingName" | "assetCopyPrompt" | "onStartAudioRecording" | "onStopAudioRecording" | "onCancelAudioRecording" | "onConfirmAudioRecording" | "onResolveAssetCopy" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
+export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "audioFileInputRef" | "onImportClick" | "onFileInputChange" | "onAudioImportClick" | "onAudioFileInputChange" | "audioRecordingStatus" | "audioRecordingName" | "audioRecordingFile" | "audioRecordingLiveWaveform" | "audioRecordingProcessing" | "audioRecordingChangingProcessing" | "audioRecordingProcessingError" | "audioRecordingError" | "audioRecordingCanCancel" | "audioRecordingCanRetry" | "audioRecordingCanConfirm" | "assetCopyPrompt" | "hoverPreview" | "onStartAudioRecording" | "onBeginAudioRecording" | "onStopAudioRecording" | "onSetAudioRecordingProcessing" | "onRetryAudioRecording" | "onCancelAudioRecording" | "onConfirmAudioRecording" | "onResolveAssetCopy" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
   node: LibraryNodeViewModel;
   isFirstRoot: boolean;
   onPreviewMove: (

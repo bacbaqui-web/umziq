@@ -30,6 +30,12 @@ const timeline = source(
 const properties = source(
   "src/engines/properties/useLayerDocumentPropertiesEngine.ts"
 );
+const propertiesComposer = source(
+  "src/engines/properties/composers/useLayerDocumentPropertiesComposer.ts"
+);
+const propertiesDraftController = source(
+  "src/engines/properties/controllers/propertiesNumericDraftController.ts"
+);
 const shell = source(
   "src/editor/EditorShell.tsx"
 );
@@ -252,7 +258,15 @@ assert.match(
 assert.match(timeline, /pointer\.cancel|cancelPointer/);
 assert.match(
   properties,
-  /setRuntime\(initialRuntime\(options\.port\)\)/
+  /return useLayerDocumentPropertiesComposer\(options\)/
+);
+assert.match(
+  propertiesComposer,
+  /usePropertiesNumericDraftController\(scopeIdentity\)/
+);
+assert.match(
+  propertiesDraftController,
+  /controller\.syncScope\(scopeIdentity\)/
 );
 assert.match(
   canvas,

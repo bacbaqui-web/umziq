@@ -344,26 +344,112 @@ const barSource = readFileSync(
 );
 assert.doesNotMatch(
   barSource,
-  /@\/engines|owner\.transition|currentProject/
+  /@\/engines|owner\.transition|currentProject|showDirectoryPicker|getDirectoryHandle|createPortal/
 );
 assert.match(
   barSource,
-  /commands\.(newProject|openProject|saveProject|closeProject|reconnectSource)/
+  /useProjectLifecycleUiController/
 );
-assert.match(barSource, /showDirectoryPicker/);
-assert.doesNotMatch(barSource, /webkitdirectory/);
-assert.match(barSource, /!viewModel\.projectCreated/);
-assert.match(barSource, /project-start-screen/);
-assert.match(barSource, /createPortal/);
-assert.match(barSource, /프로젝트 열기/);
 assert.match(
   barSource,
+  /composeProjectLifecycleUiViewProps/
+);
+assert.match(barSource, /ProjectLifecycleView/);
+
+const directoryAdapterSource = readFileSync(
+  "src/editor/project-lifecycle/adapters/projectLifecycleBrowserDirectoryAdapter.ts",
+  "utf8"
+);
+assert.doesNotMatch(
+  directoryAdapterSource,
+  /from "react"|ProjectLifecycleController|owner\.transition/
+);
+assert.match(
+  directoryAdapterSource,
+  /showDirectoryPicker/
+);
+assert.match(
+  directoryAdapterSource,
+  /queueProjectOpenSelection/
+);
+assert.match(
+  directoryAdapterSource,
   /getDirectoryHandle\("psd"/
 );
 assert.match(
-  barSource,
+  directoryAdapterSource,
   /getDirectoryHandle\("audio"/
 );
+
+const controllerSource = readFileSync(
+  "src/editor/project-lifecycle/controllers/projectLifecycleUiController.ts",
+  "utf8"
+);
+assert.doesNotMatch(
+  controllerSource,
+  /from "react"|createPortal|showDirectoryPicker|owner\.transition/
+);
+assert.match(
+  controllerSource,
+  /commands\.(newProject|openProject|saveProject|saveProjectAs|closeProject|reconnectSource)/
+);
+assert.match(
+  controllerSource,
+  /activeIntent/
+);
+
+const composerSource = readFileSync(
+  "src/editor/project-lifecycle/composers/projectLifecycleUiComposer.ts",
+  "utf8"
+);
+assert.doesNotMatch(
+  composerSource,
+  /showDirectoryPicker|window\.|getDirectoryHandle|setProjectAssetDirectory|commands\./
+);
+assert.match(
+  composerSource,
+  /ProjectLifecycleViewProps/
+);
+
+const componentFiles = [
+  "MissingSourceBanner.tsx",
+  "NewProjectDialog.tsx",
+  "ProjectLifecycleToolbar.tsx",
+  "ProjectLifecycleView.tsx",
+  "ProjectStartScreen.tsx",
+];
+const componentSource = componentFiles
+  .map((file) => readFileSync(
+    `src/features/project-lifecycle/components/${file}`,
+    "utf8"
+  ))
+  .join("\n");
+assert.doesNotMatch(
+  componentSource,
+  /@\/engines|owner\.transition|currentProject|showDirectoryPicker|getDirectoryHandle|setProjectAssetDirectory/
+);
+assert.match(componentSource, /project-start-screen/);
+assert.match(componentSource, /프로젝트 열기/);
+assert.match(componentSource, /createPortal/);
+
+const lifecycleViewSource = readFileSync(
+  "src/features/project-lifecycle/components/ProjectLifecycleView.tsx",
+  "utf8"
+);
+assert.doesNotMatch(
+  lifecycleViewSource,
+  /createPortal/
+);
+assert.match(
+  lifecycleViewSource,
+  /<ProjectExportDialog/
+);
+const exportDialogSource = readFileSync(
+  "src/editor/ProjectExportDialog.tsx",
+  "utf8"
+);
+assert.match(exportDialogSource, /createPortal/);
+
 const shellLayoutSource = readFileSync(
   "src/editor/EditorShellLayout.tsx",
   "utf8"

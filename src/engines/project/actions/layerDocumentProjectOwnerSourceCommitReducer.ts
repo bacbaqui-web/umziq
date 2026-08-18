@@ -17,7 +17,6 @@ import {
   ownerStateWithStacks,
 } from "@/engines/project/helpers/layerDocumentProjectOwnerHelpers";
 import {
-  abandonedSourceRuntimeIds,
   changedOwnerRecordIds,
   createdOwnerRecordIds,
   deletedOwnerRecordIds,
@@ -151,7 +150,11 @@ export function commitLayerDocumentOwnerSourceTransaction(
       transaction.cacheInvalidations.length > 0,
     preserveSourceRuntime:
       transaction.kind === "import-sources-and-layers" ||
-      transaction.kind === "discover-psd-nodes",
+      transaction.kind === "discover-psd-nodes" ||
+      (
+        transaction.kind === "delete-source" &&
+        transaction.deletedSourceIds.length === 0
+      ),
     sourceInvalidationIds:
       transaction.kind === "delete-source"
         ? transaction.deletedSourceIds
@@ -181,15 +184,7 @@ export function commitLayerDocumentOwnerSourceTransaction(
         undoStack: [],
         redoStack: [],
       }),
-      effect: {
-        ...effect,
-        suspendedSourceDisposalIds:
-          abandonedSourceRuntimeIds({
-            previous: state,
-            nextUndo: [],
-            nextRedo: [],
-          }),
-      },
+      effect,
     });
   }
   const sourceHistory = transaction.historyEntry!;
@@ -231,14 +226,6 @@ export function commitLayerDocumentOwnerSourceTransaction(
       undoStack: nextUndo,
       redoStack: [],
     }),
-    effect: {
-      ...effect,
-      suspendedSourceDisposalIds:
-        abandonedSourceRuntimeIds({
-          previous: state,
-          nextUndo,
-          nextRedo: [],
-        }),
-    },
+    effect,
   });
 }

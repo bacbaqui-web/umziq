@@ -1,5 +1,21 @@
 /** Pure deterministic modifier evaluation. */
-import type { ModifierInstance, Position, WiggleModifierInstance } from "@/models";
+import type {
+  LayerModifier,
+  ModifierInstance,
+  Position,
+  WiggleModifierInstance,
+} from "@/models";
+
+type CanonicalMotionModifier = Extract<
+  LayerModifier,
+  { type: "wiggle" | "oscillate" | "swing" }
+>;
+type MotionModifier = ModifierInstance | CanonicalMotionModifier;
+
+const modifierIdentity = (modifier: MotionModifier) =>
+  "modifierId" in modifier ? modifier.modifierId : modifier.id;
+const modifierEnabled = (modifier: MotionModifier) =>
+  !("enabled" in modifier) || modifier.enabled;
 
 function hashText(value: string) {
   let hash = 2166136261;
@@ -25,7 +41,7 @@ function smoothStep(value: number) {
 }
 
 function interpolateOffset(
-  modifier: WiggleModifierInstance,
+  modifier: WiggleModifierInstance | Extract<CanonicalMotionModifier, { type: "wiggle" }>,
   targetId: string,
   axis: "x" | "y",
   localFrame: number,
@@ -35,14 +51,14 @@ function interpolateOffset(
   const phase = (Math.max(0, localFrame) / safeFrameRate) * modifier.frequency;
   const segment = Math.floor(phase);
   const progress = smoothStep(phase - segment);
-  const seed = `${targetId}:${modifier.id}:${axis}`;
+  const seed = `${targetId}:${modifierIdentity(modifier)}:${axis}`;
   const from = deterministicSignedValue(`${seed}:${segment}`);
   const to = deterministicSignedValue(`${seed}:${segment + 1}`);
   return (from + (to - from) * progress) * modifier.amount;
 }
 
 export function evaluateWiggleOffset(
-  modifier: WiggleModifierInstance,
+  modifier: WiggleModifierInstance | Extract<CanonicalMotionModifier, { type: "wiggle" }>,
   targetId: string,
   localFrame: number,
   frameRate: number
@@ -60,11 +76,12 @@ export function evaluateWiggleOffset(
 export function applyPositionModifiers(
   basePosition: Position,
   targetId: string,
-  modifiers: readonly ModifierInstance[] | undefined,
+  modifiers: readonly MotionModifier[] | undefined,
   localFrame: number,
   frameRate: number
 ): Position {
   return (modifiers ?? []).reduce((position, modifier) => {
+    if (!modifierEnabled(modifier)) return position;
     if (modifier.type === "wiggle") {
       const offset = evaluateWiggleOffset(modifier, targetId, localFrame, frameRate);
       return { x: position.x + offset.x, y: position.y + offset.y };
@@ -85,13 +102,13 @@ export function applyPositionModifiers(
 
 export function applyRotationModifiers(
   baseRotation: number,
-  modifiers: readonly ModifierInstance[] | undefined,
+  modifiers: readonly MotionModifier[] | undefined,
   localFrame: number,
   frameRate: number
 ) {
   const safeFrameRate = Math.max(1, Number(frameRate) || 1);
   return (modifiers ?? []).reduce((rotation, modifier) => {
-    if (modifier.type !== "swing" || modifier.frequency <= 0 || modifier.amount <= 0) {
+    if (!modifierEnabled(modifier) || modifier.type !== "swing" || modifier.frequency <= 0 || modifier.amount <= 0) {
       return rotation;
     }
     const seconds = Math.max(0, localFrame) / safeFrameRate;
