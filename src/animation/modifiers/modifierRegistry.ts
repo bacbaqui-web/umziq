@@ -106,6 +106,8 @@ export function createDefaultModifier(
       id: `${targetId}:mouth-basic`,
       type,
       audioLayerDocumentId: null,
+      inverted: false,
+      repetitionsPerSecond: 4,
       startFrame: 0,
       durationFrames: 1,
       transitionFrames: [],
@@ -192,6 +194,8 @@ function normalizeMouthBasicModifier(
     audioLayerDocumentId: typeof source.audioLayerDocumentId === "string"
       ? source.audioLayerDocumentId
       : null,
+    inverted: source.inverted === true,
+    repetitionsPerSecond: Math.min(12, Math.max(0.5, Number(source.repetitionsPerSecond) || 4)),
     startFrame: Math.floor(Number(source.startFrame) || 0),
     durationFrames,
     transitionFrames,

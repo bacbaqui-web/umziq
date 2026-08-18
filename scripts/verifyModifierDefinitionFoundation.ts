@@ -13,6 +13,7 @@ import {
 import {
   createModifierPropertiesController,
 } from "@/engines/properties";
+import type { LayerDocumentPropertiesDescriptor } from "@/engines/properties";
 import type {
   LayerDocument,
   LayerDocumentProject,
@@ -32,6 +33,7 @@ assert.equal(mouth.type, "mouth-basic");
 assert.equal(mouth.modifierId, "mouth-basic:mouth");
 assert.equal(mouth.enabled, true);
 assert.equal(mouth.durationFrames, 90);
+assert.equal(mouth.repetitionsPerSecond, 4);
 assert.equal(
   getLayerModifierDefinition("mouth-basic").timeline.contentKind,
   "mouth-segments"
@@ -39,11 +41,13 @@ assert.equal(
 
 const normalizedMouth = normalizeKnownLayerModifier({
   ...mouth,
+  repetitionsPerSecond: 99,
   durationFrames: 8.9,
   transitionFrames: [7, 2, 2, 10, -1, 4.8],
 });
 assert.equal(normalizedMouth.type, "mouth-basic");
 assert.equal(normalizedMouth.durationFrames, 8);
+assert.equal(normalizedMouth.repetitionsPerSecond, 12);
 assert.deepEqual(normalizedMouth.transitionFrames, [2, 4, 7]);
 assert.ok(validateKnownLayerModifier({
   ...mouth,
@@ -142,6 +146,13 @@ const project: LayerDocumentProject = {
 let dispatched: { id: string; modifiers: LayerModifier[] } | null = null;
 const modifierController = createModifierPropertiesController({
   readProject: () => project,
+  readDescriptor: () => ({
+    layerDocumentId: "visual",
+    type: "drawing",
+    modifiers: project.payload.layerDocumentsById.visual.common.modifiers,
+    placement: project.payload.layerDocumentsById.visual.common.placement,
+    capabilities: { modifiers: { status: "editable" } },
+  } as unknown as LayerDocumentPropertiesDescriptor),
   readDecodedAudio: () => ({
     sampleRate: 48_000,
     duration: 1,
@@ -162,6 +173,9 @@ if (connected?.type === "mouth-basic") {
   assert.equal(connected.audioLayerDocumentId, "audio");
   assert.equal(connected.startFrame, 10);
 }
+assert.deepEqual(modifierController.toggleMouthBasicInverted(), { ok: true });
+const inverted = dispatched?.modifiers.find((modifier) => modifier.type === "mouth-basic");
+assert.equal(inverted?.type === "mouth-basic" ? inverted.inverted : null, true);
 
 const root = readFileSync(
   new URL("../src/editor/useEditorCompositionRoot.ts", import.meta.url),

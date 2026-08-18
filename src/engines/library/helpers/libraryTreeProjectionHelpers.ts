@@ -104,9 +104,9 @@ export function buildLayerDocumentLibraryNodes(
       layerDocumentId: layer.layerDocumentId,
       name: layer.name,
       depth,
-      selected: isAudio
-        ? audioState?.selectedLayerDocumentId === layer.layerDocumentId
-        : sourceId !== null && tree.selectedSourceId === sourceId,
+      selected: layer.type === "group"
+        ? controller.readActiveGroupLayerDocumentId() === layer.layerDocumentId
+        : audioState?.selectedLayerDocumentId === layer.layerDocumentId,
       visible: isAudio ? !layer.data.muted : layer.common.placement.visible,
       locked: Boolean(layer.common.placement.locked),
       sourceSyncStatus: sourceId

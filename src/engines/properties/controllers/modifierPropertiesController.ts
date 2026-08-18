@@ -96,7 +96,8 @@ export function createModifierPropertiesController(
 
   const connectMouthAudio = (
     targetLayerDocumentId: string,
-    audioLayerDocumentId: string
+    audioLayerDocumentId: string,
+    requestedRepetitionsPerSecond?: number
   ) => {
     const project = port.readProject?.();
     if (!project || !port.readDecodedAudio) {
@@ -118,6 +119,13 @@ export function createModifierPropertiesController(
         ]
       : null;
     const frameRate = parent?.type === "group" ? parent.data.frameRate : 30;
+    const currentMouth = target.common.modifiers.find(
+      (modifier) => modifier.type === "mouth-basic"
+    );
+    const repetitionsPerSecond = Math.min(
+      12,
+      Math.max(0.5, requestedRepetitionsPerSecond ?? currentMouth?.repetitionsPerSecond ?? 4)
+    );
     const clip = buildMouthBasicConnectionClip({
       buffer: decoded,
       frameRate,
@@ -126,11 +134,12 @@ export function createModifierPropertiesController(
       audioAbsoluteStartFrame: absoluteLayerStart(project, audioLayerDocumentId),
       targetAbsoluteStartFrame: absoluteLayerStart(project, targetLayerDocumentId),
       targetSourceOffsetFrames: target.common.placement.sourceOffsetFrames,
+      repetitionsPerSecond,
     });
     return dispatchModifierList(
       targetLayerDocumentId,
       target.common.modifiers.map((modifier) => modifier.type === "mouth-basic"
-        ? { ...modifier, audioLayerDocumentId, ...clip }
+        ? { ...modifier, audioLayerDocumentId, repetitionsPerSecond, ...clip }
         : modifier)
     );
   };
@@ -218,6 +227,43 @@ export function createModifierPropertiesController(
       const descriptor = readEditableDescriptor();
       if (!descriptor || !audioLayerDocumentId) return null;
       return connectMouthAudio(descriptor.layerDocumentId, audioLayerDocumentId);
+    },
+    toggleMouthBasicInverted: () => {
+      const descriptor = readEditableDescriptor();
+      const modifier = descriptor?.modifiers.find(
+        (candidate) => candidate.type === "mouth-basic"
+      );
+      if (!descriptor || !modifier || modifier.type !== "mouth-basic") return null;
+      return setModifiers(
+        descriptor,
+        descriptor.modifiers.map((candidate) =>
+          candidate.modifierId === modifier.modifierId
+            ? { ...modifier, inverted: !modifier.inverted }
+            : candidate
+        )
+      );
+    },
+    setMouthBasicRepetitionsPerSecond: (requestedValue: number) => {
+      const descriptor = readEditableDescriptor();
+      const modifier = descriptor?.modifiers.find(
+        (candidate) => candidate.type === "mouth-basic"
+      );
+      if (!descriptor || !modifier || modifier.type !== "mouth-basic") return null;
+      const repetitionsPerSecond = Math.min(12, Math.max(0.5, requestedValue));
+      return modifier.audioLayerDocumentId
+        ? connectMouthAudio(
+            descriptor.layerDocumentId,
+            modifier.audioLayerDocumentId,
+            repetitionsPerSecond
+          )
+        : setModifiers(
+            descriptor,
+            descriptor.modifiers.map((candidate) =>
+              candidate.modifierId === modifier.modifierId
+                ? { ...modifier, repetitionsPerSecond }
+                : candidate
+            )
+          );
     },
     toggleModifier: (type: ModifierType) => {
       const descriptor = readEditableDescriptor();

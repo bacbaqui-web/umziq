@@ -143,8 +143,13 @@ function viewItem(
     startFrame: number;
     durationFrames: number;
     sourceOffsetFrames: number;
-  }
+  },
+  project: LayerDocumentProject
 ): TimelineViewItem {
+  const sourceId = layer.common.source?.sourceId;
+  const source = sourceId
+    ? project.payload.sourceRegistry.sourcesById[sourceId]
+    : null;
   return {
     id: layer.layerDocumentId,
     name:
@@ -154,6 +159,10 @@ function viewItem(
         ? "composition"
         : "layer",
     mediaKind: layer.type === "audio" ? "audio" : "visual",
+    audioProvenance:
+      layer.type === "audio" && source?.kind === "audio"
+        ? source.data.provenance
+        : null,
     muted: layer.type === "audio" ? layer.data.muted : false,
     visible: layer.common.placement.visible,
     ...timing,
@@ -199,7 +208,8 @@ function displayRows(options: {
         : null;
     const item = viewItem(
       layer,
-      timingDraft ?? layer.common.placement
+      timingDraft ?? layer.common.placement,
+      options.project
     );
     const rows: NativeDisplayRow[] = [{
       type: "item",
@@ -217,21 +227,24 @@ function displayRows(options: {
     const selected =
       options.timeline.selectedLayerDocumentId ===
       layer.layerDocumentId;
-    if (!selected || layer.type === "audio") return rows;
-    PROPERTIES.forEach((property) => {
-      if (
-        layer.common.animation.enabledProperties[
-          property
-        ]
-      ) {
-        rows.push({
-          type: "property",
-          item,
-          layer,
-          property,
-        });
-      }
-    });
+    const expanded = options.runtime.expandedLayerDocumentIds.has(layer.layerDocumentId);
+    if (layer.type === "audio" || (!selected && !expanded)) return rows;
+    if (selected || expanded) {
+      PROPERTIES.forEach((property) => {
+        if (
+          layer.common.animation.enabledProperties[
+            property
+          ]
+        ) {
+          rows.push({
+            type: "property",
+            item,
+            layer,
+            property,
+          });
+        }
+      });
+    }
     layer.common.modifiers.forEach((modifier) => {
       if (
         modifier.type !== "unknown" &&
@@ -327,7 +340,18 @@ function buildHeader(options: {
           entityKind:
             selected.type === "group"
               ? "composition"
-              : "layer",
+              : selected.type === "audio"
+                ? "audio"
+                : "layer",
+          audioProvenance: selected.type === "audio"
+            ? (() => {
+                const sourceId = selected.common.source?.sourceId;
+                const source = sourceId
+                  ? options.project.payload.sourceRegistry.sourcesById[sourceId]
+                  : null;
+                return source?.kind === "audio" ? source.data.provenance : null;
+              })()
+            : null,
         }
       : null,
     switcher: {
@@ -392,6 +416,26 @@ export function buildLayerDocumentTimelineUiReadModel(
           row.status
         );
       const next = nativeRows[index + 1];
+      const itemSourceId = row.layer.common.source?.sourceId;
+      const itemSource = itemSourceId
+        ? options.project.payload.sourceRegistry.sourcesById[itemSourceId]
+        : null;
+      const sourceDurationFrames = row.layer.type === "group"
+        ? row.layer.data.durationFrames
+        : row.layer.type === "audio" && itemSource?.kind === "audio"
+          ? itemSource.data.durationFrames ?? row.item.durationFrames
+          : row.item.durationFrames;
+      const trackLeft = options.ruler.timelineOriginLeft + row.item.startFrame * options.ruler.pxPerFrame;
+      const trackWidth = row.item.durationFrames * options.ruler.pxPerFrame;
+      const sourceTrackLeft = options.ruler.timelineOriginLeft + (
+        row.item.startFrame - row.item.sourceOffsetFrames
+      ) * options.ruler.pxPerFrame;
+      const sourceTrackWidth = sourceDurationFrames * options.ruler.pxPerFrame;
+      const visibleTrackLeft = Math.max(0, options.ruler.timelineOriginLeft - trackLeft);
+      const visibleTrackRight = Math.min(
+        trackWidth,
+        options.ruler.contentWidth - trackLeft
+      );
       rows.push({
         type: "item",
         item: row.item,
@@ -403,6 +447,12 @@ export function buildLayerDocumentTimelineUiReadModel(
           options.timeline
             .selectedLayerDocumentId ===
           row.item.id,
+        expanded: options.runtime.expandedLayerDocumentIds.has(row.item.id),
+        rowHeight:
+          row.item.mediaKind === "audio" &&
+          options.runtime.expandedLayerDocumentIds.has(row.item.id)
+            ? 48
+            : 24,
         source,
         rowBackground:
           options.runtime
@@ -419,12 +469,12 @@ export function buildLayerDocumentTimelineUiReadModel(
                   "composition"
                 ? "#21334a"
                 : "#2a2a2a",
-        trackLeft:
-          row.item.startFrame *
-          options.ruler.pxPerFrame,
-        trackWidth:
-          row.item.durationFrames *
-          options.ruler.pxPerFrame,
+        trackLeft,
+        trackWidth,
+        sourceTrackLeft,
+        sourceTrackWidth,
+        visibleTrackLeft,
+        visibleTrackWidth: Math.max(0, visibleTrackRight - visibleTrackLeft),
         trackBackground:
           row.item.mediaKind === "audio"
             ? "linear-gradient(90deg, #287047 0%, #3b9663 100%)"
@@ -479,11 +529,13 @@ export function buildLayerDocumentTimelineUiReadModel(
         startFrame: row.modifier.startFrame,
         durationFrames: row.modifier.durationFrames,
         transitionFrames,
+        inverted: row.modifier.type === "mouth-basic" && row.modifier.inverted === true,
         pxPerFrame: options.ruler.pxPerFrame,
-        trackLeft: clipGlobalStart * options.ruler.pxPerFrame,
+        timelineOriginLeft: options.ruler.timelineOriginLeft,
+        trackLeft: options.ruler.timelineOriginLeft + clipGlobalStart * options.ruler.pxPerFrame,
         trackWidth: row.modifier.durationFrames * options.ruler.pxPerFrame,
         transitionLefts: transitionFrames.map(
-          (frame) => (clipGlobalStart + frame) * options.ruler.pxPerFrame
+          (frame) => options.ruler.timelineOriginLeft + (clipGlobalStart + frame) * options.ruler.pxPerFrame
         ),
         accelerationCurve: row.modifier.type === "acceleration" ? row.modifier.curve : undefined,
         accelerationProperties: row.modifier.type === "acceleration" ? row.modifier.properties : undefined,
@@ -522,7 +574,7 @@ export function buildLayerDocumentTimelineUiReadModel(
       return [{
         frame: keyframe.frame,
         left:
-          globalFrame *
+          options.ruler.timelineOriginLeft + globalFrame *
             options.ruler.pxPerFrame -
           7,
         title: options.formatTime(
@@ -551,7 +603,7 @@ export function buildLayerDocumentTimelineUiReadModel(
     const dragLeft =
       dragGlobalFrame === null
         ? null
-        : dragGlobalFrame *
+        : options.ruler.timelineOriginLeft + dragGlobalFrame *
           options.ruler.pxPerFrame;
     rows.push({
       type: "property",
@@ -567,7 +619,7 @@ export function buildLayerDocumentTimelineUiReadModel(
       colors: COLORS[row.property],
       selectedTimelineItem: true,
       trackLeft:
-        row.item.startFrame *
+        options.ruler.timelineOriginLeft + row.item.startFrame *
         options.ruler.pxPerFrame,
       trackWidth:
         row.item.durationFrames *
@@ -654,6 +706,7 @@ export function buildLayerDocumentTimelineUiReadModel(
     overlay: {
       totalTrackGridRows:
         layout.totalTrackGridRows,
+      timelineOriginLeft: options.ruler.timelineOriginLeft,
       frameGridMinorStep: Math.max(
         options.ruler.pxPerFrame,
         1

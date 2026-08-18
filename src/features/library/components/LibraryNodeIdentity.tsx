@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { LibraryNodeViewModel } from "@/engines/library";
 import LibraryNodeNameEditor from "@/features/library/components/LibraryNodeNameEditor";
-import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
+import LayerDocumentIcon from "@/shared/components/LayerDocumentIcon";
 
 function PsdFileIcon() {
   return (
@@ -15,28 +15,10 @@ function PsdFileIcon() {
   );
 }
 
-function AudioIcon({ provenance }: { readonly provenance: "imported" | "recorded" | null }) {
-  return (
-    <span aria-label={provenance === "recorded" ? "움직에서 녹음" : "불러온 오디오"} style={{ width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", color: "#65c98a" }}>
-      {provenance === "recorded" ? (
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
-          <rect x="5" y="1.5" width="6" height="9" rx="3" />
-          <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5M5.5 14.5h5" />
-        </svg>
-      ) : (
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9.5 11V2.2c2.9.35 4.2 1.65 4.2 3.55-1.05-.85-2.3-1.25-4.2-1.25" />
-          <ellipse cx="7" cy="11.5" rx="2.6" ry="2" transform="rotate(-18 7 11.5)" />
-        </svg>
-      )}
-    </span>
-  );
-}
-
 function VisualIcon({ node, hasChildren, expanded }: { readonly node: LibraryNodeViewModel; readonly hasChildren: boolean; readonly expanded: boolean }) {
   return (
     <span style={{ color: "#8eb6d8", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", position: "relative", transform: node.entityKind === "layer" ? "translateY(3px)" : "translateY(1px)" }}>
-      <LayerCompositionIcon kind={node.entityKind ?? "layer"} size={14} />
+      <LayerDocumentIcon kind={node.entityKind ?? "layer"} size={14} />
       {hasChildren && expanded && (
         <span aria-hidden="true" style={{ position: "absolute", left: "50%", top: "calc(100% + 2px)", height: 2, borderLeft: "1px solid rgba(142, 182, 216, 0.82)", transform: "translateX(-0.5px)", pointerEvents: "none" }} />
       )}
@@ -79,7 +61,7 @@ export function LibraryVisualLayerNode(props: IdentityProps) {
 }
 
 export function LibraryAudioLayerNode(props: IdentityProps) {
-  return <><AudioIcon provenance={props.node.audioProvenance} /><NodeName {...props} /></>;
+  return <><span aria-label={props.node.audioProvenance === "recorded" ? "움직에서 녹음" : "불러온 오디오"} style={{ width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", color: "#65c98a" }}><LayerDocumentIcon kind="audio" audioProvenance={props.node.audioProvenance} size={13} /></span><NodeName {...props} /></>;
 }
 
 export default function LibraryNodeIdentity(props: IdentityProps) {

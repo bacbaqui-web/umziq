@@ -70,16 +70,24 @@ export function createLayerDocumentTimelineInteractionController(
     pointer:
       LayerDocumentTimelinePointerCommandPort;
   }
-): TimelineInteractionCommands {
+): Omit<TimelineInteractionCommands, "toggleTimelineItemExpanded"> {
   const itemById = (layerDocumentId: string) =>
     options.owner.project.read().payload
       .layerDocumentsById[layerDocumentId] ?? null;
   const selectTimelineItem = (
     layerDocumentId: string
   ) => {
+    const selectedLayerDocumentId =
+      options.owner.timeline
+        .readViewProps()
+        .selectedLayerDocumentId;
     options.owner.timeline
       .readViewProps()
-      .commands.selectLayer(layerDocumentId);
+      .commands.selectLayer(
+        selectedLayerDocumentId === layerDocumentId
+          ? null
+          : layerDocumentId
+      );
   };
   const selectKeyframe = (
     layerDocumentId: string,
@@ -88,7 +96,9 @@ export function createLayerDocumentTimelineInteractionController(
   ) => {
     const layer = itemById(layerDocumentId);
     if (!layer) return;
-    selectTimelineItem(layerDocumentId);
+    options.owner.timeline
+      .readViewProps()
+      .commands.selectLayer(layerDocumentId);
     const globalFrame =
       layerDocumentLocalFrameToGlobalFrame(
         localFrame,

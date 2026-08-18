@@ -26,6 +26,7 @@ export type TimelineCommands = {
   endRangeResize: () => void;
   commitRangeDuration: (seconds: string, frames: string) => void;
   commitTimelineDuration: (seconds: string, frames: string) => void;
+  setNameColumnWidth: (width: number) => void;
 };
 
 export type TimelineInteractionCommands = {
@@ -33,6 +34,7 @@ export type TimelineInteractionCommands = {
   duplicateTimelineItem: (itemId: string) => void;
   splitSelectedTimelineItem: () => void;
   selectTimelineItem: (itemId: string) => void;
+  toggleTimelineItemExpanded: (itemId: string) => void;
   activateTimelineItem: (
     itemId: string,
     status: TimelineSourceStatusViewModel["status"]

@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { TimelineCommands, TimelineRulerViewModel } from "@/engines/timeline";
+import { TIMELINE_POST_ROLL_PX, type TimelineCommands, type TimelineRulerViewModel } from "@/engines/timeline";
 import TimelineDurationSplitEditor from "@/features/timeline/components/TimelineDurationSplitEditor";
 
 type Props = {
@@ -22,6 +22,8 @@ export default function TimelineRuler({ viewModel, commands, rulerRef }: Props) 
         onPointerDown={(event) => commands.beginScrub({ clientX: event.clientX, pointerId: event.pointerId, captureTarget: event.currentTarget })}
         style={{ position: "relative", height: 30, overflow: "hidden", border: "1px solid #3a3a3a", borderLeft: "none", borderRadius: "0 6px 6px 0", background: "#202020", cursor: viewModel.hideCursor ? "none" : "crosshair" }}
       >
+        <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: viewModel.timelineOriginLeft, borderRight: "2px solid rgba(255,255,255,0.24)", boxSizing: "border-box", background: "linear-gradient(to right, rgba(8,10,13,0.48), rgba(8,10,13,0))", zIndex: 4, pointerEvents: "none" }} />
+        <div aria-hidden="true" style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: TIMELINE_POST_ROLL_PX, borderLeft: "2px solid rgba(255,255,255,0.24)", boxSizing: "border-box", background: "linear-gradient(to left, rgba(8,10,13,0.48), rgba(8,10,13,0))", zIndex: 4, pointerEvents: "none" }} />
         <div style={{ position: "absolute", left: viewModel.playbackRangeLeft, top: 3, height: 24, width: viewModel.playbackRangeWidth, borderRadius: 0, background: "rgba(245, 165, 36, 0.2)", border: "1px solid rgba(245, 165, 36, 0.7)", boxSizing: "border-box", pointerEvents: "none", zIndex: 2 }}>
           {(["start", "end"] as const).map((handle) => (
             <div key={handle} onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); commands.beginRangeResize({ clientX: event.clientX, pointerId: event.pointerId, captureTarget: event.currentTarget }, handle); }}
@@ -30,9 +32,9 @@ export default function TimelineRuler({ viewModel, commands, rulerRef }: Props) 
             </div>
           ))}
         </div>
-        <div style={{ width: viewModel.contentWidth, height: "100%", display: "flex" }}>
+        <div style={{ position: "absolute", left: viewModel.timelineOriginLeft, top: 0, width: viewModel.frames.length * viewModel.pxPerFrame, height: "100%" }}>
           {viewModel.frames.map((frame) => (
-            <div key={frame.frame} style={{ width: viewModel.pxPerFrame, flex: "0 0 auto", position: "relative" }}>
+            <div key={frame.frame} style={{ position: "absolute", left: frame.frame * viewModel.pxPerFrame, top: 0, width: viewModel.pxPerFrame, height: "100%" }}>
               <div style={{ position: "absolute", left: 0, top: frame.tickTop, height: frame.tickHeight, width: 1, background: frame.tickColor }} />
               {frame.label && <span style={{ position: "absolute", left: 4, top: 6, fontSize: 11, color: "#bbb" }}>{frame.label}</span>}
             </div>

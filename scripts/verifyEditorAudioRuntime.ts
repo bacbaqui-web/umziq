@@ -180,6 +180,28 @@ runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocument
 const stopsOutOfRange = stops;
 runtime.synchronizeTimeline({ project: timelineProject, activeGroupLayerDocumentId: "root", currentFrame: 90, frameRate: 30, isPlaying: true });
 assert.equal(stops, stopsOutOfRange, "out-of-range Audio remains suppressed");
+
+const nestedProject = project();
+nestedProject.payload.layerDocumentsById.nested = {
+  layerDocumentId: "nested", revision: 0, name: "Nested", type: "group", common: common("root", 2),
+  data: { role: "composition", width: 1080, height: 1920, frameRate: 30, durationFrames: 40 },
+};
+nestedProject.payload.layerDocumentsById.nested.common.placement.startFrame = 20;
+nestedProject.payload.layerDocumentsById.nested.common.placement.durationFrames = 40;
+nestedProject.payload.layerDocumentsById.a.common.placement.parentLayerDocumentId = "nested";
+nestedProject.payload.layerDocumentsById.a.common.placement.startFrame = 5;
+nestedProject.payload.layerDocumentsById.a.common.placement.durationFrames = 20;
+nestedProject.payload.layerDocumentsById.b.common.placement.visible = false;
+const startsBeforeNested = starts;
+runtime.synchronizeTimeline({ project: nestedProject, activeGroupLayerDocumentId: "root", currentFrame: 25, frameRate: 30, isPlaying: true });
+assert.equal(starts, startsBeforeNested + 1, "a nested Audio layer is audible from its ancestor group");
+assert.equal(startRecords.at(-1)?.offsetSeconds, 0, "nested placement starts from the Audio local frame");
+runtime.synchronizeTimeline({ project: nestedProject, activeGroupLayerDocumentId: "root", currentFrame: 45, frameRate: 30, isPlaying: true });
+assert.equal(stops > stopsOutOfRange, true, "nested Audio stops outside its own placement");
+nestedProject.payload.layerDocumentsById.nested.common.placement.visible = false;
+const startsBeforeHiddenAncestor = starts;
+runtime.synchronizeTimeline({ project: nestedProject, activeGroupLayerDocumentId: "root", currentFrame: 25, frameRate: 30, isPlaying: true });
+assert.equal(starts, startsBeforeHiddenAncestor, "a hidden ancestor suppresses nested Audio");
 assert.ok(notifications >= 7);
 unsubscribe();
 runtime.dispose();

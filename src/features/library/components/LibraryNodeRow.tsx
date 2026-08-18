@@ -3,6 +3,7 @@ import type {
   LibraryHoverPreviewViewModel,
   LibraryNodeViewModel,
 } from "@/engines/library";
+import { GROUP_SELECTED_GLOW } from "@/shared/styles/groupVisualStyles";
 
 export default function LibraryNodeRow({
   node,
@@ -56,7 +57,9 @@ export default function LibraryNodeRow({
         borderRadius: isMain ? (hasChildren ? "7px 7px 0 0" : 7) : 4,
         background: rowBackground,
         boxShadow:
-          node.selected && isMain
+          node.selected && node.entityKind === "composition"
+            ? GROUP_SELECTED_GLOW
+            : node.selected && isMain
             ? "inset 0 0 0 1px rgba(111, 157, 204, 0.16)"
             : "none",
         transition: "background 140ms ease, box-shadow 140ms ease",

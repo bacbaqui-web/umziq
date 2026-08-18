@@ -175,6 +175,8 @@ export type PropertiesModifierViewModel = {
   fields: PropertiesModifierFieldViewModel[];
   audioLayerDocumentId?: string | null;
   audioOptions?: readonly { id: string; label: string }[];
+  mouthBasicInverted?: boolean;
+  mouthBasicRepetitionsPerSecond?: number;
   accelerationProperties?: readonly AnimatableProperty[];
   accelerationCurve?: AccelerationCurve;
 };
@@ -225,6 +227,8 @@ export type PropertiesCommand = {
   deleteSelectedKeyframe: () => void;
   toggleModifier: (type: ModifierType) => void;
   setMouthBasicAudioLayer: (audioLayerDocumentId: string) => void;
+  toggleMouthBasicInverted: () => void;
+  setMouthBasicRepetitionsPerSecond: (value: number) => void;
   toggleAccelerationProperty: (property: AnimatableProperty) => void;
   setAccelerationCurve: (curve: AccelerationCurve) => void;
   focusModifierInput: (inputId: PropertiesModifierInputId) => void;

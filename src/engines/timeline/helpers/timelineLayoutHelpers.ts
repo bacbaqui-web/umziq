@@ -3,6 +3,9 @@ type TimelineLayoutRow = {
   readonly item: { readonly id: string };
 };
 
+export const TIMELINE_PRE_ROLL_PX = 10;
+export const TIMELINE_POST_ROLL_PX = 10;
+
 export type TimelineTrackRowLayout = {
   gridRowByDisplayedIndex: Map<number, number>;
   totalTrackGridRows: number;
@@ -82,11 +85,13 @@ export function parseTimelineDurationParts(seconds: string, frames: string, fram
 export function resolveTimelinePxPerFrame(
   durationFrames: number,
   availableWidth: number,
-  defaultPxPerFrame: number
+  defaultPxPerFrame: number,
+  leadingFrames = 0
 ) {
   if (durationFrames <= 0) return defaultPxPerFrame;
   return Math.max(
-    (availableWidth > 0 ? availableWidth : durationFrames * defaultPxPerFrame) / durationFrames,
+    (availableWidth > 0 ? availableWidth : (durationFrames + leadingFrames) * defaultPxPerFrame) /
+      (durationFrames + leadingFrames),
     0.001
   );
 }

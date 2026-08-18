@@ -1,7 +1,9 @@
 import {
+  useCallback,
   useEffect,
   useEffectEvent,
   useMemo,
+  useRef,
 } from "react";
 import {
   PREVIEW_MIN_WORKSPACE_HEIGHT,
@@ -26,6 +28,9 @@ import {
   TIMELINE_NAME_COL_WIDTH,
   TIMELINE_PX_PER_FRAME,
   useLayerDocumentTimelineEngine,
+} from "@/engines/timeline";
+import type {
+  LayerDocumentTimelineTimingDraft,
 } from "@/engines/timeline";
 import type {
   EditorShellLayoutProps,
@@ -67,6 +72,16 @@ EditorShellLayoutProps {
   );
   const runtime =
     useLayerDocumentEditorRuntime(owner);
+  const timelineTimingDraftRef =
+    useRef<LayerDocumentTimelineTimingDraft | null>(null);
+  const publishTimelineTimingDraft = useCallback(
+    (
+      draft: LayerDocumentTimelineTimingDraft | null
+    ) => {
+      timelineTimingDraftRef.current = draft;
+    },
+    []
+  );
   const panelPorts =
     useLayerDocumentPanelEnginePorts({
       owner: runtime.owner,
@@ -78,6 +93,8 @@ EditorShellLayoutProps {
       draftSession: runtime.draftSession,
       frameInput: runtime.playback,
       sourceSamplingQuality: "original",
+      readTimelineTimingDraft: () =>
+        timelineTimingDraftRef.current,
     });
   const scope = panelPorts.scope.read();
   if (!scope.ok) {
@@ -100,6 +117,8 @@ EditorShellLayoutProps {
       resetRevision:
         runtime.ownerEffect.localUiRevision,
       readAudioWaveform: runtime.audio.readWaveform,
+      onTimingDraftChange:
+        publishTimelineTimingDraft,
     });
   const properties =
     useLayerDocumentPropertiesEngine({

@@ -51,7 +51,7 @@ export type LibraryAudioCommandPort = {
   read: () => EditorAudioAuditionState;
   subscribe: (listener: () => void) => () => void;
   readSelectedLayerDocumentId: () => string | null;
-  select: (layerDocumentId: string) => void;
+  select: (layerDocumentId: string | null) => void;
   togglePlayback: (layerDocumentId: string) => void;
   toggleMuted: (layerDocumentId: string) => void;
   rename: (layerDocumentId: string, name: string) => void;

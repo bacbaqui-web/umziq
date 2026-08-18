@@ -13,6 +13,7 @@ export type TimelineViewItem = {
   name: string;
   entityKind: "layer" | "composition";
   mediaKind: "visual" | "audio";
+  audioProvenance: "imported" | "recorded" | null;
   muted: boolean;
   visible: boolean;
   startFrame: number;
@@ -29,7 +30,8 @@ export type TimelineBreadcrumbSegment = {
 
 export type TimelineSelectionLabel = {
   label: string;
-  entityKind: "layer" | "composition";
+  entityKind: "layer" | "composition" | "audio";
+  audioProvenance: "imported" | "recorded" | null;
 };
 
 export type TimelineCompositionSwitcherItem = {
@@ -67,11 +69,17 @@ export type TimelineItemRowViewModel = {
   item: TimelineViewItem;
   rowIndex: number;
   connectToProperties: boolean;
+  expanded: boolean;
+  rowHeight: number;
   selected: boolean;
   source: TimelineSourceStatusViewModel;
   rowBackground: string;
   trackLeft: number;
   trackWidth: number;
+  sourceTrackLeft: number;
+  sourceTrackWidth: number;
+  visibleTrackLeft: number;
+  visibleTrackWidth: number;
   trackBackground: string;
   trackOpacity: number;
   waveform: readonly number[];
@@ -116,7 +124,9 @@ export type TimelineFormulaRowViewModel = {
   startFrame: number;
   durationFrames: number;
   transitionFrames: readonly number[];
+  inverted: boolean;
   pxPerFrame: number;
+  timelineOriginLeft: number;
   trackLeft: number;
   trackWidth: number;
   transitionLefts: readonly number[];
@@ -128,6 +138,7 @@ export type TimelineTrackRowViewModel = TimelineItemRowViewModel | TimelinePrope
 
 export type TimelineTrackOverlayViewModel = {
   totalTrackGridRows: number;
+  timelineOriginLeft: number;
   frameGridMinorStep: number;
   frameGridMajorStep: number;
   playheadLeft: number;
@@ -162,6 +173,7 @@ export type TimelineRulerReadoutViewModel = {
 export type TimelineRulerViewModel = {
   contentWidth: number;
   pxPerFrame: number;
+  timelineOriginLeft: number;
   frames: TimelineRulerFrameViewModel[];
   playheadLeft: number;
   hoveredPlayheadLeft: number | null;

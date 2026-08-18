@@ -64,9 +64,11 @@ export function validateExactKeys(
   value: UnknownRecord,
   allowedKeys: readonly string[],
   path: string,
-  issues: LayerDocumentValidationIssue[]
+  issues: LayerDocumentValidationIssue[],
+  optionalKeys: readonly string[] = []
 ) {
-  const allowed = new Set(allowedKeys);
+  const optional = new Set(optionalKeys);
+  const allowed = new Set([...allowedKeys, ...optionalKeys]);
   Object.keys(value).forEach((key) => {
     if (!allowed.has(key)) {
       addIssue(
@@ -78,7 +80,7 @@ export function validateExactKeys(
     }
   });
   allowedKeys.forEach((key) => {
-    if (!(key in value)) {
+    if (!optional.has(key) && !(key in value)) {
       addIssue(
         issues,
         "invalid-shape",

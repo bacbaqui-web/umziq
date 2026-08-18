@@ -154,6 +154,23 @@ function projectFixture(): LayerDocumentProject {
     common: common("root", 0, "video-source"),
     data: {},
   };
+  video.common.modifiers = [{
+    modifierId: "mouth-basic:video-a",
+    type: "mouth-basic",
+    enabled: true,
+    audioLayerDocumentId: "audio-a",
+    startFrame: 0,
+    durationFrames: 20,
+    transitionFrames: [5, 10],
+  }];
+  const audio: LayerDocument = {
+    layerDocumentId: "audio-a",
+    name: "Voice",
+    revision: 0,
+    type: "audio",
+    common: common("root", 2, "audio-source"),
+    data: { gain: 1, muted: false, fadeInFrames: 0, fadeOutFrames: 0 },
+  };
   const nestedText: LayerDocument = {
     layerDocumentId: "nested-text",
     name: "Nested text",
@@ -180,6 +197,7 @@ function projectFixture(): LayerDocumentProject {
       layerDocumentsById: {
         root,
         "video-a": video,
+        "audio-a": audio,
         nested,
         "nested-text": nestedText,
       },
@@ -205,6 +223,27 @@ function projectFixture(): LayerDocumentProject {
               durationFrames: 80,
               width: 1080,
               height: 1920,
+            },
+          },
+          "audio-source": {
+            sourceId: "audio-source",
+            kind: "audio",
+            displayName: "voice.wav",
+            locator: {
+              locatorId: "linked:audio-source",
+              kind: "linked-file",
+              suggestedFileName: "voice.wav",
+              relativePathHint: "audio/voice.wav",
+            },
+            contentFingerprint: null,
+            version: 1,
+            refresh: { status: "normal" },
+            data: {
+              mimeType: "audio/wav",
+              durationFrames: 30,
+              channelCount: 1,
+              sampleRate: 48_000,
+              provenance: "imported",
             },
           },
         },
@@ -324,6 +363,7 @@ const runtime: LayerDocumentTimelineRuntimeUiState = {
   editingLayerDocumentId: null,
   draftName: "",
   deleteDecisionLayerDocumentId: null,
+  expandedLayerDocumentIds: new Set(),
   timingDraft: null,
   keyframeDrag: null,
 };
@@ -392,6 +432,32 @@ assert.equal(
   ).length,
   4
 );
+const expandedView = buildLayerDocumentTimelineUiReadModel({
+  project: ports.project.read(),
+  timeline: { ...ports.timeline.readViewProps(), selectedLayerDocumentId: null },
+  runtime: { ...runtime, expandedLayerDocumentIds: new Set(["video-a", "audio-a"]) },
+  playback: playback.read(),
+  ruler,
+  nameColumnWidth: 180,
+  formatTime,
+  readAudioWaveform: () => [0.25, 0.75],
+});
+assert.ok(
+  expandedView.rows.some((row) => row.type === "formula" && row.item.id === "video-a"),
+  "an expanded layer keeps its formula row visible after selection changes"
+);
+assert.equal(
+  expandedView.rows.filter(
+    (row) => row.type === "property" && row.item.id === "video-a"
+  ).length,
+  4,
+  "an expanded layer keeps every enabled keyframe row visible after selection changes"
+);
+const expandedAudioRow = expandedView.rows.find(
+  (row) => row.type === "item" && row.item.id === "audio-a"
+);
+assert.equal(expandedAudioRow?.type === "item" ? expandedAudioRow.rowHeight : null, 48);
+assert.deepEqual(expandedAudioRow?.type === "item" ? expandedAudioRow.waveform : null, [0.25, 0.75]);
 const positionRow = initialView.rows.find(
   (row) =>
     row.type === "property" &&
@@ -766,6 +832,11 @@ const rootAfter =
     .layerDocumentsById.root;
 assert.ok(rootAfter.type === "group");
 assert.equal(rootAfter.data.durationFrames, 40);
+assert.equal(
+  rootAfter.common.placement.durationFrames,
+  40,
+  "an untrimmed Group Layer follows its internal Timeline duration"
+);
 assert.equal(
   playback.read().currentFrame,
   39

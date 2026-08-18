@@ -61,6 +61,34 @@ assert.match(
   /deleteTimelineItem\(item\.id\)/,
   "Layer row deletion must be separate from Source status reconciliation"
 );
+assert.match(
+  itemComponent,
+  /gridColumn: 2,[\s\S]*?width: contentWidth,[\s\S]*?overflow: "visible"/,
+  "Layer tracks must show Placement content outside the active Timeline duration"
+);
+assert.match(
+  itemComponent,
+  /visibleTrackWidth/,
+  "Layer tracks must distinguish the visible parent-Timeline intersection"
+);
+const formulaComponent = readFileSync(
+  "src/features/timeline/components/TimelineFormulaClip.tsx",
+  "utf8"
+);
+assert.match(
+  formulaComponent,
+  /gridColumn: 2,[\s\S]*?width: contentWidth,[\s\S]*?overflow: "visible"/,
+  "Formula clips must remain visible outside the active Timeline duration"
+);
+const propertyComponent = readFileSync(
+  "src/features/timeline/components/TimelinePropertyTrackRow.tsx",
+  "utf8"
+);
+assert.match(
+  propertyComponent,
+  /zIndex: viewModel\.dragging \? 50 : 2[\s\S]*?overflow: viewModel\.dragging \? "visible" : "hidden"/,
+  "Keyframe drag readouts must rise above adjacent Timeline rows"
+);
 
 console.log(
   "LayerDocument Timeline UI boundary verification passed"

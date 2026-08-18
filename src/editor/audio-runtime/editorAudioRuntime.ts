@@ -202,22 +202,41 @@ export function createEditorAudioRuntime(options: {
       const discontinuity = timelineFrame !== null && currentFrame !== timelineFrame + 1;
       if (discontinuity) stopTimeline();
       timelineFrame = currentFrame;
-      const eligible = Object.values(nextProject.payload.layerDocumentsById).flatMap((layer) => {
-        if (layer.type !== "audio" || layer.common.placement.parentLayerDocumentId !== activeGroupLayerDocumentId || !layer.common.placement.visible || layer.data.muted) return [];
-        const placement = layer.common.placement;
-        if (currentFrame < placement.startFrame || currentFrame >= placement.startFrame + placement.durationFrames) return [];
-        const sourceId = placement.sourceOffsetFrames >= 0 ? layer.common.source?.sourceId : null;
-        const resource = sourceId ? options.resources.resolve(sourceId) : null;
-        if (!sourceId || !resource) return [];
-        return [{ layer, sourceId, resource }];
-      });
+      const eligible: Array<{
+        layer: AudioLayerDocument;
+        sourceId: string;
+        resource: NonNullable<ReturnType<LayerDocumentAudioRuntimePort["resolve"]>>;
+        localFrame: number;
+      }> = [];
+      const visit = (parentId: string, parentStart: number, parentClipStart: number, parentClipEnd: number) => {
+        Object.values(nextProject.payload.layerDocumentsById)
+          .filter((layer) => layer.common.placement.parentLayerDocumentId === parentId)
+          .forEach((layer) => {
+            const placement = layer.common.placement;
+            if (!placement.visible) return;
+            const absoluteStart = parentStart + placement.startFrame;
+            const absoluteEnd = absoluteStart + placement.durationFrames;
+            const clipStart = Math.max(parentClipStart, absoluteStart);
+            const clipEnd = Math.min(parentClipEnd, absoluteEnd);
+            if (currentFrame < clipStart || currentFrame >= clipEnd) return;
+            if (layer.type === "group") {
+              visit(layer.layerDocumentId, absoluteStart, clipStart, clipEnd);
+              return;
+            }
+            if (layer.type !== "audio" || layer.data.muted) return;
+            const sourceId = placement.sourceOffsetFrames >= 0 ? layer.common.source?.sourceId : null;
+            const resource = sourceId ? options.resources.resolve(sourceId) : null;
+            if (!sourceId || !resource) return;
+            eligible.push({ layer, sourceId, resource, localFrame: currentFrame - absoluteStart });
+          });
+      };
+      visit(activeGroupLayerDocumentId, 0, 0, Number.POSITIVE_INFINITY);
       const eligibleIds = new Set(eligible.map(({ layer }) => layer.layerDocumentId));
       [...timelineHandles.keys()].forEach((id) => {
         if (!eligibleIds.has(id)) stopTimeline(id);
       });
-      eligible.forEach(({ layer, sourceId, resource }) => {
+      eligible.forEach(({ layer, sourceId, resource, localFrame }) => {
         const placement = layer.common.placement;
-        const localFrame = currentFrame - placement.startFrame;
         const fadeIn = layer.data.fadeInFrames > 0 ? Math.min(1, localFrame / layer.data.fadeInFrames) : 1;
         const remaining = placement.durationFrames - localFrame;
         const fadeOut = layer.data.fadeOutFrames > 0 ? Math.min(1, remaining / layer.data.fadeOutFrames) : 1;

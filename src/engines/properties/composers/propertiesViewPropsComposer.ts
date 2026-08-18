@@ -63,6 +63,8 @@ export interface PropertiesControllerSet {
   readonly toggleAccelerationProperty?: PropertiesCommand["toggleAccelerationProperty"];
   readonly setAccelerationCurve?: PropertiesCommand["setAccelerationCurve"];
   readonly setMouthBasicAudioLayer?: PropertiesCommand["setMouthBasicAudioLayer"];
+  readonly toggleMouthBasicInverted?: PropertiesCommand["toggleMouthBasicInverted"];
+  readonly setMouthBasicRepetitionsPerSecond?: PropertiesCommand["setMouthBasicRepetitionsPerSecond"];
   readonly focusAudioInput?: PropertiesCommand["focusAudioInput"];
   readonly changeAudioInput?: PropertiesCommand["changeAudioInput"];
   readonly blurAudioInput?: PropertiesCommand["blurAudioInput"];
@@ -83,6 +85,8 @@ export function buildLayerDocumentPropertiesViewProps(options: {
   >;
   mouthAudioOptions?: readonly { id: string; label: string }[];
   setMouthBasicAudioLayer?: (audioLayerDocumentId: string) => void;
+  toggleMouthBasicInverted?: () => void;
+  setMouthBasicRepetitionsPerSecond?: (value: number) => void;
   scopeIdentity?: string;
 }): PropertiesEngineViewProps {
   const read = options.controller.read();
@@ -161,6 +165,10 @@ export function buildLayerDocumentPropertiesViewProps(options: {
       toggleModifier: options.controller.toggleModifier,
       setMouthBasicAudioLayer: options.setMouthBasicAudioLayer ??
         options.controller.setMouthBasicAudioLayer ?? noCommand,
+      toggleMouthBasicInverted: options.toggleMouthBasicInverted ??
+        options.controller.toggleMouthBasicInverted ?? noCommand,
+      setMouthBasicRepetitionsPerSecond: options.setMouthBasicRepetitionsPerSecond ??
+        options.controller.setMouthBasicRepetitionsPerSecond ?? noCommand,
       toggleAccelerationProperty:
         options.controller.toggleAccelerationProperty ?? noCommand,
       setAccelerationCurve: options.controller.setAccelerationCurve ?? noCommand,

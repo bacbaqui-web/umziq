@@ -78,6 +78,10 @@ export {
   type LayerDocumentTimelineTimingSession,
 } from "@/engines/timeline/helpers/layerDocumentTimelineInteractionHelpers";
 export {
+  TIMELINE_POST_ROLL_PX,
+  TIMELINE_PRE_ROLL_PX,
+} from "@/engines/timeline/helpers/timelineLayoutHelpers";
+export {
   TIMELINE_NAME_COL_WIDTH,
   TIMELINE_PX_PER_FRAME,
   TIMELINE_DURATION_EDITOR_HEIGHT,

@@ -8,6 +8,12 @@ import {
   LibraryTreeBranchGuide,
   LibraryTreeConnector,
 } from "@/features/library/components/LibraryTreeConnector";
+import {
+  GROUP_HOVER_BACKGROUND,
+  GROUP_SELECTED_BACKGROUND,
+  GROUP_SELECTED_BORDER,
+  GROUP_SELECTED_GLOW,
+} from "@/shared/styles/groupVisualStyles";
 
 type Props = LibraryNodeProps & {
   readonly parentGuideLeft?: number;
@@ -78,11 +84,13 @@ export default function LibraryNode({
   const dropGap = isMain ? 37 : 22;
 
   const rowBackground = node.selected
-    ? isMain
-      ? "linear-gradient(90deg, rgba(47, 79, 127, 0.88), rgba(42, 64, 91, 0.58))"
-      : "transparent"
+    ? node.entityKind === "composition"
+      ? GROUP_SELECTED_BACKGROUND
+      : isMain
+        ? "linear-gradient(90deg, rgba(47, 79, 127, 0.88), rgba(42, 64, 91, 0.58))"
+        : "transparent"
     : rowHovered
-      ? isMain ? "rgba(45, 51, 57, 0.72)" : "rgba(42, 48, 54, 0.64)"
+      ? node.entityKind === "composition" ? GROUP_HOVER_BACKGROUND : isMain ? "rgba(45, 51, 57, 0.72)" : "rgba(42, 48, 54, 0.64)"
       : "transparent";
 
   return (
@@ -120,7 +128,7 @@ export default function LibraryNode({
           (showDropBefore ? dropGap : 0),
         marginBottom: showDropAfter ? dropGap : 0,
         border: isMain
-          ? node.selected ? "1px solid #4b6685" : "1px solid #343a40"
+          ? node.selected && node.entityKind === "composition" ? `1px solid ${GROUP_SELECTED_BORDER}` : node.selected ? "1px solid #4b6685" : "1px solid #343a40"
           : "none",
         borderRadius: isMain ? 8 : 4,
         background: isMain
@@ -128,7 +136,7 @@ export default function LibraryNode({
           : isDragging ? "rgba(74, 84, 96, 0.22)" : "transparent",
         boxShadow: isMain
           ? node.selected
-            ? "0 6px 18px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(86, 126, 168, 0.08)"
+            ? node.entityKind === "composition" ? GROUP_SELECTED_GLOW : "0 6px 18px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(86, 126, 168, 0.08)"
             : "0 4px 14px rgba(0, 0, 0, 0.18)"
           : "none",
         outline: showDropInside ? "1px solid #65c98a" : "none",

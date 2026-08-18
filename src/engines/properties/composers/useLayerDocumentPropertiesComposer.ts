@@ -67,6 +67,8 @@ export function useLayerDocumentPropertiesComposer(options: {
     toggleAccelerationProperty: modifier.toggleAccelerationProperty,
     setAccelerationCurve: modifier.setAccelerationCurve,
     setMouthBasicAudioLayer: modifier.setMouthBasicAudioLayer,
+    toggleMouthBasicInverted: modifier.toggleMouthBasicInverted,
+    setMouthBasicRepetitionsPerSecond: modifier.setMouthBasicRepetitionsPerSecond,
   };
   return {
     controller,

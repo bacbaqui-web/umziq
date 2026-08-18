@@ -9,6 +9,11 @@ function TimelinePanel(props: TimelinePanelProps) {
   const { readModel, commands, interactions, rulerRef, switcherRef, switcherTriggerRef, scrollContainerRef } = props;
   const [isMiniFlowchartOpen, setIsMiniFlowchartOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const nameColumnResizeRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startWidth: number;
+  } | null>(null);
 
   const isInteractiveTarget = (target: EventTarget | null) => (
     target instanceof HTMLElement
@@ -71,15 +76,22 @@ function TimelinePanel(props: TimelinePanelProps) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minHeight: 0 }}>
           <div
             ref={scrollContainerRef}
+            onScroll={(event) => {
+              if (event.currentTarget.scrollLeft !== 0) {
+                event.currentTarget.scrollLeft = 0;
+              }
+            }}
             style={{
               flex: 1,
               minHeight: 0,
-              overflow: "auto",
+              overflowY: "auto",
+              overflowX: "hidden",
             }}
           >
             <div
               style={{
                 display: "grid",
+                position: "relative",
                 width: "100%",
                 gridTemplateColumns: `${readModel.nameColumnWidth}px minmax(0, 1fr)`,
                 columnGap: 6,
@@ -88,6 +100,42 @@ function TimelinePanel(props: TimelinePanelProps) {
             >
               <TimelineRuler viewModel={readModel.ruler} commands={commands} rulerRef={rulerRef} />
               <TimelineTrackRows readModel={readModel} interactions={interactions} />
+              <div
+                aria-hidden="true"
+                style={{ position: "absolute", left: readModel.nameColumnWidth - 3, top: 0, bottom: 0, width: 12, zIndex: 30, pointerEvents: "none" }}
+              >
+                <div
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    event.preventDefault();
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    nameColumnResizeRef.current = {
+                      pointerId: event.pointerId,
+                      startClientX: event.clientX,
+                      startWidth: readModel.nameColumnWidth,
+                    };
+                  }}
+                  onPointerMove={(event) => {
+                    const resize = nameColumnResizeRef.current;
+                    if (!resize || resize.pointerId !== event.pointerId) return;
+                    commands.setNameColumnWidth(
+                      resize.startWidth + event.clientX - resize.startClientX
+                    );
+                  }}
+                  onPointerUp={(event) => {
+                    if (nameColumnResizeRef.current?.pointerId !== event.pointerId) return;
+                    nameColumnResizeRef.current = null;
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                  }}
+                  onPointerCancel={() => {
+                    nameColumnResizeRef.current = null;
+                  }}
+                  title="레이어 이름 영역 너비 조절"
+                  style={{ position: "absolute", inset: 0, pointerEvents: "auto", cursor: "col-resize" }}
+                >
+                  <span style={{ position: "absolute", top: 0, bottom: 0, left: 5, width: 1, background: "rgba(151, 166, 178, 0.34)" }} />
+                </div>
+              </div>
             </div>
           </div>
         </div>

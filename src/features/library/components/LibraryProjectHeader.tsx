@@ -1,6 +1,15 @@
+import { useState } from "react";
 import type { LibraryNodeViewModel } from "@/engines/library";
 import LibraryAudioMenu from "@/features/library/components/LibraryAudioMenu";
 import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
+import {
+  GROUP_HOVER_BACKGROUND,
+  GROUP_HOVER_BORDER,
+  GROUP_HOVER_GLOW,
+  GROUP_SELECTED_BACKGROUND,
+  GROUP_SELECTED_BORDER,
+  GROUP_SELECTED_GLOW,
+} from "@/shared/styles/groupVisualStyles";
 
 export default function LibraryProjectHeader({
   node,
@@ -15,21 +24,28 @@ export default function LibraryProjectHeader({
   readonly onImportAudio: () => void;
   readonly onRecordAudio: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <div
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       style={{
         height: 44,
         padding: "0 8px 0 9px",
         display: "flex",
         alignItems: "center",
         gap: 7,
-        border: node.selected ? "1px solid #4b6685" : "1px solid #343d45",
+        border: `1px solid ${node.selected ? GROUP_SELECTED_BORDER : hovered ? GROUP_HOVER_BORDER : "#343d45"}`,
         borderRadius: 8,
         background: node.selected
-          ? "linear-gradient(90deg, rgba(47, 79, 127, 0.9), rgba(42, 64, 91, 0.62))"
+          ? GROUP_SELECTED_BACKGROUND
+          : hovered
+            ? GROUP_HOVER_BACKGROUND
           : "linear-gradient(145deg, #23292f 0%, #1b2025 100%)",
         boxShadow: node.selected
-          ? "0 5px 16px rgba(0, 0, 0, 0.24), inset 0 0 0 1px rgba(111, 157, 204, 0.13)"
+          ? GROUP_SELECTED_GLOW
+          : hovered
+            ? GROUP_HOVER_GLOW
           : "0 4px 14px rgba(0, 0, 0, 0.18)",
       }}
     >

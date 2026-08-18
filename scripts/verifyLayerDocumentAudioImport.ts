@@ -49,6 +49,11 @@ function fixture(): LayerDocumentProject {
           common: common("root", 0),
           data: { role: "composition", width: 1080, height: 1920, frameRate: 30, durationFrames: 300 },
         },
+        nested: {
+          layerDocumentId: "nested", revision: 0, name: "Nested", type: "group",
+          common: common("cut", 0),
+          data: { role: "composition", width: 1080, height: 1920, frameRate: 30, durationFrames: 120 },
+        },
       },
     },
   };
@@ -57,6 +62,16 @@ function fixture(): LayerDocumentProject {
 let project = fixture();
 assert.equal(resolveLayerDocumentAudioImportCut({ project, selectedLayerDocumentId: "cut" }), "cut");
 assert.equal(resolveLayerDocumentAudioImportCut({ project, selectedLayerDocumentId: "root" }), "root");
+assert.equal(resolveLayerDocumentAudioImportCut({ project, selectedLayerDocumentId: "nested" }), "nested");
+assert.equal(
+  resolveLayerDocumentAudioImportCut({
+    project,
+    selectedLayerDocumentId: null,
+    activeGroupLayerDocumentId: "nested",
+  }),
+  "root",
+  "no selection imports directly below the Project regardless of active Group"
+);
 
 let disposed = 0;
 const decoder = {
@@ -123,6 +138,30 @@ assert.equal(
   "project selection imports BGM directly below the project root"
 );
 projectAudioPrepared.runtime.cancel();
+
+const unselectedAudioPrepared = await prepareLayerDocumentAudioImport({
+  project: fixture(), file, token: "unselected-audio",
+  selectedLayerDocumentId: null,
+  activeGroupLayerDocumentId: "nested",
+  decoder,
+});
+assert.equal(
+  unselectedAudioPrepared.command.layers[0].common.placement.parentLayerDocumentId,
+  "root",
+  "an unselected import is placed directly below the Project root"
+);
+unselectedAudioPrepared.runtime.cancel();
+
+const nestedAudioPrepared = await prepareLayerDocumentAudioImport({
+  project: fixture(), file, token: "nested-audio",
+  selectedLayerDocumentId: "nested", decoder,
+});
+assert.equal(
+  nestedAudioPrepared.command.layers[0].common.placement.parentLayerDocumentId,
+  "nested",
+  "a selected nested Group receives the imported Audio directly"
+);
+nestedAudioPrepared.runtime.cancel();
 
 let multiProject = fixture();
 const multiRuntime = createLayerDocumentAudioRuntimeStore();

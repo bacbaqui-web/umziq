@@ -15,6 +15,12 @@ export function createLibraryNodeCommandController(options: {
       const node = find(nodeId);
       if (node?.type === "project") {
         options.controller.openProject();
+      } else if (
+        node?.selected &&
+        node.entityKind !== "composition" &&
+        node.layerDocumentId
+      ) {
+        options.controller.selectLayerDocument(null);
       } else if (node?.contentKind === "audio" && node.layerDocumentId) {
         options.audio.select(node.layerDocumentId);
       } else if (node?.type === "main" && node.sourceId) {

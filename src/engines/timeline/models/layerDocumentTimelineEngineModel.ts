@@ -119,6 +119,7 @@ export interface LayerDocumentTimelineRuntimeUiState {
   readonly editingLayerDocumentId: string | null;
   readonly draftName: string;
   readonly deleteDecisionLayerDocumentId: string | null;
+  readonly expandedLayerDocumentIds: ReadonlySet<string>;
   readonly timingDraft:
     LayerDocumentTimelineTimingDraft | null;
   readonly keyframeDrag:

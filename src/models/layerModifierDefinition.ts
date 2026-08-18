@@ -142,7 +142,7 @@ export const LAYER_MODIFIER_DEFINITIONS = [
     type: "mouth-basic",
     label: "입뻥긋(기본)",
     appliesTo: "opacity",
-    allowedKeys: ["modifierId", "type", "enabled", "audioLayerDocumentId", "startFrame", "durationFrames", "transitionFrames"],
+    allowedKeys: ["modifierId", "type", "enabled", "audioLayerDocumentId", "inverted", "repetitionsPerSecond", "startFrame", "durationFrames", "transitionFrames"],
     properties: { editorKind: "mouth-audio", fields: [] },
     timeline: { kind: "formula", contentKind: "mouth-segments" },
     evaluation: "opacity-mouth",
@@ -151,6 +151,8 @@ export const LAYER_MODIFIER_DEFINITIONS = [
       type: "mouth-basic",
       enabled: true,
       audioLayerDocumentId: null,
+      inverted: false,
+      repetitionsPerSecond: 4,
       startFrame: 0,
       durationFrames: duration(durationFrames),
       transitionFrames: [],
@@ -159,6 +161,8 @@ export const LAYER_MODIFIER_DEFINITIONS = [
       const nextDuration = duration(modifier.durationFrames);
       return {
         ...modifier,
+        inverted: modifier.inverted === true,
+        repetitionsPerSecond: Math.min(12, Math.max(0.5, finite(modifier.repetitionsPerSecond ?? 4, 4))),
         startFrame: integer(modifier.startFrame),
         durationFrames: nextDuration,
         transitionFrames: [...new Set(modifier.transitionFrames
@@ -170,6 +174,7 @@ export const LAYER_MODIFIER_DEFINITIONS = [
     validate: (modifier) => [
       ...baseIssues(modifier),
       ...numberIssues([
+        ["repetitionsPerSecond", modifier.repetitionsPerSecond ?? 4, 0.5],
         ["startFrame", modifier.startFrame],
         ["durationFrames", modifier.durationFrames, 1],
       ]),

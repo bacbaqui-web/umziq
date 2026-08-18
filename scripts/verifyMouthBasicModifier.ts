@@ -20,6 +20,22 @@ const analysis = analyzeMouthBasicTransitions({
 assert.equal(analysis.durationFrames, 30);
 assert.ok(analysis.transitionFrames.length >= 4, "speech produces editable opacity transitions");
 assert.ok(analysis.transitionFrames[0]! >= 5 && analysis.transitionFrames[0]! <= 7, "speech begins near 0.2 seconds");
+const slowAnalysis = analyzeMouthBasicTransitions({
+  sampleRate,
+  duration: 1,
+  numberOfChannels: 1,
+  getChannelData: () => samples,
+}, 30, 1);
+const fastAnalysis = analyzeMouthBasicTransitions({
+  sampleRate,
+  duration: 1,
+  numberOfChannels: 1,
+  getChannelData: () => samples,
+}, 30, 8);
+assert.ok(
+  fastAnalysis.transitionFrames.length > slowAnalysis.transitionFrames.length,
+  "higher repetitions per second generate denser mouth transitions"
+);
 
 const mouth = {
   modifierId: "mouth:visual",
@@ -33,6 +49,9 @@ const mouth = {
 assert.equal(evaluateMouthBasicOpacity(mouth, 9), 100);
 assert.equal(evaluateMouthBasicOpacity(mouth, 10 + analysis.transitionFrames[0]!), 0);
 assert.equal(evaluateMouthBasicOpacity(mouth, 40), 100);
+assert.equal(evaluateMouthBasicOpacity({ ...mouth, inverted: true }, 9), 100, "outside the formula clip remains unchanged");
+assert.equal(evaluateMouthBasicOpacity({ ...mouth, inverted: true }, 10), 0, "inversion swaps the initial 100 output to 0");
+assert.equal(evaluateMouthBasicOpacity({ ...mouth, inverted: true }, 10 + analysis.transitionFrames[0]!), 100, "inversion swaps the 0 output to 100");
 
 const visual: LayerDocument = {
   layerDocumentId: "visual",

@@ -16,7 +16,7 @@ const SMOOTHING_MS = 80;
 const END_HOLD_MS = 80;
 const MERGE_GAP_MS = 180;
 const MINIMUM_SPEECH_MS = 100;
-const TOGGLES_PER_SECOND = 8;
+const DEFAULT_REPETITIONS_PER_SECOND = 4;
 
 function percentile(values: readonly number[], ratio: number) {
   if (values.length === 0) return 0;
@@ -97,10 +97,15 @@ function detectSpeech(levels: readonly LevelPoint[], duration: number): SpeechSe
   return merged.filter((segment) => (segment.end - segment.start) * 1000 >= MINIMUM_SPEECH_MS);
 }
 
-export function analyzeMouthBasicTransitions(buffer: MouthBasicAudioBuffer, frameRate: number) {
+export function analyzeMouthBasicTransitions(
+  buffer: MouthBasicAudioBuffer,
+  frameRate: number,
+  repetitionsPerSecond = DEFAULT_REPETITIONS_PER_SECOND
+) {
   const safeFrameRate = Math.max(1, frameRate);
   const durationFrames = Math.max(1, Math.ceil(buffer.duration * safeFrameRate));
-  const toggleInterval = Math.max(1, Math.round(safeFrameRate / TOGGLES_PER_SECOND));
+  const safeRepetitions = Math.min(12, Math.max(0.5, repetitionsPerSecond));
+  const toggleInterval = Math.max(1, Math.round(safeFrameRate / (safeRepetitions * 2)));
   const transitions: number[] = [];
   for (const segment of detectSpeech(extractLevels(buffer), buffer.duration)) {
     const start = Math.max(0, Math.floor(segment.start * safeFrameRate));
@@ -124,10 +129,12 @@ export function buildMouthBasicConnectionClip(options: {
   readonly audioAbsoluteStartFrame: number;
   readonly targetAbsoluteStartFrame: number;
   readonly targetSourceOffsetFrames: number;
+  readonly repetitionsPerSecond?: number;
 }) {
   const analysis = analyzeMouthBasicTransitions(
     options.buffer,
-    options.frameRate
+    options.frameRate,
+    options.repetitionsPerSecond
   );
   const sourceStart = options.audioSourceOffsetFrames;
   const durationFrames = Math.max(
@@ -165,5 +172,6 @@ export function evaluateMouthBasicOpacity(
     if (frame > relativeFrame) break;
     toggles += 1;
   }
-  return toggles % 2 === 1 ? 0 : 100;
+  const opacity = toggles % 2 === 1 ? 0 : 100;
+  return modifier.inverted ? 100 - opacity : opacity;
 }

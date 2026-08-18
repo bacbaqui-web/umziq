@@ -35,6 +35,7 @@ export default function TimelineAccelerationTrackRow({ viewModel, contentWidth, 
       itemStartFrame={viewModel.item.startFrame}
       itemSourceOffsetFrames={viewModel.item.sourceOffsetFrames}
       pxPerFrame={viewModel.pxPerFrame}
+      timelineOriginLeft={viewModel.timelineOriginLeft}
       initialDraft={{ startFrame: viewModel.startFrame, durationFrames: viewModel.durationFrames }}
       moveKind="move"
       startKind="start"

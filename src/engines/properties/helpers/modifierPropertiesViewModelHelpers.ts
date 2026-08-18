@@ -45,6 +45,8 @@ export function buildModifierPropertiesViewModels(options: {
       fields: [],
       audioLayerDocumentId: modifier.audioLayerDocumentId,
       audioOptions: options.mouthAudioOptions ?? [],
+      mouthBasicInverted: modifier.inverted === true,
+      mouthBasicRepetitionsPerSecond: modifier.repetitionsPerSecond ?? 4,
     }];
     if (modifier.type === "acceleration") return [{
       type: "acceleration",

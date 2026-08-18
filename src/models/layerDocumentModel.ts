@@ -229,6 +229,10 @@ export type LayerModifier =
       type: "mouth-basic";
       enabled: boolean;
       audioLayerDocumentId: string | null;
+      /** Swaps the generated opacity output between 0 and 100. */
+      inverted?: boolean;
+      /** Complete open-close cycles generated per second of detected speech. */
+      repetitionsPerSecond?: number;
       /** Source-local frame at which the editable formula clip begins. */
       startFrame: number;
       durationFrames: number;

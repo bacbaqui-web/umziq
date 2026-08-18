@@ -33,7 +33,7 @@ export interface LayerDocumentLibraryCommandPort {
   readonly toggleSourceLock: (sourceId: string) => unknown;
   readonly renameSourceLayer: (sourceId: string, name: string) => unknown;
   readonly deleteSourceLayer: (sourceId: string) => unknown;
-  readonly selectLayerDocument: (layerDocumentId: string) => unknown;
+  readonly selectLayerDocument: (layerDocumentId: string | null) => unknown;
   readonly toggleLayerVisibility: (layerDocumentId: string) => unknown;
   readonly toggleLayerLock: (layerDocumentId: string) => unknown;
   readonly renameLayerDocument: (layerDocumentId: string, name: string) => unknown;

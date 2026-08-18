@@ -86,18 +86,7 @@ export function resolveLayerDocumentAudioImportCut(options: {
       visited.add(id);
       const layer = options.project.payload.layerDocumentsById[id];
       if (!layer) return null;
-      if (layer.type === "group" && layer.data.role === "project-root") {
-        return layer.layerDocumentId;
-      }
-      if (layer.type === "group" && layer.data.role === "composition") {
-        const parentId = layer.common.placement.parentLayerDocumentId;
-        const parent = parentId
-          ? options.project.payload.layerDocumentsById[parentId]
-          : null;
-        return parent?.type === "group" && parent.data.role === "project-root"
-          ? id
-          : null;
-      }
+      if (layer.type === "group") return layer.layerDocumentId;
       id = layer.common.placement.parentLayerDocumentId;
     }
     return null;
@@ -106,9 +95,10 @@ export function resolveLayerDocumentAudioImportCut(options: {
   if (options.explicitCutLayerDocumentId !== undefined) return explicit;
   const selected = resolve(options.selectedLayerDocumentId);
   if (selected) return selected;
-  const active = resolve(options.activeGroupLayerDocumentId);
-  if (active) return active;
-  return null;
+  if (options.selectedLayerDocumentId) return null;
+  return Object.values(options.project.payload.layerDocumentsById)
+    .find((layer) => layer.type === "group" && layer.data.role === "project-root")
+    ?.layerDocumentId ?? null;
 }
 
 export const LAYER_DOCUMENT_BROWSER_AUDIO_DECODER: LayerDocumentAudioDecodePort = {
@@ -152,9 +142,9 @@ export async function prepareLayerDocumentAudioImport(options: {
     throw new Error("Choose a browser-decodable audio/* file");
   }
   const cutId = resolveLayerDocumentAudioImportCut(options);
-  if (!cutId) throw new Error("프로젝트 또는 컷(Cut)을 선택한 뒤 오디오를 추가해주세요.");
+  if (!cutId) throw new Error("오디오를 넣을 그룹을 선택한 뒤 다시 시도해주세요.");
   const cut = options.project.payload.layerDocumentsById[cutId];
-  if (!cut || cut.type !== "group") throw new Error("Audio import Cut not found");
+  if (!cut || cut.type !== "group") throw new Error("Audio import Group not found");
   const buffer = await options.file.arrayBuffer();
   const [decoded, contentFingerprint] = await Promise.all([
     (options.decoder ?? LAYER_DOCUMENT_BROWSER_AUDIO_DECODER).decode(buffer),

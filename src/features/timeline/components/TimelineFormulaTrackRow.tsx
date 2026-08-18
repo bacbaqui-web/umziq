@@ -14,7 +14,7 @@ function clipChanged(left: ClipDraft, right: ClipDraft) {
     left.transitionFrames.some((frame, index) => frame !== right.transitionFrames[index]);
 }
 
-function buildOpacitySegments(clip: ClipDraft) {
+function buildOpacitySegments(clip: ClipDraft, inverted: boolean) {
   const boundaries = [
     0,
     ...clip.transitionFrames.filter((frame) => frame >= 0 && frame < clip.durationFrames),
@@ -23,7 +23,7 @@ function buildOpacitySegments(clip: ClipDraft) {
   return boundaries.slice(0, -1).map((startFrame, index) => ({
     startFrame,
     durationFrames: Math.max(0, (boundaries[index + 1] ?? startFrame) - startFrame),
-    visible: index % 2 === 0,
+    visible: (index % 2 === 0) !== inverted,
   }));
 }
 
@@ -45,6 +45,7 @@ export default function TimelineFormulaTrackRow({ viewModel, contentWidth, inter
       itemStartFrame={viewModel.item.startFrame}
       itemSourceOffsetFrames={viewModel.item.sourceOffsetFrames}
       pxPerFrame={viewModel.pxPerFrame}
+      timelineOriginLeft={viewModel.timelineOriginLeft}
       initialDraft={initial}
       moveKind="move"
       startKind="start"
@@ -53,6 +54,8 @@ export default function TimelineFormulaTrackRow({ viewModel, contentWidth, inter
       labelColor="#c9ead8"
       accentColor="#57b77b"
       ariaLabel="입뻥긋 수식 클립 이동"
+      clipHeight={10}
+      clipTop={1.5}
       clipStyle={{ background: "transparent" }}
       updateDraft={(source, kind, delta) => {
         if (kind === "move") return { ...source, startFrame: source.startFrame + delta };
@@ -95,7 +98,7 @@ export default function TimelineFormulaTrackRow({ viewModel, contentWidth, inter
       renderContent={({ draft, pxPerFrame, beginInteraction }) => (
         <>
           <span style={{ position: "absolute", inset: 0, borderRadius: 2, overflow: "hidden", pointerEvents: "none" }}>
-            {buildOpacitySegments(draft).map((segment, index) => (
+            {buildOpacitySegments(draft, viewModel.inverted).map((segment, index) => (
               <span
                 key={`${index}-${segment.startFrame}`}
                 style={{
@@ -116,9 +119,9 @@ export default function TimelineFormulaTrackRow({ viewModel, contentWidth, inter
               key={`${index}-${frame}`}
               title={`${frame}f`}
               onPointerDown={(event) => beginInteraction(event, `transition-${index}`)}
-              style={{ position: "absolute", left: frame * pxPerFrame - 2, top: 1, width: 4, height: 10, cursor: "ew-resize", zIndex: 3 }}
+              style={{ position: "absolute", left: frame * pxPerFrame - 2, top: 0, width: 4, height: 8, cursor: "ew-resize", zIndex: 3 }}
             >
-              <span style={{ position: "absolute", left: 1, top: 0, width: 1, height: 10, background: "rgba(226,255,236,.86)" }} />
+              <span style={{ position: "absolute", left: 1, top: 0, width: 1, height: 8, background: "rgba(226,255,236,.86)" }} />
             </span>
           ))}
         </>

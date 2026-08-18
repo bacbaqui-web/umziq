@@ -6,6 +6,8 @@ import {
 } from "react";
 import {
   layerDocumentGlobalFrameToLocalFrame,
+  type LayerDocument,
+  type LayerDocumentProject,
 } from "@/models";
 import {
   createLayerDocumentCanvasCommandPort,
@@ -48,6 +50,7 @@ import {
   createLayerDocumentTimelineSourceStatusAdapter,
   type LayerDocumentTimelineOwnerPort,
   type LayerDocumentTimelinePlaybackPort,
+  type LayerDocumentTimelineTimingDraft,
 } from "@/engines/timeline";
 import {
   createEditorProjectOwnerCommandAdapter,
@@ -73,6 +76,7 @@ export function useLayerDocumentPanelEnginePorts(
       LayerDocumentTimelinePlaybackPort;
     sourceSamplingQuality:
       LayerDocumentSourceSamplingQuality;
+    readTimelineTimingDraft: () => LayerDocumentTimelineTimingDraft | null;
   }
 ) {
   const {
@@ -84,9 +88,38 @@ export function useLayerDocumentPanelEnginePorts(
     draftSession,
     frameInput,
     sourceSamplingQuality,
+    readTimelineTimingDraft,
   } = options;
   const readProject = () =>
     owner.state.currentProject;
+  const readCanvasProject = (): LayerDocumentProject => {
+    const project = readProject();
+    const timingDraft = readTimelineTimingDraft();
+    if (!timingDraft) return project;
+    const layer = project.payload.layerDocumentsById[timingDraft.layerDocumentId];
+    if (!layer) return project;
+    return {
+      ...project,
+      payload: {
+        ...project.payload,
+        layerDocumentsById: {
+          ...project.payload.layerDocumentsById,
+          [layer.layerDocumentId]: {
+            ...layer,
+            common: {
+              ...layer.common,
+              placement: {
+                ...layer.common.placement,
+                startFrame: timingDraft.startFrame,
+                durationFrames: timingDraft.durationFrames,
+                sourceOffsetFrames: timingDraft.sourceOffsetFrames,
+              },
+            },
+          } as LayerDocument,
+        },
+      },
+    };
+  };
   const readSelectedLayerDocumentId = () =>
     owner.state.session.layerSelection
       ?.layerDocumentId ?? null;
@@ -142,7 +175,7 @@ export function useLayerDocumentPanelEnginePorts(
           OwnerCommands["commitLayerTransaction"]
         >
       >({
-        readProject,
+        readProject: readCanvasProject,
         readActiveGroupLayerDocumentId,
         readSelectedLayerDocumentId,
         readSelectedTransformKeyframe: () =>

@@ -120,6 +120,26 @@ active Group과 breadcrumb는 Editor Selection Runtime이다. Timeline은 이를
 사용해 현재 scope를 투영하지만 History에 저장하지 않는다. 존재하지 않는
 Group은 Project 교체나 Undo 뒤 유효한 scope로 보정한다.
 
+레이어별 펼침 상태도 Timeline UI Runtime이다. 펼친 visual Layer는 선택이
+바뀌어도 적용된 수식 행과 활성화된 모든 Keyframe 행을 유지하고, 펼친 Audio Layer는 파형을 읽기 쉽도록
+기본 행 높이의 두 배로 표시한다. 이 상태는 Project와 History에 저장하지 않는다.
+
+Group Layer의 source duration은 해당 Group 내부 Timeline duration이다. 아직
+trim하지 않은 Group Layer는 내부 duration 변경을 따라가며, 상위 Timeline에서
+앞뒤를 trim한 뒤에는 Placement의 구간과 source offset을 유지한다. 원본 source
+구간과 상위 Group duration 밖으로 밀린 구간은 옅게, 상위 Group에서 실제 보이는
+구간은 원래 색으로 표시한다.
+
+Layer에 적용된 Modifier clip도 상위 Group duration에서 잘라 숨기지 않고 Placement와
+함께 Timeline 경계 밖 구간을 이어서 표시한다.
+
+Layer Placement는 상위 Group의 0 frame 앞이나 duration 뒤로 이동할 수 있다.
+이때 Layer와 로컬 Keyframe은 함께 이동하고, 상위 Group의 playback과 출력 범위는
+변하지 않는다.
+
+Timeline은 0 frame 앞에 2 frame 너비의 표시 여백을 둔다. 음수 startFrame의
+Layer는 이 여백에서 이동 방향을 보여주되 Layer 이름 열 안으로는 그리지 않는다.
+
 ## 불변 조건
 
 - Timeline은 Layer를 소유하지 않는다.

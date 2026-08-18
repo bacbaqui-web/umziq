@@ -9,9 +9,9 @@ export function measureLayerHoverPreview(options: {
   height?: number | null;
 }) {
   const imageHeight = options.hasVisual && options.width && options.height
-    ? Math.min(200, (options.height / options.width) * 208)
-    : 120;
-  return { cardWidth: 224, imageHeight, cardHeight: 28 + imageHeight + 12 };
+    ? Math.min(100, (options.height / options.width) * 104)
+    : 60;
+  return { cardWidth: 112, imageHeight, cardHeight: 24 + imageHeight };
 }
 
 export function positionLayerHoverPreview(options: {
@@ -19,7 +19,7 @@ export function positionLayerHoverPreview(options: {
   clientY: number;
   cardHeight: number;
 }): LayerHoverPreviewPosition {
-  const cardWidth = 224;
+  const cardWidth = 112;
   const diagonalGap = 20;
   return {
     x: Math.max(12, Math.min(

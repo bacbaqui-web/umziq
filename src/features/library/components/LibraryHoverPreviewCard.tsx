@@ -55,7 +55,7 @@ function LibraryAudioHoverPreviewCard({
         zIndex: 1100,
         left: x,
         top: y,
-        width: 220,
+        width: 110,
         pointerEvents: "none",
         overflow: "hidden",
         border: "1px solid #50677b",
@@ -64,7 +64,7 @@ function LibraryAudioHoverPreviewCard({
         boxShadow: "0 14px 34px rgba(0,0,0,.58)",
       }}
     >
-      <div style={{ padding: "5px 7px", display: "flex", gap: 8, justifyContent: "space-between", color: "#dce8f2", fontSize: 11 }}>
+      <div style={{ padding: "3px 4px", display: "flex", gap: 4, justifyContent: "space-between", color: "#dce8f2", fontSize: 9 }}>
         <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preview.name}</span>
         <span style={{ flex: "0 0 auto", color: "#8798a6", fontVariantNumeric: "tabular-nums" }}>
           {preview.durationSeconds !== null ? `${preview.durationSeconds.toFixed(1)}초` : ""}
@@ -72,8 +72,8 @@ function LibraryAudioHoverPreviewCard({
       </div>
       <div
         style={{
-          minHeight: 112,
-          padding: 6,
+          minHeight: 56,
+          padding: 3,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -83,9 +83,9 @@ function LibraryAudioHoverPreviewCard({
         }}
       >
         {statusText ? (
-          <span style={{ color: preview.status === "missing" ? "#d99a9a" : "#aebbc6", fontSize: 12, fontWeight: 650 }}>{statusText}</span>
+          <span style={{ color: preview.status === "missing" ? "#d99a9a" : "#aebbc6", fontSize: 9, fontWeight: 650 }}>{statusText}</span>
         ) : (
-          <svg width="204" height="92" viewBox="0 0 204 92" role="img" aria-label="오디오 파형">
+          <svg width="102" height="46" viewBox="0 0 204 92" role="img" aria-label="오디오 파형">
             <line x1="0" y1="46" x2="204" y2="46" stroke="rgba(101,201,138,.28)" />
             {preview.waveform.map((peak, index) => {
               const xValue = (index / Math.max(1, preview.waveform.length - 1)) * 204;
@@ -96,7 +96,7 @@ function LibraryAudioHoverPreviewCard({
         )}
       </div>
       {preview.status === "ready" && (
-        <div style={{ padding: "4px 7px 6px", color: "#789184", fontSize: 10.5 }}>
+        <div style={{ padding: "2px 4px 3px", color: "#789184", fontSize: 8 }}>
           {preview.channelCount ? `${preview.channelCount}채널` : "채널 정보 없음"}
           {preview.sampleRate ? ` · ${(preview.sampleRate / 1000).toFixed(1)}kHz` : ""}
         </div>

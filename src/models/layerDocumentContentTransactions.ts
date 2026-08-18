@@ -299,10 +299,16 @@ export function buildUpdateLayerDocumentDomainTransaction(
       break;
     case "set-group-composition-metadata":
       if (next.type === "group") {
+        const followedGroupDuration =
+          next.common.placement.sourceOffsetFrames === 0 &&
+          next.common.placement.durationFrames === next.data.durationFrames;
         next.data = {
           role: next.data.role,
           ...clonePlainData(command.update.data),
         };
+        if (followedGroupDuration) {
+          next.common.placement.durationFrames = next.data.durationFrames;
+        }
       }
       break;
     case "replace-unknown-payload":

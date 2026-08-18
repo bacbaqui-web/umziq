@@ -61,5 +61,25 @@ const trimEnd = resolveLayerDocumentTimelineTimingDraft({ operation: "trim-end",
 assert.equal(trimEnd.durationFrames, 35, "trim end is clamped by sourceOffset + source duration");
 const extendStart = resolveLayerDocumentTimelineTimingDraft({ operation: "trim-start", timelineDurationFrames: 120, sourceDurationFrames: 40, initial }, -100);
 assert.equal(extendStart.sourceOffsetFrames, 0, "trim start cannot create a negative source offset");
+const movedBeforeTimeline = resolveLayerDocumentTimelineTimingDraft(
+  { operation: "move", timelineDurationFrames: 120, sourceDurationFrames: 40, initial },
+  -100
+);
+assert.equal(movedBeforeTimeline.startFrame, -29, "a moved Layer may extend before frame zero while one frame remains reachable");
+const movedAfterTimeline = resolveLayerDocumentTimelineTimingDraft(
+  { operation: "move", timelineDurationFrames: 120, sourceDurationFrames: 40, initial },
+  200
+);
+assert.equal(movedAfterTimeline.startFrame, 119, "a moved Layer may extend past the parent duration while one frame remains reachable");
+const moveBeforeCommit = buildUpdateLayerDocumentCommonTransaction(project, {
+  layerDocumentId: "audio",
+  update: {
+    kind: "set-placement-timing",
+    startFrame: movedBeforeTimeline.startFrame,
+    durationFrames: movedBeforeTimeline.durationFrames,
+    sourceOffsetFrames: movedBeforeTimeline.sourceOffsetFrames,
+  },
+});
+assert.equal(moveBeforeCommit.ok, true, "negative Placement start persists through the Owner transaction");
 
 console.log("LayerDocument Timeline Audio timing verification passed");

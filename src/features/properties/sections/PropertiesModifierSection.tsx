@@ -117,6 +117,41 @@ export default function PropertiesModifierSection({
             }}
           >
             {modifier.type === "mouth-basic" && (
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#9eabb5", fontSize: 10, whiteSpace: "nowrap" }}>
+                초당 반복
+                <input
+                  className="ui-input"
+                  type="number"
+                  min={0.5}
+                  max={12}
+                  step={0.5}
+                  aria-label="입뻥긋 초당 반복수"
+                  value={modifier.mouthBasicRepetitionsPerSecond ?? 4}
+                  onChange={(event) => commands.setMouthBasicRepetitionsPerSecond(Number(event.target.value))}
+                  style={{ width: 52, padding: "4px 5px", fontSize: 11, textAlign: "right" }}
+                />
+                회
+              </label>
+            )}
+            {modifier.type === "mouth-basic" && (
+              <button
+                type="button"
+                aria-pressed={modifier.mouthBasicInverted ?? false}
+                onClick={commands.toggleMouthBasicInverted}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 5,
+                  border: `1px solid ${modifier.mouthBasicInverted ? "#6ca8d1" : "#394651"}`,
+                  background: modifier.mouthBasicInverted ? "#29465c" : "#182027",
+                  color: modifier.mouthBasicInverted ? "#dcefff" : "#aeb9c2",
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
+                반전
+              </button>
+            )}
+            {modifier.type === "mouth-basic" && (
               <select
                 className="ui-input"
                 aria-label="입뻥긋 연결 오디오"

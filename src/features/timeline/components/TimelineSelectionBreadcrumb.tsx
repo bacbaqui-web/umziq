@@ -1,6 +1,14 @@
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import type { TimelineBreadcrumbSegment, TimelineSelectionLabel } from "@/engines/timeline";
-import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
+import LayerDocumentIcon from "@/shared/components/LayerDocumentIcon";
+import {
+  GROUP_HOVER_BACKGROUND,
+  GROUP_HOVER_BORDER,
+  GROUP_HOVER_GLOW,
+  GROUP_SELECTED_BACKGROUND,
+  GROUP_SELECTED_BORDER,
+  GROUP_SELECTED_GLOW,
+} from "@/shared/styles/groupVisualStyles";
 
 type TimelineSelectionBreadcrumbProps = {
   segments: TimelineBreadcrumbSegment[];
@@ -13,12 +21,17 @@ type TimelineSelectionBreadcrumbProps = {
 
 export default function TimelineSelectionBreadcrumb({
   segments,
-  selectionLabel,
   isOpen = false,
   triggerRef,
   onSelectComposition,
   onToggle,
 }: TimelineSelectionBreadcrumbProps) {
+  const currentSegmentId = segments.at(-1)?.id ?? null;
+  const [hoverState, setHoverState] = useState<{ segmentId: string; currentSegmentId: string | null } | null>(null);
+  const hoveredSegmentId = hoverState?.currentSegmentId === currentSegmentId
+    ? hoverState.segmentId
+    : null;
+
   return (
     <div
       aria-label="현재 그룹 위치"
@@ -41,9 +54,7 @@ export default function TimelineSelectionBreadcrumb({
             style={{ minWidth: 0, display: "flex", alignItems: "center", overflow: "hidden" }}
           >
             {index > 0 && (
-              <span aria-hidden="true" style={{ flex: "0 0 auto", color: "#66727e", padding: "0 5px" }}>
-                ›
-              </span>
+              <span aria-hidden="true" style={{ flex: "0 0 auto", width: 18, height: 1, background: "#7a858f" }} />
             )}
             {segment.isCurrent ? (
               <button
@@ -57,36 +68,29 @@ export default function TimelineSelectionBreadcrumb({
                 onClick={onToggle}
                 style={{
                   minWidth: 0,
+                  minHeight: 24,
+                  boxSizing: "border-box",
                   display: "flex",
                   alignItems: "center",
                   gap: 5,
                   overflow: "hidden",
                   padding: "3px 6px",
                   borderRadius: 5,
-                  border: "1px solid rgba(93, 156, 214, 0.28)",
-                  background: "rgba(93, 156, 214, 0.12)",
+                  border: `1px solid ${GROUP_SELECTED_BORDER}`,
+                  background: GROUP_SELECTED_BACKGROUND,
                   color: "#eef5fc",
                   cursor: "pointer",
                   fontSize: 12,
                   fontWeight: 600,
+                  lineHeight: 1.2,
+                  boxShadow: GROUP_SELECTED_GLOW,
                 }}
               >
                 {segment.entityKind && (
-                  <LayerCompositionIcon kind={segment.entityKind} size={13} />
+                  <LayerDocumentIcon kind={segment.entityKind} size={13} />
                 )}
                 <span style={{ minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                   {segment.name}
-                </span>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    flex: "0 0 auto",
-                    color: isOpen ? "#eef5fc" : "#9da9b5",
-                    fontSize: 10,
-                    transform: isOpen ? "rotate(180deg)" : "none",
-                  }}
-                >
-                  ▾
                 </span>
               </button>
             ) : (
@@ -95,25 +99,32 @@ export default function TimelineSelectionBreadcrumb({
                 aria-label={`${segment.name} 그룹으로 이동`}
                 title={segment.name}
                 onClick={() => onSelectComposition(segment.id)}
+                onPointerEnter={() => setHoverState({ segmentId: segment.id, currentSegmentId })}
+                onPointerLeave={() => setHoverState((current) => current?.segmentId === segment.id ? null : current)}
                 style={{
                   minWidth: 0,
+                  minHeight: 24,
+                  boxSizing: "border-box",
                   display: "flex",
                   alignItems: "center",
                   gap: 5,
                   overflow: "hidden",
-                  padding: "3px 7px",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  padding: "3px 6px",
+                  border: `1px solid ${hoveredSegmentId === segment.id ? GROUP_HOVER_BORDER : "#3a3a3a"}`,
                   borderRadius: 5,
-                  background: "rgba(255,255,255,0.035)",
-                  color: "#aab5c0",
+                  background: hoveredSegmentId === segment.id ? GROUP_HOVER_BACKGROUND : "#24282d",
+                  color: hoveredSegmentId === segment.id ? "#eef5fc" : "#aab5c0",
                   cursor: "pointer",
                   fontSize: 12,
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  boxShadow: hoveredSegmentId === segment.id ? GROUP_HOVER_GLOW : "none",
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis",
                 }}
               >
                 {segment.entityKind && (
-                  <LayerCompositionIcon kind={segment.entityKind} size={13} />
+                  <LayerDocumentIcon kind={segment.entityKind} size={13} />
                 )}
                 {segment.name}
               </button>
@@ -121,29 +132,6 @@ export default function TimelineSelectionBreadcrumb({
           </div>
         ))}
       </div>
-      {selectionLabel && (
-        <>
-          <span aria-hidden="true" style={{ flex: "0 0 auto", color: "#596571" }}>·</span>
-          <span
-            title={selectionLabel.label}
-            style={{
-              minWidth: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              overflow: "hidden",
-              color: "#7f8a95",
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-            }}
-          >
-            <LayerCompositionIcon kind={selectionLabel.entityKind} size={12} />
-            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-              {selectionLabel.label}
-            </span>
-          </span>
-        </>
-      )}
     </div>
   );
 }

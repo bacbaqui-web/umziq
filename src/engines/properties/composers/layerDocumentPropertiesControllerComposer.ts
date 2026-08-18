@@ -115,6 +115,8 @@ export function createLayerDocumentPropertiesController(options: {
     keyDownModifierInput: modifier.keyDownModifierInput,
     toggleAccelerationProperty: modifier.toggleAccelerationProperty,
     setAccelerationCurve: modifier.setAccelerationCurve,
+    toggleMouthBasicInverted: modifier.toggleMouthBasicInverted,
+    setMouthBasicRepetitionsPerSecond: modifier.setMouthBasicRepetitionsPerSecond,
     setModifiers: (modifiers: LayerModifier[]) => modifier.setModifiers(modifiers),
     dispatch: options.port.dispatchPanel,
   };

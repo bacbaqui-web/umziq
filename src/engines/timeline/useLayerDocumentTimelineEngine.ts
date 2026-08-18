@@ -92,11 +92,14 @@ export type UseLayerDocumentTimelineEngineOptions = {
   ) => string;
   resetRevision?: number;
   readAudioWaveform?: (sourceId: string, bins: number) => readonly number[];
+  onTimingDraftChange?: (draft: LayerDocumentTimelineTimingDraft | null) => void;
 };
 
 export function useLayerDocumentTimelineEngine(
   options: UseLayerDocumentTimelineEngineOptions
 ) {
+  const onTimingDraftChange =
+    options.onTimingDraftChange;
   const switcherRef =
     useRef<HTMLDivElement | null>(null);
   const switcherTriggerRef =
@@ -109,6 +112,8 @@ export function useLayerDocumentTimelineEngine(
     useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] =
     useState(false);
+  const [nameColumnWidth, setNameColumnWidth] =
+    useState(options.nameColumnWidth);
   const [
     draggedLayerDocumentId,
     setDraggedLayerDocumentId,
@@ -123,6 +128,8 @@ export function useLayerDocumentTimelineEngine(
     deleteDecisionLayerDocumentId,
     setDeleteDecisionLayerDocumentId,
   ] = useState<string | null>(null);
+  const [expandedLayerDocumentIds, setExpandedLayerDocumentIds] =
+    useState<ReadonlySet<string>>(() => new Set());
   const [timingDraft, setTimingDraft] =
     useState<LayerDocumentTimelineTimingDraft | null>(
       null
@@ -134,6 +141,7 @@ export function useLayerDocumentTimelineEngine(
   const timeline =
     options.owner.timeline.readViewProps();
   const project = options.owner.project.read();
+  const expandedProjectIdRef = useRef(project.metadata.projectId);
   const scope = timeline.scope;
   const metadata = useMemo(
     () =>
@@ -232,6 +240,7 @@ export function useLayerDocumentTimelineEngine(
         editingLayerDocumentId,
         draftName,
         deleteDecisionLayerDocumentId,
+        expandedLayerDocumentIds,
         timingDraft,
         keyframeDrag,
       }),
@@ -240,6 +249,7 @@ export function useLayerDocumentTimelineEngine(
         draftName,
         draggedLayerDocumentId,
         editingLayerDocumentId,
+        expandedLayerDocumentIds,
         isSwitcherOpen,
         keyframeDrag,
         timingDraft,
@@ -286,12 +296,16 @@ export function useLayerDocumentTimelineEngine(
         draft
       );
       setTimingDraft(changed ? draft : null);
+      onTimingDraftChange?.(changed ? draft : null);
       return {
         ...session,
         draft: changed ? draft : null,
       };
     },
-    [playbackUi.pxPerFrame]
+    [
+      onTimingDraftChange,
+      playbackUi.pxPerFrame,
+    ]
   );
   const endPointer = useCallback(
     (session: NativePointerSession) => {
@@ -321,8 +335,12 @@ export function useLayerDocumentTimelineEngine(
         });
       }
       setTimingDraft(null);
+      onTimingDraftChange?.(null);
     },
-    [options.owner.timeline]
+    [
+      onTimingDraftChange,
+      options.owner.timeline,
+    ]
   );
   const pointer = useTimelinePointerDragSessionRuntime({
     scrollContainerRef,
@@ -333,6 +351,7 @@ export function useLayerDocumentTimelineEngine(
         setKeyframeDrag(null);
       } else {
         setTimingDraft(null);
+        onTimingDraftChange?.(null);
       }
     },
   });
@@ -350,8 +369,20 @@ export function useLayerDocumentTimelineEngine(
     setDraftName("");
     setDeleteDecisionLayerDocumentId(null);
     setTimingDraft(null);
+    onTimingDraftChange?.(null);
     setKeyframeDrag(null);
-  }, [cancelPointer, options.resetRevision]);
+  }, [
+    cancelPointer,
+    onTimingDraftChange,
+    options.resetRevision,
+  ]);
+  useEffect(() => {
+    if (expandedProjectIdRef.current === project.metadata.projectId) return;
+    expandedProjectIdRef.current = project.metadata.projectId;
+    // Project 교체에서만 핀을 정리하고 Layer 선택 변경에서는 유지한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpandedLayerDocumentIds(new Set());
+  }, [project.metadata.projectId]);
 
   const itemById = useCallback(
     (layerDocumentId: string) =>
@@ -396,9 +427,11 @@ export function useLayerDocumentTimelineEngine(
         timelineDurationFrames:
           metadata.durationFrames,
         sourceDurationFrames:
-          layer.type === "audio" && source?.kind === "audio"
-            ? source.data.durationFrames
-            : null,
+          layer.type === "group"
+            ? layer.data.durationFrames
+            : layer.type === "audio" && source?.kind === "audio"
+              ? source.data.durationFrames
+              : null,
         initial,
         draft: null,
       }, start);
@@ -429,7 +462,7 @@ export function useLayerDocumentTimelineEngine(
     },
     [pointer]
   );
-  const interactions = useMemo(
+  const baseInteractions = useMemo(
     () =>
       createLayerDocumentTimelineInteractionController({
         owner: options.owner,
@@ -476,6 +509,20 @@ export function useLayerDocumentTimelineEngine(
       playbackPort,
     ]
   );
+  const interactions = useMemo(
+    () => ({
+      ...baseInteractions,
+      toggleTimelineItemExpanded: (layerDocumentId: string) => {
+        setExpandedLayerDocumentIds((current) => {
+          const next = new Set(current);
+          if (next.has(layerDocumentId)) next.delete(layerDocumentId);
+          else next.add(layerDocumentId);
+          return next;
+        });
+      },
+    }),
+    [baseInteractions]
+  );
   const restoreSwitcherTriggerFocus =
     useCallback(() => {
       window.requestAnimationFrame(() =>
@@ -511,6 +558,10 @@ export function useLayerDocumentTimelineEngine(
       ) =>
         navigation().selectComposition(
           layerDocumentId
+        ),
+      setNameColumnWidth: (width: number) =>
+        setNameColumnWidth(
+          Math.max(96, Math.min(420, Math.round(width)))
         ),
     }),
     [navigation, playbackUi.commands]
@@ -562,14 +613,13 @@ export function useLayerDocumentTimelineEngine(
         runtime,
         playback,
         ruler: playbackUi.ruler,
-        nameColumnWidth:
-          options.nameColumnWidth,
+        nameColumnWidth,
         formatTime: options.formatTime,
         readAudioWaveform: options.readAudioWaveform,
       }),
     [
       options.formatTime,
-      options.nameColumnWidth,
+      nameColumnWidth,
       options.readAudioWaveform,
       playbackUi.ruler,
       project,

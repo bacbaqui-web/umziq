@@ -44,12 +44,8 @@ export function resolveLayerDocumentTimelineTimingDraft(
       ...initial,
       startFrame: clamp(
         initial.startFrame + delta,
-        0,
-        Math.max(
-          0,
-          session.timelineDurationFrames -
-            initial.durationFrames
-        )
+        1 - initial.durationFrames,
+        session.timelineDurationFrames - 1
       ),
     };
   }
@@ -76,10 +72,7 @@ export function resolveLayerDocumentTimelineTimingDraft(
   const endFrame = clamp(
     initialEnd + delta,
     initial.startFrame + 1,
-    Math.min(
-      session.timelineDurationFrames,
-      initial.startFrame + sourceMaximumDuration
-    )
+    initial.startFrame + sourceMaximumDuration
   );
   return {
     ...initial,

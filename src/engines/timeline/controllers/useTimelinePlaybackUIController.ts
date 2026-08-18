@@ -5,6 +5,8 @@ import {
   buildTimelineRulerFrames,
   parseTimelineDurationParts,
   resolveTimelinePxPerFrame,
+  TIMELINE_POST_ROLL_PX,
+  TIMELINE_PRE_ROLL_PX,
 } from "@/engines/timeline/helpers/timelineLayoutHelpers";
 import type { TimelineRulerViewModel } from "@/engines/timeline/models/timelineViewModel";
 import type { TimelinePointerDragStart } from "@/engines/timeline/models/timelineEngineTypes";
@@ -75,22 +77,25 @@ export function useTimelinePlaybackUIController(options: Options) {
   const durationFrames = options.selectedMeta?.durationFrames ?? 0;
   const pxPerFrame = resolveTimelinePxPerFrame(
     durationFrames,
-    availableWidth,
+    Math.max(0, availableWidth - TIMELINE_PRE_ROLL_PX - TIMELINE_POST_ROLL_PX),
     options.defaultPxPerFrame
   );
+  const timelineOriginLeft = TIMELINE_PRE_ROLL_PX;
   const contentWidth = options.selectedMeta
-    ? availableWidth > 0 ? availableWidth : durationFrames * pxPerFrame
+    ? availableWidth > 0
+      ? availableWidth
+      : durationFrames * pxPerFrame + TIMELINE_PRE_ROLL_PX + TIMELINE_POST_ROLL_PX
     : 0;
   const playheadFrame = options.selectedMeta ? options.playback.playheadFrame : 0;
-  const playheadLeft = playheadFrame * pxPerFrame;
+  const playheadLeft = timelineOriginLeft + playheadFrame * pxPerFrame;
   const hoveredPlayheadLeft = options.hoveredFrame !== null
-    ? options.hoveredFrame * pxPerFrame
+    ? timelineOriginLeft + options.hoveredFrame * pxPerFrame
     : null;
   const range = options.playback.playbackRange;
-  const rangeLeft = range.startFrame * pxPerFrame;
-  const rangeRight = range.endFrame * pxPerFrame;
+  const rangeLeft = timelineOriginLeft + range.startFrame * pxPerFrame;
+  const rangeRight = timelineOriginLeft + range.endFrame * pxPerFrame;
   const rangeWidth = Math.max((range.endFrame - range.startFrame) * pxPerFrame, 6);
-  const scrubFrame = Math.round(playheadLeft / pxPerFrame);
+  const scrubFrame = Math.round((playheadLeft - timelineOriginLeft) / pxPerFrame);
   const activeReadout = useMemo(() => activeResizeHandle
     ? {
         mode: "resize" as const,
@@ -128,6 +133,7 @@ export function useTimelinePlaybackUIController(options: Options) {
   const ruler: TimelineRulerViewModel = useMemo(() => ({
     contentWidth,
     pxPerFrame,
+    timelineOriginLeft,
     frames: options.selectedMeta
       ? buildTimelineRulerFrames(durationFrames, options.selectedMeta.frameRate)
       : [],
@@ -169,6 +175,7 @@ export function useTimelinePlaybackUIController(options: Options) {
     options,
     playheadLeft,
     pxPerFrame,
+    timelineOriginLeft,
     range.endFrame,
     range.startFrame,
     rangeLeft,
@@ -193,9 +200,12 @@ export function useTimelinePlaybackUIController(options: Options) {
   const getFrameFromPointer = useCallback((clientX: number) => {
     if (!rulerRef.current || durationFrames <= 0) return null;
     const bounds = rulerRef.current.getBoundingClientRect();
-    const relativeX = Math.min(Math.max(clientX - bounds.left, 0), contentWidth);
+    const relativeX = Math.min(
+      Math.max(clientX - bounds.left - timelineOriginLeft, 0),
+      contentWidth - timelineOriginLeft
+    );
     return clampPlaybackFrame(Math.round(relativeX / pxPerFrame), durationFrames);
-  }, [contentWidth, durationFrames, pxPerFrame]);
+  }, [contentWidth, durationFrames, pxPerFrame, timelineOriginLeft]);
 
   const seekFromPointer = useCallback((clientX: number) => {
     const frame = getFrameFromPointer(clientX);

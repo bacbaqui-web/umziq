@@ -67,7 +67,10 @@ Modifier Library의 과거 구현 기록은
 하나의 Timeline 수식 클립으로 projection한다. 클립 내부 전환선은 Runtime
 Draft로 조절하고 pointer up에서 Modifier transaction 한 건으로 확정한다.
 재생과 출력은 저장된 전환 frame을 같은 opacity 평가 함수로 계산하므로 원본
-Audio를 다시 분석하지 않는다.
+Audio를 다시 분석하지 않는다. `반전`은 수식 클립 안에서 계산된 opacity의
+`0`과 `100`을 맞바꾸며 클립 밖의 기본 opacity에는 영향을 주지 않는다.
+`초당 반복수`는 감지된 음성 구간은 유지하면서 구간 내부의 열림·닫힘 전환
+간격을 다시 계산하며, 연결된 Audio를 같은 Controller 경계에서 재분석한다.
 
 Audio 연결 시 PCM 분석과 source-local frame 계산은 Animation pure helper가
 담당하고, Properties Modifier Controller가 decoded-audio read port와 Owner의

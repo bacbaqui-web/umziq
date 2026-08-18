@@ -34,6 +34,8 @@ export type MouthBasicModifierInstance = {
   id: string;
   type: "mouth-basic";
   audioLayerDocumentId: string | null;
+  inverted?: boolean;
+  repetitionsPerSecond?: number;
   startFrame: number;
   durationFrames: number;
   transitionFrames: number[];

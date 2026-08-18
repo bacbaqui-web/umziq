@@ -42,6 +42,7 @@ export default function TimelineFormulaClip<
   itemStartFrame,
   itemSourceOffsetFrames,
   pxPerFrame,
+  timelineOriginLeft,
   initialDraft,
   moveKind,
   startKind,
@@ -50,6 +51,8 @@ export default function TimelineFormulaClip<
   labelColor,
   accentColor,
   ariaLabel,
+  clipHeight = 14,
+  clipTop = 1,
   clipStyle,
   updateDraft,
   changed,
@@ -62,6 +65,7 @@ export default function TimelineFormulaClip<
   itemStartFrame: number;
   itemSourceOffsetFrames: number;
   pxPerFrame: number;
+  timelineOriginLeft: number;
   initialDraft: TDraft;
   moveKind: TKind;
   startKind: TKind;
@@ -70,6 +74,8 @@ export default function TimelineFormulaClip<
   labelColor: string;
   accentColor: string;
   ariaLabel: string;
+  clipHeight?: number;
+  clipTop?: number;
   clipStyle?: CSSProperties;
   updateDraft: (initial: TDraft, kind: TKind, deltaFrames: number) => TDraft;
   changed: (initial: TDraft, latest: TDraft) => boolean;
@@ -80,7 +86,7 @@ export default function TimelineFormulaClip<
   const [draft, setDraft] = useState<TDraft | null>(null);
   const current = draft ?? initialDraft;
   const globalLeft = itemStartFrame + current.startFrame - itemSourceOffsetFrames;
-  const left = globalLeft * pxPerFrame;
+  const left = timelineOriginLeft + globalLeft * pxPerFrame;
   const width = current.durationFrames * pxPerFrame;
 
   const pointer = useTimelinePointerDragSessionRuntime<FormulaClipDragSession<TDraft, TKind>>({
@@ -150,6 +156,7 @@ export default function TimelineFormulaClip<
           minWidth: contentWidth,
           height: TIMELINE_PROPERTY_ROW_HEIGHT,
           overflow: "visible",
+          clipPath: "inset(0 -10000px 0 0)",
         }}
       >
         <div
@@ -159,9 +166,9 @@ export default function TimelineFormulaClip<
           style={{
             position: "absolute",
             left,
-            top: 1,
+            top: clipTop,
             width: Math.max(2, width),
-            height: 14,
+            height: clipHeight,
             borderRadius: 3,
             border: `1px solid ${accentColor}`,
             boxSizing: "border-box",
@@ -183,7 +190,7 @@ export default function TimelineFormulaClip<
               left: -3,
               top: -1,
               width: 6,
-              height: 14,
+              height: clipHeight,
               cursor: "ew-resize",
               zIndex: 4,
             }}
@@ -195,7 +202,7 @@ export default function TimelineFormulaClip<
               right: -3,
               top: -1,
               width: 6,
-              height: 14,
+              height: clipHeight,
               cursor: "ew-resize",
               zIndex: 4,
             }}

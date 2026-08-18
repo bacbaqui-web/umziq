@@ -28,6 +28,7 @@ export default function TimelineHeader({ viewModel, commands, interactions, swit
         {viewModel.switcher.isOpen && (
           <TimelineCompositionSwitcher
             items={viewModel.switcher.items}
+            anchorRef={switcherTriggerRef}
             onSelectComposition={commands.selectComposition}
           />
         )}

@@ -69,7 +69,8 @@ entity가 아니며 `LayerDocument.common.placement`의 projection이다.
 
 Audio import 준비와 Runtime 경계:
 
-- `engines/project/import/layerDocumentAudioImportAdapter.ts`: Cut 해석,
+- `engines/project/import/layerDocumentAudioImportAdapter.ts`: 선택 Layer의 가장 가까운
+  Group을 가져오기 부모로, 선택이 없으면 Project root를 부모로 해석하고,
   browser decode metadata, SHA-256 fingerprint, Source/Audio Layer prepared command
 - `engines/project/import/layerDocumentAudioRecordingAdapter.ts`: 마이크 권한,
   MediaRecorder start/stop/cancel, recorded File 준비와 stream/track dispose 경계
@@ -482,6 +483,8 @@ decode/재생/UI는 future work다. Video/Shape는 schema와 extension point만 
   node 종류별 `LibraryNodeIdentity`, 공통 `LibraryNodeRow`/`LibraryNodeActions`/
   `LibraryTreeConnector`, Audio menu, 중앙 recording review Dialog, asset-copy dialog와 hover
   preview card presentation
+- `src/shared/components/LayerDocumentIcon.tsx`: Library와 Timeline이 함께
+  사용하는 visual Layer, Composition, 불러온 Audio와 녹음 Audio 타입 아이콘
 
 Feature UI는 Project object를 직접 mutation하지 않고 Engine view props와
 command를 사용한다. Engine barrel은 Feature component를 re-export하지
@@ -524,7 +527,7 @@ LayerDocumentProject로 바꾸는 명시적 offline API를 공개한다.
   same/cross-parent drag/drop single-transaction command
 - Library Engine facade, Composer/Controller/Helper import boundary와 순수 tree/drop
   helper, Project replace 시 prompt/prepared/drag/hover cleanup
-- Project-root/Cut Audio import, 다중 Audio 선택, Project `psd/`·`audio/`
+- Project-root/Cut/중첩 Group Audio import, 다중 Audio 선택, Project `psd/`·`audio/`
   asset copy와 relative locator
 - fake microphone/recorder 기반 직접 녹음 cancel/error/stale/confirm과 자원 정리
 - Audio Properties 전용 name/gain/mute/timing/source offset/fade Runtime Draft와

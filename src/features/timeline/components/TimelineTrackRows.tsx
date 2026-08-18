@@ -11,7 +11,7 @@ export default function TimelineTrackRows({ readModel, interactions }: {
 }) {
   return (
     <>
-      <TimelineTrackOverlays viewModel={readModel.overlay} contentWidth={readModel.ruler.contentWidth} />
+      <TimelineTrackOverlays viewModel={readModel.overlay} contentWidth={readModel.ruler.contentWidth} nameColumnWidth={readModel.nameColumnWidth} />
       {readModel.rows.map((row) => row.type === "formula" ? (
         row.formulaType === "acceleration" ? (
           <TimelineAccelerationTrackRow key={`${row.item.id}-${row.modifierId}`} viewModel={row} contentWidth={readModel.ruler.contentWidth} interactions={interactions} />

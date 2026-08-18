@@ -21,7 +21,7 @@ assert.match(sharedHelpers, /clientY - diagonalGap - options\.cardHeight/, "Prev
 assert.match(previewCard, /<LayerHoverPreviewCard/, "Library visual previews must use the shared card");
 assert.match(psdDialog, /<LayerHoverPreviewCard/, "PSD import visual previews must use the shared card");
 assert.match(sharedCard, /빈 레이어/, "The shared visual card must own the empty-layer message");
-assert.match(sharedHelpers, /Math\.min\(200, \(options\.height \/ options\.width\) \* 208\)/, "Shared card height must follow the layer aspect ratio");
+assert.match(sharedHelpers, /Math\.min\(100, \(options\.height \/ options\.width\) \* 104\)/, "Shared card height must follow the layer aspect ratio at half-size");
 assert.match(previewCard, /preview\.waveform\.map/, "Audio preview must render a waveform");
 assert.match(sharedCard, /원본 파일을 찾을 수 없습니다/, "Missing visual resources must be explained by the shared card");
 assert.match(previewCard, /preview\.status === "ready" \? "ready" : "empty"/, "Library visual preview must present unavailable pixels with the same empty-layer design as PSD preview");

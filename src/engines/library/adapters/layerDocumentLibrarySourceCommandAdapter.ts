@@ -470,7 +470,11 @@ export function createLayerDocumentLibrarySourceCommandAdapter(
         layerDocument.layerDocumentId
       );
     },
-    selectLayerDocument: (layerDocumentId: string) => {
+    selectLayerDocument: (layerDocumentId: string | null) => {
+      if (layerDocumentId === null) {
+        options.selectSource(null);
+        return options.selectLayer(null);
+      }
       const layer = options.readProject().payload.layerDocumentsById[layerDocumentId];
       if (!layer) return;
       if (layer.common.source?.sourceId) {

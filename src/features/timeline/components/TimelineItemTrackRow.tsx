@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import {
-  TIMELINE_ITEM_ROW_HEIGHT,
   type TimelineInteractionCommands,
   type TimelineItemRowViewModel,
 } from "@/engines/timeline";
-import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
+import LayerDocumentIcon from "@/shared/components/LayerDocumentIcon";
+import {
+  GROUP_HOVER_BACKGROUND,
+  GROUP_SELECTED_BACKGROUND,
+  GROUP_SELECTED_GLOW,
+} from "@/shared/styles/groupVisualStyles";
 
 export default function TimelineItemTrackRow({
   viewModel,
@@ -17,7 +21,13 @@ export default function TimelineItemTrackRow({
 }) {
   const item = viewModel.item;
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const timingClickRef = useRef<{
+    startClientX: number;
+    moved: boolean;
+    wasSelected: boolean;
+  } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [rowHovered, setRowHovered] = useState(false);
   const isEditingName = viewModel.isEditingName;
   const isDeletePending = viewModel.source.isDeletePending;
   const statusBadge = viewModel.source.badge;
@@ -87,6 +97,8 @@ export default function TimelineItemTrackRow({
         onDragOver={(event) => event.preventDefault()}
         onDrop={() => interactions.reorderTimelineItem(item.id)}
         onClick={handleRowNameClick}
+        onPointerEnter={() => setRowHovered(true)}
+        onPointerLeave={() => setRowHovered(false)}
         onContextMenu={handleContextMenu}
         onDoubleClick={(event) => {
           if (isDeletePending) {
@@ -101,15 +113,22 @@ export default function TimelineItemTrackRow({
           gridRow: viewModel.rowIndex,
           position: "relative",
           zIndex: 1,
-          padding: "0 10px",
-          height: TIMELINE_ITEM_ROW_HEIGHT,
-          background: viewModel.rowBackground,
+          padding: "0 8px 0 2px",
+          height: viewModel.rowHeight,
+          background: item.entityKind === "composition"
+            ? viewModel.selected
+              ? GROUP_SELECTED_BACKGROUND
+              : rowHovered ? GROUP_HOVER_BACKGROUND : viewModel.rowBackground
+            : viewModel.rowBackground,
           border: viewModel.selected
             ? "1px solid transparent"
             : isDeletePending
               ? "1px solid rgba(160, 70, 78, 0.7)"
               : "1px solid #3a3a3a",
           borderRadius: viewModel.connectToProperties ? "6px 6px 0 0" : 6,
+          boxShadow: viewModel.selected && item.entityKind === "composition"
+            ? GROUP_SELECTED_GLOW
+            : "none",
           fontSize: 12,
           display: "flex",
           justifyContent: "space-between",
@@ -159,10 +178,52 @@ export default function TimelineItemTrackRow({
               gap: 6,
             }}
           >
-            <LayerCompositionIcon
-              kind={item.entityKind}
-              size={14}
-            />
+            <button
+              type="button"
+              aria-label={`${item.name} ${viewModel.expanded ? "타임라인 상세 고정 해제" : "타임라인 상세 고정"}`}
+              aria-pressed={viewModel.expanded}
+              title={viewModel.expanded ? "타임라인 상세 고정 해제" : "타임라인 상세 고정"}
+              onClick={(event) => {
+                event.stopPropagation();
+                interactions.toggleTimelineItemExpanded(item.id);
+              }}
+              style={{
+                width: 22,
+                height: 22,
+                padding: 0,
+                border: "none",
+                borderRadius: 4,
+                background: viewModel.expanded ? "rgba(72, 173, 111, 0.14)" : "transparent",
+                color: viewModel.expanded ? "#6ed596" : "#8f9da8",
+                cursor: "pointer",
+                flex: "0 0 auto",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+                style={{
+                  opacity: viewModel.expanded ? 1 : 0.78,
+                  transform: viewModel.expanded ? "rotate(-8deg)" : "none",
+                  transition: "color 100ms ease, opacity 100ms ease, transform 100ms ease",
+                }}
+              >
+                <path d="M16 9V4l1-1V2H7v1l1 1v5c0 1.1-.9 2-2 2v2h5.2v7h1.6v-7H18v-2c-1.1 0-2-.9-2-2Z" />
+              </svg>
+            </button>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", transform: item.mediaKind === "visual" && item.entityKind === "layer" ? "translateY(3px)" : undefined }}>
+              <LayerDocumentIcon
+                kind={item.mediaKind === "audio" ? "audio" : item.entityKind}
+                audioProvenance={item.audioProvenance}
+                size={14}
+              />
+            </span>
             <span
               style={{
                 minWidth: 0,
@@ -254,10 +315,11 @@ export default function TimelineItemTrackRow({
           zIndex: 2,
           width: contentWidth,
           minWidth: contentWidth,
-          height: TIMELINE_ITEM_ROW_HEIGHT,
+          height: viewModel.rowHeight,
           border: "none",
           borderRadius: 0,
           overflow: "visible",
+          clipPath: "inset(0 -10000px 0 0)",
           background: "transparent",
           boxSizing: "border-box",
         }}
@@ -275,11 +337,27 @@ export default function TimelineItemTrackRow({
         )}
 
         <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: viewModel.sourceTrackLeft,
+            top: 5,
+            height: viewModel.rowHeight - 10,
+            width: viewModel.sourceTrackWidth,
+            borderRadius: 2,
+            background: viewModel.trackBackground,
+            opacity: 0.22,
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+
+        <div
           style={{
             position: "absolute",
             left: viewModel.trackLeft,
             top: 5,
-            height: 14,
+            height: viewModel.rowHeight - 10,
             width: viewModel.trackWidth,
             borderRadius: 2,
             border: "1px solid rgba(255,255,255,0.12)",
@@ -301,23 +379,75 @@ export default function TimelineItemTrackRow({
             if (event.button !== 0) return;
             event.preventDefault();
             event.stopPropagation();
+            timingClickRef.current = {
+              startClientX: event.clientX,
+              moved: false,
+              wasSelected: viewModel.selected,
+            };
+            if (!viewModel.selected) {
+              interactions.selectTimelineItem(item.id);
+            }
             interactions.beginMoveTimelineItem({
               clientX: event.clientX,
               pointerId: event.pointerId,
               captureTarget: event.currentTarget,
             }, item.id);
           }}
+          onPointerMove={(event) => {
+            const timingClick = timingClickRef.current;
+            if (
+              timingClick &&
+              Math.abs(event.clientX - timingClick.startClientX) >= 3
+            ) {
+              timingClick.moved = true;
+            }
+          }}
+          onPointerCancel={() => {
+            timingClickRef.current = null;
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            const timingClick = timingClickRef.current;
+            timingClickRef.current = null;
+            if (timingClick && !timingClick.moved && timingClick.wasSelected) {
+              interactions.selectTimelineItem(item.id);
+            }
+          }}
         >
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(13, 18, 23, 0.62)",
+              pointerEvents: "none",
+            }}
+          />
+          {viewModel.visibleTrackWidth > 0 && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: viewModel.visibleTrackLeft,
+                top: 0,
+                bottom: 0,
+                width: viewModel.visibleTrackWidth,
+                background: viewModel.trackBackground,
+                pointerEvents: "none",
+              }}
+            />
+          )}
           {item.mediaKind === "audio" && viewModel.waveform.length > 0 && (
             <svg
-              viewBox={`0 0 ${viewModel.waveform.length} 14`}
+              viewBox={`0 0 ${viewModel.waveform.length} ${viewModel.rowHeight - 10}`}
               preserveAspectRatio="none"
               aria-hidden="true"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", opacity: 0.82 }}
             >
               {viewModel.waveform.map((peak, index) => {
-                const height = Math.max(1, Math.min(12, peak * 12));
-                return <line key={index} x1={index + 0.5} x2={index + 0.5} y1={7 - height / 2} y2={7 + height / 2} stroke="#d3f4df" strokeWidth="0.7" />;
+                const waveformHeight = viewModel.rowHeight - 10;
+                const height = Math.max(1, Math.min(waveformHeight - 2, peak * (waveformHeight - 2)));
+                return <line key={index} x1={index + 0.5} x2={index + 0.5} y1={waveformHeight / 2 - height / 2} y2={waveformHeight / 2 + height / 2} stroke="#d3f4df" strokeWidth="0.7" />;
               })}
             </svg>
           )}

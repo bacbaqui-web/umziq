@@ -20,6 +20,12 @@ assert.match(iconSource, /strokeLinecap="round"/);
 assert.match(iconSource, /strokeLinejoin="round"/);
 assert.match(iconSource, /aria-hidden="true"/);
 assert.match(iconSource, /focusable="false"/);
+const layerDocumentIconSource = readFileSync(
+  "src/shared/components/LayerDocumentIcon.tsx",
+  "utf8"
+);
+assert.match(layerDocumentIconSource, /kind: "layer" \| "composition" \| "audio"/);
+assert.match(layerDocumentIconSource, /audioProvenance/);
 
 const timelineItemSource = readFileSync(
   "src/features/timeline/components/TimelineItemTrackRow.tsx",
@@ -52,10 +58,14 @@ const importPreviewSource = readFileSync(
 
 assert.match(
   timelineItemSource,
-  /kind=\{item\.entityKind\}/
+  /kind=\{item\.mediaKind === "audio" \? "audio" : item\.entityKind\}/
 );
 assert.match(breadcrumbSource, /segment\.entityKind/);
-assert.match(breadcrumbSource, /selectionLabel\.entityKind/);
+assert.doesNotMatch(
+  breadcrumbSource,
+  /selectionLabel\.entityKind|selectionLabel\.audioProvenance/,
+  "타임라인 경로에는 선택 레이어가 아니라 그룹 아이콘만 표시합니다."
+);
 assert.match(switcherSource, /LayerCompositionIcon kind="composition"/);
 assert.doesNotMatch(
   propertiesSource,
@@ -71,6 +81,7 @@ assert.match(
   libraryIdentitySource,
   /kind=\{node\.entityKind \?\? "layer"\}/
 );
+assert.match(libraryIdentitySource, /LayerDocumentIcon kind="audio"/);
 assert.match(
   importPreviewSource,
   /kind=\{node\.kind === "group" \? "composition" : "layer"\}/

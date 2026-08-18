@@ -208,7 +208,7 @@ const stale = await startLayerDocumentAudioRecording({ project, selectedLayerDoc
 beginLayerDocumentAudioRecording(stale);
 const staleProject = fixture();
 delete staleProject.payload.layerDocumentsById.cut;
-await assert.rejects(stopLayerDocumentAudioRecording({ session: stale, project: staleProject, token: "stale", decoder }), /Cut/);
+await assert.rejects(stopLayerDocumentAudioRecording({ session: stale, project: staleProject, token: "stale", decoder }), /그룹/);
 assert.equal(staleFake.counts().disposals, 1);
 assert.equal(history, 1, "stale recording does not update Project/History");
 

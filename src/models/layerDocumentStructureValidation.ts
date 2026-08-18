@@ -201,7 +201,6 @@ function validatePlacement(
   });
   validateNumber(record.startFrame, `${path}.startFrame`, issues, {
     integer: true,
-    minimum: 0,
     code: "invalid-timing",
   });
   validateNumber(record.durationFrames, `${path}.durationFrames`, issues, {
@@ -321,10 +320,17 @@ function validateModifiers(
         modifier,
         [...(knownDefinition?.allowedKeys ?? [])],
         modifierPath,
-        issues
+        issues,
+        ["inverted", "repetitionsPerSecond"]
       );
       if (modifier.audioLayerDocumentId !== null) {
         validateString(modifier.audioLayerDocumentId, `${modifierPath}.audioLayerDocumentId`, issues, { nonEmpty: true });
+      }
+      if (modifier.inverted !== undefined) {
+        validateBoolean(modifier.inverted, `${modifierPath}.inverted`, issues);
+      }
+      if (modifier.repetitionsPerSecond !== undefined) {
+        validateNumber(modifier.repetitionsPerSecond, `${modifierPath}.repetitionsPerSecond`, issues, { minimum: 0.5 });
       }
       validateNumber(modifier.startFrame, `${modifierPath}.startFrame`, issues);
       validateNumber(modifier.durationFrames, `${modifierPath}.durationFrames`, issues, { minimum: 1 });
