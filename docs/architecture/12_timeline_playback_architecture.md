@@ -62,7 +62,7 @@ Timeline Runtime
 
 Editor Audio Runtime도 이 Timeline Runtime의 read/subscribe를 Composition Root
 public port로 받아 play/pause/seek/range/loop를 동기화한다. 일반 재생 중 별도
-Audio frame timer나 두 번째 current-frame owner를 만들지 않는다. Library의
+Audio frame timer나 두 번째 current-frame nexus를 만들지 않는다. Library의
 single-active 미리 듣기는 저장되지 않는 별도 audition session이다.
 
 ## Playback
@@ -81,6 +81,8 @@ Playback은 Project를 mutation하거나 History를 만들지 않는다.
 Move, trim, reorder, visibility와 Alias 변경은 Placement command다.
 
 - PointerMove 동안 필요한 임시값은 Timeline Draft로 유지한다.
+- move·trim timing Draft는 read/publish/clear/subscribe를 가진 단일 Runtime이
+  소유하고 Timeline과 Canvas가 같은 snapshot을 읽는다.
 - 확정 전에는 Project와 History를 변경하지 않는다.
 - PointerUp/확정 시 Project transaction 한 번으로 commit한다.
 - Cancel은 Draft만 폐기한다.
@@ -99,12 +101,14 @@ Timeline의 Playhead, Playback Range, Layer move/trim, Keyframe, 입뻥긋 clip�
   마지막 유효 Draft를 정상 종료한다.
 - `pointercancel`, 명시적 reset, session 교체와 unmount는 Draft를 취소한다.
 - terminal event가 겹쳐도 commit 또는 cancel은 정확히 한 번만 실행한다.
-- clientX를 frame/clip/range로 바꾸는 계산과 Owner command는 기존 동작별
+- clientX를 frame/clip/range로 바꾸는 계산과 Nexus command는 기존 동작별
   Controller에 남는다. 공통 Controller는 Project나 제품 모델을 알지 않는다.
+- Timeline은 설정된 전체 길이를 고정해서 표시하며 Pointer drag로 가로
+  auto-scroll하거나 scroll 좌표를 보정하지 않는다.
 
 Playhead와 Playback Range는 Timeline Runtime만 갱신하므로 Project History를 만들지
 않는다. Layer, Keyframe과 Modifier clip은 move 동안 Draft만 갱신하고 변경된 정상
-종료에서만 기존 Owner intent 한 건을 commit한다.
+종료에서만 기존 Nexus intent 한 건을 commit한다.
 
 ## Project 교체와 Undo/Redo
 

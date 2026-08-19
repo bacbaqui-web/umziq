@@ -7,6 +7,11 @@ import {
   type ProjectExportAudioResource,
 } from "@/editor/projectExportAudio";
 import { recordProjectVideo } from "@/editor/projectExportVideoRuntime";
+import type { ExportDestination, ExportDestinationPort } from "@/gateway";
+import type {
+  ProjectExportFormat,
+  ProjectExportProgress,
+} from "@/shared/models/projectExportContract";
 import {
   createReusableAccurateSurfaceFactory,
   drawRenderCommandsToContext,
@@ -16,17 +21,12 @@ import {
   type LayerDocumentSourceResolutionStatusReader,
 } from "@/render";
 
-export type ProjectExportFormat = "mp4" | "webm-alpha" | "gif" | "webp";
+export type {
+  ProjectExportFormat,
+  ProjectExportProgress,
+} from "@/shared/models/projectExportContract";
 
-export type ProjectExportProgress = {
-  readonly completedFrames: number;
-  readonly totalFrames: number;
-};
-
-export type ProjectExportDestination = {
-  readonly name: string;
-  readonly write: (fileName: string, blob: Blob) => Promise<void>;
-};
+export type ProjectExportDestination = ExportDestination;
 
 export type ProjectExportOptions = {
   readonly format: ProjectExportFormat;
@@ -41,6 +41,7 @@ export type ProjectExportOptions = {
   readonly frameRate: number;
   readonly onProgress: (progress: ProjectExportProgress) => void;
   readonly destination: ProjectExportDestination | null;
+  readonly destinationPort: ExportDestinationPort;
   readonly project: LayerDocumentProject;
   readonly exportGroupLayerDocumentId: string;
   readonly resolveAudioResource: (sourceId: string) => ProjectExportAudioResource | null;
@@ -302,25 +303,14 @@ function safeFileName(name: string) {
   return name.trim().replace(/[<>:"/\\|?*]/g, "-") || "umziq";
 }
 
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-}
-
 async function saveBlob(
   blob: Blob,
   fileName: string,
-  destination: ProjectExportDestination | null
+  destination: ProjectExportDestination | null,
+  destinationPort: ExportDestinationPort
 ) {
-  if (destination) {
-    await destination.write(fileName, blob);
-    return;
-  }
-  downloadBlob(blob, fileName);
+  const result = await destinationPort.write(destination, { fileName, mimeType: blob.type || "application/octet-stream", bytes: new Uint8Array(await blob.arrayBuffer()) });
+  if (!result.ok) throw new Error(result.message);
 }
 
 function videoType(format: ProjectExportFormat, includeAudio = true) {
@@ -403,7 +393,8 @@ export async function exportProject(options: ProjectExportOptions) {
       await saveBlob(
         new Blob([gifBytes.buffer], { type: "image/gif" }),
         `${safeFileName(options.projectName)}.gif`,
-        options.destination
+        options.destination,
+        options.destinationPort
       );
       return;
     }
@@ -438,7 +429,8 @@ export async function exportProject(options: ProjectExportOptions) {
       await saveBlob(
         new Blob([webpBuffer], { type: "image/webp" }),
         `${safeFileName(options.projectName)}.webp`,
-        options.destination
+        options.destination,
+        options.destinationPort
       );
       return;
     }
@@ -473,7 +465,8 @@ export async function exportProject(options: ProjectExportOptions) {
     await saveBlob(
       video,
       `${safeFileName(options.projectName)}.${projectVideoExtension(options.format)}`,
-      options.destination
+      options.destination,
+      options.destinationPort
     );
   }
 }

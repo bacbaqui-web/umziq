@@ -4,6 +4,7 @@ import type {
   TimelinePointerDragCommitReason,
   TimelinePointerDragEnvironment,
   TimelinePointerDragEventLike,
+  TimelinePointerDragCompletion,
 } from "@/engines/timeline/models/timelinePointerDragSessionModel";
 
 type PointerSession = {
@@ -18,7 +19,8 @@ type Options<TSession extends PointerSession> = {
   ) => TSession | void;
   readonly commit: (
     session: TSession,
-    reason: TimelinePointerDragCommitReason
+    reason: TimelinePointerDragCommitReason,
+    completion: TimelinePointerDragCompletion<TSession>
   ) => void;
   readonly cancel: (
     session: TSession,
@@ -32,6 +34,7 @@ export function createTimelinePointerDragSessionController<
   let active: {
     session: TSession;
     input: TimelinePointerDragBeginInput;
+    didMove: boolean;
   } | null = null;
 
   const matchesPointer = (event: TimelinePointerDragEventLike) =>
@@ -91,7 +94,10 @@ export function createTimelinePointerDragSessionController<
     if (!value) return;
     active = null;
     detach(value);
-    options.commit(value.session, reason);
+    options.commit(value.session, reason, {
+      session: value.session,
+      didMove: value.didMove,
+    });
   };
 
   const cancel = (
@@ -113,6 +119,9 @@ export function createTimelinePointerDragSessionController<
       return;
     }
     if (event.clientX === undefined) return;
+    if (event.clientX !== active.input.clientX) {
+      active.didMove = true;
+    }
     const next = options.move(
       active.session,
       event.clientX
@@ -163,7 +172,7 @@ export function createTimelinePointerDragSessionController<
       input: TimelinePointerDragBeginInput
     ) => {
       cancel("replaced");
-      active = { session, input };
+      active = { session, input, didMove: false };
       const { environment } = options;
       environment.windowTarget.addEventListener(
         "pointermove",

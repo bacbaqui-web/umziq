@@ -23,6 +23,7 @@ import type {
   LayerDocumentAudioRuntimePort,
   LayerDocumentAudioRuntimeResource,
 } from "@/engines/project/models/layerDocumentAudioRuntimeModel";
+import type { ProjectReadPort } from "@/gateway/contracts/projectStorageGateway";
 
 export type LayerDocumentProjectOpenCapability =
   | "native-file-system"
@@ -89,11 +90,13 @@ export interface LayerDocumentProjectBrowserOpenEnvironment {
 export type LayerDocumentProjectLinkedSourceAccess =
   | {
       readonly status: "available";
-      readonly file: File;
-      readonly handle:
-        FileSystemFileHandle | null;
-      readonly permission:
-        "unknown" | "prompt" | "granted";
+      readonly input: {
+        readonly fileName: string;
+        readonly bytes: Uint8Array;
+      };
+      readonly commitAvailable: (
+        sourceIds: readonly string[]
+      ) => void;
     }
   | {
       readonly status:
@@ -141,8 +144,10 @@ export interface LayerDocumentProjectLinkedSourcePreparationPort {
   readonly prepare: (options: {
     readonly project: LayerDocumentProject;
     readonly source: SourceRegistryRecord;
-    readonly file: File;
-    readonly bytes?: Uint8Array;
+    readonly input: {
+      readonly fileName: string;
+      readonly bytes: Uint8Array;
+    };
   }) => Promise<
     PrepareLayerDocumentLinkedSourceResult
   >;
@@ -186,8 +191,7 @@ export interface LayerDocumentProjectOpenController {
 export interface CreateLayerDocumentProjectOpenControllerOptions {
   readonly lifecycle:
     LayerDocumentProjectLifecycleController;
-  readonly browser:
-    LayerDocumentProjectBrowserOpenPort;
+  readonly storage: ProjectReadPort;
   readonly linkedSourceAccess:
     LayerDocumentProjectLinkedSourceAccessPort;
   readonly linkedSourcePreparation:
@@ -197,7 +201,10 @@ export interface CreateLayerDocumentProjectOpenControllerOptions {
   readonly audioRuntime?:
     LayerDocumentAudioRuntimePort;
   readonly sourceResolution:
-    LayerDocumentSourceRuntimeResolutionPort;
+    Pick<
+      LayerDocumentSourceRuntimeResolutionPort,
+      "setMissing" | "setError"
+    >;
   readonly saveController?:
     Pick<
       LayerDocumentProjectSaveController,

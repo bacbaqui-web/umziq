@@ -4,9 +4,9 @@ import {
 } from "node:fs";
 import {
   createProjectLifecycleUiCommandPort,
-} from "@/editor/projectLifecycleUi";
+} from "@/engines/menu/models/menuProjectCommandModel";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
 import {
   buildLayerDocumentLocalHandleKey,
@@ -15,12 +15,11 @@ import {
 import type {
   LayerDocumentProjectLifecycleController,
   LayerDocumentProjectOpenController,
-  LayerDocumentProjectReconnectController,
   LayerDocumentProjectSaveController,
 } from "@/engines/project";
 
 const initialProject =
-  createInitialLayerDocumentOwnerOptions().project;
+  createInitialLayerDocumentNexusOptions().project;
 let projectSequence = 0;
 const createDeterministicProject = () =>
   createNewLayerDocumentEditorProject(
@@ -46,7 +45,7 @@ assert.notEqual(
   "New Projects must not collide in the session-local handle registry"
 );
 assert.equal(
-  createInitialLayerDocumentOwnerOptions().project
+  createInitialLayerDocumentNexusOptions().project
     .metadata.projectId,
   initialProject.metadata.projectId,
   "The initial bootstrap identity remains compatible"
@@ -62,7 +61,6 @@ let confirmations = 0;
 let notifications = 0;
 let saveFailure = false;
 let openFailure = false;
-let reconnectConfirmation = false;
 let importedPsdFileNames: readonly string[] = [];
 const replacedProjectIds: string[] = [];
 
@@ -151,60 +149,17 @@ const open = {
         };
   },
 } satisfies LayerDocumentProjectOpenController;
-const reconnect = {
-  read: () => ({
-    items: [{
-      sourceId: "source:missing",
-      displayName: "Missing PSD",
-      suggestedFileName: "missing.psd",
-      status: "missing" as const,
-      fingerprintPolicy:
-        "legacy-unverified" as const,
-      dependentSourceIds: ["source:missing"],
-      dependentLayerDocumentIds: [],
-    }],
-  }),
-  reconnect: async () =>
-    reconnectConfirmation
-      ? {
-          ok: true as const,
-          status:
-            "confirmation-required" as const,
-          sourceId: "source:missing",
-          reason:
-            "legacy-unverified-fingerprint" as const,
-          expectedFingerprint: null,
-          actualFingerprint: {
-            algorithm: "sha-256" as const,
-            digestHex: "00",
-            byteLength: 1,
-          },
-          choices: [
-            "refresh-source",
-            "replace-source",
-          ] as const,
-        }
-      : {
-          ok: true as const,
-          status: "reconnected" as const,
-          sourceId: "source:missing",
-          availableSourceIds: ["source:missing"],
-          missingSourceIds: [],
-        },
-} satisfies LayerDocumentProjectReconnectController;
-
 let confirmResult = false;
 const commands =
   createProjectLifecycleUiCommandPort({
     lifecycle,
     save,
     open,
-    reconnect,
     createNewProject:
       createDeterministicProject,
-    importPsdFiles: async (files) => {
-      importedPsdFileNames = files.map(
-        (file) => file.name
+    importPsdSources: async (sources) => {
+      importedPsdFileNames = sources.map(
+        (source) => source.fileName
       );
       return true;
     },
@@ -230,11 +185,17 @@ const projectTarget = {
 };
 const newProjectRequest = (
   projectName: string,
-  psdFiles: readonly File[] = []
+  psdSources: readonly {
+    resourceId: string;
+    fileName: string;
+    mimeType: string | null;
+    byteLength: number | null;
+    relativePathHint: string | null;
+  }[] = []
 ) => ({
   projectName,
   directoryName: "Selected Folder",
-  psdFiles,
+  psdSources,
   target: projectTarget,
 });
 
@@ -290,8 +251,8 @@ assert.equal(
 );
 await commands.newProject(
   newProjectRequest("PSD Project", [
-    new File([new Uint8Array([1])], "first.psd"),
-    new File([new Uint8Array([2])], "second.psd"),
+    { resourceId: "psd:1", fileName: "first.psd", mimeType: null, byteLength: 1, relativePathHint: null },
+    { resourceId: "psd:2", fileName: "second.psd", mimeType: null, byteLength: 1, relativePathHint: null },
   ])
 );
 assert.deepEqual(
@@ -323,46 +284,31 @@ assert.equal(
 );
 assert.ok(notifications > 0);
 
-reconnectConfirmation = true;
-await commands.reconnectSource("source:missing");
-assert.equal(
-  commands.read().notice?.code,
-  "legacy-unverified-fingerprint"
-);
-assert.equal(
-  commands.read().notice?.tone,
-  "warning"
-);
-assert.equal(
-  commands.read().missingSources.length,
-  1
-);
-
 const barSource = readFileSync(
-  "src/editor/ProjectLifecycleBar.tsx",
+  "src/engines/menu/MenuBar.tsx",
   "utf8"
 );
 assert.doesNotMatch(
   barSource,
-  /@\/engines|owner\.transition|currentProject|showDirectoryPicker|getDirectoryHandle|createPortal/
+  /nexus\.transition|currentProject|showDirectoryPicker|getDirectoryHandle|createPortal/
 );
 assert.match(
   barSource,
-  /useProjectLifecycleUiController/
+  /useMenuEngine/
 );
 assert.match(
   barSource,
-  /composeProjectLifecycleUiViewProps/
+  /composeMenuViewProps/
 );
-assert.match(barSource, /ProjectLifecycleView/);
+assert.match(barSource, /MenuView/);
 
 const directoryAdapterSource = readFileSync(
-  "src/editor/project-lifecycle/adapters/projectLifecycleBrowserDirectoryAdapter.ts",
+  "src/gateway/platforms/web/adapters/projectLifecycleBrowserDirectoryAdapter.ts",
   "utf8"
 );
 assert.doesNotMatch(
   directoryAdapterSource,
-  /from "react"|ProjectLifecycleController|owner\.transition/
+  /from "react"|ProjectLifecycleController|nexus\.transition/
 );
 assert.match(
   directoryAdapterSource,
@@ -382,16 +328,16 @@ assert.match(
 );
 
 const controllerSource = readFileSync(
-  "src/editor/project-lifecycle/controllers/projectLifecycleUiController.ts",
+  "src/engines/menu/controllers/projectLifecycleUiController.ts",
   "utf8"
 );
 assert.doesNotMatch(
   controllerSource,
-  /from "react"|createPortal|showDirectoryPicker|owner\.transition/
+  /from "react"|createPortal|showDirectoryPicker|nexus\.transition/
 );
 assert.match(
   controllerSource,
-  /commands\.(newProject|openProject|saveProject|saveProjectAs|closeProject|reconnectSource)/
+  /commands\.(newProject|openProject|saveProject|saveProjectAs|closeProject)/
 );
 assert.match(
   controllerSource,
@@ -399,7 +345,7 @@ assert.match(
 );
 
 const composerSource = readFileSync(
-  "src/editor/project-lifecycle/composers/projectLifecycleUiComposer.ts",
+  "src/engines/menu/composers/menuComposer.ts",
   "utf8"
 );
 assert.doesNotMatch(
@@ -408,32 +354,47 @@ assert.doesNotMatch(
 );
 assert.match(
   composerSource,
-  /ProjectLifecycleViewProps/
+  /MenuViewProps/
 );
 
 const componentFiles = [
-  "MissingSourceBanner.tsx",
   "NewProjectDialog.tsx",
   "ProjectLifecycleToolbar.tsx",
-  "ProjectLifecycleView.tsx",
+  "MenuView.tsx",
   "ProjectStartScreen.tsx",
 ];
 const componentSource = componentFiles
   .map((file) => readFileSync(
-    `src/features/project-lifecycle/components/${file}`,
+    `src/engines/menu/components/${file}`,
     "utf8"
   ))
   .join("\n");
 assert.doesNotMatch(
   componentSource,
-  /@\/engines|owner\.transition|currentProject|showDirectoryPicker|getDirectoryHandle|setProjectAssetDirectory/
+  /nexus\.transition|currentProject|showDirectoryPicker|getDirectoryHandle|setProjectAssetDirectory/
 );
 assert.match(componentSource, /project-start-screen/);
 assert.match(componentSource, /프로젝트 열기/);
+assert.match(componentSource, /최근 작업/);
 assert.match(componentSource, /createPortal/);
 
+const recentProjectStoreSource = readFileSync(
+  "src/gateway/platforms/web/adapters/projectLifecycleRecentProjectStore.ts",
+  "utf8"
+);
+assert.match(recentProjectStoreSource, /indexedDb\.open/);
+assert.match(recentProjectStoreSource, /RECENT_PROJECT_LIMIT = 5/);
+assert.doesNotMatch(
+  recentProjectStoreSource,
+  /localStorage|LayerDocumentProject/
+);
+assert.match(
+  controllerSource,
+  /openRecentProject[\s\S]*openDirectory/
+);
+
 const lifecycleViewSource = readFileSync(
-  "src/features/project-lifecycle/components/ProjectLifecycleView.tsx",
+  "src/engines/menu/components/MenuView.tsx",
   "utf8"
 );
 assert.doesNotMatch(
@@ -445,7 +406,7 @@ assert.match(
   /<ProjectExportDialog/
 );
 const exportDialogSource = readFileSync(
-  "src/editor/ProjectExportDialog.tsx",
+  "src/engines/menu/components/ProjectExportDialog.tsx",
   "utf8"
 );
 assert.match(exportDialogSource, /createPortal/);
@@ -456,15 +417,15 @@ const shellLayoutSource = readFileSync(
 );
 assert.match(
   shellLayoutSource,
-  /projectLifecycleProps\.viewModel[\s\S]*\.projectCreated[\s\S]*\? 10[\s\S]*: "auto"/
+  /menuProps\.viewModel[\s\S]*\.projectCreated[\s\S]*\? 10[\s\S]*: "auto"/
 );
 const commandSource = readFileSync(
-  "src/editor/projectLifecycleUi.ts",
+  "src/engines/menu/models/menuProjectCommandModel.ts",
   "utf8"
 );
 assert.doesNotMatch(
   commandSource,
-  /owner\.transition|sourceRuntime|draftSession|playback/
+  /nexus\.transition|sourceRuntime|draftSession|playback/
 );
 
 console.log(

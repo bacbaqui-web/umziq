@@ -3,15 +3,23 @@ import type {
   LayerDocumentAudioRecordingSession,
   LayerDocumentLibraryController,
   PreparedLayerDocumentAudioImport,
+  LayerDocumentProjectReconnectController,
   SourceRegistryCacheInvalidationContext,
 } from "@/engines/project";
-import type { EditorAudioAuditionState } from "@/editor/audio-runtime";
 import type { LibraryNodeViewModel } from "@/engines/library/models/libraryModel";
 import type { LibraryRecordingEditRequest } from "@/engines/library/models/libraryRecordingModel";
+import type {
+  SourceAccessPort,
+} from "@/gateway/contracts/sourceAccessGateway";
+import type { MicrophoneCapturePort } from "@/gateway/contracts/microphoneCaptureGateway";
 
 export type LibraryAudioImportPort = {
   prepare: (
-    file: File,
+    source: {
+      readonly fileName: string;
+      readonly mimeType: string | null;
+      readonly bytes: Uint8Array;
+    },
     relativePathHint?: string | null,
     order?: number
   ) => Promise<PreparedLayerDocumentAudioImport>;
@@ -48,7 +56,17 @@ export type LibraryAudioRecordingPort = {
 };
 
 export type LibraryAudioCommandPort = {
-  read: () => EditorAudioAuditionState;
+  read: () =>
+    | { readonly status: "idle" }
+    | {
+        readonly status: "playing";
+        readonly layerDocumentId: string;
+        readonly sourceId: string;
+        readonly positionSeconds: number;
+        readonly durationSeconds: number;
+        readonly gain: number;
+        readonly muted: boolean;
+      };
   subscribe: (listener: () => void) => () => void;
   readSelectedLayerDocumentId: () => string | null;
   select: (layerDocumentId: string | null) => void;
@@ -68,6 +86,9 @@ export type LayerDocumentLibraryEngineOptions = {
   audioImport: LibraryAudioImportPort;
   audioRecording: LibraryAudioRecordingPort;
   recordingAssetStore: LibraryRecordingAssetStorePort;
+  microphoneDevices: Pick<MicrophoneCapturePort, "enumerateDevices" | "subscribeDevices">;
+  sourceAccess: SourceAccessPort;
+  reconnect: LayerDocumentProjectReconnectController;
   audio: LibraryAudioCommandPort;
   preview?: {
     read: (
@@ -81,6 +102,11 @@ export type LayerDocumentLibraryEngineOptions = {
   nextOrder: () => number;
   cacheContext: () => SourceRegistryCacheInvalidationContext;
   resetRevision: number;
+  layerCommands: {
+    createDrawing: () => boolean;
+    duplicate: (layerDocumentId: string) => boolean;
+    convertToDrawing: (layerDocumentId: string) => boolean;
+  };
 };
 
 export type LibraryAssetCopyRequestPort = {

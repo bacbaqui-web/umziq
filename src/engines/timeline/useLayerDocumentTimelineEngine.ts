@@ -3,41 +3,31 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
 } from "react";
-import type {
-  AnimatableProperty,
-  LayerDocumentTransformProperty,
-} from "@/models";
 import {
   useTimelinePlaybackUIController,
 } from "@/engines/timeline/controllers/useTimelinePlaybackUIController";
 import {
-  useTimelinePointerDragSessionRuntime,
-} from "@/engines/timeline/state/useTimelinePointerDragSessionRuntime";
+  useLayerDocumentTimelineUiState,
+} from "@/engines/timeline/state/useLayerDocumentTimelineUiState";
+import {
+  useLayerDocumentTimelinePointerRuntime,
+} from "@/engines/timeline/state/useLayerDocumentTimelinePointerRuntime";
+import type {
+  LayerDocumentTimelineTimingDraftRuntime,
+} from "@/engines/timeline/state/layerDocumentTimelineTimingDraftRuntime";
 import {
   buildLayerDocumentTimelineUiReadModel,
 } from "@/engines/timeline/helpers/layerDocumentTimelineViewModelHelpers";
-import {
-  resolveTimelineDragDelta,
-} from "@/engines/timeline/helpers/timelineInteractionHelpers";
-import {
-  layerDocumentTimelineTimingChanged,
-  resolveLayerDocumentTimelineTimingDraft,
-  type LayerDocumentTimelineTimingOperation,
-} from "@/engines/timeline/helpers/layerDocumentTimelineInteractionHelpers";
 import type {
-  LayerDocumentTimelineKeyframeDrag,
   LayerDocumentTimelinePlaybackPort,
-  LayerDocumentTimelineOwnerPort,
+  LayerDocumentTimelineNexusPort,
   LayerDocumentTimelineRuntimeUiState,
   LayerDocumentTimelineSourceStatusPort,
-  LayerDocumentTimelineTimingDraft,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 import type {
   TimelineEngineViewProps,
-  TimelinePointerDragStart,
 } from "@/engines/timeline/models/timelineEngineTypes";
 import {
   createLayerDocumentTimelineInteractionController,
@@ -45,29 +35,6 @@ import {
 import {
   createLayerDocumentTimelineNavigationController,
 } from "@/engines/timeline/controllers/layerDocumentTimelineNavigationController";
-
-type NativePointerSession =
-  | {
-      readonly type: "move-item" | "resize-start" | "resize-end";
-      readonly operation:
-        LayerDocumentTimelineTimingOperation;
-      readonly layerDocumentId: string;
-      readonly startClientX: number;
-      readonly timelineDurationFrames: number;
-      readonly sourceDurationFrames: number | null;
-      readonly initial: LayerDocumentTimelineTimingDraft;
-      readonly draft:
-        LayerDocumentTimelineTimingDraft | null;
-    }
-  | {
-      readonly type: "move-keyframe";
-      readonly layerDocumentId: string;
-      readonly property:
-        LayerDocumentTransformProperty;
-      readonly originLocalFrame: number;
-      readonly localFrame: number;
-      readonly startClientX: number;
-    };
 
 const EMPTY_PLAYBACK_SNAPSHOT = {
   currentFrame: 0,
@@ -80,7 +47,7 @@ const EMPTY_PLAYBACK_SNAPSHOT = {
 } as const;
 
 export type UseLayerDocumentTimelineEngineOptions = {
-  owner: LayerDocumentTimelineOwnerPort;
+  nexus: LayerDocumentTimelineNexusPort;
   playback: LayerDocumentTimelinePlaybackPort;
   nameColumnWidth: number;
   defaultPxPerFrame: number;
@@ -92,55 +59,46 @@ export type UseLayerDocumentTimelineEngineOptions = {
   ) => string;
   resetRevision?: number;
   readAudioWaveform?: (sourceId: string, bins: number) => readonly number[];
-  onTimingDraftChange?: (draft: LayerDocumentTimelineTimingDraft | null) => void;
+  timingDraftRuntime:
+    LayerDocumentTimelineTimingDraftRuntime;
 };
 
 export function useLayerDocumentTimelineEngine(
   options: UseLayerDocumentTimelineEngineOptions
 ) {
-  const onTimingDraftChange =
-    options.onTimingDraftChange;
   const switcherRef =
     useRef<HTMLDivElement | null>(null);
   const switcherTriggerRef =
     useRef<HTMLButtonElement | null>(null);
   const scrollContainerRef =
     useRef<HTMLDivElement | null>(null);
-  const [hoveredFrame, setHoveredFrame] =
-    useState<number | null>(null);
-  const [isScrubbing, setIsScrubbing] =
-    useState(false);
-  const [isSwitcherOpen, setIsSwitcherOpen] =
-    useState(false);
-  const [nameColumnWidth, setNameColumnWidth] =
-    useState(options.nameColumnWidth);
-  const [
+  const {
+    hoveredFrame,
+    setHoveredFrame,
+    isScrubbing,
+    setIsScrubbing,
+    isSwitcherOpen,
+    setIsSwitcherOpen,
+    nameColumnWidth,
+    setNameColumnWidth,
     draggedLayerDocumentId,
     setDraggedLayerDocumentId,
-  ] = useState<string | null>(null);
-  const [
     editingLayerDocumentId,
     setEditingLayerDocumentId,
-  ] = useState<string | null>(null);
-  const [draftName, setDraftName] =
-    useState("");
-  const [
+    draftName,
+    setDraftName,
     deleteDecisionLayerDocumentId,
     setDeleteDecisionLayerDocumentId,
-  ] = useState<string | null>(null);
-  const [expandedLayerDocumentIds, setExpandedLayerDocumentIds] =
-    useState<ReadonlySet<string>>(() => new Set());
-  const [timingDraft, setTimingDraft] =
-    useState<LayerDocumentTimelineTimingDraft | null>(
-      null
-    );
-  const [keyframeDrag, setKeyframeDrag] =
-    useState<LayerDocumentTimelineKeyframeDrag | null>(
-      null
-    );
+    expandedLayerDocumentIds,
+    setExpandedLayerDocumentIds,
+    keyframeDrag,
+    setKeyframeDrag,
+  } = useLayerDocumentTimelineUiState(
+    options.nameColumnWidth
+  );
   const timeline =
-    options.owner.timeline.readViewProps();
-  const project = options.owner.project.read();
+    options.nexus.timeline.readViewProps();
+  const project = options.nexus.project.read();
   const expandedProjectIdRef = useRef(project.metadata.projectId);
   const scope = timeline.scope;
   const metadata = useMemo(
@@ -161,6 +119,11 @@ export function useLayerDocumentTimelineEngine(
     options.playback.subscribe,
     options.playback.read,
     () => EMPTY_PLAYBACK_SNAPSHOT
+  );
+  const timingDraft = useSyncExternalStore(
+    options.timingDraftRuntime.subscribe,
+    options.timingDraftRuntime.read,
+    options.timingDraftRuntime.read
   );
   const playbackPort = options.playback;
   const playbackUiCommands = useMemo(
@@ -196,14 +159,14 @@ export function useLayerDocumentTimelineEngine(
   const updateTimelineDuration = useCallback(
     (durationFrames: number) => {
       if (!scope.ok) return;
-      options.owner.timeline.dispatchIntent({
+      options.nexus.timeline.dispatchIntent({
         kind: "set-group-duration",
         layerDocumentId:
           scope.model.activeGroupLayerDocumentId,
         durationFrames,
       });
     },
-    [options.owner.timeline, scope]
+    [options.nexus.timeline, scope]
   );
   const playbackUi =
     useTimelinePlaybackUIController({
@@ -256,111 +219,19 @@ export function useLayerDocumentTimelineEngine(
       ]
     );
 
-  const movePointer = useCallback(
-    (
-      session: NativePointerSession,
-      clientX: number
-    ): NativePointerSession => {
-      if (session.type === "move-keyframe") {
-        const localFrame = Math.max(
-          0,
-          session.originLocalFrame +
-            resolveTimelineDragDelta(
-              clientX,
-              session.startClientX,
-              playbackUi.pxPerFrame
-            )
-        );
-        setKeyframeDrag({
-          layerDocumentId:
-            session.layerDocumentId,
-          property: session.property,
-          originLocalFrame:
-            session.originLocalFrame,
-          localFrame,
-        });
-        return { ...session, localFrame };
-      }
-      const draft =
-        resolveLayerDocumentTimelineTimingDraft(
-          session,
-          resolveTimelineDragDelta(
-            clientX,
-            session.startClientX,
-            playbackUi.pxPerFrame
-          )
-        );
-      const changed =
-        layerDocumentTimelineTimingChanged(
-        session.initial,
-        draft
-      );
-      setTimingDraft(changed ? draft : null);
-      onTimingDraftChange?.(changed ? draft : null);
-      return {
-        ...session,
-        draft: changed ? draft : null,
-      };
-    },
-    [
-      onTimingDraftChange,
-      playbackUi.pxPerFrame,
-    ]
-  );
-  const endPointer = useCallback(
-    (session: NativePointerSession) => {
-      if (session.type === "move-keyframe") {
-        if (
-          session.localFrame !==
-          session.originLocalFrame
-        ) {
-          options.owner.timeline.dispatchIntent({
-            kind: "move-keyframe",
-            layerDocumentId:
-              session.layerDocumentId,
-            property: session.property,
-            fromLocalFrame:
-              session.originLocalFrame,
-            toLocalFrame:
-              session.localFrame,
-          });
-        }
-        setKeyframeDrag(null);
-        return;
-      }
-      if (session.draft) {
-        options.owner.timeline.dispatchIntent({
-          kind: "set-timing",
-          ...session.draft,
-        });
-      }
-      setTimingDraft(null);
-      onTimingDraftChange?.(null);
-    },
-    [
-      onTimingDraftChange,
-      options.owner.timeline,
-    ]
-  );
-  const pointer = useTimelinePointerDragSessionRuntime({
-    scrollContainerRef,
-    move: movePointer,
-    commit: endPointer,
-    cancel: (session) => {
-      if (session.type === "move-keyframe") {
-        setKeyframeDrag(null);
-      } else {
-        setTimingDraft(null);
-        onTimingDraftChange?.(null);
-      }
-    },
+  const pointer = useLayerDocumentTimelinePointerRuntime({
+    nexus: options.nexus,
+    project,
+    timelineDurationFrames: metadata?.durationFrames ?? null,
+    pxPerFrame: playbackUi.pxPerFrame,
+    timingDraftRuntime: options.timingDraftRuntime,
+    setKeyframeDrag,
   });
   const cancelPointer = pointer.cancel;
   useEffect(() => {
     if (options.resetRevision === undefined) return;
     cancelPointer();
-    // One owner effect atomically clears the Timeline-only interaction session.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // One nexus effect atomically clears the Timeline-only interaction session.
     setHoveredFrame(null);
     setIsScrubbing(false);
     setIsSwitcherOpen(false);
@@ -368,104 +239,37 @@ export function useLayerDocumentTimelineEngine(
     setEditingLayerDocumentId(null);
     setDraftName("");
     setDeleteDecisionLayerDocumentId(null);
-    setTimingDraft(null);
-    onTimingDraftChange?.(null);
+    options.timingDraftRuntime.clear();
     setKeyframeDrag(null);
   }, [
     cancelPointer,
-    onTimingDraftChange,
     options.resetRevision,
+    options.timingDraftRuntime,
+    setDeleteDecisionLayerDocumentId,
+    setDraftName,
+    setDraggedLayerDocumentId,
+    setEditingLayerDocumentId,
+    setHoveredFrame,
+    setIsScrubbing,
+    setIsSwitcherOpen,
+    setKeyframeDrag,
   ]);
   useEffect(() => {
     if (expandedProjectIdRef.current === project.metadata.projectId) return;
     expandedProjectIdRef.current = project.metadata.projectId;
+    options.timingDraftRuntime.clear();
     // Project 교체에서만 핀을 정리하고 Layer 선택 변경에서는 유지한다.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedLayerDocumentIds(new Set());
-  }, [project.metadata.projectId]);
+  }, [
+    options.timingDraftRuntime,
+    project.metadata.projectId,
+    setExpandedLayerDocumentIds,
+  ]);
 
-  const itemById = useCallback(
-    (layerDocumentId: string) =>
-      project.payload.layerDocumentsById[
-        layerDocumentId
-      ] ?? null,
-    [project]
-  );
-  const beginTiming = useCallback(
-    (
-      start: TimelinePointerDragStart,
-      layerDocumentId: string,
-      operation:
-        LayerDocumentTimelineTimingOperation
-    ) => {
-      const layer = itemById(layerDocumentId);
-      if (!layer || !metadata) return;
-      const initial = {
-        layerDocumentId,
-        startFrame:
-          layer.common.placement.startFrame,
-        durationFrames:
-          layer.common.placement.durationFrames,
-        sourceOffsetFrames:
-          layer.common.placement
-            .sourceOffsetFrames,
-      };
-      const sourceId = layer.common.source?.sourceId;
-      const source = sourceId
-        ? project.payload.sourceRegistry.sourcesById[sourceId]
-        : null;
-      pointer.begin({
-        type:
-          operation === "move"
-            ? "move-item"
-            : operation === "trim-start"
-              ? "resize-start"
-              : "resize-end",
-        operation,
-        layerDocumentId,
-        startClientX: start.clientX,
-        timelineDurationFrames:
-          metadata.durationFrames,
-        sourceDurationFrames:
-          layer.type === "group"
-            ? layer.data.durationFrames
-            : layer.type === "audio" && source?.kind === "audio"
-              ? source.data.durationFrames
-              : null,
-        initial,
-        draft: null,
-      }, start);
-    },
-    [itemById, metadata, pointer, project]
-  );
-  const beginKeyframePointer = useCallback(
-    (
-      start: TimelinePointerDragStart,
-      layerDocumentId: string,
-      localFrame: number,
-      property: AnimatableProperty
-    ) => {
-      setKeyframeDrag({
-        layerDocumentId,
-        property,
-        originLocalFrame: localFrame,
-        localFrame,
-      });
-      pointer.begin({
-        type: "move-keyframe",
-        layerDocumentId,
-        property,
-        originLocalFrame: localFrame,
-        localFrame,
-        startClientX: start.clientX,
-      }, start);
-    },
-    [pointer]
-  );
   const baseInteractions = useMemo(
     () =>
       createLayerDocumentTimelineInteractionController({
-        owner: options.owner,
+        nexus: options.nexus,
         playback: playbackPort,
         sourceStatus: options.sourceStatus,
         allocateLayerDocumentId:
@@ -494,19 +298,24 @@ export function useLayerDocumentTimelineEngine(
           setDeleteDecisionLayerDocumentId,
         },
         pointer: {
-          beginTiming,
+          beginTiming: pointer.beginTiming,
+          consumeTimingClick:
+            pointer.consumeTimingClick,
           beginKeyframeMove:
-            beginKeyframePointer,
+            pointer.beginKeyframeMove,
         },
       }),
     [
-      beginKeyframePointer,
-      beginTiming,
+      pointer,
       draftName,
       draggedLayerDocumentId,
       editingLayerDocumentId,
       options,
       playbackPort,
+      setDeleteDecisionLayerDocumentId,
+      setDraftName,
+      setDraggedLayerDocumentId,
+      setEditingLayerDocumentId,
     ]
   );
   const interactions = useMemo(
@@ -521,7 +330,7 @@ export function useLayerDocumentTimelineEngine(
         });
       },
     }),
-    [baseInteractions]
+    [baseInteractions, setExpandedLayerDocumentIds]
   );
   const restoreSwitcherTriggerFocus =
     useCallback(() => {
@@ -532,7 +341,7 @@ export function useLayerDocumentTimelineEngine(
   const navigation = useCallback(
     () =>
       createLayerDocumentTimelineNavigationController({
-        owner: options.owner,
+        nexus: options.nexus,
         ui: {
           readIsOpen: () => isSwitcherOpen,
           setIsOpen: setIsSwitcherOpen,
@@ -542,8 +351,9 @@ export function useLayerDocumentTimelineEngine(
       }),
     [
       isSwitcherOpen,
-      options.owner,
+      options.nexus,
       restoreSwitcherTriggerFocus,
+      setIsSwitcherOpen,
     ]
   );
 
@@ -564,7 +374,11 @@ export function useLayerDocumentTimelineEngine(
           Math.max(96, Math.min(420, Math.round(width)))
         ),
     }),
-    [navigation, playbackUi.commands]
+    [
+      navigation,
+      playbackUi.commands,
+      setNameColumnWidth,
+    ]
   );
   useEffect(() => {
     if (!isSwitcherOpen) return;

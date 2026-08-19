@@ -16,7 +16,7 @@ export type LayerDocumentAudioImportConfirmResult =
   | {
       readonly ok: false;
       readonly status: "rejected" | "runtime-registration-pending";
-      readonly stage: "lifecycle" | "preflight" | "preparation" | "owner" | "runtime-registration";
+      readonly stage: "lifecycle" | "preflight" | "preparation" | "nexus" | "runtime-registration";
       readonly message: string;
       readonly recovery: "none" | "retry-runtime-registration";
     };
@@ -30,7 +30,7 @@ export function confirmLayerDocumentAudioPreparedSource(options: {
   ) => LayerDocumentSourceTransactionResult;
   commit: (preparation: LayerDocumentSourceTransactionResult) =>
     { readonly ok: true } |
-    { readonly ok: false; readonly stage: "preparation" | "owner"; readonly message: string };
+    { readonly ok: false; readonly stage: "preparation" | "nexus"; readonly message: string };
   runtime: LayerDocumentAudioRuntimePort;
   sourceResolution: LayerDocumentSourceRuntimeResolutionPort;
 }): LayerDocumentAudioImportConfirmResult {
@@ -44,26 +44,26 @@ export function confirmLayerDocumentAudioPreparedSource(options: {
   }
   const preflight = options.runtime.preflight(claim.resources);
   if (!preflight.ok) {
-    if (claim.mode === "commit-owner") lifecycle.failBeforeOwner();
+    if (claim.mode === "commit-nexus") lifecycle.failBeforeNexus();
     return {
       ok: false,
-      status: claim.mode === "commit-owner" ? "rejected" : "runtime-registration-pending",
+      status: claim.mode === "commit-nexus" ? "rejected" : "runtime-registration-pending",
       stage: "preflight", message: preflight.message,
-      recovery: claim.mode === "commit-owner" ? "none" : "retry-runtime-registration",
+      recovery: claim.mode === "commit-nexus" ? "none" : "retry-runtime-registration",
     };
   }
-  if (claim.mode === "commit-owner") {
+  if (claim.mode === "commit-nexus") {
     const committed = options.commit(options.prepare(
       options.readProject(), options.prepared.command
     ));
     if (!committed.ok) {
-      lifecycle.failBeforeOwner();
+      lifecycle.failBeforeNexus();
       return {
         ok: false, status: "rejected", stage: committed.stage,
         message: committed.message, recovery: "none",
       };
     }
-    lifecycle.markOwnerCommitted();
+    lifecycle.markNexusCommitted();
   }
   const registration = options.runtime.register(claim.resources);
   if (!registration.ok) {
@@ -77,11 +77,10 @@ export function confirmLayerDocumentAudioPreparedSource(options: {
   lifecycle.markTransferred();
   options.sourceResolution.setAvailable({
     sourceId: options.prepared.sourceId,
-    file: options.prepared.file,
   });
   return {
     ok: true,
-    status: claim.mode === "commit-owner"
+    status: claim.mode === "commit-nexus"
       ? "confirmed"
       : "runtime-registration-retried",
     registration,

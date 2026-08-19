@@ -4,4 +4,5 @@ export type EditorPlaceholderDescriptor = {
   readonly fill: string;
   readonly textColor: string;
   readonly size: { readonly width: number; readonly height: number };
+  readonly drawingElements?: readonly Record<string, unknown>[];
 };

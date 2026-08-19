@@ -17,10 +17,14 @@ export function createLayerDocumentProjectLinkedSourcePreparation(options?: {
   readonly audioDecoder?: LayerDocumentAudioDecodePort;
 }): LayerDocumentProjectLinkedSourcePreparationPort {
   return {
-  prepare: async ({ project, source, file, bytes }) => {
+  prepare: async ({ project, source, input }) => {
+    const file = new File(
+      [input.bytes.slice().buffer],
+      input.fileName
+    );
     if (source.kind === "audio") {
       try {
-        const buffer = bytes?.slice().buffer ?? await file.arrayBuffer();
+        const buffer = input.bytes.slice().buffer;
         const [decoded, digest] = await Promise.all([
           (options?.audioDecoder ?? LAYER_DOCUMENT_BROWSER_AUDIO_DECODER)
             .decode(buffer),
@@ -83,7 +87,7 @@ export function createLayerDocumentProjectLinkedSourcePreparation(options?: {
       const prepared =
         await prepareLayerDocumentPsdRefresh({
           file,
-          buffer: bytes?.slice().buffer,
+          buffer: input.bytes.slice().buffer,
           documentSource: source,
           existingSources,
         });

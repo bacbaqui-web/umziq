@@ -4,6 +4,10 @@ import {
   type SetStateAction,
 } from "react";
 import type { Position } from "@/models";
+import {
+  DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS,
+  type LayerDocumentProjectCanvasSettings,
+} from "@/models";
 import type {
   CanvasDirectInputState,
   CanvasHoveredHandle,
@@ -12,81 +16,29 @@ import type {
   ScaleHandleDirection,
 } from "@/engines/canvas";
 
-type ProjectCanvasViewSettings = {
-  showShortformFrameOverlay: boolean;
-  showSafeZoneGuides: boolean;
-  showSelectionHighlight: boolean;
-  cameraScalePercent: number;
-  cameraDimOpacityPercent: number;
-  showWhiteBackground: boolean;
-};
-
-function readProjectCanvasViewSettings(
-  projectId: string
-): ProjectCanvasViewSettings {
-  const readBoolean = (name: string, fallback: boolean) => {
-    if (typeof window === "undefined") return fallback;
-    const stored = window.localStorage.getItem(
-      `umziq.project.${projectId}.${name}`
-    );
-    return stored === null ? fallback : stored === "true";
-  };
-  const readNumber = (
-    name: string,
-    fallback: number,
-    minimum = 1
-  ) => {
-    if (typeof window === "undefined") return fallback;
-    const stored = Number(window.localStorage.getItem(
-      `umziq.project.${projectId}.${name}`
-    ));
-    return Number.isFinite(stored) && stored >= minimum ? stored : fallback;
-  };
-  return {
-    showShortformFrameOverlay: readBoolean("camera.visible", true),
-    showSafeZoneGuides: readBoolean("safeZone.visible", true),
-    showSelectionHighlight: readBoolean("selectionHighlight.visible", true),
-    cameraScalePercent: readNumber("camera.scalePercent", 100),
-    cameraDimOpacityPercent: readNumber("camera.dimOpacityPercent", 50, 0),
-    showWhiteBackground: readBoolean("background.white", false),
-  };
-}
-
 export function useEditorCanvasRuntimeState(
   minWidth: number,
   minHeight: number,
-  projectId: string
+  projectSettings: LayerDocumentProjectCanvasSettings | undefined,
+  commitProjectSettings: (settings: LayerDocumentProjectCanvasSettings) => void
 ) {
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewPan, setPreviewPan] =
     useState<Position>({ x: 0, y: 0 });
   const [previewWorkspaceSize, setPreviewWorkspaceSize] =
     useState({ width: minWidth, height: minHeight });
-  const [viewSettingsByProject, setViewSettingsByProject] = useState<
-    Record<string, ProjectCanvasViewSettings>
-  >(() => ({ [projectId]: readProjectCanvasViewSettings(projectId) }));
-  const viewSettings = viewSettingsByProject[projectId] ??
-    readProjectCanvasViewSettings(projectId);
-  const persistedSetter = <K extends keyof ProjectCanvasViewSettings>(
-    key: K,
-    storageName: string
-  ): Dispatch<SetStateAction<ProjectCanvasViewSettings[K]>> => (action) => {
-    setViewSettingsByProject((currentByProject) => {
-      const current = currentByProject[projectId] ??
-        readProjectCanvasViewSettings(projectId);
-      const next = typeof action === "function"
-        ? (action as (value: ProjectCanvasViewSettings[K]) =>
-            ProjectCanvasViewSettings[K])(current[key])
-        : action;
-      window.localStorage.setItem(
-        `umziq.project.${projectId}.${storageName}`,
-        String(next)
-      );
-      return {
-        ...currentByProject,
-        [projectId]: { ...current, [key]: next },
-      };
-    });
+  const viewSettings = projectSettings ??
+    DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS;
+  const persistedSetter = <K extends keyof LayerDocumentProjectCanvasSettings>(
+    key: K
+  ): Dispatch<SetStateAction<LayerDocumentProjectCanvasSettings[K]>> => (action) => {
+    const current = projectSettings ??
+      DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS;
+    const next = typeof action === "function"
+      ? (action as (value: LayerDocumentProjectCanvasSettings[K]) =>
+          LayerDocumentProjectCanvasSettings[K])(current[key])
+      : action;
+    commitProjectSettings({ ...current, [key]: next });
   };
   const {
     showShortformFrameOverlay,
@@ -97,22 +49,22 @@ export function useEditorCanvasRuntimeState(
     showWhiteBackground,
   } = viewSettings;
   const setShowShortformFrameOverlay = persistedSetter(
-    "showShortformFrameOverlay", "camera.visible"
+    "showShortformFrameOverlay"
   );
   const setShowSafeZoneGuides = persistedSetter(
-    "showSafeZoneGuides", "safeZone.visible"
+    "showSafeZoneGuides"
   );
   const setShowSelectionHighlight = persistedSetter(
-    "showSelectionHighlight", "selectionHighlight.visible"
+    "showSelectionHighlight"
   );
   const setCameraScalePercent = persistedSetter(
-    "cameraScalePercent", "camera.scalePercent"
+    "cameraScalePercent"
   );
   const setCameraDimOpacityPercent = persistedSetter(
-    "cameraDimOpacityPercent", "camera.dimOpacityPercent"
+    "cameraDimOpacityPercent"
   );
   const setShowWhiteBackground = persistedSetter(
-    "showWhiteBackground", "background.white"
+    "showWhiteBackground"
   );
   const [isDraggingAnchor, setIsDraggingAnchor] = useState(false);
   const [isDraggingPosition, setIsDraggingPosition] = useState(false);

@@ -4,16 +4,16 @@ import {
   validateLayerDocumentProject,
 } from "@/models";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
 
 const source = (path: string) =>
   readFileSync(path, "utf8");
 const root = source(
-  "src/editor/useEditorCompositionRoot.ts"
+  "src/editor/useEditorRoot.ts"
 );
-const owner = source(
-  "src/editor/useLayerDocumentEditorOwner.ts"
+const nexus = source(
+  "src/editor/useLayerDocumentEditorNexus.ts"
 );
 const runtime = source(
   "src/editor/useLayerDocumentEditorRuntime.ts"
@@ -28,82 +28,82 @@ const timeline = source(
   "src/engines/timeline/useLayerDocumentTimelineEngine.ts"
 );
 const properties = source(
-  "src/engines/properties/useLayerDocumentPropertiesEngine.ts"
+  "src/engines/visual/useLayerDocumentVisualEngine.ts"
 );
 const propertiesComposer = source(
-  "src/engines/properties/composers/useLayerDocumentPropertiesComposer.ts"
+  "src/engines/visual/composers/useLayerDocumentPropertiesComposer.ts"
 );
 const propertiesDraftController = source(
-  "src/engines/properties/controllers/propertiesNumericDraftController.ts"
+  "src/engines/visual/controllers/propertiesNumericDraftController.ts"
 );
 const shell = source(
   "src/editor/EditorShell.tsx"
 );
-const projectOwner = source(
-  "src/editor/project-owner/useEditorProjectOwner.ts"
+const nexusImplementation = source(
+  "src/editor/nexus/useEditorNexus.ts"
 );
 const timelinePlayback = source(
   "src/engines/timeline/state/layerDocumentTimelinePlaybackRuntime.ts"
 );
-const ownerModel = source(
-  "src/engines/project/models/layerDocumentProjectOwnerModel.ts"
+const nexusModel = source(
+  "src/engines/project/models/layerDocumentNexusModel.ts"
 );
-const ownerReducer = source(
-  "src/engines/project/actions/layerDocumentProjectOwnerReducer.ts"
+const nexusReducer = source(
+  "src/engines/project/actions/layerDocumentNexusReducer.ts"
 );
 const canvasCommands = source(
   "src/engines/canvas/adapters/layerDocumentCanvasCommandPortAdapter.ts"
 );
 
 assert.equal(
-  root.match(/useLayerDocumentEditorOwner\(/g)
+  root.match(/useLayerDocumentEditorNexus\(/g)
     ?.length,
   1
 );
 assert.match(
   shell,
-  /useEditorCompositionRoot\(\)/
+  /useEditorRoot\(\)/
 );
 for (const connection of [
-  /libraryProps:\s*library\.viewProps/,
+  /libraryProps:\s*{[\s\S]{0,120}\.\.\.library\.viewProps,[\s\S]{0,120}registerSourceFiles:\s*sourceAccess\.registerFiles/,
   /readPort:\s*panelPorts\.canvasRead/,
-  /propertiesPanelProps:\s*properties\.viewProps/,
+  /visualPanelProps:\s*visual\.viewProps/,
   /timelinePanelProps:\s*timeline\.viewProps/,
 ]) {
   assert.match(root, connection);
 }
 assert.doesNotMatch(
-  `${root}\n${owner}\n${runtime}\n${panelPorts}`,
+  `${root}\n${nexus}\n${runtime}\n${panelPorts}`,
   /useEditorState|useProjectSourceSession|useProjectPsdEngine|useProjectSelectionModel|useProjectHistory|useTimelineEngine|usePropertiesEngine|useLibraryEngine|useCanvasComposition|setProjectSourceDocument|setComps|setTimelineItemsByCompId/
 );
 assert.match(
-  owner,
-  /useState\(\s*createInitialLayerDocumentOwnerOptions\s*\)/
+  nexus,
+  /useState\(\s*createInitialLayerDocumentNexusOptions\s*\)/
 );
 assert.doesNotMatch(
-  owner,
+  nexus,
   /useEffect\([\s\S]{0,240}migrateProjectSource/
 );
 for (const stableRuntime of [
   /const \[resources\] = useState\(/,
-  /const \[ownerCommands\] = useState\(/,
+  /const \[nexusCommands\] = useState\(/,
   /const \[draftSession\] = useState<[\s\S]{0,80}>\(/,
   /const \[playback\] = useState\(/,
 ]) {
   assert.match(runtime, stableRuntime);
 }
-assert.match(owner, /useEditorProjectOwner\(/);
+assert.match(nexus, /useEditorNexus\(/);
 assert.equal(
-  owner.match(/useEditorProjectOwner\(/g)?.length,
+  nexus.match(/useEditorNexus\(/g)?.length,
   1
 );
 assert.doesNotMatch(
-  owner,
+  nexus,
   /useLayerDocument(?:Timeline|Properties|Library|Canvas)|createLayerDocumentTimelinePlaybackRuntime/
 );
 for (const nativePath of [
   /useLayerDocumentTimelineEngine\(\{/,
-  /useLayerDocumentPropertiesEngine\(\{/,
+  /useLayerDocumentVisualEngine\(\{/,
   /useLayerDocumentLibraryEngine\(\{/,
   /useLayerDocumentCanvasEngine\(\{/,
 ]) {
@@ -125,23 +125,23 @@ for (const panelPort of [
   assert.match(panelPorts, panelPort);
 }
 for (const rootBoundary of [
-  /useEditorProjectOwner\(/,
+  /useEditorNexus\(/,
   /useLayerDocumentEditorRuntime\(/,
   /useLayerDocumentPanelEnginePorts\(\{/,
 ]) {
-  assert.match(`${owner}\n${root}`, rootBoundary);
+  assert.match(`${nexus}\n${root}`, rootBoundary);
 }
-assert.doesNotMatch(owner, /useLayerDocumentProjectOwner\(/);
+assert.doesNotMatch(nexus, /useLayerDocumentNexus\(/);
 assert.doesNotMatch(
   runtime,
-  /createLayerDocumentProjectOwnerCompatibilityPort/
+  /createLayerDocumentNexusCompatibilityPort/
 );
 assert.match(
-  projectOwner,
-  /createEditorProjectOwnerPort\(\s*initialState,\s*reduceLayerDocumentProjectOwner/
+  nexusImplementation,
+  /createEditorNexusPort\(\s*initialState,\s*reduceLayerDocumentNexus/
 );
 assert.match(runtime, /setDraftRevision\(/);
-assert.match(runtime, /applyOwnerEffect,/);
+assert.match(runtime, /applyNexusEffect,/);
 assert.match(
   runtime,
   /\(effect\.clearDraft \? 1 : 0\)/
@@ -152,7 +152,7 @@ assert.match(
 );
 assert.match(
   root,
-  /resetRevision:\s*runtime\.ownerEffect\.localUiRevision/
+  /resetRevision:\s*runtime\.nexusEffect\.localUiRevision/
 );
 assert.match(runtime, /resources\.dispose\(\)/);
 assert.match(runtime, /audio\.dispose\(\)/);
@@ -188,7 +188,7 @@ assert.match(
 );
 assert.match(
   runtime,
-  /createEditorProjectOwnerCommandAdapter\(\{[\s\S]*draftSession\.clear,[\s\S]*applyOwnerEffect/
+  /createEditorNexusCommandAdapter\(\{[\s\S]*draftSession\.clear,[\s\S]*applyNexusEffect/
 );
 assert.match(
   panelPorts,
@@ -236,7 +236,7 @@ assert.match(
   /const playback = useSyncExternalStore\([\s\S]*options\.playback\.subscribe,[\s\S]*options\.playback\.read/
 );
 assert.doesNotMatch(
-  `${ownerModel}\n${ownerReducer}`,
+  `${nexusModel}\n${nexusReducer}`,
   /set-playback-session|session\.playback|ports\.playback|readonly playback:/
 );
 assert.match(
@@ -249,7 +249,7 @@ assert.match(
 );
 assert.doesNotMatch(
   root,
-  /ownerEffect\.effect[\s\S]{0,40}clearDraft/
+  /nexusEffect\.effect[\s\S]{0,40}clearDraft/
 );
 assert.match(
   canvas,
@@ -286,9 +286,9 @@ assert.match(
 );
 
 const first =
-  createInitialLayerDocumentOwnerOptions();
+  createInitialLayerDocumentNexusOptions();
 const second =
-  createInitialLayerDocumentOwnerOptions();
+  createInitialLayerDocumentNexusOptions();
 assert.deepEqual(first, second);
 assert.deepEqual(
   validateLayerDocumentProject(first.project),

@@ -12,12 +12,12 @@ import {
   createLayerDocumentVerificationPorts,
 } from "./helpers/createLayerDocumentVerificationPorts";
 import {
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
-  reduceLayerDocumentProjectOwner,
-  type LayerDocumentProjectOwnerPort,
-  type LayerDocumentProjectOwnerState,
+  reduceLayerDocumentNexus,
+  type LayerDocumentNexusPort,
+  type LayerDocumentNexusState,
 } from "@/engines/project";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
@@ -25,7 +25,7 @@ import {
 } from "@/render";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-} from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
+} from "@/engines/visual/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
 } from "@/layer-types";
@@ -314,7 +314,7 @@ const project: LayerDocumentProject = {
   },
 };
 const initialized =
-  createLayerDocumentProjectOwnerState({
+  createLayerDocumentNexusState({
     project,
     layerSelection: {
       kind: "layer-document",
@@ -326,16 +326,16 @@ if (!initialized.ok) {
   throw new Error(initialized.error.message);
 }
 assert.equal(initialized.ok, true);
-let state: LayerDocumentProjectOwnerState =
+let state: LayerDocumentNexusState =
   initialized.state;
 let transitionCount = 0;
-const owner: LayerDocumentProjectOwnerPort = {
+const nexus: LayerDocumentNexusPort = {
   get state() {
     return state;
   },
   transition: (action) => {
     transitionCount += 1;
-    const result = reduceLayerDocumentProjectOwner(
+    const result = reduceLayerDocumentNexus(
       state,
       action
     );
@@ -352,7 +352,7 @@ Object.keys(duplicateSources()).forEach((sourceId) => {
 });
 const ports =
   createLayerDocumentVerificationPorts({
-    owner,
+    nexus,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
     sourcePreparation:
@@ -376,7 +376,7 @@ const ports =
       },
     },
     effects: {
-      applyOwnerEffect: () => {},
+      applyNexusEffect: () => {},
     },
     metrics: {
       increment: () => {},
@@ -408,7 +408,7 @@ let keyframePointer: {
 } | null = null;
 const interactions =
   createLayerDocumentTimelineInteractionController({
-    owner: ports,
+    nexus: ports,
     playback,
     sourceStatus: {
       acknowledge: () => {},
@@ -475,7 +475,7 @@ properties.forEach((property) => {
       .layerDocumentsById.a.common.animation
   );
   const historyBeforeMove =
-    owner.state.undoStack.length;
+    nexus.state.undoStack.length;
   interactions.beginMoveKeyframe(
     100,
     "a",
@@ -501,14 +501,14 @@ properties.forEach((property) => {
   assert.equal(
     transitionCount,
     transitionsBeforePointerUp + 1,
-    `${property} pointerup commits one owner transaction`
+    `${property} pointerup commits one nexus transaction`
   );
   assert.equal(
-    owner.state.undoStack.length,
+    nexus.state.undoStack.length,
     historyBeforeMove + 1
   );
   assert.deepEqual(
-    owner.state.runtimeSession
+    nexus.state.runtimeSession
       .selectedTransformKeyframe,
     {
       layerDocumentId: "a",
@@ -540,18 +540,18 @@ properties.forEach((property) => {
     afterMove
   );
   const historyBeforeRemove =
-    owner.state.undoStack.length;
+    nexus.state.undoStack.length;
   interactions.deleteKeyframe(
     "a",
     2,
     property
   );
   assert.equal(
-    owner.state.undoStack.length,
+    nexus.state.undoStack.length,
     historyBeforeRemove + 1
   );
   assert.equal(
-    owner.state.runtimeSession
+    nexus.state.runtimeSession
       .selectedTransformKeyframe,
     null
   );
@@ -580,7 +580,7 @@ const sourceRegistryBeforeDuplicate =
     ports.project.read().payload.sourceRegistry
   );
 const duplicateOnceHistory =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 const duplicateOnceTransitions = transitionCount;
 interactions.duplicateTimelineItem("background");
 assert.equal(
@@ -588,7 +588,7 @@ assert.equal(
   duplicateOnceTransitions + 1
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   duplicateOnceHistory + 1
 );
 let duplicateProject = ports.project.read();
@@ -603,7 +603,7 @@ assert.equal(
   "background-source"
 );
 assert.equal(
-  owner.state.session.layerSelection
+  nexus.state.session.layerSelection
     .layerDocumentId,
   "background-copy-2"
 );
@@ -614,10 +614,10 @@ assert.notStrictEqual(
 );
 
 const duplicateTwiceHistory =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 interactions.duplicateTimelineItem("background");
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   duplicateTwiceHistory + 1
 );
 duplicateProject = ports.project.read();
@@ -628,12 +628,12 @@ assert.equal(
   "background_3"
 );
 assert.equal(
-  owner.state.session.layerSelection
+  nexus.state.session.layerSelection
     .layerDocumentId,
   "background-copy-3"
 );
 const historyAfterSecondDuplicate =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 assert.equal(ports.project.undo().ok, true);
 assert.equal(
   ports.project.read().payload
@@ -641,7 +641,7 @@ assert.equal(
   undefined
 );
 assert.equal(
-  owner.state.session.layerSelection
+  nexus.state.session.layerSelection
     .layerDocumentId,
   "root"
 );
@@ -651,12 +651,12 @@ assert.ok(
     .layerDocumentsById["background-copy-3"]
 );
 assert.equal(
-  owner.state.session.layerSelection
+  nexus.state.session.layerSelection
     .layerDocumentId,
   "root"
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyAfterSecondDuplicate
 );
 
@@ -729,7 +729,7 @@ assert.equal(
   600
 );
 const transformHistoryBefore =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 assert.equal(
   ports.selection.selectLayer(
     "background-copy-2"
@@ -746,7 +746,7 @@ assert.ok(transformDraft);
 const transformCommit = ports.canvas.pointerUp();
 assert.equal(transformCommit.ok, true);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   transformHistoryBefore + 1
 );
 assert.equal(

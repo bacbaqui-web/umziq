@@ -61,7 +61,7 @@ export interface LayerDocumentTimelineConsumerViewProps {
   };
 }
 
-export interface LayerDocumentTimelineOwnerPort {
+export interface LayerDocumentTimelineNexusPort {
   readonly project: {
     readonly read: () => LayerDocumentProject;
   };
@@ -111,7 +111,7 @@ export interface LayerDocumentTimelineKeyframeDrag {
 
 /**
  * Ephemeral Timeline-only UI state. Stored Project, Timeline playback
- * Runtime, Layer selection, and owner keyframe selection are absent.
+ * Runtime, Layer selection, and nexus keyframe selection are absent.
  */
 export interface LayerDocumentTimelineRuntimeUiState {
   readonly isCompositionSwitcherOpen: boolean;

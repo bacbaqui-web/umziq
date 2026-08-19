@@ -8,19 +8,21 @@ import type {
   LayerDocumentCanvasDraftPort,
 } from "@/engines/canvas";
 import {
-  createLayerDocumentProjectBrowserOpenAdapter,
-  createLayerDocumentProjectBrowserWriteAdapter,
   createLayerDocumentProjectLifecycleController,
   createLayerDocumentProjectOpenController,
-  createLayerDocumentProjectReconnectBrowserAdapter,
   createLayerDocumentProjectReconnectController,
   createLayerDocumentProjectSaveController,
   createLayerDocumentSourceRuntimeResolutionStore,
   createLayerDocumentAudioRuntimeStore,
   LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
-  type LayerDocumentProjectOwnerEffect,
+  type LayerDocumentNexusEffect,
   type LayerDocumentProjectLinkedSourceAccess,
 } from "@/engines/project";
+import {
+  createWebProjectStorageGateway,
+  createWebSourceAccessGateway,
+} from "@/gateway";
+import type { SourceResourceReference } from "@/gateway/contracts/sourceAccessGateway";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
   type LayerDocumentTransformDraftSnapshot,
@@ -36,12 +38,12 @@ import {
 } from "@/editor/layerDocumentEditorProjectIdentity";
 import {
   createProjectLifecycleUiCommandPort,
-} from "@/editor/projectLifecycleUi";
+} from "@/engines/menu";
 import {
-  createEditorProjectOwnerCommandAdapter,
-  readEditorOwnerGroupScope,
-  type EditorProjectOwnerPort,
-} from "@/editor/project-owner";
+  createEditorNexusCommandAdapter,
+  readEditorNexusGroupScope,
+  type EditorNexusPort,
+} from "@/editor/nexus";
 import {
   BROWSER_AUDIO_AUDITION_BACKEND,
   createEditorAudioRuntime,
@@ -72,26 +74,25 @@ function createTimelineValidityBridge() {
 }
 
 function createNewProjectPsdImportBridge() {
-  let importFiles:
-    ((files: readonly File[]) => Promise<boolean>) | null =
+  let importSources:
+    ((sources: readonly SourceResourceReference[]) => Promise<boolean>) | null =
       null;
   return {
     connect: (
-      next: (files: readonly File[]) => Promise<boolean>
+      next: (sources: readonly SourceResourceReference[]) => Promise<boolean>
     ) => {
-      importFiles = next;
+      importSources = next;
     },
-    importFiles: (files: readonly File[]) =>
-      importFiles
-        ? importFiles(files)
+    importSources: (sources: readonly SourceResourceReference[]) =>
+      importSources
+        ? importSources(sources)
         : Promise.resolve(false),
   };
 }
 
 export function useLayerDocumentEditorRuntime(
-  projectOwner: EditorProjectOwnerPort
+  nexus: EditorNexusPort
 ) {
-  const owner = projectOwner;
   const [resources] = useState(
     createLayerDocumentSourceRuntimeResourceCache
   );
@@ -136,38 +137,8 @@ export function useLayerDocumentEditorRuntime(
   useEffect(
     () => sourceResolution.subscribe(() => {
       setSourceResolutionRevision((revision) => revision + 1);
-      const project = owner.state.currentProject;
-      Object.values(
-        project.payload.sourceRegistry.sourcesById
-      ).forEach((source) => {
-        if (
-          source.kind !== "psd-document" &&
-          source.kind !== "audio" &&
-          source.kind !== "video"
-        ) return;
-        const resolution =
-          sourceResolution.read(source.sourceId);
-        if (
-          resolution.status !== "available" ||
-          !resolution.file
-        ) return;
-        localHandles.set(
-          buildLayerDocumentLocalHandleKey(
-            project.metadata.projectId,
-            source.locator.locatorId
-          ),
-          {
-            file: resolution.file,
-            handle: resolution.handle,
-            permission:
-              resolution.permission === "denied"
-                ? "unknown"
-                : resolution.permission,
-          }
-        );
-      });
     }),
-    [localHandles, owner, sourceResolution]
+    [sourceResolution]
   );
   const resourceDisposeTimer =
     useRef<number | null>(null);
@@ -197,21 +168,21 @@ export function useLayerDocumentEditorRuntime(
   const [newProjectPsdImport] = useState(
     createNewProjectPsdImportBridge
   );
-  const [ownerEffect, setOwnerEffect] =
+  const [nexusEffect, setNexusEffect] =
     useState<{
       revision: number;
       localUiRevision: number;
       effect:
-        LayerDocumentProjectOwnerEffect | null;
+        LayerDocumentNexusEffect | null;
     }>({
       revision: 0,
       localUiRevision: 0,
       effect: null,
     });
-  const applyOwnerEffect = useCallback(
-    (effect: LayerDocumentProjectOwnerEffect) => {
+  const applyNexusEffect = useCallback(
+    (effect: LayerDocumentNexusEffect) => {
       timelineValidity.reconcile();
-      setOwnerEffect((current) => ({
+      setNexusEffect((current) => ({
         revision:
           current.revision +
           (effect.clearDraft ? 1 : 0),
@@ -244,18 +215,18 @@ export function useLayerDocumentEditorRuntime(
     ) => publishDraft(draft),
     clear: () => publishDraft(null),
   }));
-  const [ownerCommands] = useState(() =>
-    createEditorProjectOwnerCommandAdapter({
-      owner,
+  const [nexusCommands] = useState(() =>
+    createEditorNexusCommandAdapter({
+      nexus,
       sourceRuntime: resources,
       audioRuntime: audio,
       clearDraft: draftSession.clear,
-      applyOwnerEffect,
+      applyNexusEffect,
       incrementMetric: NOOP_METRICS.increment,
     })
   );
   const readScope = () =>
-    readEditorOwnerGroupScope(owner);
+    readEditorNexusGroupScope(nexus);
   const scope = readScope();
   if (!scope.ok) {
     throw new Error(
@@ -267,7 +238,7 @@ export function useLayerDocumentEditorRuntime(
     createLayerDocumentTimelinePlaybackRuntime({
       scope: {
         read: readScope,
-        enter: ownerCommands.enterGroup,
+        enter: nexusCommands.enterGroup,
       },
       scheduler:
         WINDOW_TIMELINE_PLAYBACK_SCHEDULER,
@@ -301,11 +272,11 @@ export function useLayerDocumentEditorRuntime(
   ]);
   useEffect(() => {
     const synchronizeAudio = () => {
-      const scope = readEditorOwnerGroupScope(owner);
+      const scope = readEditorNexusGroupScope(nexus);
       const playbackState = playback.read();
       if (!scope.ok) {
         audio.synchronizeTimeline({
-          project: owner.state.currentProject,
+          project: nexus.state.currentProject,
           activeGroupLayerDocumentId: "",
           currentFrame: playbackState.currentFrame,
           frameRate: 1,
@@ -314,7 +285,7 @@ export function useLayerDocumentEditorRuntime(
         return;
       }
       audio.synchronizeTimeline({
-        project: owner.state.currentProject,
+        project: nexus.state.currentProject,
         activeGroupLayerDocumentId: scope.model.activeGroupLayerDocumentId,
         currentFrame: playbackState.currentFrame,
         frameRate: scope.model.activeGroup.data.frameRate,
@@ -323,51 +294,48 @@ export function useLayerDocumentEditorRuntime(
     };
     synchronizeAudio();
     return playback.subscribe(synchronizeAudio);
-  }, [audio, owner, playback]);
+  }, [audio, nexus, playback]);
   const [lifecycle] = useState(() =>
     createLayerDocumentProjectLifecycleController({
-      owner,
+      nexus,
       runtime: {
         stopPlayback: playback.commands.pause,
         clearDraft: draftSession.clear,
         invalidateSourceRuntime: (invalidation) => {
           const removed = resources.invalidate(invalidation);
           if (invalidation.kind === "all") {
-            audio.replaceProject(owner.state.currentProject);
+            audio.replaceProject(nexus.state.currentProject);
           }
           return removed;
         },
         resetSourceResolution:
           sourceResolution.reset,
         resetLocalUi: () => {},
-        publishOwnerEffect: applyOwnerEffect,
+        publishNexusEffect: applyNexusEffect,
       },
     })
+  );
+  const [projectStorage] = useState(() =>
+    createWebProjectStorageGateway({
+      takeQueuedSelection: takeProjectOpenSelection,
+    })
+  );
+  const [sourceAccess] = useState(() =>
+    createWebSourceAccessGateway()
   );
   const [saveController] = useState(() =>
     createLayerDocumentProjectSaveController({
       readProject: () =>
-        owner.state.currentProject,
+        nexus.state.currentProject,
       lifecycle,
-      browser:
-        createLayerDocumentProjectBrowserWriteAdapter(),
+      storage: projectStorage,
     })
   );
   const [openController] = useState(() =>
   {
-    const browser =
-      createLayerDocumentProjectBrowserOpenAdapter();
     return createLayerDocumentProjectOpenController({
       lifecycle,
-      browser: {
-        ...browser,
-        chooseProjectFile: async () => {
-          const queued = takeProjectOpenSelection();
-          return queued
-            ? { ok: true, value: queued }
-            : browser.chooseProjectFile();
-        },
-      },
+      storage: projectStorage,
       linkedSourceAccess: {
         find: async ({
           projectId,
@@ -410,21 +378,45 @@ export function useLayerDocumentEditorRuntime(
                   "The linked Source was not found in the Project asset folders",
               };
             }
+            const recoveredFile = recovered.file;
             return {
               status: "available",
-              file: recovered.file,
-              handle:
-                recovered.handle as FileSystemFileHandle,
-              permission: "granted",
+              input: {
+                fileName: recoveredFile.name,
+                bytes: new Uint8Array(
+                  await recoveredFile.arrayBuffer()
+                ),
+              },
+              commitAvailable: (sourceIds) => {
+                sourceIds.forEach((sourceId) =>
+                  sourceResolution.setAvailable({
+                    sourceId,
+                    permission: "granted",
+                  })
+                );
+              },
             };
           }
           try {
+            const file = linked.handle
+              ? await linked.handle.getFile()
+              : linked.file;
             return {
               status: "available",
-              ...linked,
-              file: linked.handle
-                ? await linked.handle.getFile()
-                : linked.file,
+              input: {
+                fileName: file.name,
+                bytes: new Uint8Array(
+                  await file.arrayBuffer()
+                ),
+              },
+              commitAvailable: (sourceIds) => {
+                sourceIds.forEach((sourceId) =>
+                  sourceResolution.setAvailable({
+                    sourceId,
+                    permission: linked.permission,
+                  })
+                );
+              },
             };
           } catch {
             return {
@@ -447,27 +439,34 @@ export function useLayerDocumentEditorRuntime(
   const [reconnectController] = useState(() =>
     createLayerDocumentProjectReconnectController({
       readProject: () =>
-        owner.state.currentProject,
-      browser:
-        createLayerDocumentProjectReconnectBrowserAdapter(),
+        nexus.state.currentProject,
+      sourceAccess,
       preparation:
         LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
       sourceRuntime: resources,
       audioRuntime: audio.resources,
       sourceResolution,
-      localHandles: {
-        update: (linked) => {
+      reconnectCommit: {
+        commitAvailable: (linked) => {
+          sourceAccess.withFile(linked.source, (file) => {
+            linked.sourceIds.forEach((sourceId) =>
+              sourceResolution.setAvailable({
+                sourceId,
+                permission: "unknown",
+              })
+            );
           localHandles.set(
             buildLayerDocumentLocalHandleKey(
               linked.projectId,
               linked.locatorId
             ),
             {
-              file: linked.file,
-              handle: linked.handle,
-              permission: linked.permission,
+              file,
+              handle: null,
+              permission: "unknown",
             }
           );
+          });
         },
       },
     })
@@ -480,11 +479,10 @@ export function useLayerDocumentEditorRuntime(
         lifecycle,
         save: saveController,
         open: openController,
-        reconnect: reconnectController,
         createNewProject:
           createNewLayerDocumentEditorProject,
-        importPsdFiles:
-          newProjectPsdImport.importFiles,
+        importPsdSources:
+          newProjectPsdImport.importSources,
         confirmDiscard: (intent) =>
           window.confirm(
             intent === "open-project"
@@ -500,19 +498,21 @@ export function useLayerDocumentEditorRuntime(
       })
     );
   return {
-    owner,
-    ownerCommands,
+    nexus,
+    nexusCommands,
     resources,
     audio,
     sourceResolution,
+    sourceAccess,
+    reconnect: reconnectController,
     draftSession,
     playback,
-    projectLifecycleProps: {
+    menuProps: {
       viewModel:
         projectLifecycleCommands.read(),
       commands: projectLifecycleCommands,
     },
     newProjectPsdImport,
-    ownerEffect,
+    nexusEffect,
   };
 }

@@ -149,7 +149,7 @@ function originalContributor(item) {
 }
 
 function isRequestedContributor(item) {
-  return /EditorShell\.tsx|EditorDraftBoundary\.tsx|useEditorCompositionRoot\.ts|useEditorState\.ts|engines\/properties\/|engines\/canvas\/(useCanvas|controllers\/useCanvas|composers\/useCanvas)/.test(
+  return /EditorShell\.tsx|EditorDraftBoundary\.tsx|useEditorRoot\.ts|useEditorState\.ts|engines\/properties\/|engines\/canvas\/(useCanvas|controllers\/useCanvas|composers\/useCanvas)/.test(
     item.source
   );
 }
@@ -260,10 +260,10 @@ function cpuFrameComparison(beforeLane, afterLane) {
   const after = afterLane.aggregateFocusedApplicationContributors;
   const categories = {
     EditorShell: (item) => item.source.endsWith("/EditorShell.tsx") && item.name === "EditorShell",
-    useEditorCompositionRoot: (item) => item.source.endsWith("/useEditorCompositionRoot.ts"),
+    useEditorRoot: (item) => item.source.endsWith("/useEditorRoot.ts"),
     EditorDraftBoundary: (item) => item.source.endsWith("/EditorDraftBoundary.tsx") && item.name === "EditorDraftBoundary",
     useEditorState: (item) => item.source.endsWith("/useEditorState.ts") && item.name === "useEditorState",
-    Properties: (item) => item.source.includes("/engines/properties/"),
+    Properties: (item) => item.source.includes("/engines/visual/"),
     Canvas: (item) => item.source.includes("/engines/canvas/"),
   };
   return {

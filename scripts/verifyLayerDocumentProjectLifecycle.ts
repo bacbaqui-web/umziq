@@ -6,13 +6,13 @@ import {
 } from "@/models";
 import {
   createLayerDocumentProjectLifecycleController,
-  createLayerDocumentProjectOwnerState,
-  reduceLayerDocumentProjectOwner,
-  type LayerDocumentProjectOwnerAction,
-  type LayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
+  reduceLayerDocumentNexus,
+  type LayerDocumentNexusAction,
+  type LayerDocumentNexusState,
 } from "@/engines/project";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
@@ -22,25 +22,25 @@ import {
 } from "@/engines/timeline/state/layerDocumentTimelinePlaybackRuntime";
 
 const initialOptions =
-  createInitialLayerDocumentOwnerOptions();
+  createInitialLayerDocumentNexusOptions();
 const initialized =
-  createLayerDocumentProjectOwnerState(initialOptions);
+  createLayerDocumentNexusState(initialOptions);
 assert.equal(initialized.ok, true);
 if (!initialized.ok) {
   throw new Error(initialized.error.message);
 }
 const stateRef: {
-  current: LayerDocumentProjectOwnerState;
+  current: LayerDocumentNexusState;
 } = { current: initialized.state };
-const owner = {
+const nexus = {
   get state() {
     return stateRef.current;
   },
   transition: (
-    action: LayerDocumentProjectOwnerAction
+    action: LayerDocumentNexusAction
   ) => {
     const result =
-      reduceLayerDocumentProjectOwner(
+      reduceLayerDocumentNexus(
         stateRef.current,
         action
       );
@@ -82,8 +82,8 @@ const playback =
     scope: {
       read: () =>
         buildLayerDocumentGroupScopeReadModel(
-          owner.state.currentProject,
-          owner.state.session
+          nexus.state.currentProject,
+          nexus.state.session
             .activeGroupLayerDocumentId
         ),
     },
@@ -94,7 +94,7 @@ const playback =
   });
 const lifecycle =
   createLayerDocumentProjectLifecycleController({
-    owner,
+    nexus,
     runtime: {
       clearDraft: () => {
         runtimeCalls.clearDraft += 1;
@@ -116,7 +116,7 @@ const lifecycle =
       recomputeRender: () => {
         runtimeCalls.recomputeRender += 1;
       },
-      publishOwnerEffect: (effect) => {
+      publishNexusEffect: (effect) => {
         runtimeCalls.effects.push(effect);
         playback.validity.reconcile();
       },
@@ -139,12 +139,12 @@ assert.deepEqual(
 const rootId =
   initialOptions.activeGroupLayerDocumentId!;
 const savedSnapshot = structuredClone(
-  owner.state.currentProject
+  nexus.state.currentProject
 );
 const saving = lifecycle.beginOperation("saving");
 const rename =
   buildSetLayerDocumentNameTransaction(
-    owner.state.currentProject,
+    nexus.state.currentProject,
     {
       layerDocumentId: rootId,
       name: "Edited after save began",
@@ -152,7 +152,7 @@ const rename =
   );
 assert.equal(rename.ok, true);
 if (!rename.ok) throw new Error(rename.error.message);
-const renamed = owner.transition({
+const renamed = nexus.transition({
   kind: "commit-layer-transaction",
   transaction: rename.transaction,
 });
@@ -170,7 +170,7 @@ assert.equal(
   "dirty",
   "Saving an older immutable snapshot must not clean a newer edit"
 );
-const undoneToSavepoint = owner.transition({
+const undoneToSavepoint = nexus.transition({
   kind: "undo",
 });
 assert.equal(undoneToSavepoint.ok, true);
@@ -184,11 +184,11 @@ const firstLoad =
   lifecycle.beginOperation("loading");
 const secondLoad =
   lifecycle.beginOperation("loading");
-const beforeStaleOwner = owner.state;
+const beforeStaleNexus = nexus.state;
 const beforeStaleRuntime =
   structuredClone(runtimeCalls);
 const staleProject = structuredClone(
-  owner.state.currentProject
+  nexus.state.currentProject
 );
 staleProject.metadata.name = "Stale Load";
 const staleResult = lifecycle.replaceProject({
@@ -203,7 +203,7 @@ if (!staleResult.ok) {
     "stale-operation"
   );
 }
-assert.strictEqual(owner.state, beforeStaleOwner);
+assert.strictEqual(nexus.state, beforeStaleNexus);
 assert.deepEqual(runtimeCalls, beforeStaleRuntime);
 assert.deepEqual(
   lifecycle.read().operationToken,
@@ -211,14 +211,14 @@ assert.deepEqual(
 );
 
 const invalidProject = structuredClone(
-  owner.state.currentProject
+  nexus.state.currentProject
 ) as LayerDocumentProject;
 invalidProject.payload.layerDocumentsById[
   rootId
 ].data = {};
-const beforeInvalidOwner = owner.state;
+const beforeInvalidNexus = nexus.state;
 const beforeInvalidProject =
-  owner.state.currentProject;
+  nexus.state.currentProject;
 const beforeInvalidRuntime =
   structuredClone(runtimeCalls);
 const invalidResult = lifecycle.replaceProject({
@@ -233,16 +233,16 @@ if (!invalidResult.ok) {
     "invalid-project"
   );
 }
-assert.strictEqual(owner.state, beforeInvalidOwner);
+assert.strictEqual(nexus.state, beforeInvalidNexus);
 assert.strictEqual(
-  owner.state.currentProject,
+  nexus.state.currentProject,
   beforeInvalidProject
 );
 assert.deepEqual(runtimeCalls, beforeInvalidRuntime);
 assert.equal(lifecycle.read().operation, "idle");
 
 const replacement = structuredClone(
-  owner.state.currentProject
+  nexus.state.currentProject
 );
 replacement.metadata.projectId =
   "loaded-project";
@@ -276,22 +276,22 @@ const replaced = lifecycle.replaceProject({
 assert.equal(replaced.ok, true);
 assert.deepEqual(replacement, candidateSnapshot);
 assert.notStrictEqual(
-  owner.state.currentProject,
+  nexus.state.currentProject,
   replacement
 );
 assert.equal(
-  owner.state.currentProject.metadata.projectId,
+  nexus.state.currentProject.metadata.projectId,
   "loaded-project"
 );
-assert.equal(owner.state.undoStack.length, 0);
-assert.equal(owner.state.redoStack.length, 0);
-assert.equal(owner.state.canUndo, false);
-assert.equal(owner.state.canRedo, false);
-assert.deepEqual(owner.state.runtimeSession, {
+assert.equal(nexus.state.undoStack.length, 0);
+assert.equal(nexus.state.redoStack.length, 0);
+assert.equal(nexus.state.canUndo, false);
+assert.equal(nexus.state.canRedo, false);
+assert.deepEqual(nexus.state.runtimeSession, {
   selectedTransformKeyframe: null,
 });
-assert.equal(owner.state.session.layerSelection, null);
-assert.equal(owner.state.session.sourceSelection, null);
+assert.equal(nexus.state.session.layerSelection, null);
+assert.equal(nexus.state.session.sourceSelection, null);
 assert.equal(runtimeCalls.stopPlayback, 1);
 assert.equal(runtimeCalls.clearDraft, 1);
 assert.equal(runtimeCalls.resetLocalUi, 1);
@@ -356,7 +356,7 @@ assert.equal(lifecycle.read().operation, "idle");
 const oldLoad =
   lifecycle.beginOperation("loading");
 const replacementDuringLoad =
-  structuredClone(owner.state.currentProject);
+  structuredClone(nexus.state.currentProject);
 replacementDuringLoad.metadata.projectId =
   "newer-project";
 const newer = lifecycle.replaceProject({
@@ -377,7 +377,7 @@ if (!lateOldLoad.ok) {
   );
 }
 assert.equal(
-  owner.state.currentProject.metadata.projectId,
+  nexus.state.currentProject.metadata.projectId,
   "newer-project"
 );
 

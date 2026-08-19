@@ -7,8 +7,45 @@ import {
 } from "@/models";
 import {
   resolveLayerDocumentTimelineTimingDraft,
+  resolveLayerDocumentTimelineTimingClickIntent,
   projectLayerDocumentAudioWaveform,
 } from "@/engines/timeline";
+
+assert.equal(
+  resolveLayerDocumentTimelineTimingClickIntent({
+    layerDocumentId: "audio",
+    operation: "move",
+    wasSelected: true,
+    didMove: false,
+  }, "audio"),
+  "toggle",
+  "a selected move clip without movement remains a general click"
+);
+assert.equal(
+  resolveLayerDocumentTimelineTimingClickIntent({
+    layerDocumentId: "audio",
+    operation: "move",
+    wasSelected: true,
+    didMove: true,
+  }, "audio"),
+  "keep",
+  "a completed move keeps Layer selection"
+);
+for (const operation of [
+  "trim-start",
+  "trim-end",
+] as const) {
+  assert.equal(
+    resolveLayerDocumentTimelineTimingClickIntent({
+      layerDocumentId: "audio",
+      operation,
+      wasSelected: true,
+      didMove: false,
+    }, "audio"),
+    "keep",
+    `${operation} keeps Layer selection without movement`
+  );
+}
 
 const common: LayerDocumentCommon = {
   source: { sourceId: "audio-source" },
@@ -80,6 +117,6 @@ const moveBeforeCommit = buildUpdateLayerDocumentCommonTransaction(project, {
     sourceOffsetFrames: movedBeforeTimeline.sourceOffsetFrames,
   },
 });
-assert.equal(moveBeforeCommit.ok, true, "negative Placement start persists through the Owner transaction");
+assert.equal(moveBeforeCommit.ok, true, "negative Placement start persists through the Nexus transaction");
 
 console.log("LayerDocument Timeline Audio timing verification passed");

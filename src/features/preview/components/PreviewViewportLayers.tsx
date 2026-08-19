@@ -3,8 +3,10 @@ import PreviewGuideLayers from "@/features/preview/components/PreviewGuideLayers
 import PreviewCameraFrameControls from "@/features/preview/components/PreviewCameraFrameControls";
 import type { CanvasGuideViewModel } from "@/engines/canvas";
 import type { Position } from "@/models";
+import type { DrawingEngineViewProps } from "@/engines/drawing";
 
 type PreviewViewportLayersProps = {
+  drawing: DrawingEngineViewProps;
   selectedLayerDocumentId: string | null;
   selectedSourceId: string | null;
   previewCanvasRef: RefObject<HTMLCanvasElement | null>;
@@ -22,6 +24,7 @@ type PreviewViewportLayersProps = {
 };
 
 export default function PreviewViewportLayers({
+  drawing,
   selectedLayerDocumentId,
   selectedSourceId,
   previewCanvasRef,
@@ -66,6 +69,25 @@ export default function PreviewViewportLayers({
             background: "transparent",
           }}
         />
+        {drawing.modeEnabled && drawing.geometry && (
+          <svg viewBox={`0 0 ${drawing.geometry.width} ${drawing.geometry.height}`}
+            onPointerDown={drawing.pointerDown} onPointerMove={drawing.pointerMove}
+            onPointerUp={drawing.pointerUp} onPointerCancel={drawing.pointerCancel}
+            style={{ position: "absolute",
+              left: drawing.geometry.position.x - drawing.geometry.anchor.x,
+              top: drawing.geometry.position.y - drawing.geometry.anchor.y,
+              width: drawing.geometry.width, height: drawing.geometry.height,
+              transformOrigin: `${drawing.geometry.anchor.x}px ${drawing.geometry.anchor.y}px`,
+              transform: `rotate(${drawing.geometry.rotation}deg) scale(${drawing.geometry.scale.x / 100}, ${drawing.geometry.scale.y / 100})`,
+              zIndex: 40, cursor: "crosshair", touchAction: "none" }}>
+            {drawing.draftPoints.length > 0 && (
+              <polyline points={drawing.draftPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+                fill="none" stroke={drawing.tool === "eraser" ? "#ff657a" : drawing.color}
+                strokeWidth={drawing.size} strokeLinecap="round" strokeLinejoin="round"
+                opacity={drawing.tool === "eraser" ? 0.65 : 1} />
+            )}
+          </svg>
+        )}
       </div>
 
       <div

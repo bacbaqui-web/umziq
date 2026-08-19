@@ -5,36 +5,52 @@
 - 역할: Project와 Editor 전체의 영구 Architecture
 - 기준: `docs/01_rule.md`
 - 현재 구현 위치: `docs/20_src_map.md`
-- 과거 전환 기록: `docs/completed/56_layer_document_architecture.md`,
-  `docs/completed/58_editor_project_owner_panel_engine_architecture.md`
+- 과거 전환 기록: `docs/completed/017_layer_document_architecture.md`,
+  `docs/completed/019_editor_project_owner_panel_engine_architecture.md`
 
 ## 한 문장 정의
 
-Project Owner가 하나의 Project를 소유하고, 사용자는 Panel과 짝을 이루는
-Engine을 통해 Layer Document를 편집한다.
+Nexus가 하나의 canonical Project를 소유하고, 사용자는 Panel과 짝을 이루는 Engine을
+통해 Layer Document를 편집한다. Editor Root는 Nexus, Gateway, Runtime과 Engine을
+조립한다.
+
+## 목표 용어와 현재 구현
+
+| 목표 Architecture | 현재 코드 이름 | 전환 Sprint |
+|---|---|---|
+| Nexus | Nexus | Sprint 2 |
+| Editor Root | Editor Root | Sprint 4 완료 |
+| Menu Engine | Menu Engine | Sprint 4·9 완료 |
+| Visual Engine | Visual Engine | Sprint 7 완료 |
+| Audio Engine | Audio Engine | Sprint 7 완료 |
+
+Canvas, Timeline과 Drawing은 현재 독립 Engine을 유지하며 이번 Roadmap의 rename 대상이
+아니다. 현재 실제 파일 위치는 `docs/20_src_map.md`를 따른다.
 
 ## 전체 구조
 
 ```text
-Editor
-├─ Project Owner
+Editor Root
+├─ Nexus
 │  ├─ LayerDocumentProject
 │  ├─ Transaction
 │  ├─ History
-│  ├─ Lifecycle / Persistence
-│  ├─ Source Runtime 연결
 │  └─ Selection Runtime
-├─ Editor Composition Root
+├─ Gateway
+├─ Editor Runtime
 └─ Panel Engine ↔ Panel
+   ├─ Menu
    ├─ Library
    ├─ Canvas
    ├─ Timeline
-   ├─ Properties
-   └─ Audio Effects
+   ├─ Visual
+   ├─ Audio
+   └─ Drawing
 ```
 
-Project Owner는 Project의 유일한 mutation 경계다. Composition Root는 값을
-소유하거나 복사하지 않고 Owner와 Runtime을 Panel Engine에 연결한다.
+Nexus는 Project의 유일한 mutation 경계다. Editor Root는 값을 소유하거나 복사하지
+않고 Nexus, Gateway와 Runtime의 최소 Port를 Panel Engine에 연결한다. 이 구조와 용어는
+Roadmap Sprint 1~10에서 현재 코드에 반영됐다.
 
 ## Project와 Layer Document
 
@@ -85,19 +101,19 @@ fingerprint, provenance(imported/recorded), duration/channel/sample-rate metadat
 
 Renderer 내부의 drawable 또는 command identity는 Project entity가 아니다.
 
-## Project Owner
+## Nexus
 
-Project Owner는 외부에서 하나의 경계로 보이되 내부 책임은 분리한다.
+Nexus는 움직 내부 Project 세계의 본진이자 외부에서 하나로 보이는 canonical
+authority다. 내부 책임은 다음처럼 분리한다.
 
 - Project state와 replace
 - Project transaction
 - Project-only History
-- lifecycle과 persistence
-- Source descriptor와 Runtime lifecycle 연결
 - Selection Runtime과 Project 교체 후 유효성 보정
 
-Project Owner는 Panel별 Draft, viewport, playback clock, hover, Cache와 UI
-state를 소유하지 않는다.
+Nexus는 lifecycle/persistence workflow, Gateway, Source/Audio Runtime resource,
+Panel별 Draft, viewport, playback clock, hover, Cache와 UI state를 소유하지 않는다.
+Engine은 Nexus 전체가 아니라 자신의 사용자 흐름에 필요한 최소 Port만 사용한다.
 
 ## Panel과 Engine
 
@@ -105,13 +121,14 @@ state를 소유하지 않는다.
 - Panel은 Project object를 직접 mutation하지 않는다.
 - Panel Engine은 자신의 command/query 계약만 공개한다.
 - Panel Engine끼리는 서로의 내부 구현이나 상태를 직접 수정하지 않는다.
-- 여러 영역을 함께 바꾸는 작업은 Project Owner transaction으로 조합한다.
+- 여러 영역을 함께 바꾸는 작업은 Nexus transaction으로 조합한다.
 - 독립 Panel이 없는 기능은 순수 모듈이나 기존 책임 안에 둔다.
 
-Library는 PSD 전용 Tree가 아니라 현재 Project의 PSD와 Audio Source/Layer를
-관리하며 이후 Image/Video asset까지 확장할 Panel이다. Audio 기본값은 기존
-Properties Engine이, ordered effect chain 편집은 독립 Audio Effects Engine과
-Panel이 담당한다.
+Library는 PSD 전용 Tree가 아니라 현재 Project의 PSD와 Audio Source/Layer를 관리하며
+이후 Image/Video asset까지 확장할 Panel이다. 명시적 Missing Source Reconnect와 직접
+녹음은 Library Controller 책임이다. Visual Engine은 visual Layer의 Transform,
+Opacity, Animation과 Modifier를 담당하고 Audio Engine은 gain/mute/fade, Audio Source와
+ordered effect chain을 담당한다.
 
 복합 Panel Engine 내부 책임은 다음 경계를 따른다.
 
@@ -133,32 +150,31 @@ Engine facade
 - Helper는 순수 입력→출력 계산이며 React state, File/Handle과 Runtime resource를
   소유하지 않는다.
 
-현재 Library와 Properties Engine이 이 구조를 사용한다. Properties Composer는
-Numeric Draft, Visual, Audio, Modifier Controller의 독립 결과만 공개
-`PropertiesEngineViewProps`로 조립한다. 선택 종류는 순수 Helper가 판정하고 각
-Controller는 자신에게 맞지 않는 descriptor에서 command를 거부한다. Composer가
-Controller의 존재 여부를 조건 분기하거나 Controller A 뒤에 Controller B를
-호출하는 workflow를 만들지 않는다.
-
-Properties의 Numeric Draft Controller는 focus/string Draft/scope/reset/cancel만
-공유한다. Transform Preview와 Animation은 Visual Controller가, Audio clamp와
-`set-audio-properties`는 Audio Controller가, Modifier Definition과
-`set-modifiers`는 Modifier Controller가 소유한다. Audio Effects Engine은
-Properties와 직접 참조하지 않는 별도 Panel Engine이다.
+Visual과 Audio Engine은 서로 참조하지 않는다. 선택 종류에 맞는 공개 ViewProps를 같은
+Inspector 위치에 제공하며 Audio Engine이 기본 속성 transaction과 ordered effects를
+함께 소유한다.
 
 이 구조는 책임이 실제로 여러 개일 때만 적용하며 작은 Engine을 형식적으로
 분해하지 않는다.
 
-## Composition Root
+## Editor Root
 
-Composition Root는 다음 작업만 한다.
+Editor Root는 다음 작업만 한다.
 
-1. Owner와 Editor Runtime을 한 번 생성한다.
-2. 공개 port를 Panel Engine이 필요한 형태로 변환한다.
+1. Nexus, 현재 플랫폼 Gateway와 Editor Runtime을 한 번 생성한다.
+2. Nexus/Gateway/Runtime의 공개 Port를 Controller가 필요한 최소 형태로 주입한다.
 3. Timeline Runtime 같은 공유값을 구독해 필요한 Panel에 전달한다.
-4. Panel view props와 command를 UI에 연결한다.
+4. Panel ViewProps와 command를 UI에 연결한다.
 
 Project 계산, mutation, frame 보관과 별도 편집 state 생성은 하지 않는다.
+
+## Menu Engine
+
+Menu Engine은 최상단 Menu Bar의 public boundary다. New, Open, Save, Save As, Close,
+Project Session과 Export 진입을 담당한다. Persistence는 별도 실행 계층이 아니라
+Save/Open Controller가 사용하는 순수 Helper, Gateway Storage Port와 Platform Adapter의
+책임군이다. Export workflow는 Menu Export Controller가 소유하고 encoder는 Runtime,
+destination I/O는 Gateway가 담당한다.
 
 ## Command 흐름
 
@@ -166,7 +182,7 @@ Project 계산, mutation, frame 보관과 별도 편집 state 생성은 하지 �
 사용자 Intent
 → Panel Engine command
 → 주입된 Project command 또는 Runtime command
-→ Project transaction 또는 Draft 변경
+→ Nexus transaction 또는 Draft 변경
 → 같은 Project/Runtime을 기준으로 projection 재계산
 → 각 Panel 갱신
 ```
@@ -194,9 +210,9 @@ rebuild 또는 dispose한다. Runtime은 Layer Document를 대신하는 원본�
 ## 불변 조건
 
 - Layer별 편집 데이터의 단일 원본은 Layer Document다.
-- Project mutation은 Project Owner 경계를 통한다.
+- Project mutation은 Nexus 경계를 통한다.
 - Panel과 Engine은 같은 Project와 Selection을 기준으로 동작한다.
-- Composition Root는 wiring만 수행한다.
+- Editor Root는 wiring만 수행한다.
 - 저장 데이터와 Runtime을 섞지 않는다.
 - Project schema 변경은 migration, normalize와 validation을 동반한다.
 
@@ -207,3 +223,10 @@ rebuild 또는 dispose한다. Runtime은 Layer Document를 대신하는 원본�
 - History와 Draft: `docs/architecture/13_history_draft_architecture.md`
 - Source: `docs/architecture/15_source_architecture.md`
 - Persistence: `docs/architecture/17_persistence_lifecycle_architecture.md`
+
+## Drawing Panel Engine
+
+Drawing은 캔버스 안에 전용 Toolbar Panel과 연속 Pointer Draft를 가지므로 독립 Panel
+Engine이다. Engine은 tool, color, size, active pointer와 stroke Draft만 소유한다.
+확정 element, 새 Layer 생성과 PSD→Drawing 변환은 Nexus transaction으로만
+반영하며 Engine이 Project를 직접 mutation하지 않는다.

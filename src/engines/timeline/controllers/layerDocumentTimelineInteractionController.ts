@@ -10,7 +10,7 @@ import type {
 } from "@/engines/timeline/helpers/layerDocumentTimelineInteractionHelpers";
 import type {
   LayerDocumentTimelinePlaybackPort,
-  LayerDocumentTimelineOwnerPort,
+  LayerDocumentTimelineNexusPort,
   LayerDocumentTimelineSourceStatusPort,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 import type {
@@ -45,8 +45,12 @@ export interface LayerDocumentTimelinePointerCommandPort {
     start: TimelinePointerDragStart,
     layerDocumentId: string,
     operation:
-      LayerDocumentTimelineTimingOperation
+      LayerDocumentTimelineTimingOperation,
+    wasSelected: boolean
   ) => void;
+  readonly consumeTimingClick: (
+    layerDocumentId: string
+  ) => "toggle" | "keep";
   readonly beginKeyframeMove: (
     start: TimelinePointerDragStart,
     layerDocumentId: string,
@@ -61,7 +65,7 @@ export interface LayerDocumentTimelinePointerCommandPort {
  */
 export function createLayerDocumentTimelineInteractionController(
   options: {
-    owner: LayerDocumentTimelineOwnerPort;
+    nexus: LayerDocumentTimelineNexusPort;
     playback: LayerDocumentTimelinePlaybackPort;
     sourceStatus:
       LayerDocumentTimelineSourceStatusPort<unknown>;
@@ -72,19 +76,29 @@ export function createLayerDocumentTimelineInteractionController(
   }
 ): Omit<TimelineInteractionCommands, "toggleTimelineItemExpanded"> {
   const itemById = (layerDocumentId: string) =>
-    options.owner.project.read().payload
+    options.nexus.project.read().payload
       .layerDocumentsById[layerDocumentId] ?? null;
+  const readSelectedTimelineItemId = () =>
+    options.nexus.timeline
+      .readViewProps()
+      .selectedLayerDocumentId;
   const selectTimelineItem = (
     layerDocumentId: string
   ) => {
-    const selectedLayerDocumentId =
-      options.owner.timeline
-        .readViewProps()
-        .selectedLayerDocumentId;
-    options.owner.timeline
+    options.nexus.timeline
       .readViewProps()
       .commands.selectLayer(
-        selectedLayerDocumentId === layerDocumentId
+        layerDocumentId
+      );
+  };
+  const toggleTimelineItemSelection = (
+    layerDocumentId: string
+  ) => {
+    options.nexus.timeline
+      .readViewProps()
+      .commands.selectLayer(
+        readSelectedTimelineItemId() ===
+          layerDocumentId
           ? null
           : layerDocumentId
       );
@@ -96,7 +110,7 @@ export function createLayerDocumentTimelineInteractionController(
   ) => {
     const layer = itemById(layerDocumentId);
     if (!layer) return;
-    options.owner.timeline
+    options.nexus.timeline
       .readViewProps()
       .commands.selectLayer(layerDocumentId);
     const globalFrame =
@@ -105,7 +119,7 @@ export function createLayerDocumentTimelineInteractionController(
         layer.common.placement
       );
     options.playback.commands.seek(globalFrame);
-    options.owner.timeline
+    options.nexus.timeline
       .selectTransformKeyframe({
         layerDocumentId,
         property,
@@ -116,7 +130,7 @@ export function createLayerDocumentTimelineInteractionController(
   const duplicateTimelineItem = (
     layerDocumentId: string
   ) => {
-    options.owner.timeline.dispatchIntent({
+    options.nexus.timeline.dispatchIntent({
       kind: "duplicate-layer",
       layerDocumentId,
       newLayerDocumentId:
@@ -126,7 +140,7 @@ export function createLayerDocumentTimelineInteractionController(
   const commitRename = () => {
     const ui = options.ui.read();
     if (!ui.editingLayerDocumentId) return;
-    options.owner.timeline.dispatchIntent({
+    options.nexus.timeline.dispatchIntent({
       kind: "set-alias",
       layerDocumentId:
         ui.editingLayerDocumentId,
@@ -139,7 +153,7 @@ export function createLayerDocumentTimelineInteractionController(
   const deleteLayer = (
     layerDocumentId: string
   ) => {
-    options.owner.timeline.dispatchIntent({
+    options.nexus.timeline.dispatchIntent({
       kind: "delete-layer",
       layerDocumentId,
     });
@@ -147,7 +161,7 @@ export function createLayerDocumentTimelineInteractionController(
   return {
     duplicateSelectedTimelineItem: () => {
       const selected =
-        options.owner.timeline
+        options.nexus.timeline
           .readViewProps()
           .selectedLayerDocumentId;
       if (selected) {
@@ -157,11 +171,11 @@ export function createLayerDocumentTimelineInteractionController(
     duplicateTimelineItem,
     splitSelectedTimelineItem: () => {
       const selected =
-        options.owner.timeline
+        options.nexus.timeline
           .readViewProps()
           .selectedLayerDocumentId;
       if (!selected) return;
-      options.owner.timeline.dispatchIntent({
+      options.nexus.timeline.dispatchIntent({
         kind: "split-layer",
         layerDocumentId: selected,
         newLayerDocumentId:
@@ -171,6 +185,20 @@ export function createLayerDocumentTimelineInteractionController(
       });
     },
     selectTimelineItem,
+    toggleTimelineItemSelection,
+    activateTimelineItemTrack: (
+      layerDocumentId
+    ) => {
+      if (
+        options.pointer.consumeTimingClick(
+          layerDocumentId
+        ) === "toggle"
+      ) {
+        toggleTimelineItemSelection(
+          layerDocumentId
+        );
+      }
+    },
     activateTimelineItem: (
       layerDocumentId,
       status
@@ -183,7 +211,9 @@ export function createLayerDocumentTimelineInteractionController(
           layerDocumentId
         );
       }
-      selectTimelineItem(layerDocumentId);
+      toggleTimelineItemSelection(
+        layerDocumentId
+      );
       options.ui
         .setDeleteDecisionLayerDocumentId(
           status === "deletePending"
@@ -220,7 +250,7 @@ export function createLayerDocumentTimelineInteractionController(
         !targetParentLayerDocumentId
       ) return;
       const targetOrder = Object.values(
-        options.owner.project.read()
+        options.nexus.project.read()
           .payload.layerDocumentsById
       )
         .filter(
@@ -243,7 +273,7 @@ export function createLayerDocumentTimelineInteractionController(
             targetLayerDocumentId
         );
       if (targetOrder < 0) return;
-      options.owner.timeline.dispatchIntent({
+      options.nexus.timeline.dispatchIntent({
         kind: "move-layer",
         layerDocumentId: dragged,
         newParentLayerDocumentId:
@@ -257,30 +287,48 @@ export function createLayerDocumentTimelineInteractionController(
     beginMoveTimelineItem: (
       clientX,
       layerDocumentId
-    ) =>
+    ) => {
+      const wasSelected =
+        readSelectedTimelineItemId() ===
+        layerDocumentId;
+      selectTimelineItem(layerDocumentId);
       options.pointer.beginTiming(
         clientX,
         layerDocumentId,
-        "move"
-      ),
+        "move",
+        wasSelected
+      );
+    },
     beginResizeTimelineItemStart: (
       clientX,
       layerDocumentId
-    ) =>
+    ) => {
+      const wasSelected =
+        readSelectedTimelineItemId() ===
+        layerDocumentId;
+      selectTimelineItem(layerDocumentId);
       options.pointer.beginTiming(
         clientX,
         layerDocumentId,
-        "trim-start"
-      ),
+        "trim-start",
+        wasSelected
+      );
+    },
     beginResizeTimelineItemEnd: (
       clientX,
       layerDocumentId
-    ) =>
+    ) => {
+      const wasSelected =
+        readSelectedTimelineItemId() ===
+        layerDocumentId;
+      selectTimelineItem(layerDocumentId);
       options.pointer.beginTiming(
         clientX,
         layerDocumentId,
-        "trim-end"
-      ),
+        "trim-end",
+        wasSelected
+      );
+    },
     beginRenameTimelineItem: (
       layerDocumentId
     ) => {
@@ -324,13 +372,13 @@ export function createLayerDocumentTimelineInteractionController(
       localFrame,
       property
     ) => {
-      options.owner.timeline.dispatchIntent({
+      options.nexus.timeline.dispatchIntent({
         kind: "remove-keyframe",
         layerDocumentId,
         property,
         localFrame,
       });
-      options.owner.timeline
+      options.nexus.timeline
         .selectTransformKeyframe(null);
     },
     setMouthBasicClip: (layerDocumentId, clip) => {
@@ -349,7 +397,7 @@ export function createLayerDocumentTimelineInteractionController(
             })
           : modifier
       );
-      options.owner.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });
+      options.nexus.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });
     },
     setAccelerationClip: (layerDocumentId, clip) => {
       const layer = itemById(layerDocumentId);
@@ -364,14 +412,14 @@ export function createLayerDocumentTimelineInteractionController(
             })
           : modifier
       );
-      options.owner.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });
+      options.nexus.timeline.dispatchIntent({ kind: "set-modifiers", layerDocumentId, modifiers });
     },
     deleteCanonicalTimelineItem: deleteLayer,
     setCanonicalTimelineItemVisibility: (
       layerDocumentId,
       visible
     ) => {
-      options.owner.timeline.dispatchIntent({
+      options.nexus.timeline.dispatchIntent({
         kind: "set-visibility",
         layerDocumentId,
         visible,
@@ -381,7 +429,7 @@ export function createLayerDocumentTimelineInteractionController(
       layerDocumentId,
       alias
     ) => {
-      options.owner.timeline.dispatchIntent({
+      options.nexus.timeline.dispatchIntent({
         kind: "set-alias",
         layerDocumentId,
         alias,

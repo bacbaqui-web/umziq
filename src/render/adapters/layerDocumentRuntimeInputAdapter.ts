@@ -214,7 +214,27 @@ function buildContentDescriptor(options: {
   const placeholder = getEditorPlaceholderDescriptorForLayerType(
     layer.type
   );
-  if (placeholder) return { kind: "placeholder", placeholder };
+  const parent = layer.common.placement.parentLayerDocumentId
+    ? options.context.project.payload.layerDocumentsById[
+        layer.common.placement.parentLayerDocumentId
+      ]
+    : null;
+  const raster = layer.type === "drawing"
+    ? layer.data.elements.find((element) => element.kind === "raster")
+    : null;
+  if (placeholder) return {
+    kind: "placeholder",
+    placeholder: layer.type === "drawing"
+      ? {
+          ...placeholder,
+          size: {
+            width: typeof raster?.width === "number" ? raster.width : parent?.type === "group" ? parent.data.width : placeholder.size.width,
+            height: typeof raster?.height === "number" ? raster.height : parent?.type === "group" ? parent.data.height : placeholder.size.height,
+          },
+          drawingElements: layer.data.elements,
+        }
+      : placeholder,
+  };
   return {
     kind: "unsupported",
     layerType: layer.type as "video" | "shape" | "unknown",

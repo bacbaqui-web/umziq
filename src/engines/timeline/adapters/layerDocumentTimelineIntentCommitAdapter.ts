@@ -6,22 +6,28 @@ import {
   type LayerDocumentTransactionResult,
 } from "@/models";
 import type {
-  LayerDocumentProjectOwnerPort,
-  LayerDocumentProjectOwnerTransitionResult,
+  LayerDocumentNexusPort,
+  LayerDocumentNexusTransitionResult,
   LayerDocumentTransformKeyframeSelection,
+  NexusSelectionPort,
 } from "@/engines/project";
 
-export interface LayerDocumentTimelineOwnerCommitPreparation {
+type LegacyNexusTransitionPort = Pick<
+  LayerDocumentNexusPort,
+  "transition"
+>;
+
+export interface LayerDocumentTimelineNexusCommitPreparation {
   readonly transaction:
     LayerDocumentTransactionResult;
   readonly selectTransformKeyframe?:
     LayerDocumentTransformKeyframeSelection;
 }
 
-export function prepareLayerDocumentTimelineOwnerCommit(
+export function prepareLayerDocumentTimelineNexusCommit(
   project: LayerDocumentProject,
   intent: LayerDocumentTimelineIntent
-): LayerDocumentTimelineOwnerCommitPreparation {
+): LayerDocumentTimelineNexusCommitPreparation {
   const transaction =
     buildLayerDocumentTimelineIntentTransaction(
       project,
@@ -52,20 +58,22 @@ export function prepareLayerDocumentTimelineOwnerCommit(
 }
 
 export function transitionLayerDocumentTimelineKeyframeSelection(
-  owner: LayerDocumentProjectOwnerPort,
+  nexus: NexusSelectionPort | LegacyNexusTransitionPort,
   selection:
     LayerDocumentTransformKeyframeSelection | null
-): LayerDocumentProjectOwnerTransitionResult {
-  return owner.transition({
-    kind: "set-transform-keyframe-selection",
-    selection,
-  });
+): LayerDocumentNexusTransitionResult {
+  return "selectTransformKeyframe" in nexus
+    ? nexus.selectTransformKeyframe(selection)
+    : nexus.transition({
+        kind: "set-transform-keyframe-selection",
+        selection,
+      });
 }
 
 export function createLayerDocumentTimelineCommandAdapter<
   TCommandResult,
 >(options: {
-  owner: LayerDocumentProjectOwnerPort;
+  nexus: NexusSelectionPort | LegacyNexusTransitionPort;
   readProject: () => LayerDocumentProject;
   commit: (
     transaction: LayerDocumentTransactionResult,
@@ -74,7 +82,7 @@ export function createLayerDocumentTimelineCommandAdapter<
   ) => TCommandResult;
   deliver: (
     transition:
-      LayerDocumentProjectOwnerTransitionResult
+      LayerDocumentNexusTransitionResult
   ) => TCommandResult;
 }) {
   return {
@@ -82,7 +90,7 @@ export function createLayerDocumentTimelineCommandAdapter<
       intent: LayerDocumentTimelineIntent
     ) => {
       const prepared =
-        prepareLayerDocumentTimelineOwnerCommit(
+        prepareLayerDocumentTimelineNexusCommit(
           options.readProject(),
           intent
         );
@@ -97,7 +105,7 @@ export function createLayerDocumentTimelineCommandAdapter<
     ) =>
       options.deliver(
         transitionLayerDocumentTimelineKeyframeSelection(
-          options.owner,
+          options.nexus,
           selection
         )
       ),

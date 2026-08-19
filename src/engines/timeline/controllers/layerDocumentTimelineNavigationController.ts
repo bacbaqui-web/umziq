@@ -1,10 +1,10 @@
 import type {
-  LayerDocumentTimelineOwnerPort,
+  LayerDocumentTimelineNexusPort,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 
 export function createLayerDocumentTimelineNavigationController(
   options: {
-    owner: LayerDocumentTimelineOwnerPort;
+    nexus: LayerDocumentTimelineNexusPort;
     ui: {
       readIsOpen: () => boolean;
       setIsOpen: (isOpen: boolean) => void;
@@ -24,7 +24,7 @@ export function createLayerDocumentTimelineNavigationController(
     selectComposition: (
       layerDocumentId: string
     ) => {
-      options.owner.scope.enter(
+      options.nexus.scope.enter(
         layerDocumentId
       );
       closeAndRestoreFocus();

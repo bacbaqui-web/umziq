@@ -19,10 +19,17 @@ export type LibraryRecordingEditRequest = {
   }[];
 };
 
+export type LibraryRecordingPreview = {
+  readonly name: string;
+  readonly mimeType: string | null;
+  readonly byteLength: number;
+  readonly read: () => Promise<ArrayBuffer>;
+};
+
 export type LibraryRecordingSnapshot = {
   readonly status: LibraryRecordingStatus;
   readonly name: string | null;
-  readonly file: File | null;
+  readonly preview: LibraryRecordingPreview | null;
   readonly readLiveWaveform: ((target: Float32Array) => void) | null;
   readonly audioProcessing: LayerDocumentAudioProcessingSnapshot | null;
   readonly changingAudioProcessing: LayerDocumentAudioProcessingFeature | null;

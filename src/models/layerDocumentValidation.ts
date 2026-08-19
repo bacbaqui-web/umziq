@@ -55,8 +55,42 @@ export function validateLayerDocumentProject(
     payload,
     ["layerDocumentsById", "sourceRegistry"],
     "$.payload",
-    issues
+    issues,
+    ["canvasSettings"]
   );
+  if (payload.canvasSettings !== undefined) {
+    const settings = requireRecord(
+      payload.canvasSettings, "$.payload.canvasSettings", issues
+    );
+    if (settings) {
+      validateExactKeys(settings, [
+        "showShortformFrameOverlay", "showSafeZoneGuides",
+        "showSelectionHighlight", "cameraScalePercent",
+        "cameraDimOpacityPercent", "showWhiteBackground",
+      ], "$.payload.canvasSettings", issues);
+      ["showShortformFrameOverlay", "showSafeZoneGuides",
+        "showSelectionHighlight", "showWhiteBackground"].forEach((key) => {
+        if (typeof settings[key] !== "boolean") addIssue(
+          issues, "invalid-type-data", `$.payload.canvasSettings.${key}`,
+          "Canvas setting must be a boolean"
+        );
+      });
+      if (typeof settings.cameraScalePercent !== "number" ||
+          !Number.isFinite(settings.cameraScalePercent) ||
+          settings.cameraScalePercent < 1 || settings.cameraScalePercent > 1000) {
+        addIssue(issues, "invalid-type-data",
+          "$.payload.canvasSettings.cameraScalePercent",
+          "Camera scale percent must be between 1 and 1000");
+      }
+      if (typeof settings.cameraDimOpacityPercent !== "number" ||
+          !Number.isFinite(settings.cameraDimOpacityPercent) ||
+          settings.cameraDimOpacityPercent < 0 || settings.cameraDimOpacityPercent > 100) {
+        addIssue(issues, "invalid-type-data",
+          "$.payload.canvasSettings.cameraDimOpacityPercent",
+          "Camera dim opacity percent must be between 0 and 100");
+      }
+    }
+  }
   const layers = requireRecord(
     payload.layerDocumentsById,
     "$.payload.layerDocumentsById",

@@ -52,13 +52,17 @@ assert.equal(
   false,
   "Source acknowledgment must not refresh/delete Source content or dispatch Layer deletion"
 );
-const itemComponent = readFileSync(
-  "src/features/timeline/components/TimelineItemTrackRow.tsx",
+const itemComponent = [
+  "TimelineItemTrackRow.tsx",
+  "TimelineItemTrackClip.tsx",
+  "TimelineItemContextMenu.tsx",
+].map((file) => readFileSync(
+  `src/features/timeline/components/${file}`,
   "utf8"
-);
+)).join("\n");
 assert.match(
   itemComponent,
-  /deleteTimelineItem\(item\.id\)/,
+  /deleteTimelineItem\(itemId\)/,
   "Layer row deletion must be separate from Source status reconciliation"
 );
 assert.match(

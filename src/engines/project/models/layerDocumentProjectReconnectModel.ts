@@ -1,14 +1,12 @@
 import type {
   LayerDocumentProject,
   LinkedSourceContentFingerprint,
-  SourceRegistryRecord,
 } from "@/models";
+import type { LayerDocumentProjectLinkedSourcePreparationPort } from "@/engines/project/models/layerDocumentProjectOpenModel";
 import type {
-  LayerDocumentProjectBrowserOpenEnvironment,
-  LayerDocumentProjectOpenAdapterResult,
-  LayerDocumentProjectOpenCapability,
-  LayerDocumentProjectLinkedSourcePreparationPort,
-} from "@/engines/project/models/layerDocumentProjectOpenModel";
+  SourceAccessPort,
+  SourceResourceReference,
+} from "@/gateway/contracts/sourceAccessGateway";
 import type {
   LayerDocumentSourceRuntimeResolutionPort,
   LayerDocumentSourceRuntimeResolutionStatus,
@@ -20,28 +18,12 @@ import type {
   LayerDocumentAudioRuntimePort,
 } from "@/engines/project/models/layerDocumentAudioRuntimeModel";
 
-export interface LayerDocumentProjectReconnectBrowserPort {
-  readonly capability:
-    LayerDocumentProjectOpenCapability;
-  readonly chooseLinkedSourceFile: (
-    source: SourceRegistryRecord
-  ) => Promise<
-    LayerDocumentProjectOpenAdapterResult
-  >;
-}
-
-export type LayerDocumentProjectReconnectBrowserEnvironment =
-  LayerDocumentProjectBrowserOpenEnvironment;
-
-export interface LayerDocumentProjectLocalHandleUpdatePort {
-  readonly update: (options: {
+export interface LayerDocumentProjectReconnectCommitPort {
+  readonly commitAvailable: (options: {
     readonly projectId: string;
     readonly locatorId: string;
-    readonly file: File;
-    readonly handle:
-      FileSystemFileHandle | null;
-    readonly permission:
-      "unknown" | "prompt" | "granted";
+    readonly source: SourceResourceReference;
+    readonly sourceIds: readonly string[];
   }) => void;
 }
 
@@ -118,8 +100,8 @@ export interface LayerDocumentProjectReconnectController {
 export interface CreateLayerDocumentProjectReconnectControllerOptions {
   readonly readProject: () =>
     LayerDocumentProject;
-  readonly browser:
-    LayerDocumentProjectReconnectBrowserPort;
+  readonly sourceAccess:
+    SourceAccessPort;
   readonly preparation:
     LayerDocumentProjectLinkedSourcePreparationPort;
   readonly sourceRuntime:
@@ -128,6 +110,6 @@ export interface CreateLayerDocumentProjectReconnectControllerOptions {
     LayerDocumentAudioRuntimePort;
   readonly sourceResolution:
     LayerDocumentSourceRuntimeResolutionPort;
-  readonly localHandles:
-    LayerDocumentProjectLocalHandleUpdatePort;
+  readonly reconnectCommit:
+    LayerDocumentProjectReconnectCommitPort;
 }

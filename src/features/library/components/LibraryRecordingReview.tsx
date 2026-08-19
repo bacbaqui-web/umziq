@@ -8,6 +8,7 @@ import {
 import { createPortal } from "react-dom";
 import type {
   LibraryRecordingEditRequest,
+  LibraryRecordingPreview,
   LibraryViewProps,
 } from "@/engines/library";
 
@@ -406,7 +407,7 @@ function DisconnectedMicrophonePreview({
   selectedDeviceId,
   onSelectDevice,
 }: {
-  readonly devices: readonly MediaDeviceInfo[];
+  readonly devices: Awaited<ReturnType<LibraryViewProps["enumerateMicrophoneDevices"]>>;
   readonly selectedDeviceId: string;
   readonly onSelectDevice: (deviceId: string) => void;
 }) {
@@ -545,11 +546,11 @@ function editedTimeAtSourceTime(
 }
 
 function RecordingWaveformPlayer({
-  file,
+  preview,
   edit,
   onEditChange,
 }: {
-  readonly file: File;
+  readonly preview: LibraryRecordingPreview;
   readonly edit: RecordingEditState;
   readonly onEditChange: (next: RecordingEditState) => void;
 }) {
@@ -577,15 +578,20 @@ function RecordingWaveformPlayer({
 
   useEffect(() => {
     let cancelled = false;
-    const nextUrl = URL.createObjectURL(file);
-    const publishUrlTimer = window.setTimeout(() => {
-      if (!cancelled) setUrl(nextUrl);
-    }, 0);
+    let nextUrl: string | null = null;
     const context = new AudioContext();
-    void file.arrayBuffer()
-      .then((data) => context.decodeAudioData(data))
+    void preview.read()
+      .then((data) => {
+        if (cancelled) return null;
+        nextUrl = URL.createObjectURL(new Blob(
+          [data],
+          { type: preview.mimeType ?? "application/octet-stream" }
+        ));
+        setUrl(nextUrl);
+        return context.decodeAudioData(data);
+      })
       .then((buffer) => {
-        if (cancelled) return;
+        if (cancelled || !buffer) return;
         setDecodedBuffer(buffer);
         setDuration(buffer.duration);
         onEditChange({
@@ -605,10 +611,9 @@ function RecordingWaveformPlayer({
       });
     return () => {
       cancelled = true;
-      window.clearTimeout(publishUrlTimer);
-      URL.revokeObjectURL(nextUrl);
+      if (nextUrl) URL.revokeObjectURL(nextUrl);
     };
-  }, [file, onEditChange]);
+  }, [preview, onEditChange]);
 
   useEffect(() => {
     const viewport = waveformViewportRef.current;
@@ -1035,7 +1040,7 @@ function RecordingWaveformPlayer({
 export default function LibraryRecordingReview({
   status,
   name,
-  file,
+  preview,
   readLiveWaveform,
   audioProcessing,
   changingAudioProcessing,
@@ -1050,10 +1055,12 @@ export default function LibraryRecordingReview({
   onRetry,
   onCancel,
   onConfirm,
+  enumerateDevices,
+  subscribeDevices,
 }: {
   readonly status: Exclude<LibraryViewProps["audioRecordingStatus"], "idle">;
   readonly name: string | null;
-  readonly file: File | null;
+  readonly preview: LibraryRecordingPreview | null;
   readonly readLiveWaveform: ((target: Float32Array) => void) | null;
   readonly audioProcessing: LibraryViewProps["audioRecordingProcessing"];
   readonly changingAudioProcessing: LibraryViewProps["audioRecordingChangingProcessing"];
@@ -1071,9 +1078,11 @@ export default function LibraryRecordingReview({
   readonly onRetry: () => void;
   readonly onCancel: () => void;
   readonly onConfirm: (request: LibraryRecordingEditRequest) => void;
+  readonly enumerateDevices: LibraryViewProps["enumerateMicrophoneDevices"];
+  readonly subscribeDevices: LibraryViewProps["subscribeMicrophoneDevices"];
 }) {
   const [draftName, setDraftName] = useState(name ?? "움직_녹음");
-  const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioInputDevices, setAudioInputDevices] = useState<Awaited<ReturnType<typeof enumerateDevices>>>([]);
   const [selectedAudioInputDeviceId, setSelectedAudioInputDeviceId] = useState("");
   const [edit, setEdit] = useState<RecordingEditState>({
     trimStartSeconds: 0,
@@ -1083,12 +1092,11 @@ export default function LibraryRecordingReview({
   });
 
   useEffect(() => {
-    if (status !== "ready" || !navigator.mediaDevices?.enumerateDevices) return;
+    if (status !== "ready") return;
     let cancelled = false;
     const refresh = async () => {
       try {
-        const devices = (await navigator.mediaDevices.enumerateDevices())
-          .filter((device) => device.kind === "audioinput");
+        const devices = await enumerateDevices();
         if (cancelled) return;
         setAudioInputDevices(devices);
         setSelectedAudioInputDeviceId((current) =>
@@ -1099,12 +1107,12 @@ export default function LibraryRecordingReview({
       }
     };
     void refresh();
-    navigator.mediaDevices.addEventListener?.("devicechange", refresh);
+    const unsubscribe = subscribeDevices(refresh);
     return () => {
       cancelled = true;
-      navigator.mediaDevices.removeEventListener?.("devicechange", refresh);
+      unsubscribe();
     };
-  }, [status]);
+  }, [enumerateDevices, status, subscribeDevices]);
 
   useEffect(() => {
     const resetTimer = window.setTimeout(() => {
@@ -1117,7 +1125,7 @@ export default function LibraryRecordingReview({
       });
     }, 0);
     return () => window.clearTimeout(resetTimer);
-  }, [file, name]);
+  }, [name, preview]);
 
   useEffect(() => {
     if (!canCancel) return;
@@ -1174,7 +1182,7 @@ export default function LibraryRecordingReview({
             </>
           )}
           {status === "preparing" && <p style={{ margin: 0, color: "#aab2b9" }}>녹음 결과를 준비하고 있습니다…</p>}
-          {(status === "review" || status === "saving" || status === "error") && file && (
+          {(status === "review" || status === "saving" || status === "error") && preview && (
             <>
               <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                 <strong style={{ fontSize: 13 }}>파일 이름</strong>
@@ -1195,7 +1203,7 @@ export default function LibraryRecordingReview({
                 <strong style={{ display: "block", fontSize: 13 }}>녹음 편집</strong>
               </div>
               <RecordingWaveformPlayer
-                file={file}
+                preview={preview}
                 edit={edit}
                 onEditChange={setEdit}
               />

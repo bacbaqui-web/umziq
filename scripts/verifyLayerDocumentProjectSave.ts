@@ -3,19 +3,19 @@ import {
   buildSetLayerDocumentNameTransaction,
 } from "@/models";
 import {
-  createLayerDocumentProjectBrowserWriteAdapter,
   createLayerDocumentProjectLifecycleController,
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   createLayerDocumentProjectSaveController,
   loadLayerDocumentProjectFromZiq,
-  reduceLayerDocumentProjectOwner,
+  reduceLayerDocumentNexus,
   type LayerDocumentProjectBrowserWriteEnvironment,
-  type LayerDocumentProjectOwnerAction,
-  type LayerDocumentProjectOwnerState,
+  type LayerDocumentNexusAction,
+  type LayerDocumentNexusState,
   type LayerDocumentProjectWritableFileHandle,
 } from "@/engines/project";
+import { createLayerDocumentProjectBrowserWriteAdapter } from "@/gateway";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
 
 function deferred() {
@@ -79,27 +79,27 @@ function createHandle(name: string) {
   };
 }
 
-function createOwnerFixture() {
+function createNexusFixture() {
   const initial =
-    createInitialLayerDocumentOwnerOptions();
+    createInitialLayerDocumentNexusOptions();
   const initialized =
-    createLayerDocumentProjectOwnerState(initial);
+    createLayerDocumentNexusState(initial);
   assert.equal(initialized.ok, true);
   if (!initialized.ok) {
     throw new Error(initialized.error.message);
   }
   const stateRef: {
-    current: LayerDocumentProjectOwnerState;
+    current: LayerDocumentNexusState;
   } = { current: initialized.state };
-  const owner = {
+  const nexus = {
     get state() {
       return stateRef.current;
     },
     transition: (
-      action: LayerDocumentProjectOwnerAction
+      action: LayerDocumentNexusAction
     ) => {
       const result =
-        reduceLayerDocumentProjectOwner(
+        reduceLayerDocumentNexus(
           stateRef.current,
           action
         );
@@ -111,7 +111,7 @@ function createOwnerFixture() {
   };
   const lifecycle =
     createLayerDocumentProjectLifecycleController({
-      owner,
+      nexus,
       runtime: {
         clearDraft: () => {},
         resetLocalUi: () => {},
@@ -123,7 +123,7 @@ function createOwnerFixture() {
   const rename = (name: string) => {
     const result =
       buildSetLayerDocumentNameTransaction(
-        owner.state.currentProject,
+        nexus.state.currentProject,
         {
           layerDocumentId:
             initial.activeGroupLayerDocumentId!,
@@ -134,13 +134,13 @@ function createOwnerFixture() {
     if (!result.ok) {
       throw new Error(result.error.message);
     }
-    const committed = owner.transition({
+    const committed = nexus.transition({
       kind: "commit-layer-transaction",
       transaction: result.transaction,
     });
     assert.equal(committed.ok, true);
   };
-  return { owner, lifecycle, rename };
+  return { nexus, lifecycle, rename };
 }
 
 function pickerError(name: string) {
@@ -194,13 +194,13 @@ assert.equal(
   nativeBrowser.capability,
   "native-file-system"
 );
-const nativeFixture = createOwnerFixture();
+const nativeFixture = createNexusFixture();
 const nativeSave =
   createLayerDocumentProjectSaveController({
     readProject: () =>
-      nativeFixture.owner.state.currentProject,
+      nativeFixture.nexus.state.currentProject,
     lifecycle: nativeFixture.lifecycle,
-    browser: nativeBrowser,
+    storage: nativeBrowser,
   });
 
 const firstSave = await nativeSave.save();
@@ -350,10 +350,10 @@ if (latestLoaded.ok) {
   ).find((layer) => layer.type === "group");
   assert.equal(root?.name, "Latest Concurrent Save");
 }
-const serializedOwner =
-  JSON.stringify(nativeFixture.owner.state);
+const serializedNexus =
+  JSON.stringify(nativeFixture.nexus.state);
 assert.equal(
-  serializedOwner.includes("native-save-as.ziq"),
+  serializedNexus.includes("native-save-as.ziq"),
   false,
   "File handles must remain outside Project, History, and Session"
 );
@@ -368,7 +368,7 @@ assert.equal("history" in envelope, false);
 assert.equal("session" in envelope, false);
 assert.equal("runtime" in envelope, false);
 
-const fallbackFixture = createOwnerFixture();
+const fallbackFixture = createNexusFixture();
 const downloaded: Blob[] = [];
 const anchors: Array<{
   href: string;
@@ -423,9 +423,9 @@ assert.equal(
 const fallbackSave =
   createLayerDocumentProjectSaveController({
     readProject: () =>
-      fallbackFixture.owner.state.currentProject,
+      fallbackFixture.nexus.state.currentProject,
     lifecycle: fallbackFixture.lifecycle,
-    browser: fallbackBrowser,
+    storage: fallbackBrowser,
   });
 const fallbackResult = await fallbackSave.save();
 assert.equal(fallbackResult.ok, true);

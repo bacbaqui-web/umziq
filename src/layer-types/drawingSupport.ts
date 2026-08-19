@@ -5,6 +5,13 @@ import {
   type LayerDocumentTransactionResult,
   type LayerDocumentType,
 } from "@/models";
+import type { LayerDocument } from "@/models";
+import {
+  cloneTransactionData,
+  completeLayerDocumentTransaction,
+  failLayerDocumentTransaction,
+  validateLayerDocumentTransactionInput,
+} from "@/models/layerDocumentTransactionHelpers";
 
 export type LayerDocumentDrawingQueryResult =
   | {
@@ -92,3 +99,34 @@ LayerDocumentDrawingPreparationPort = {
   query: queryLayerDocumentDrawing,
   prepareUpdate: prepareLayerDocumentDrawingUpdate,
 };
+
+export function prepareConvertLayerDocumentToDrawing(
+  project: LayerDocumentProject,
+  layerDocumentId: string,
+  data: DrawingLayerData
+): LayerDocumentTransactionResult {
+  const invalid = validateLayerDocumentTransactionInput(project);
+  if (invalid) return invalid;
+  const current = project.payload.layerDocumentsById[layerDocumentId];
+  if (!current || current.type === "group" || current.type === "audio") {
+    return failLayerDocumentTransaction(project, "domain-type-mismatch",
+      `Layer cannot be converted to drawing: ${layerDocumentId}`, []);
+  }
+  const after = cloneTransactionData(project);
+  const next = after.payload.layerDocumentsById[layerDocumentId];
+  after.payload.layerDocumentsById[layerDocumentId] = {
+    ...next,
+    revision: next.revision + 1,
+    type: "drawing",
+    common: { ...next.common, source: null },
+    data: cloneTransactionData(data),
+  } as LayerDocument;
+  return completeLayerDocumentTransaction({
+    kind: "update-domain",
+    before: project,
+    after,
+    selectionChange: { kind: "preserve" },
+    historyEntry: { label: `Convert ${current.name} to Drawing`, affectedLayerDocumentIds: [] },
+    createdLayerDocumentIds: [], deletedLayerDocumentIds: [],
+  });
+}

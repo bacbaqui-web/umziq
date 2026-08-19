@@ -7,14 +7,14 @@ import {
 } from "@/models";
 import {
   createLayerDocumentAudioRuntimeStore,
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   prepareLayerDocumentDeleteWithOrphanSources,
-  reduceLayerDocumentProjectOwner,
+  reduceLayerDocumentNexus,
 } from "@/engines/project";
 import {
-  createEditorProjectOwnerCommandAdapter,
-  createEditorProjectOwnerPort,
-} from "@/editor/project-owner";
+  createEditorNexusCommandAdapter,
+  createEditorNexusPort,
+} from "@/editor/nexus";
 import { createEditorAudioRuntime } from "@/editor/audio-runtime";
 import { createLayerDocumentSourceRuntimeResourceCache } from "@/render";
 
@@ -125,15 +125,15 @@ const project: LayerDocumentProject = {
   },
 };
 
-const initialized = createLayerDocumentProjectOwnerState({
+const initialized = createLayerDocumentNexusState({
   project,
   activeGroupLayerDocumentId: "root",
 });
 assert.equal(initialized.ok, true);
 if (!initialized.ok) throw new Error(initialized.error.message);
-const owner = createEditorProjectOwnerPort(
+const nexus = createEditorNexusPort(
   initialized.state,
-  reduceLayerDocumentProjectOwner
+  reduceLayerDocumentNexus
 );
 const visualResources = createLayerDocumentSourceRuntimeResourceCache();
 const audioResources = createLayerDocumentAudioRuntimeStore();
@@ -165,36 +165,36 @@ const audioRuntime = createEditorAudioRuntime({
     }),
   },
 });
-const commands = createEditorProjectOwnerCommandAdapter({
-  owner,
+const commands = createEditorNexusCommandAdapter({
+  nexus,
   sourceRuntime: visualResources,
   audioRuntime,
   clearDraft: () => undefined,
-  applyOwnerEffect: () => undefined,
+  applyNexusEffect: () => undefined,
   incrementMetric: () => undefined,
 });
 
 const deleteA = commands.commitSourcePreparation(
-  prepareLayerDocumentDeleteWithOrphanSources(owner.state.currentProject, {
+  prepareLayerDocumentDeleteWithOrphanSources(nexus.state.currentProject, {
     layerDocumentId: "a",
   })
 );
 assert.equal(deleteA.ok, true);
-assert.ok(owner.state.currentProject.payload.sourceRegistry.sourcesById.audio);
+assert.ok(nexus.state.currentProject.payload.sourceRegistry.sourcesById.audio);
 assert.strictEqual(audioResources.resolve("audio"), decodedResource);
 assert.equal(decodedDisposeCount, 0);
-assert.equal(owner.state.undoStack.length, 1);
+assert.equal(nexus.state.undoStack.length, 1);
 
 assert.equal(
   audioRuntime.play({
-    project: owner.state.currentProject,
+    project: nexus.state.currentProject,
     layerDocumentId: "b",
   }).ok,
   true
 );
 assert.equal(audioRuntime.readWaveform("audio", 2).length, 2);
 const deleteB = commands.commitSourcePreparation(
-  prepareLayerDocumentDeleteWithOrphanSources(owner.state.currentProject, {
+  prepareLayerDocumentDeleteWithOrphanSources(nexus.state.currentProject, {
     layerDocumentId: "b",
   })
 );
@@ -202,7 +202,7 @@ assert.equal(deleteB.ok, true);
 assert.equal(handleStops, 1, "deleting the last placement stops playback immediately");
 assert.equal(audioResources.resolve("audio"), null);
 assert.equal(decodedDisposeCount, 0, "delete suspends decoded Audio without disposing it");
-assert.equal(owner.state.undoStack.length, 2);
+assert.equal(nexus.state.undoStack.length, 2);
 
 assert.equal(commands.undo().ok, true);
 assert.strictEqual(audioResources.resolve("audio"), decodedResource);
@@ -237,7 +237,7 @@ visualResources.dispose();
 assert.equal(decodedDisposeCount, 1, "Editor disposal does not dispose an Audio resource twice");
 assert.match(
   readFileSync("src/editor/useLayerDocumentEditorRuntime.ts", "utf8"),
-  /invalidation\.kind === "all"[\s\S]*audio\.replaceProject\(owner\.state\.currentProject\)/,
+  /invalidation\.kind === "all"[\s\S]*audio\.replaceProject\(nexus\.state\.currentProject\)/,
   "successful lifecycle replacement must clear the Audio Project session cache"
 );
 console.log("Undo-safe Source Runtime verification passed");

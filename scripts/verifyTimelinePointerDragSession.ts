@@ -79,7 +79,11 @@ function createHarness() {
   const documentRootTarget = new FakeEventTarget();
   const captureTarget = new FakeCaptureTarget();
   let visibility: DocumentVisibilityState = "visible";
-  const commits: Array<{ value: number; reason: string }> = [];
+  const commits: Array<{
+    value: number;
+    reason: string;
+    didMove: boolean;
+  }> = [];
   const cancels: Array<{ value: number; reason: string }> = [];
   const environment: TimelinePointerDragEnvironment = {
     windowTarget,
@@ -94,8 +98,12 @@ function createHarness() {
         ...session,
         value: clientX,
       }),
-      commit: (session, reason) => {
-        commits.push({ value: session.value, reason });
+      commit: (session, reason, completion) => {
+        commits.push({
+          value: session.value,
+          reason,
+          didMove: completion.didMove,
+        });
       },
       cancel: (session, reason) => {
         cancels.push({ value: session.value, reason });
@@ -106,7 +114,7 @@ function createHarness() {
     pointerId = 7
   ) => controller.begin(
     { type: "test", value },
-    { pointerId, captureTarget }
+    { pointerId, clientX: value, captureTarget }
   );
   const assertDetached = () => {
     assert.equal(windowTarget.count("pointermove"), 0);
@@ -151,7 +159,11 @@ function createHarness() {
     pointerId: 7,
   });
   assert.deepEqual(harness.commits, [
-    { value: 24, reason: "pointer-up" },
+    {
+      value: 24,
+      reason: "pointer-up",
+      didMove: true,
+    },
   ]);
   assert.deepEqual(harness.cancels, []);
   assert.deepEqual(harness.captureTarget.releaseCalls, [7]);
@@ -210,6 +222,19 @@ for (const scenario of [
   assert.equal(harness.commits[0]?.reason, scenario.reason);
   assert.equal(harness.cancels.length, 0);
   harness.assertDetached();
+}
+
+{
+  const harness = createHarness();
+  harness.begin(12);
+  harness.documentTarget.dispatch("pointerup", {
+    pointerId: 7,
+  });
+  assert.equal(
+    harness.commits[0]?.didMove,
+    false,
+    "pointer session reports a click when clientX never changes"
+  );
 }
 
 {

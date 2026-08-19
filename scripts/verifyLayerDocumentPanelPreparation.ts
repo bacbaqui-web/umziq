@@ -18,17 +18,17 @@ import {
 } from "@/layer-types";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-} from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
+} from "@/engines/visual/adapters/layerDocumentPanelPreparationAdapter";
 import {
   prepareLayerDocumentPropertiesCommand,
-} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter";
+} from "@/engines/visual/adapters/layerDocumentPropertiesCommandPreparationAdapter";
 import {
   buildLayerDocumentPropertiesDescriptor,
-} from "@/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers";
+} from "@/engines/visual/helpers/layerDocumentPropertiesDescriptorHelpers";
 import type {
   LayerDocumentPropertiesCommand,
   LayerDocumentPropertiesCommandPreparation,
-} from "@/engines/properties/models/layerDocumentPropertiesModel";
+} from "@/engines/visual/models/layerDocumentPropertiesModel";
 import {
   LAYER_DOCUMENT_TEXT_PREPARATION_PORT,
 } from "@/layer-types";
@@ -772,7 +772,8 @@ const drawingAfter = assertPrepared(
     layerDocumentId: "drawing",
     data: {
       documentVersion: 2,
-      elements: [{ kind: "stroke", id: "stroke-b" }],
+      elements: [{ kind: "stroke", tool: "brush", color: "#111111", size: 8,
+        points: [{ x: 0, y: 0 }, { x: 8, y: 8 }] }],
     },
   }),
   "drawing"
@@ -931,10 +932,10 @@ if (!wrongFutureType.ok) {
 assert.deepEqual(project, projectSnapshot);
 
 const taskFiles = [
-  "src/engines/properties/models/layerDocumentPropertiesModel.ts",
-  "src/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers.ts",
-  "src/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter.ts",
-  "src/engines/properties/adapters/layerDocumentPanelPreparationAdapter.ts",
+  "src/engines/visual/models/layerDocumentPropertiesModel.ts",
+  "src/engines/visual/helpers/layerDocumentPropertiesDescriptorHelpers.ts",
+  "src/engines/visual/adapters/layerDocumentPropertiesCommandPreparationAdapter.ts",
+  "src/engines/visual/adapters/layerDocumentPanelPreparationAdapter.ts",
   "src/layer-types/index.ts",
   "src/layer-types/drawingSupport.ts",
   "src/layer-types/textSupport.ts",
@@ -959,11 +960,11 @@ for (const path of taskFiles.filter((path) =>
   assert.doesNotMatch(source, /@\/engines\/properties/);
 }
 const compositionRootSource = readFileSync(
-  "src/editor/useEditorCompositionRoot.ts",
+  "src/editor/useEditorRoot.ts",
   "utf8"
 );
 const productPanelSource = readFileSync(
-  "src/features/properties/components/PropertiesPanel.tsx",
+  "src/features/visual/components/VisualPanel.tsx",
   "utf8"
 );
 assert.doesNotMatch(

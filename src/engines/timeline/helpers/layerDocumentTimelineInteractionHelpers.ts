@@ -19,6 +19,30 @@ export interface LayerDocumentTimelineTimingSession {
     LayerDocumentTimelineTimingDraft;
 }
 
+export function resolveLayerDocumentTimelineTimingClickIntent(
+  completion: {
+    readonly layerDocumentId: string;
+    readonly operation:
+      LayerDocumentTimelineTimingOperation;
+    readonly wasSelected: boolean;
+    readonly didMove: boolean;
+  } | null,
+  layerDocumentId: string
+): "toggle" | "keep" {
+  if (
+    !completion ||
+    completion.layerDocumentId !==
+      layerDocumentId
+  ) {
+    return "toggle";
+  }
+  return completion.operation !== "move" ||
+    completion.didMove ||
+    !completion.wasSelected
+    ? "keep"
+    : "toggle";
+}
+
 function clamp(
   value: number,
   minimum: number,

@@ -595,6 +595,31 @@ export async function prepareLayerDocumentPsdImport(options: {
   };
 }
 
+export async function prepareLayerDocumentPsdImportFromSource(options: {
+  readonly source: {
+    readonly fileName: string;
+    readonly mimeType: string | null;
+    readonly bytes: Uint8Array;
+  };
+  readonly token: string;
+  readonly parentLayerDocumentId: string;
+  readonly order: number;
+  readonly durationFrames: number;
+  readonly parentWidth?: number;
+  readonly parentHeight?: number;
+  readonly relativePathHint?: string | null;
+}) {
+  const file = new File(
+    [options.source.bytes.slice().buffer],
+    options.source.fileName,
+    { type: options.source.mimeType ?? "" }
+  );
+  return prepareLayerDocumentPsdImport({
+    ...options,
+    file,
+  });
+}
+
 export async function prepareLayerDocumentPsdRefresh(options: {
   file: File;
   buffer?: ArrayBuffer;
@@ -698,6 +723,28 @@ export async function prepareLayerDocumentPsdRefresh(options: {
       file: options.file,
     },
   };
+}
+
+export async function prepareLayerDocumentPsdRefreshFromSource(options: {
+  readonly source: {
+    readonly fileName: string;
+    readonly mimeType: string | null;
+    readonly bytes: Uint8Array;
+  };
+  readonly documentSource: PsdDocumentSourceRecord;
+  readonly existingSources: readonly SourceRegistryRecord[];
+}) {
+  const file = new File(
+    [options.source.bytes.slice().buffer],
+    options.source.fileName,
+    { type: options.source.mimeType ?? "" }
+  );
+  return prepareLayerDocumentPsdRefresh({
+    file,
+    buffer: options.source.bytes.slice().buffer,
+    documentSource: options.documentSource,
+    existingSources: options.existingSources,
+  });
 }
 
 async function buildSha256Fingerprint(

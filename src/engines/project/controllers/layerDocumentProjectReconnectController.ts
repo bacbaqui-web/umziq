@@ -166,16 +166,45 @@ export function createLayerDocumentProjectReconnectController(
         token === sequence &&
         options.readProject() === project;
       const selected =
-        await options.browser
-          .chooseLinkedSourceFile(source);
+        await options.sourceAccess.chooseLinkedSource({
+          suggestedFileName: source.locator.suggestedFileName,
+        });
+      if (!selected.ok) {
+        return {
+          ok: false,
+          error: {
+            code: selected.error.code === "write-failed" ||
+              selected.error.code === "not-found"
+              ? "read-failed"
+              : selected.error.code,
+            message: selected.error.message,
+          },
+        };
+      }
+      let retained = false;
+      try {
       if (!isCurrent()) return staleResult();
-      if (!selected.ok) return selected;
+      const read = await options.sourceAccess.readSource(selected.value);
+      if (!read.ok) {
+        return {
+          ok: false,
+          error: {
+            code: read.error.code === "not-found" ||
+              read.error.code === "write-failed"
+              ? "read-failed"
+              : read.error.code,
+            message: read.error.message,
+          },
+        };
+      }
       const prepared =
         await options.preparation.prepare({
           project,
           source,
-          file: selected.value.file,
-          bytes: selected.value.bytes,
+          input: {
+            fileName: selected.value.fileName,
+            bytes: read.value,
+          },
         });
       if (!isCurrent()) {
         if (prepared.ok) prepared.value.discard();
@@ -306,20 +335,13 @@ export function createLayerDocumentProjectReconnectController(
       const available = new Set(
         prepared.value.availableSourceIds
       );
-      prepared.value.availableSourceIds.forEach(
-        (id) =>
-          options.sourceResolution.setAvailable({
-            sourceId: id,
-            file: selected.value.file,
-            handle:
-              selected.value.handle as unknown as
-                FileSystemFileHandle | null,
-            permission:
-              selected.value.handle
-                ? "granted"
-                : "unknown",
-          })
-      );
+      options.reconnectCommit.commitAvailable({
+        projectId: project.metadata.projectId,
+        locatorId: source.locator.locatorId,
+        source: selected.value,
+        sourceIds: prepared.value.availableSourceIds,
+      });
+      retained = true;
       const missing = new Set(
         prepared.value.unavailableSourceIds
       );
@@ -329,18 +351,6 @@ export function createLayerDocumentProjectReconnectController(
       missing.forEach((id) =>
         options.sourceResolution.setMissing(id)
       );
-      options.localHandles.update({
-        projectId: project.metadata.projectId,
-        locatorId: source.locator.locatorId,
-        file: selected.value.file,
-        handle:
-          selected.value.handle as unknown as
-            FileSystemFileHandle | null,
-        permission:
-          selected.value.handle
-            ? "granted"
-            : "unknown",
-      });
       return {
         ok: true,
         status: "reconnected",
@@ -349,6 +359,11 @@ export function createLayerDocumentProjectReconnectController(
           [...available].sort(),
         missingSourceIds: [...missing].sort(),
       };
+      } finally {
+        if (!retained) {
+          options.sourceAccess.release([selected.value]);
+        }
+      }
     },
   };
 }

@@ -47,5 +47,13 @@ export type TimelinePointerDragEnvironment = {
 
 export type TimelinePointerDragBeginInput = {
   readonly pointerId: number;
+  readonly clientX: number;
   readonly captureTarget: TimelinePointerCaptureTarget;
+};
+
+export type TimelinePointerDragCompletion<
+  TSession,
+> = {
+  readonly session: TSession;
+  readonly didMove: boolean;
 };

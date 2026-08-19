@@ -19,19 +19,19 @@ import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesCommandPort,
   type LayerDocumentPropertiesRuntimeState,
-} from "@/engines/properties/controllers/layerDocumentPropertiesController";
+} from "@/engines/visual/controllers/layerDocumentPropertiesController";
 import {
   buildLayerDocumentPropertiesViewProps,
-} from "@/engines/properties/useLayerDocumentPropertiesEngine";
+} from "@/engines/visual/useLayerDocumentVisualEngine";
 import {
   prepareLayerDocumentPropertiesCommand,
-} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPreparationAdapter";
+} from "@/engines/visual/adapters/layerDocumentPropertiesCommandPreparationAdapter";
 import {
   buildLayerDocumentPropertiesDescriptor,
-} from "@/engines/properties/helpers/layerDocumentPropertiesDescriptorHelpers";
+} from "@/engines/visual/helpers/layerDocumentPropertiesDescriptorHelpers";
 import type {
   LayerDocumentPropertiesCommand,
-} from "@/engines/properties/models/layerDocumentPropertiesModel";
+} from "@/engines/visual/models/layerDocumentPropertiesModel";
 import {
   getCompensatedTransformOffset,
 } from "@/shared/geometry/transformOffsetHelpers";

@@ -18,6 +18,45 @@ const LAYER_TYPES = new Set([
   "unknown",
 ]);
 
+function validateDrawingElements(value: unknown, path: string, issues: LayerDocumentValidationIssue[]) {
+  if (!Array.isArray(value)) {
+    addIssue(issues, "invalid-shape", path, "Expected a drawing element array");
+    return;
+  }
+  value.forEach((candidate, index) => {
+    const elementPath = `${path}[${index}]`;
+    const element = requireRecord(candidate, elementPath, issues);
+    if (!element) return;
+    if (element.kind === "fill") {
+      validateExactKeys(element, ["kind", "color"], elementPath, issues);
+      validateString(element.color, `${elementPath}.color`, issues, { nonEmpty: true });
+      return;
+    }
+    if (element.kind === "stroke") {
+      validateExactKeys(element, ["kind", "tool", "color", "size", "points"], elementPath, issues);
+      if (element.tool !== "brush" && element.tool !== "eraser")
+        addIssue(issues, "invalid-shape", `${elementPath}.tool`, "Expected brush or eraser");
+      validateString(element.color, `${elementPath}.color`, issues, { nonEmpty: true });
+      validateNumber(element.size, `${elementPath}.size`, issues, { minimum: 1 });
+      if (!Array.isArray(element.points) || element.points.length === 0 || element.points.length > 100_000) {
+        addIssue(issues, "invalid-shape", `${elementPath}.points`, "Expected 1 to 100000 drawing points");
+      } else element.points.forEach((point, pointIndex) =>
+        validatePosition(point, `${elementPath}.points[${pointIndex}]`, issues));
+      return;
+    }
+    if (element.kind === "raster") {
+      validateExactKeys(element, ["kind", "width", "height", "dataUrl"], elementPath, issues);
+      validateNumber(element.width, `${elementPath}.width`, issues, { integer: true, minimum: 1 });
+      validateNumber(element.height, `${elementPath}.height`, issues, { integer: true, minimum: 1 });
+      validateString(element.dataUrl, `${elementPath}.dataUrl`, issues, { nonEmpty: true });
+      if (typeof element.dataUrl === "string" && !element.dataUrl.startsWith("data:image/png;base64,"))
+        addIssue(issues, "invalid-shape", `${elementPath}.dataUrl`, "Expected an embedded PNG data URL");
+      return;
+    }
+    addIssue(issues, "invalid-shape", `${elementPath}.kind`, "Unknown drawing element kind");
+  });
+}
+
 function validateTransform(
   value: unknown,
   path: string,
@@ -474,7 +513,10 @@ function validateLayerData(
         integer: true,
         minimum: 1,
       });
-      validateStringArrayObjects(data.elements, `${dataPath}.elements`, issues);
+      if (typeof data.documentVersion === "number" && data.documentVersion < 3)
+        validateStringArrayObjects(data.elements, `${dataPath}.elements`, issues);
+      else
+        validateDrawingElements(data.elements, `${dataPath}.elements`, issues);
       return;
     case "text": {
       validateExactKeys(data, ["text", "style"], dataPath, issues);

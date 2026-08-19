@@ -1,13 +1,9 @@
 import type {
-  AnimatableProperty,
   LayerDocument,
   LayerDocumentProject,
   LayerDocumentTransformProperty,
 } from "@/models";
-import {
-  getLayerModifierDefinition,
-  projectVisibleLayerDocumentKeyframeFrame,
-} from "@/models";
+import { getLayerModifierDefinition } from "@/models";
 import type {
   LayerDocumentTimelineConsumerViewProps,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
@@ -23,8 +19,6 @@ import type {
   LayerDocumentTimelinePlaybackReadModel,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 import type {
-  TimelineHeaderViewModel,
-  TimelinePropertyVisualTokens,
   TimelineReadModel,
   TimelineRulerViewModel,
   TimelineTrackOverlayViewModel,
@@ -32,6 +26,12 @@ import type {
   TimelineSourceStatusViewModel,
   TimelineViewItem,
 } from "@/engines/timeline/models/timelineViewModel";
+import {
+  buildTimelineHeaderViewModel,
+} from "@/engines/timeline/helpers/timelineHeaderViewModelHelpers";
+import {
+  buildTimelineKeyframeRowViewModel,
+} from "@/engines/timeline/helpers/timelineKeyframeRowViewModelHelpers";
 
 const PROPERTIES: readonly LayerDocumentTransformProperty[] = [
   "position",
@@ -39,40 +39,6 @@ const PROPERTIES: readonly LayerDocumentTransformProperty[] = [
   "rotation",
   "opacity",
 ];
-const LABELS: Record<
-  LayerDocumentTransformProperty,
-  string
-> = {
-  position: "위치",
-  scale: "스케일",
-  rotation: "회전",
-  opacity: "불투명도",
-};
-const COLORS: Record<
-  LayerDocumentTransformProperty,
-  TimelinePropertyVisualTokens
-> = {
-  position: {
-    accent: "#6ba9df",
-    accentMuted: "rgba(107, 169, 223, 0.62)",
-    label: "#c9def2",
-  },
-  scale: {
-    accent: "#7eca9d",
-    accentMuted: "rgba(126, 202, 157, 0.62)",
-    label: "#d4ecdd",
-  },
-  rotation: {
-    accent: "#e3a56a",
-    accentMuted: "rgba(227, 165, 106, 0.62)",
-    label: "#f1dbc6",
-  },
-  opacity: {
-    accent: "#bc92dd",
-    accentMuted: "rgba(188, 146, 221, 0.62)",
-    label: "#eadbf8",
-  },
-};
 
 export function projectLayerDocumentAudioWaveform(
   peaks: readonly number[],
@@ -121,22 +87,6 @@ export function resolveLayerDocumentTimelineEffectiveSourceStatus(
   return source.refresh.status;
 }
 
-function keyframeFrames(
-  layer: LayerDocument,
-  property: LayerDocumentTransformProperty
-): readonly { readonly frame: number }[] {
-  switch (property) {
-    case "position":
-      return layer.common.animation.positionKeyframes;
-    case "scale":
-      return layer.common.animation.scaleKeyframes;
-    case "rotation":
-      return layer.common.animation.rotationKeyframes;
-    case "opacity":
-      return layer.common.animation.opacityKeyframes;
-  }
-}
-
 function viewItem(
   layer: LayerDocument,
   timing: {
@@ -158,6 +108,12 @@ function viewItem(
       layer.type === "group"
         ? "composition"
         : "layer",
+    iconKind:
+      layer.type === "group"
+        ? "composition"
+        : layer.type === "drawing"
+          ? "drawing"
+          : "layer",
     mediaKind: layer.type === "audio" ? "audio" : "visual",
     audioProvenance:
       layer.type === "audio" && source?.kind === "audio"
@@ -258,130 +214,6 @@ function displayRows(options: {
   });
 }
 
-function buildHeader(options: {
-  project: LayerDocumentProject;
-  timeline: LayerDocumentTimelineConsumerViewProps;
-  runtime: LayerDocumentTimelineRuntimeUiState;
-  playback: LayerDocumentTimelinePlaybackReadModel;
-  frameRate: number;
-  formatTime: (
-    frame: number,
-    frameRate: number
-  ) => string;
-}): TimelineHeaderViewModel {
-  if (!options.timeline.scope.ok) {
-    return {
-      visible: false,
-      compositionName: null,
-      breadcrumbSegments: [],
-      selectionLabel: null,
-      switcher: { items: [], isOpen: false },
-      isPlaying: options.playback.isPlaying,
-      currentFrame: options.playback.currentFrame,
-      currentFrameText: "",
-      canDuplicateSelectedItem: false,
-      canSplitSelectedItem: false,
-    };
-  }
-  const scope = options.timeline.scope.model;
-  const selectedId =
-    options.timeline.selectedLayerDocumentId;
-  const selected = selectedId
-    ? options.project.payload.layerDocumentsById[
-        selectedId
-      ] ?? null
-    : null;
-  const currentFrame = options.playback.currentFrame;
-  const canSplit = Boolean(
-    selected &&
-    selected.common.placement.parentLayerDocumentId ===
-      scope.activeGroupLayerDocumentId &&
-    currentFrame >
-      selected.common.placement.startFrame &&
-    currentFrame <
-      selected.common.placement.startFrame +
-        selected.common.placement.durationFrames
-  );
-  const childGroups = options.timeline.rows
-    .map((row) =>
-      options.project.payload.layerDocumentsById[
-        row.layerDocumentId
-      ]
-    )
-    .filter(
-      (layer): layer is Extract<
-        LayerDocument,
-        { type: "group" }
-      > => layer?.type === "group"
-    );
-  return {
-    visible: true,
-    compositionName:
-      scope.activeGroup.common.placement.alias ??
-      scope.activeGroup.name,
-    breadcrumbSegments: scope.breadcrumb.map(
-      (segment) => ({
-        id: segment.layerDocumentId,
-        name:
-          segment.role === "project-root"
-            ? "프로젝트"
-            : segment.label,
-        isCurrent:
-          segment.layerDocumentId ===
-          scope.activeGroupLayerDocumentId,
-        entityKind: "composition",
-      })
-    ),
-    selectionLabel: selected
-      ? {
-          label:
-            selected.common.placement.alias ??
-            selected.name,
-          entityKind:
-            selected.type === "group"
-              ? "composition"
-              : selected.type === "audio"
-                ? "audio"
-                : "layer",
-          audioProvenance: selected.type === "audio"
-            ? (() => {
-                const sourceId = selected.common.source?.sourceId;
-                const source = sourceId
-                  ? options.project.payload.sourceRegistry.sourcesById[sourceId]
-                  : null;
-                return source?.kind === "audio" ? source.data.provenance : null;
-              })()
-            : null,
-        }
-      : null,
-    switcher: {
-      isOpen:
-        options.runtime
-          .isCompositionSwitcherOpen,
-      items: childGroups.map((group) => ({
-        id: group.layerDocumentId,
-        name:
-          group.common.placement.alias ??
-          group.name,
-        depth: 0,
-        isCurrent: false,
-        isAncestor: false,
-      })),
-    },
-    isPlaying: options.playback.isPlaying,
-    currentFrame,
-    currentFrameText: options.formatTime(
-      currentFrame,
-      options.frameRate
-    ),
-    canDuplicateSelectedItem: Boolean(
-      selected &&
-      selected.common.placement.parentLayerDocumentId ===
-        scope.activeGroupLayerDocumentId
-    ),
-    canSplitSelectedItem: canSplit,
-  };
-}
 
 export function buildLayerDocumentTimelineUiReadModel(
   options: {
@@ -542,101 +374,17 @@ export function buildLayerDocumentTimelineUiReadModel(
       });
       return;
     }
-    const placement = {
-      startFrame: row.item.startFrame,
-      durationFrames: row.item.durationFrames,
-      sourceOffsetFrames:
-        row.item.sourceOffsetFrames,
-    };
-    const drag =
-      options.runtime.keyframeDrag
-        ?.layerDocumentId === row.item.id &&
-      options.runtime.keyframeDrag.property ===
-        row.property
-        ? options.runtime.keyframeDrag
-        : null;
-    const keyframes = keyframeFrames(
-      row.layer,
-      row.property
-    ).flatMap((keyframe) => {
-      if (
-        drag &&
-        keyframe.frame === drag.originLocalFrame
-      ) {
-        return [];
-      }
-      const globalFrame =
-        projectVisibleLayerDocumentKeyframeFrame(
-          keyframe.frame,
-          placement
-        );
-      if (globalFrame === null) return [];
-      return [{
-        frame: keyframe.frame,
-        left:
-          options.ruler.timelineOriginLeft + globalFrame *
-            options.ruler.pxPerFrame -
-          7,
-        title: options.formatTime(
-          keyframe.frame,
-          frameRate
-        ),
-        selected:
-          options.timeline
-            .selectedTransformKeyframe
-            ?.layerDocumentId === row.item.id &&
-          options.timeline
-            .selectedTransformKeyframe
-            .property === row.property &&
-          options.timeline
-            .selectedTransformKeyframe
-            .localFrame === keyframe.frame,
-        dragging: false,
-      }];
-    });
-    const dragGlobalFrame = drag
-      ? projectVisibleLayerDocumentKeyframeFrame(
-          drag.localFrame,
-          placement
-        )
-      : null;
-    const dragLeft =
-      dragGlobalFrame === null
-        ? null
-        : options.ruler.timelineOriginLeft + dragGlobalFrame *
-          options.ruler.pxPerFrame;
-    rows.push({
-      type: "property",
+    rows.push(buildTimelineKeyframeRowViewModel({
       item: row.item,
-      property:
-        row.property as AnimatableProperty,
-      targetKind:
-        row.item.entityKind === "composition"
-          ? "composition"
-          : "layer",
+      layer: row.layer,
+      property: row.property,
       rowIndex,
-      label: LABELS[row.property],
-      colors: COLORS[row.property],
-      selectedTimelineItem: true,
-      trackLeft:
-        options.ruler.timelineOriginLeft + row.item.startFrame *
-        options.ruler.pxPerFrame,
-      trackWidth:
-        row.item.durationFrames *
-        options.ruler.pxPerFrame,
-      keyframes,
-      dragging: Boolean(drag),
-      draggingDisplayLeft:
-        dragLeft === null ? null : dragLeft - 7,
-      draggingReadoutLeft:
-        dragLeft === null ? null : dragLeft + 10,
-      draggingReadoutText: drag
-        ? options.formatTime(
-            drag.localFrame,
-            frameRate
-          )
-        : null,
-    });
+      runtime: options.runtime,
+      timeline: options.timeline,
+      ruler: options.ruler,
+      frameRate,
+      formatTime: options.formatTime,
+    }));
   });
 
   const selectedBlocks:
@@ -693,7 +441,7 @@ export function buildLayerDocumentTimelineUiReadModel(
   return {
     available: scope.ok,
     nameColumnWidth: options.nameColumnWidth,
-    header: buildHeader({
+    header: buildTimelineHeaderViewModel({
       project: options.project,
       timeline: options.timeline,
       runtime: options.runtime,

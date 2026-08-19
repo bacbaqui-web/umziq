@@ -108,7 +108,7 @@ function normalizeSiblingOrders(
   );
 }
 
-function createImportPreviewPlan(
+export function createLayerDocumentPsdImportPreviewPlan(
   prepared: PreparedLayerDocumentPsdImport
 ): LayerDocumentPsdImportPreviewPlan {
   return {
@@ -406,7 +406,7 @@ function sourceChanged(
   );
 }
 
-function buildRefreshSummary(
+export function buildLayerDocumentPsdRefreshSummary(
   project: LayerDocumentProject,
   prepared: PreparedLayerDocumentPsdRefresh
 ): LayerDocumentPsdRefreshDiffSummary {
@@ -480,7 +480,7 @@ export function createLayerDocumentLibraryController(options: {
       options.port.readActiveGroupLayerDocumentId,
     prepareImport: async (
       input: Parameters<typeof prepareLayerDocumentPsdImport>[0]
-    ) => createImportPreviewPlan(
+    ) => createLayerDocumentPsdImportPreviewPlan(
       await prepareLayerDocumentPsdImport(input)
     ),
     moveImportPreviewNode,
@@ -521,7 +521,7 @@ export function createLayerDocumentLibraryController(options: {
       const prepared = await prepareLayerDocumentPsdRefresh(input);
       return {
         prepared,
-        summary: buildRefreshSummary(
+        summary: buildLayerDocumentPsdRefreshSummary(
           options.port.readProject(),
           prepared
         ),

@@ -10,15 +10,15 @@ import {
   createLayerDocumentVerificationPorts,
 } from "./helpers/createLayerDocumentVerificationPorts";
 import {
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
-  reduceLayerDocumentProjectOwner,
-  type LayerDocumentProjectOwnerPort,
-  type LayerDocumentProjectOwnerState,
+  reduceLayerDocumentNexus,
+  type LayerDocumentNexusPort,
+  type LayerDocumentNexusState,
 } from "@/engines/project";
 import { createLayerDocumentSourceRuntimeResourceCache } from "@/render";
-import { LAYER_DOCUMENT_PANEL_PREPARATION_PORT } from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
+import { LAYER_DOCUMENT_PANEL_PREPARATION_PORT } from "@/engines/visual/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_AUDIO_PREPARATION_PORT,
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
@@ -215,7 +215,7 @@ function projectFixture(): LayerDocumentProject {
   };
 }
 const initialized =
-  createLayerDocumentProjectOwnerState({
+  createLayerDocumentNexusState({
     project: projectFixture(),
     layerSelection: {
       kind: "layer-document",
@@ -227,20 +227,20 @@ assert.equal(initialized.ok, true);
 if (!initialized.ok) {
   throw new Error(initialized.error.message);
 }
-let ownerState: LayerDocumentProjectOwnerState =
+let nexusState: LayerDocumentNexusState =
   initialized.state;
-let ownerTransitionCount = 0;
-const owner: LayerDocumentProjectOwnerPort = {
+let nexusTransitionCount = 0;
+const nexus: LayerDocumentNexusPort = {
   get state() {
-    return ownerState;
+    return nexusState;
   },
   transition: (action) => {
-    ownerTransitionCount += 1;
-    const result = reduceLayerDocumentProjectOwner(
-      ownerState,
+    nexusTransitionCount += 1;
+    const result = reduceLayerDocumentNexus(
+      nexusState,
       action
     );
-    if (result.ok) ownerState = result.state;
+    if (result.ok) nexusState = result.state;
     return result;
   },
 };
@@ -257,7 +257,7 @@ sourceResolution.setAvailable({
 });
 const ports =
   createLayerDocumentVerificationPorts({
-    owner,
+    nexus,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
     sourcePreparation:
@@ -277,7 +277,7 @@ const ports =
       clear: () => {},
     },
     effects: {
-      applyOwnerEffect: (effect) => {
+      applyNexusEffect: (effect) => {
         if (
           effect.runtimeCachePolicy !==
             "preserve" ||
@@ -317,7 +317,7 @@ const unsubscribePlayback = playback.subscribe(
     playbackNotifications += 1;
   }
 );
-// Public scrub/range commands mutate the owner session, while the injected
+// Public scrub/range commands mutate the nexus session, while the injected
 // Runtime owns only clock progress and isPlaying.
 playback.commands.setRange(2, 5);
 playback.commands.seek(-10);
@@ -403,7 +403,7 @@ let switcherOpen = false;
 let focusRestoreCount = 0;
 const navigation =
   createLayerDocumentTimelineNavigationController({
-    owner: ports,
+    nexus: ports,
     ui: {
       readIsOpen: () => switcherOpen,
       setIsOpen: (value) => {
@@ -452,6 +452,7 @@ type TimingPointerState = {
 };
 let timingPointer: TimingPointerState | null =
   null;
+let timingPointerWasSelected = false;
 let keyframePointer: {
   layerDocumentId: string;
   localFrame: number;
@@ -500,11 +501,13 @@ let editingLayerDocumentId: string | null =
 let draftName = "";
 let deleteDecisionLayerDocumentId:
   string | null = null;
+let timingClickDecision:
+  "toggle" | "keep" = "toggle";
 let lastSourceStatusResult:
   LayerDocumentTimelineSourceStatusResult = null;
 const sourceStatus =
   createLayerDocumentTimelineSourceStatusAdapter({
-    owner: ports,
+    nexus: ports,
     cacheContext: () => ({
       globalFrame:
         playback.read().currentFrame,
@@ -533,7 +536,7 @@ const observedSourceStatus = {
 const allocatedIds = ["video-a-copy"];
 const interactions =
   createLayerDocumentTimelineInteractionController({
-    owner: ports,
+    nexus: ports,
     playback,
     sourceStatus: observedSourceStatus,
     allocateLayerDocumentId: () => {
@@ -578,8 +581,10 @@ const interactions =
         _clientX: number,
         layerDocumentId: string,
         operation:
-          LayerDocumentTimelineTimingOperation
+          LayerDocumentTimelineTimingOperation,
+        wasSelected: boolean
       ) => {
+        timingPointerWasSelected = wasSelected;
         const layer =
           ports.project.read().payload
             .layerDocumentsById[
@@ -606,6 +611,11 @@ const interactions =
           draft: null,
         };
       },
+      consumeTimingClick: () => {
+        const decision = timingClickDecision;
+        timingClickDecision = "toggle";
+        return decision;
+      },
       beginKeyframeMove: (
         _clientX,
         layerDocumentId,
@@ -621,24 +631,84 @@ const interactions =
       },
     },
   });
+const projectBeforeSelection = structuredClone(
+  ports.project.read()
+);
+const historyBeforeSelection =
+  nexus.state.undoStack.length;
+interactions.selectTimelineItem("video-a");
+interactions.selectTimelineItem("video-a");
+assert.equal(
+  nexus.state.session.layerSelection
+    ?.layerDocumentId,
+  "video-a",
+  "force selection must not toggle an already selected Layer"
+);
+interactions.toggleTimelineItemSelection(
+  "video-a"
+);
+assert.equal(
+  nexus.state.session.layerSelection,
+  null,
+  "a repeated general click clears Layer selection"
+);
+interactions.toggleTimelineItemSelection(
+  "video-b"
+);
+assert.equal(
+  nexus.state.session.layerSelection
+    ?.layerDocumentId,
+  "video-b"
+);
+timingClickDecision = "keep";
+interactions.activateTimelineItemTrack(
+  "video-b"
+);
+assert.equal(
+  nexus.state.session.layerSelection
+    ?.layerDocumentId,
+  "video-b",
+  "a completed timing drag keeps Layer selection"
+);
+assert.deepEqual(
+  ports.project.read(),
+  projectBeforeSelection,
+  "selection intent must not mutate Project"
+);
+assert.equal(
+  nexus.state.undoStack.length,
+  historyBeforeSelection,
+  "selection intent must not create History"
+);
 const historyBeforePointer =
-  owner.state.undoStack.length;
-const transitionsBeforePointer =
-  ownerTransitionCount;
+  nexus.state.undoStack.length;
 interactions.beginMoveTimelineItem(
   100,
   "video-a"
 );
+assert.equal(
+  timingPointerWasSelected,
+  false,
+  "move start records whether the Layer was already selected"
+);
+assert.equal(
+  nexus.state.session.layerSelection
+    ?.layerDocumentId,
+  "video-a",
+  "move start force-selects its Layer"
+);
+const transitionsAfterPointerBegin =
+  nexusTransitionCount;
 moveTimingPointer(3);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforePointer,
   "pointer draft must not commit history"
 );
 assert.equal(
-  ownerTransitionCount,
-  transitionsBeforePointer,
-  "pointer draft must not transition the owner"
+  nexusTransitionCount,
+  transitionsAfterPointerBegin,
+  "pointer draft must not transition the nexus"
 );
 assert.equal(
   ports.project.read().payload
@@ -648,13 +718,13 @@ assert.equal(
 );
 releasePointer();
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforePointer + 1,
   "pointerup commits exactly one timing transaction"
 );
 assert.equal(
-  ownerTransitionCount,
-  transitionsBeforePointer + 1
+  nexusTransitionCount,
+  transitionsAfterPointerBegin + 1
 );
 assert.equal(
   ports.project.read().payload
@@ -737,9 +807,9 @@ interactions.selectTimelineItem("video-b");
 const projectBeforeAcknowledge =
   structuredClone(ports.project.read());
 const undoBeforeAcknowledge =
-  structuredClone(owner.state.undoStack);
+  structuredClone(nexus.state.undoStack);
 const redoBeforeAcknowledge =
-  structuredClone(owner.state.redoStack);
+  structuredClone(nexus.state.redoStack);
 const invalidationsBeforeAcknowledge =
   runtimeInvalidationEffectCount;
 interactions.activateTimelineItem(
@@ -752,12 +822,12 @@ assert.deepEqual(
   projectBeforeAcknowledge,
   "row activation must not rewrite Source content/version/status"
 );
-assert.deepEqual(owner.state.undoStack, undoBeforeAcknowledge);
-assert.deepEqual(owner.state.redoStack, redoBeforeAcknowledge);
+assert.deepEqual(nexus.state.undoStack, undoBeforeAcknowledge);
+assert.deepEqual(nexus.state.redoStack, redoBeforeAcknowledge);
 assert.equal(runtimeInvalidationEffectCount, invalidationsBeforeAcknowledge);
-assert.equal(owner.state.session.layerSelection?.layerDocumentId, "video-a");
+assert.equal(nexus.state.session.layerSelection?.layerDocumentId, "video-a");
 const acknowledged =
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .acknowledgedSourceStatuses ?? [];
 assert.equal(
   resolveLayerDocumentTimelineEffectiveSourceStatus(
@@ -776,13 +846,13 @@ sourceA.version += 1;
 sourceA.refresh.status = "new";
 interactions.selectTimelineItem("video-b");
 const sourceBeforeNewAcknowledge = structuredClone(sourceA);
-const historyBeforeNewAcknowledge = owner.state.undoStack.length;
+const historyBeforeNewAcknowledge = nexus.state.undoStack.length;
 const invalidationsBeforeNewAcknowledge = runtimeInvalidationEffectCount;
 interactions.activateTimelineItem("video-a", "new");
 assert.deepEqual(sourceA, sourceBeforeNewAcknowledge);
-assert.equal(owner.state.undoStack.length, historyBeforeNewAcknowledge);
+assert.equal(nexus.state.undoStack.length, historyBeforeNewAcknowledge);
 assert.equal(runtimeInvalidationEffectCount, invalidationsBeforeNewAcknowledge);
-assert.ok((owner.state.runtimeSession.acknowledgedSourceStatuses ?? [])
+assert.ok((nexus.state.runtimeSession.acknowledgedSourceStatuses ?? [])
   .some((identity) => identity.sourceId === "source-a" &&
     identity.version === sourceA.version &&
     identity.status === "new"));
@@ -792,7 +862,7 @@ interactions.activateTimelineItem(
 );
 const sourceBeforeKeep = structuredClone(ports.project.read()
   .payload.sourceRegistry.sourcesById["source-b"]);
-const historyBeforeKeep = owner.state.undoStack.length;
+const historyBeforeKeep = nexus.state.undoStack.length;
 interactions.resolveTimelineSourceDelete("video-b", "keep");
 assert.equal(lastSourceStatusResult?.ok, true);
 assert.deepEqual(
@@ -801,16 +871,16 @@ assert.deepEqual(
   sourceBeforeKeep,
   "keep acknowledges deletePending without Source refresh"
 );
-assert.equal(owner.state.undoStack.length, historyBeforeKeep);
+assert.equal(nexus.state.undoStack.length, historyBeforeKeep);
 assert.equal(deleteDecisionLayerDocumentId, null);
-assert.ok((owner.state.runtimeSession.acknowledgedSourceStatuses ?? [])
+assert.ok((nexus.state.runtimeSession.acknowledgedSourceStatuses ?? [])
   .some((identity) => identity.sourceId === "source-b"));
 interactions.activateTimelineItem("video-b", "deletePending");
 const projectBeforeDelete = structuredClone(
   ports.project.read()
 );
-const undoBeforeDelete = structuredClone(owner.state.undoStack);
-const redoBeforeDelete = structuredClone(owner.state.redoStack);
+const undoBeforeDelete = structuredClone(nexus.state.undoStack);
+const redoBeforeDelete = structuredClone(nexus.state.redoStack);
 interactions.resolveTimelineSourceDelete(
   "video-b",
   "delete"
@@ -841,8 +911,8 @@ assert.equal(
     .source?.sourceId,
   "source-b"
 );
-assert.deepEqual(owner.state.undoStack, undoBeforeDelete);
-assert.deepEqual(owner.state.redoStack, redoBeforeDelete);
+assert.deepEqual(nexus.state.undoStack, undoBeforeDelete);
+assert.deepEqual(nexus.state.redoStack, redoBeforeDelete);
 
 unsubscribePlayback();
 playback.dispose();

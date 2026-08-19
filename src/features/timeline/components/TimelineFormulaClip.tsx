@@ -123,6 +123,7 @@ export default function TimelineFormulaClip<
       },
       {
         pointerId: event.pointerId,
+        clientX: event.clientX,
         captureTarget: event.currentTarget,
       }
     );

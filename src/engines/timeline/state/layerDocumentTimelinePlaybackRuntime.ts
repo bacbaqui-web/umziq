@@ -8,7 +8,7 @@ import {
   normalizePlaybackRange,
 } from "@/engines/timeline/helpers/timelinePlaybackRangeHelpers";
 import type {
-  LayerDocumentTimelineOwnerPort,
+  LayerDocumentTimelineNexusPort,
   LayerDocumentTimelinePlaybackPort,
   LayerDocumentTimelinePlaybackScheduler,
   LayerDocumentTimelineRuntimePort,
@@ -24,12 +24,12 @@ LayerDocumentTimelinePlaybackScheduler = {
 
 /**
  * Timeline Engine Runtime is the only current-frame, range, transport and
- * clock authority. Project Owner and the Editor root only expose project
+ * clock authority. Project Nexus and the Editor root only expose project
  * scope and wire this port to consumers.
  */
 export function createLayerDocumentTimelinePlaybackRuntime(
   options: {
-    scope: LayerDocumentTimelineOwnerPort["scope"];
+    scope: LayerDocumentTimelineNexusPort["scope"];
     scheduler:
       LayerDocumentTimelinePlaybackScheduler;
     clearDraft?: () => void;

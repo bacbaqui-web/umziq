@@ -4,14 +4,8 @@ import {
   type LayerDocumentCommon,
   type LayerDocumentProject,
 } from "@/models";
-import {
-  createAudioPropertiesController,
-  createPropertiesNumericDraftController,
-  buildLayerDocumentPropertiesDescriptor,
-  buildLayerDocumentPropertiesViewProps,
-  prepareLayerDocumentPropertiesCommand,
-  type LayerDocumentPropertiesController,
-} from "@/engines/properties";
+import { createAudioBasicNexusPort } from "@/engines/audio";
+import { readFileSync } from "node:fs";
 
 function common(parentLayerDocumentId: string | null, sourceId: string | null): LayerDocumentCommon {
   return {
@@ -37,106 +31,36 @@ const project: LayerDocumentProject = {
   },
 };
 
-const prepared = prepareLayerDocumentPropertiesCommand({
-  project,
-  selectedLayerDocumentId: "voice",
-  command: { kind: "set-audio-properties", layerDocumentId: "voice", name: " Narration ", gain: 99, muted: true, startFrame: 110, durationFrames: 999, sourceOffsetFrames: 90, fadeInFrames: 20, fadeOutFrames: 20 },
+let committed = null as import("@/models").LayerDocumentTransaction | null;
+const port = createAudioBasicNexusPort({
+  readProject: () => project,
+  readSelectedLayerDocumentId: () => "voice",
+  commit: (transaction) => { committed = transaction; return { ok: true }; },
 });
-assert.equal(prepared.ok, true);
-if (!prepared.ok) throw new Error(prepared.message);
-assert.equal(prepared.historyEntryCount, 1);
+assert.equal(port.commit({ ...port.read()!, name: " Narration ", gain: 99, muted: true, startFrame: 110, durationFrames: 999, sourceOffsetFrames: 90, fadeInFrames: 20, fadeOutFrames: 20 }).ok, true);
+if (!committed) throw new Error("Audio transaction was not committed");
 assert.equal(project.payload.layerDocumentsById.voice.name, "Voice", "preparation/Draft does not mutate Project");
-const audio = prepared.transaction.after.payload.layerDocumentsById.voice;
+const audio = committed.after.payload.layerDocumentsById.voice;
 assert.equal(audio.type, "audio");
 if (audio.type !== "audio") throw new Error("expected Audio");
 assert.equal(audio.name, "Narration");
 assert.equal(audio.revision, 3, "one command increments revision once");
 assert.deepEqual(audio.data, { gain: 4, muted: true, fadeInFrames: 10, fadeOutFrames: 0 });
 assert.deepEqual({ start: audio.common.placement.startFrame, duration: audio.common.placement.durationFrames, offset: audio.common.placement.sourceOffsetFrames }, { start: 110, duration: 10, offset: 90 });
-assert.deepEqual(prepared.transaction.historyEntry.affectedLayerDocumentIds, ["voice"]);
-assert.equal(prepared.transaction.before, project, "undo snapshot remains the canonical before Project");
+assert.deepEqual(committed.historyEntry.affectedLayerDocumentIds, ["voice"]);
+assert.equal(committed.before, project, "undo snapshot remains the canonical before Project");
 
-const unchanged = prepareLayerDocumentPropertiesCommand({
-  project,
-  selectedLayerDocumentId: "voice",
-  command: { kind: "set-audio-properties", layerDocumentId: "voice", name: "Voice", gain: 1, muted: false, startFrame: 5, durationFrames: 60, sourceOffsetFrames: 3, fadeInFrames: 2, fadeOutFrames: 3 },
-});
-assert.equal(unchanged.ok, false);
-assert.equal(unchanged.historyEntryCount, 0);
+assert.equal(port.commit(port.read()!).ok, false);
 
-const descriptor = buildLayerDocumentPropertiesDescriptor({ project, selectedLayerDocumentId: "voice", readSourceResolutionStatus: () => "available" });
-assert.equal(descriptor.status, "ready");
-if (descriptor.status !== "ready") throw new Error("descriptor unavailable");
-const controller = {
-  read: () => ({ descriptor, displayedTransform: descriptor.descriptor.transform, globalFrame: 0, localFrame: 0, runtime: { selectedLayerDocumentId: "voice", selectedLayerRevision: 2, globalFrame: 0, localFrame: 0, focusedInputId: null, focusedTransform: null, inputDrafts: {} } }),
-  readSelectedKeyframe: () => null,
-} as unknown as LayerDocumentPropertiesController;
-const view = buildLayerDocumentPropertiesViewProps({ controller });
-assert.ok(view.readModel.audioSection);
-assert.equal(view.readModel.audioSection?.fields.length, 7);
-assert.equal(view.readModel.transformSectionVisible, false);
-assert.equal(view.readModel.keyframe.visible, false);
-assert.equal(view.readModel.modifiers.length, 0);
-assert.equal(view.readModel.modifierLibrary.visible, false);
-
-let audioDraftState: import("@/engines/properties").PropertiesNumericDraftState = {
-  scopeIdentity: "voice:2:0:0:0",
-  focusedInputId: null,
-  inputDrafts: {},
-};
-const audioDraft = createPropertiesNumericDraftController({
-  read: () => audioDraftState,
-  replace: (next) => { audioDraftState = next; },
-});
-const audioCommands: import("@/engines/properties").LayerDocumentPropertiesCommand[] = [];
-let audioScopeIdentity = audioDraftState.scopeIdentity;
-const audioController = createAudioPropertiesController({
-  port: {
-    read: () => ({
-      descriptor,
-      displayedTransform: descriptor.descriptor.transform,
-      globalFrame: 0,
-      localFrame: 0,
-    }),
-    preview: () => ({ ok: false }),
-    commit: () => null,
-    cancel: () => undefined,
-    dispatchPanel: (command) => {
-      audioCommands.push(command);
-      return { ok: true };
-    },
-    dispatchTimeline: () => ({ ok: false }),
-    selectKeyframe: () => undefined,
-    readSelectedKeyframe: () => null,
-  },
-  draft: audioDraft,
-  readScopeIdentity: () => audioScopeIdentity,
-});
-assert.equal(audioController.focusAudioInput("audio.name"), true);
-assert.equal(audioController.changeAudioInput("audio.name", "Narration"), true);
-assert.deepEqual(audioController.blurAudioInput("audio.name"), {
-  ok: true,
-  committed: true,
-});
-assert.equal(audioCommands.length, 1);
-assert.deepEqual(audioCommands[0], {
-  kind: "set-audio-properties",
-  layerDocumentId: "voice",
-  name: "Narration",
-  gain: 1,
-  muted: false,
-  startFrame: 5,
-  durationFrames: 60,
-  sourceOffsetFrames: 3,
-  fadeInFrames: 2,
-  fadeOutFrames: 3,
-});
-assert.equal(audioController.changeAudioInput("audio.gain", "3"), false);
-assert.equal(audioCommands.length, 1, "stale/unfocused Audio draft does not dispatch");
-audioScopeIdentity = "voice:3:0:0:0";
-assert.equal(audioController.focusAudioInput("audio.gain"), true);
-assert.equal(audioDraft.read().scopeIdentity, audioScopeIdentity);
-assert.equal(audioController.keyDownAudioInput("audio.gain", "Escape"), "blur");
-assert.equal(audioCommands.length, 1, "Escape keeps History at zero");
+const audioEngine = readFileSync("src/engines/audio/useAudioEngine.ts", "utf8");
+const audioBasicController = readFileSync("src/engines/audio/controllers/useAudioBasicController.ts", "utf8");
+const audioBasicViewHelpers = readFileSync("src/engines/audio/helpers/audioBasicViewModelHelpers.ts", "utf8");
+const visualComposer = readFileSync("src/engines/visual/composers/useLayerDocumentPropertiesComposer.ts", "utf8");
+assert.match(audioEngine, /basicPort/);
+assert.match(audioEngine, /useAudioComposer/);
+assert.match(audioBasicViewHelpers, /fadeInFrames/);
+assert.match(audioBasicController, /toggleMuted/);
+assert.doesNotMatch(audioEngine, /@\/engines\/visual/);
+assert.doesNotMatch(visualComposer, /AudioProperties|audioSection/);
 
 console.log("Layer Document Audio Properties verification passed");

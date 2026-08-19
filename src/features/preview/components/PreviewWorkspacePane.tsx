@@ -11,8 +11,11 @@ import {
 import type {
   CanvasPreviewPaneProps,
 } from "@/engines/canvas";
+import DrawingToolbar from "@/features/drawing/components/DrawingToolbar";
+import type { DrawingEngineViewProps } from "@/engines/drawing";
 
 export default function PreviewWorkspacePane({
+  drawing,
   selectedLayerDocumentId,
   selectedSourceId,
   activeScene,
@@ -53,7 +56,7 @@ export default function PreviewWorkspacePane({
   selectionHighlight,
   directSelectionHover,
   interactionCommands,
-}: CanvasPreviewPaneProps) {
+}: CanvasPreviewPaneProps & { drawing: DrawingEngineViewProps }) {
   const [frameMenuOpen, setFrameMenuOpen] = useState(false);
   const isTransformDragging = isCanvasTransformDragActive(interactionViewModel);
   useEffect(() => {
@@ -83,6 +86,7 @@ export default function PreviewWorkspacePane({
           minHeight: 0,
         }}
       >
+        <DrawingToolbar drawing={drawing} />
         {activeScene ? (
           <div
             style={{
@@ -198,6 +202,7 @@ export default function PreviewWorkspacePane({
             />
             <PreviewCanvasFpsBadge runtime={canvasFpsRuntime} />
             <PreviewViewportLayers
+              drawing={drawing}
               selectedLayerDocumentId={
                 selectedLayerDocumentId
               }

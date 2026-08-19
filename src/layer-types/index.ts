@@ -2,6 +2,7 @@ export {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
   prepareLayerDocumentDrawingUpdate,
   queryLayerDocumentDrawing,
+  prepareConvertLayerDocumentToDrawing,
 } from "@/layer-types/drawingSupport";
 export type {
   LayerDocumentDrawingPreparationPort,
@@ -24,8 +25,8 @@ export {
   queryLayerDocumentAudio,
 } from "@/layer-types/audioSupport";
 export {
-  createLayerTypeOwnerCommandAdapter,
-} from "@/layer-types/ownerCommandSupport";
+  createLayerTypeNexusCommandAdapter,
+} from "@/layer-types/nexusCommandSupport";
 export type {
   LayerDocumentAudioPreparationPort,
   LayerDocumentAudioQueryResult,

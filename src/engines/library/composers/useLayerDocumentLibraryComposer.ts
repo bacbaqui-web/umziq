@@ -24,6 +24,7 @@ export function useLayerDocumentLibraryComposer(
     audioImport: options.audioImport,
     assetCopy: assetCopy.requestPort,
     projectIdentity,
+    sourceAccess: options.sourceAccess,
   });
   const recording = useLibraryRecordingControllerAdapter({
     audioImport: options.audioImport,
@@ -53,6 +54,8 @@ export function useLayerDocumentLibraryComposer(
     audio: options.audio,
     nodes,
     beginRefresh: psdImport.beginRefresh,
+    duplicate: options.layerCommands.duplicate,
+    convertToDrawing: options.layerCommands.convertToDrawing,
   });
   const drag = useLibraryDragController({
     controller: options.controller,
@@ -62,6 +65,7 @@ export function useLayerDocumentLibraryComposer(
   });
 
   const viewProps: LibraryViewProps = {
+    projectIdentity: options.controller.readProject().metadata.projectId,
     nodes,
     fileInputRef: psdImport.fileInputRef,
     audioFileInputRef: audioImport.audioFileInputRef,
@@ -72,9 +76,13 @@ export function useLayerDocumentLibraryComposer(
     importPreviewError:
       psdImport.error ?? audioImport.error,
     refreshSummary: psdImport.summary,
+    missingSources: options.reconnect.read().items,
+    onReconnectSource: (sourceId) => {
+      void options.reconnect.reconnect(sourceId);
+    },
     audioRecordingStatus: recording.status,
     audioRecordingName: recording.name,
-    audioRecordingFile: recording.file,
+    audioRecordingPreview: recording.preview,
     audioRecordingLiveWaveform: recording.readLiveWaveform,
     audioRecordingProcessing: recording.audioProcessing,
     audioRecordingChangingProcessing: recording.changingAudioProcessing,
@@ -83,6 +91,8 @@ export function useLayerDocumentLibraryComposer(
     audioRecordingCanCancel: recording.canCancel,
     audioRecordingCanRetry: recording.canRetry,
     audioRecordingCanConfirm: recording.canConfirm,
+    enumerateMicrophoneDevices: options.microphoneDevices.enumerateDevices,
+    subscribeMicrophoneDevices: options.microphoneDevices.subscribeDevices,
     assetCopyPrompt: assetCopy.prompt,
     hoverPreview: hoverPreview.preview,
     onImportClick: psdImport.beginImport,
@@ -90,6 +100,7 @@ export function useLayerDocumentLibraryComposer(
     onAudioImportClick: audioImport.beginImport,
     onAudioFileInputChange: audioImport.onFileInputChange,
     onStartAudioRecording: recording.start,
+    onCreateDrawingLayer: () => { options.layerCommands.createDrawing(); },
     onBeginAudioRecording: recording.begin,
     onStopAudioRecording: recording.stop,
     onSetAudioRecordingProcessing: recording.setAudioProcessing,
@@ -100,11 +111,14 @@ export function useLayerDocumentLibraryComposer(
     onPreviewMove: hoverPreview.move,
     onPreviewEnd: hoverPreview.clear,
     onSelectNode: nodeCommands.select,
+    onSelectNodeForContextMenu: nodeCommands.selectForContextMenu,
     onToggleNodeVisibility: nodeCommands.toggleVisibility,
     onToggleNodeLock: nodeCommands.toggleLock,
     onToggleNodePlayback: nodeCommands.togglePlayback,
     onRenameNode: nodeCommands.rename,
     onDeleteNode: nodeCommands.delete,
+    onDuplicateNode: nodeCommands.duplicate,
+    onConvertNodeToDrawing: nodeCommands.convertToDrawing,
     onRefreshMainComp: nodeCommands.refresh,
     onDeleteMainComp: nodeCommands.deleteSource,
     onBeginMainDrag: drag.begin,
@@ -123,5 +137,8 @@ export function useLayerDocumentLibraryComposer(
     onDismissRefreshSummary: psdImport.dismissSummary,
   };
 
-  return { viewProps, importFiles: psdImport.importFiles };
+  return {
+    viewProps,
+    importSources: psdImport.importSources,
+  };
 }

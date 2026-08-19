@@ -1,6 +1,6 @@
 import type {
   LayerDocumentTimelineSourceStatusPort,
-  LayerDocumentTimelineOwnerPort,
+  LayerDocumentTimelineNexusPort,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 
 export type LayerDocumentTimelineSourceStatusResult =
@@ -12,7 +12,7 @@ export type LayerDocumentTimelineSourceStatusResult =
  */
 export function createLayerDocumentTimelineSourceStatusAdapter(
   options: {
-    owner: LayerDocumentTimelineOwnerPort;
+    nexus: LayerDocumentTimelineNexusPort;
   }
 ): LayerDocumentTimelineSourceStatusPort<
   LayerDocumentTimelineSourceStatusResult
@@ -20,7 +20,7 @@ export function createLayerDocumentTimelineSourceStatusAdapter(
   const sourceForLayer = (
     layerDocumentId: string
   ) => {
-    const project = options.owner.project.read();
+    const project = options.nexus.project.read();
     const layer =
       project.payload.layerDocumentsById[
         layerDocumentId
@@ -39,7 +39,7 @@ export function createLayerDocumentTimelineSourceStatusAdapter(
     const source =
       sourceForLayer(layerDocumentId);
     if (!source) return null;
-    return options.owner.timeline
+    return options.nexus.timeline
       .acknowledgeSourceStatus(
         source.sourceId
       );
@@ -59,11 +59,11 @@ export function createLayerDocumentTimelineSourceStatusAdapter(
        * references it, and Layer subtree deletion is a separate context
        * command.
        */
-      options.owner.runtime.resources.invalidate({
+      options.nexus.runtime.resources.invalidate({
         kind: "source",
         sourceId: source.sourceId,
       });
-      return options.owner.runtime.resolutions.setMissing(
+      return options.nexus.runtime.resolutions.setMissing(
         source.sourceId
       );
     },

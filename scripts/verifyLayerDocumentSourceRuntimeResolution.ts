@@ -15,22 +15,12 @@ const unsubscribe = store.subscribe(() => {
 assert.deepEqual(store.read("source-a"), {
   sourceId: "source-a",
   status: "unresolved",
-  file: null,
-  handle: null,
   permission: "unknown",
   error: null,
 });
 
-const runtimeFile = {
-  name: "runtime.psd",
-} as File;
-const runtimeHandle = {
-  kind: "file",
-  name: "runtime.psd",
-} as FileSystemFileHandle;
 store.setResolving({
   sourceId: "source-a",
-  file: runtimeFile,
   permission: "prompt",
 });
 assert.equal(
@@ -39,18 +29,12 @@ assert.equal(
 );
 store.setAvailable({
   sourceId: "source-a",
-  file: runtimeFile,
-  handle: runtimeHandle,
   permission: "granted",
 });
-assert.equal(store.read("source-a").file, runtimeFile);
-assert.equal(store.read("source-a").handle, runtimeHandle);
 store.setMissing("source-a");
 assert.deepEqual(store.read("source-a"), {
   sourceId: "source-a",
   status: "missing",
-  file: null,
-  handle: null,
   permission: "unknown",
   error: null,
 });

@@ -20,12 +20,21 @@ export type Canvas2DRenderContext = Pick<
   | "drawImage"
   | "fillRect"
   | "fillText"
+  | "moveTo"
+  | "lineTo"
+  | "stroke"
   | "setTransform"
   | "globalAlpha"
   | "fillStyle"
   | "font"
   | "textAlign"
   | "textBaseline"
+  | "strokeStyle"
+  | "lineWidth"
+  | "lineCap"
+  | "lineJoin"
+  | "globalCompositeOperation"
+  | "putImageData"
 >;
 
 export type RenderSurface = {

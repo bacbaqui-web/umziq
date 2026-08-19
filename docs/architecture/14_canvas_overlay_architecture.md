@@ -121,3 +121,9 @@ Source Runtime이 소유한다.
 - History/Draft: `docs/architecture/13_history_draft_architecture.md`
 - Source: `docs/architecture/15_source_architecture.md`
 - Animation: `docs/architecture/16_animation_architecture.md`
+
+## Drawing interaction overlay
+
+선택된 Drawing Layer만 전용 SVG interaction surface를 표시한다. surface는 Layer의
+position, anchor, scale과 rotation을 따라가며 화면 좌표를 Layer local 좌표로 저장한다.
+Drawing pointer session은 capture/cancel 경계를 사용하고 작품 pixel과 분리된다.

@@ -39,7 +39,7 @@ export type LayerDocumentPsdSourceCommitResult =
     }
   | {
       readonly ok: false;
-      readonly stage: "preparation" | "owner";
+      readonly stage: "preparation" | "nexus";
       readonly message: string;
     };
 
@@ -72,17 +72,17 @@ export function confirmLayerDocumentPsdPreparedSource(
   const preflight =
     options.bridge.preflightResources(claim.resources);
   if (!preflight.ok) {
-    if (claim.mode === "commit-owner") {
-      options.runtime.failBeforeOwner();
+    if (claim.mode === "commit-nexus") {
+      options.runtime.failBeforeNexus();
     }
     return {
       ok: false,
-      status: claim.mode === "commit-owner"
+      status: claim.mode === "commit-nexus"
         ? "rejected"
         : "runtime-registration-pending",
       stage: "preflight",
       message: preflight.message,
-      recovery: claim.mode === "commit-owner"
+      recovery: claim.mode === "commit-nexus"
         ? "none"
         : "retry-runtime-registration",
       transition: null,
@@ -116,7 +116,7 @@ export function confirmLayerDocumentPsdPreparedSource(
 
   const committed = options.commit(options.prepare());
   if (!committed.ok) {
-    options.runtime.failBeforeOwner();
+    options.runtime.failBeforeNexus();
     return {
       ok: false,
       status: "rejected",
@@ -127,7 +127,7 @@ export function confirmLayerDocumentPsdPreparedSource(
       registration: null,
     };
   }
-  options.runtime.markOwnerCommitted();
+  options.runtime.markNexusCommitted();
   const registration =
     options.bridge.registerResources(claim.resources);
   if (!registration.ok) {
@@ -156,7 +156,6 @@ export function markLayerDocumentPsdResolutionAvailable(
   resolution: {
     readonly sourceIds: readonly string[];
     readonly documentSourceId: string;
-    readonly file: File;
   },
   sourceResolution:
     LayerDocumentSourceRuntimeResolutionPort
@@ -164,9 +163,6 @@ export function markLayerDocumentPsdResolutionAvailable(
   resolution.sourceIds.forEach((sourceId) => {
     sourceResolution.setAvailable({
       sourceId,
-      file: sourceId === resolution.documentSourceId
-        ? resolution.file
-        : null,
     });
   });
 }

@@ -13,8 +13,8 @@ import type {
   LayerDocumentProjectSaveResult,
 } from "@/engines/project/models/layerDocumentProjectSaveModel";
 import type {
-  LayerDocumentProjectWriteTarget,
-} from "@/engines/project/models/layerDocumentProjectBrowserWriteModel";
+  ProjectStorageTarget,
+} from "@/gateway/contracts/projectStorageGateway";
 
 function cloneProject(
   project: LayerDocumentProject
@@ -62,7 +62,7 @@ export function createLayerDocumentProjectSaveController(
     CreateLayerDocumentProjectSaveControllerOptions
 ): LayerDocumentProjectSaveController {
   let currentTarget:
-    LayerDocumentProjectWriteTarget | null = null;
+    ProjectStorageTarget | null = null;
   let writeQueue: Promise<void> =
     Promise.resolve();
 
@@ -88,7 +88,7 @@ export function createLayerDocumentProjectSaveController(
     let candidateTarget = currentTarget;
     if (forceChooseTarget || !candidateTarget) {
       const selected =
-        await options.browser.chooseTarget(
+        await options.storage.chooseTarget(
           suggestedFileName(snapshot)
         );
       if (!selected.ok) {
@@ -108,7 +108,7 @@ export function createLayerDocumentProjectSaveController(
       };
     }
     const writeAttempt = writeQueue.then(() =>
-      options.browser.write({
+      options.storage.write({
         target: candidateTarget,
         bytes: encoded.value,
         shouldCommit: () =>

@@ -1,72 +1,13 @@
-# 확인형 녹음창과 최종 파일 저장 완료 보고
+# 최종 Architecture 안정화 Sprint 완료 보고
 
-## 최근 Task
+- Export Controller를 Menu Composer 수명으로 이동하고 재렌더링·cancel·dispose 회귀를
+  행동 테스트로 고정했다.
+- Audio Engine을 facade, Composer, Basic/Effects Controller와 순수 Helper로 분리했다.
+- Export shared contract와 Library neutral Source/Recording preview 계약으로 Editor와
+  Browser 타입 역방향 의존을 제거했다.
+- boundary baseline과 Architecture, Source Map, Completed 색인을 현재 구현에 맞췄다.
+- `npm run lint`, 69개 verification, `npm run build`, `git diff --check`를 통과했다.
+- 실제 Browser UI smoke는 통과했으며 picker, microphone와 실제 media 결과 파일 QA는
+  외부 파일·장치가 필요한 수동 항목으로 남았다.
 
-Library에서 직접 녹음한 파일을 사용자가 확인하기 전까지 임시 Runtime에만 보관하고,
-`확인`을 눌렀을 때만 Project `audio/` 폴더와 Audio Layer로 확정하도록 바꿨다.
-
-## 결과
-
-- 녹음을 끝내도 Project 폴더에는 아직 파일을 쓰지 않는다.
-- 직접 녹음을 열면 마이크를 미리 열지 않고 설정 화면만 표시한다. 자동 보정을 고른
-  뒤 `녹음 시작`을 누르면 선택값을 포함해 마이크를 처음 요청하며, 승인된 뒤 실제
-  녹음과 시간이 시작된다.
-- 중앙 확인 Dialog에서 녹음 결과를 재생해 확인할 수 있다.
-- 녹음 중에는 마이크 입력 음파가 시간순으로 누적되고 빨간 녹음 헤드가 이동한다.
-- 녹음 전 준비 화면에서 소음 억제·에코 제거·자동 음량 조절의 요청값을 고른다.
-  브라우저가 선택한 필수 조건을 적용할 수 없으면 녹음을 시작하지 않고 오류를 알린다.
-- 새 마이크 요청은 1채널을 우선하며, 장치가 한쪽에만 음성을 넣은 2채널 데이터를
-  반환해도 확인 재생과 최종 WAV를 중앙 모노로 합쳐 좌우에서 동일하게 들리게 한다.
-- 설정을 바꾼 뒤에는 Browser Track의 실제 적용값을 다시 읽어 표시한다. 특정
-  브라우저 이름을 구분하지 않으며 지원하지 않는 항목은 `확인 불가`로 나타낸다.
-- 실시간 dB 미터는 초록·노랑·빨강 구간, `-6 dB` 권장선과 0 dB 클리핑 구간을
-  표시한다.
-- 확인 화면에서는 전체 파형과 현재 재생 위치를 표시하며 파형을 클릭해 이동할 수 있다.
-- 녹음창에서 파일명을 정할 수 있으며 기본값은 `움직_녹음_YYMMDD_HHMMSS`이다.
-- 좌우 trim과 초록색 범위 박스는 없애고, 드래그한 파란 선택 영역을 `구간 삭제`하는
-  한 가지 방식으로 편집을 단순화했다.
-- 선택한 구간을 삭제하면 빨간 표시 없이 파형에서 비워지고 재생
-  길이에서 즉시 빠진다. 확인할 때 그 결과를 새 WAV로 만들며 원본 임시 녹음은 편집 중
-  덮어쓰지 않는다.
-- 파형에는 0 dB 경계선과 -6 dB 권장선을 표시하고, 0 dB에 닿는 클리핑 구간은
-  빨간색으로 표시한다.
-- 확인 전 볼륨을 -24~+12 dB로 조절하며 실제 미리듣기와 최종 WAV에 동일하게 적용한다.
-- 구간 삭제 버튼은 항상 보이고 유효한 선택 영역이 있을 때만 활성화된다.
-- `Ctrl+Z` 또는 `Command+Z`로 직전 구간 삭제를 되돌릴 수 있다.
-- 파일명 입력 중이 아닐 때 Space로 녹음 재생과 정지를 전환할 수 있다.
-- `다시 녹음`은 이전 임시 녹음을 정확히 한 번 정리하고 새 녹음을 시작한다.
-- `취소`, Dialog 닫기, Project 교체와 unmount는 임시 녹음만 정리하며 History와 파일을
-  남기지 않는다.
-- `확인`할 때만 `audio/` 폴더에 충돌 없는 이름으로 저장한다.
-- 저장된 실제 `audio/<파일명>`을 Source locator에 기록하고 Source와 Audio Layer를
-  기존 Project Owner transaction 한 건으로 등록한다.
-- 저장 실패 시 검토 상태를 유지해 다시 시도할 수 있다.
-- 확정된 녹음 원본은 Library에서 Layer를 삭제하거나 Undo/Redo해도 물리 삭제하지 않는다.
-- 녹음 workflow는 Recording Controller가 소유하고 Composer는 결과 조립만 담당한다.
-
-## 검증
-
-- `npm run qa` PASS
-  - ESLint PASS
-  - Verification 64/64 PASS
-  - TypeScript/Vite build PASS
-- `git diff --check` PASS
-- 확인 전 file write 0 / History 0 검증
-- 다시 녹음과 취소의 임시 resource exactly-once dispose 검증
-- 확인 시 file write 1 / Owner confirm 1 / locator 일치 검증
-- 파일명 충돌, 저장 실패 후 재시도, stale Project와 Runtime 등록 복구 검증
-- 기존 Vite 500 kB chunk 경고만 있으며 오류는 아니다.
-- WAV 편집의 구간 삭제·gain·header·안전한 파일명·AudioContext 정리 검증
-- 브라우저 자동 보정 상태 공개와 설정 변경 후 실제 값 재확인 검증
-
-## 남은 수동 QA
-
-- 실제 브라우저 마이크 권한 승인과 거부
-- 녹음 시작·정지·결과 재생과 다시 녹음
-- 파형 구간 선택·삭제, 볼륨 미리듣기와 Space 재생·정지
-- Escape와 닫기 버튼의 임시 녹음 정리
-- 실제 Project `audio/` 폴더의 파일 생성과 충돌 이름
-- 저장 후 Timeline 재생, Project 재열기와 Undo/Redo
-
-자동 검증 기준으로 확인형 녹음 Sprint는 완료했다. 실제 브라우저 마이크,
-MediaRecorder codec과 File System Access 동작은 아직 수동으로 확인하지 않았다.
+Architecture 리팩터링은 종료하고 다음 승인 작업부터 제품 기능 개발로 전환한다.

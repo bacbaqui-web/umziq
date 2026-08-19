@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
 import {
   validateLayerDocumentProject,
@@ -34,7 +34,7 @@ const removedPaths = [
   "src/engines/canvas/useCanvasComposition.ts",
   "src/engines/canvas/useCanvasEngine.ts",
   "src/engines/timeline/useTimelineEngine.ts",
-  "src/engines/properties/usePropertiesEngine.ts",
+  "src/engines/visual/usePropertiesEngine.ts",
   "src/engines/library/useLibraryEngine.ts",
   "src/render/useRenderEngine.ts",
   "src/render/usePlaybackEngine.ts",
@@ -51,7 +51,7 @@ assert.doesNotMatch(
   bootstrap,
   /ProjectSourceDocument|migrateProjectSource|normalizeProjectSource/
 );
-const initial = createInitialLayerDocumentOwnerOptions();
+const initial = createInitialLayerDocumentNexusOptions();
 assert.deepEqual(validateLayerDocumentProject(initial.project), []);
 assert.equal(
   initial.project.payload.layerDocumentsById[
@@ -105,7 +105,7 @@ assert.equal(
   false
 );
 assert.doesNotMatch(
-  read("src/engines/properties/models/propertiesEngineModel.ts"),
+  read("src/engines/visual/models/propertiesEngineModel.ts"),
   /transformPresentation|"legacy"/
 );
 

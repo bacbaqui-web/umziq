@@ -4,17 +4,17 @@ import type {
 
 export type LayerDocumentPreparedRuntimeState =
   | "prepared"
-  | "confirming-owner"
+  | "confirming-nexus"
   | "runtime-registration-pending"
   | "transferred"
   | "cancelled"
-  | "abandoned-after-owner"
-  | "failed-before-owner";
+  | "abandoned-after-nexus"
+  | "failed-before-nexus";
 
 export type LayerDocumentPreparedRuntimeClaim<TResource = LayerDocumentSourceRuntimeResource> =
   | {
       readonly ok: true;
-      readonly mode: "commit-owner" | "retry-runtime-registration";
+      readonly mode: "commit-nexus" | "retry-runtime-registration";
       readonly resources:
         readonly TResource[];
     }
@@ -39,10 +39,10 @@ export interface LayerDocumentPreparedRuntimeLifecycle<TResource = LayerDocument
   readonly readState: () => LayerDocumentPreparedRuntimeState;
   readonly readResourceCount: () => number;
   readonly claimForConfirm: () => LayerDocumentPreparedRuntimeClaim<TResource>;
-  readonly markOwnerCommitted: () => boolean;
+  readonly markNexusCommitted: () => boolean;
   readonly markTransferred: () => boolean;
   readonly markRegistrationFailed: () => boolean;
-  readonly failBeforeOwner: () =>
+  readonly failBeforeNexus: () =>
     LayerDocumentPreparedRuntimeDisposition;
   readonly cancel: () => LayerDocumentPreparedRuntimeDisposition;
   readonly disposeForSessionEnd: () =>
@@ -83,10 +83,10 @@ export function createLayerDocumentPreparedRuntimeLifecycle<
     readResourceCount: () => resources.length,
     claimForConfirm: () => {
       if (state === "prepared") {
-        state = "confirming-owner";
+        state = "confirming-nexus";
         return {
           ok: true,
-          mode: "commit-owner",
+          mode: "commit-nexus",
           resources,
         };
       }
@@ -102,15 +102,15 @@ export function createLayerDocumentPreparedRuntimeLifecycle<
           ? "already-transferred"
           : state === "cancelled"
             ? "already-cancelled"
-            : state === "abandoned-after-owner"
+            : state === "abandoned-after-nexus"
               ? "already-abandoned"
-              : state === "failed-before-owner"
+              : state === "failed-before-nexus"
                 ? "already-failed"
                 : "confirm-in-progress";
       return { ok: false, state, reason };
     },
-    markOwnerCommitted: () => {
-      if (state !== "confirming-owner") return false;
+    markNexusCommitted: () => {
+      if (state !== "confirming-nexus") return false;
       state = "runtime-registration-pending";
       return true;
     },
@@ -121,11 +121,11 @@ export function createLayerDocumentPreparedRuntimeLifecycle<
     },
     markRegistrationFailed: () =>
       state === "runtime-registration-pending",
-    failBeforeOwner: () => {
-      if (state !== "confirming-owner") {
+    failBeforeNexus: () => {
+      if (state !== "confirming-nexus") {
         return { changed: false, state, disposedCount: 0 };
       }
-      state = "failed-before-owner";
+      state = "failed-before-nexus";
       return {
         changed: true,
         state,
@@ -147,7 +147,7 @@ export function createLayerDocumentPreparedRuntimeLifecycle<
       if (state !== "prepared" && state !== "runtime-registration-pending") {
         return { changed: false, state, disposedCount: 0 };
       }
-      state = state === "prepared" ? "cancelled" : "abandoned-after-owner";
+      state = state === "prepared" ? "cancelled" : "abandoned-after-nexus";
       return {
         changed: true,
         state,

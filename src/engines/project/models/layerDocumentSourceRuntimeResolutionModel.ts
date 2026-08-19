@@ -14,8 +14,6 @@ export type LayerDocumentSourceRuntimePermission =
 export interface LayerDocumentSourceRuntimeResolution {
   readonly sourceId: string;
   readonly status: LayerDocumentSourceRuntimeResolutionStatus;
-  readonly file: File | null;
-  readonly handle: FileSystemFileHandle | null;
   readonly permission: LayerDocumentSourceRuntimePermission;
   readonly error: string | null;
 }
@@ -33,14 +31,10 @@ export interface LayerDocumentSourceRuntimeResolutionPort
   extends LayerDocumentSourceRuntimeResolutionReadPort {
   readonly setResolving: (options: {
     readonly sourceId: string;
-    readonly file?: File | null;
-    readonly handle?: FileSystemFileHandle | null;
     readonly permission?: LayerDocumentSourceRuntimePermission;
   }) => LayerDocumentSourceRuntimeResolution;
   readonly setAvailable: (options: {
     readonly sourceId: string;
-    readonly file?: File | null;
-    readonly handle?: FileSystemFileHandle | null;
     readonly permission?: LayerDocumentSourceRuntimePermission;
   }) => LayerDocumentSourceRuntimeResolution;
   readonly setMissing: (

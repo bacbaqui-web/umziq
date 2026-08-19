@@ -5,7 +5,6 @@ import {
   type LinkedSourceContentFingerprint,
 } from "@/models";
 import {
-  createLayerDocumentProjectReconnectBrowserAdapter,
   createLayerDocumentProjectReconnectController,
   createLayerDocumentSourceRuntimeResolutionStore,
   type LayerDocumentProjectOpenAdapterResult,
@@ -16,7 +15,7 @@ import {
   createLayerDocumentSourceRuntimeResourceCache,
 } from "@/render";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
 
 const MATCHING_FINGERPRINT:
@@ -34,7 +33,7 @@ LinkedSourceContentFingerprint = {
 
 function projectFixture(): LayerDocumentProject {
   const project = structuredClone(
-    createInitialLayerDocumentOwnerOptions().project
+    createInitialLayerDocumentNexusOptions().project
   );
   project.metadata.projectId = "reconnect-project";
   const root = Object.values(
@@ -243,16 +242,33 @@ let preparationGate:
   ReturnType<typeof deferred> | null = null;
 let preparedDisposals = 0;
 const localHandleUpdates: unknown[] = [];
+let selectedReconnect:
+  Extract<LayerDocumentProjectOpenAdapterResult, { ok: true }>["value"] | null = null;
 const controller =
   createLayerDocumentProjectReconnectController({
     readProject: () => project,
-    browser: {
-      capability: "native-file-system",
-      chooseLinkedSourceFile: async () => {
+    sourceAccess: {
+      chooseLinkedSource: async () => {
         const result = browserQueue.shift();
         if (!result) throw new Error("Missing browser result");
-        return result;
+        if (!result.ok) return result;
+        selectedReconnect = result.value;
+        return {
+          ok: true,
+          value: {
+            resourceId: "test:reconnect",
+            fileName: result.value.file.name,
+            mimeType: result.value.file.type || null,
+            byteLength: result.value.file.size,
+            relativePathHint: null,
+          },
+        };
       },
+      readSource: async () => selectedReconnect
+        ? { ok: true, value: selectedReconnect.bytes }
+        : { ok: false, error: { code: "not-found", message: "missing" } },
+      copyIntoProjectAssets: async ({ sources }) => ({ ok: true, value: sources }),
+      release: () => {},
     },
     preparation: {
       prepare: async () => {
@@ -276,8 +292,11 @@ const controller =
     },
     sourceRuntime,
     sourceResolution: resolutions,
-    localHandles: {
-      update: (update) => {
+    reconnectCommit: {
+      commitAvailable: (update) => {
+        update.sourceIds.forEach((sourceId) =>
+          resolutions.setAvailable({ sourceId })
+        );
         localHandleUpdates.push(update);
       },
     },
@@ -410,6 +429,7 @@ const movedFile = new File(
 );
 const movedHandle = handle(movedFile);
 browserQueue.push(selected(movedFile, movedHandle));
+const projectBeforeRuntimeOnlyReconnect = structuredClone(project);
 const reconnected =
   await controller.reconnect("document");
 assert.equal(reconnected.ok, true);
@@ -422,10 +442,20 @@ assert.deepEqual(
   {
     projectId: "reconnect-project",
     locatorId: "linked:document",
-    file: movedFile,
-    handle: movedHandle,
-    permission: "granted",
+    source: {
+      resourceId: "test:reconnect",
+      fileName: "moved.psd",
+      mimeType: null,
+      byteLength: 4,
+      relativePathHint: null,
+    },
+    sourceIds: ["document", "node-a", "node-b"],
   }
+);
+assert.deepEqual(
+  project,
+  projectBeforeRuntimeOnlyReconnect,
+  "same-source runtime-only reconnect leaves Project unchanged, so History stays 0"
 );
 assert.equal(resolutions.read("document").status, "available");
 assert.equal(resolutions.read("node-a").status, "available");
@@ -469,22 +499,6 @@ assert.equal(
   preparedDisposals,
   disposalsBeforeStale + 2
 );
-
-let fallbackAccept = "";
-const fallbackAdapter =
-  createLayerDocumentProjectReconnectBrowserAdapter({
-    chooseFileWithHiddenInput: async (accept) => {
-      fallbackAccept = accept;
-      return movedFile;
-    },
-  });
-assert.equal(fallbackAdapter.capability, "file-input");
-const fallbackChosen =
-  await fallbackAdapter.chooseLinkedSourceFile(
-    documentSource
-  );
-assert.equal(fallbackChosen.ok, true);
-assert.equal(fallbackAccept, ".psd");
 
 console.log(
   "Layer Document Project Reconnect verification passed"

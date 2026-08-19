@@ -1,4 +1,5 @@
 import {
+  DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS,
   LAYER_DOCUMENT_PROJECT_SCHEMA_VERSION,
   type GroupLayerDocument,
   type LayerDocumentProject,
@@ -7,7 +8,7 @@ import {
   DEFAULT_FRAME_RATE,
   MASTER_DEFAULT_HEIGHT,
   MASTER_DEFAULT_WIDTH,
-  type CreateLayerDocumentProjectOwnerOptions,
+  type CreateLayerDocumentNexusOptions,
 } from "@/engines/project";
 
 export const LAYER_DOCUMENT_EDITOR_PROJECT_ID =
@@ -15,8 +16,8 @@ export const LAYER_DOCUMENT_EDITOR_PROJECT_ID =
 const INITIAL_ROOT_LAYER_DOCUMENT_ID =
   "layer-document:project-root";
 
-export function createInitialLayerDocumentOwnerOptions():
-CreateLayerDocumentProjectOwnerOptions {
+export function createInitialLayerDocumentNexusOptions():
+CreateLayerDocumentNexusOptions {
   const durationFrames = DEFAULT_FRAME_RATE * 10;
   const root: GroupLayerDocument = {
     layerDocumentId: INITIAL_ROOT_LAYER_DOCUMENT_ID,
@@ -84,6 +85,9 @@ CreateLayerDocumentProjectOwnerOptions {
         [root.layerDocumentId]: root,
       },
       sourceRegistry: { sourcesById: {} },
+      canvasSettings: {
+        ...DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS,
+      },
     },
   };
   return {

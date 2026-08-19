@@ -2,10 +2,12 @@ import type {
   LayerDocumentProject,
 } from "@/models";
 import type {
-  LayerDocumentProjectOwnerEffect,
-  LayerDocumentProjectOwnerPort,
-  LayerDocumentProjectOwnerTransitionResult,
-} from "@/engines/project/models/layerDocumentProjectOwnerModel";
+  LayerDocumentNexusEffect,
+  LayerDocumentNexusPort,
+  LayerDocumentNexusTransitionResult,
+  NexusProjectReadPort,
+  NexusReplacePort,
+} from "@/engines/project/models/layerDocumentNexusModel";
 
 export type LayerDocumentProjectDocumentState =
   | "untitled"
@@ -45,15 +47,15 @@ export interface LayerDocumentProjectLifecycleRuntimePort {
   ) => number;
   readonly resetSourceResolution: () => void;
   readonly recomputeRender?: () => void;
-  readonly publishOwnerEffect?: (
-    effect: LayerDocumentProjectOwnerEffect
+  readonly publishNexusEffect?: (
+    effect: LayerDocumentNexusEffect
   ) => void;
 }
 
 export type LayerDocumentProjectLifecycleErrorCode =
   | "invalid-project"
   | "stale-operation"
-  | "owner-rejected";
+  | "nexus-rejected";
 
 export type LayerDocumentProjectLifecycleResult<T> =
   | {
@@ -95,7 +97,7 @@ export interface LayerDocumentProjectLifecycleController {
     options: ReplaceLayerDocumentProjectOptions
   ) => LayerDocumentProjectLifecycleResult<
     Extract<
-      LayerDocumentProjectOwnerTransitionResult,
+      LayerDocumentNexusTransitionResult,
       { ok: true }
     >
   >;
@@ -107,7 +109,11 @@ export interface LayerDocumentProjectLifecycleController {
 }
 
 export interface CreateLayerDocumentProjectLifecycleOptions {
-  readonly owner: LayerDocumentProjectOwnerPort;
+  readonly nexus: NexusProjectReadPort &
+    (
+      | NexusReplacePort
+      | Pick<LayerDocumentNexusPort, "transition">
+    );
   readonly runtime:
     LayerDocumentProjectLifecycleRuntimePort;
   readonly document?:

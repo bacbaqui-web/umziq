@@ -531,13 +531,19 @@ const [
     ),
     "utf8"
   ),
-  readFile(
+  Promise.all([
+    "TimelineItemTrackRow.tsx",
+    "TimelineItemNameCell.tsx",
+    "TimelineItemTrackClip.tsx",
+    "TimelineItemSourceStatus.tsx",
+    "TimelineItemContextMenu.tsx",
+  ].map((file) => readFile(
     new URL(
-      "../src/features/timeline/components/TimelineItemTrackRow.tsx",
+      `../src/features/timeline/components/${file}`,
       import.meta.url
     ),
     "utf8"
-  ),
+  ))).then((sources) => sources.join("\n")),
   readFile(
     new URL(
       "../src/features/preview/components/PreviewViewportLayers.tsx",

@@ -5,9 +5,7 @@ import type { TimelineSourceStatusViewModel } from "@/engines/timeline/models/ti
 import type { TimelinePointerDragBeginInput } from "@/engines/timeline/models/timelinePointerDragSessionModel";
 
 export type TimelinePointerDragStart =
-  TimelinePointerDragBeginInput & {
-    readonly clientX: number;
-  };
+  TimelinePointerDragBeginInput;
 
 export type TimelineCommands = {
   toggleCompositionSwitcher: () => void;
@@ -34,6 +32,8 @@ export type TimelineInteractionCommands = {
   duplicateTimelineItem: (itemId: string) => void;
   splitSelectedTimelineItem: () => void;
   selectTimelineItem: (itemId: string) => void;
+  toggleTimelineItemSelection: (itemId: string) => void;
+  activateTimelineItemTrack: (itemId: string) => void;
   toggleTimelineItemExpanded: (itemId: string) => void;
   activateTimelineItem: (
     itemId: string,

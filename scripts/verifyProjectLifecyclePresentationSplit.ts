@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import {
   createProjectLifecycleBrowserDirectoryAdapter,
   type ProjectLifecycleDirectoryHandle,
-} from "@/editor/project-lifecycle/adapters/projectLifecycleBrowserDirectoryAdapter";
+} from "@/gateway/platforms/web/adapters/projectLifecycleBrowserDirectoryAdapter";
 import {
   createProjectLifecycleUiController,
-} from "@/editor/project-lifecycle/controllers/projectLifecycleUiController";
+} from "@/engines/menu/controllers/projectLifecycleUiController";
 import {
   sanitizeProjectName,
-} from "@/editor/project-lifecycle/helpers/projectLifecycleNameHelpers";
+} from "@/gateway/helpers/projectLifecycleNameHelpers";
 import type {
   ProjectAssetDirectoryHandle,
 } from "@/editor/projectAssetDirectoryRuntime";
@@ -16,7 +16,7 @@ import type {
   ProjectLifecycleUiCommandPort,
   ProjectLifecycleUiNotice,
   ProjectLifecycleUiViewModel,
-} from "@/editor/projectLifecycleUi";
+} from "@/engines/menu/models/menuProjectCommandModel";
 
 class FakeFileHandle {
   private file: File;
@@ -257,12 +257,13 @@ assert.ok(
 assert.ok(
   preparedNew.directory.directories.has("audio")
 );
-await (
-  await preparedNew.request.target.handle
-    .createWritable()
-).close();
-assert.ok(
-  preparedNew.directory.files.has("My Project.ziq")
+assert.match(
+  preparedNew.request.target.targetId,
+  /^web-project-target:/
+);
+assert.equal(
+  "handle" in preparedNew.request.target,
+  false
 );
 
 const previous = new FakeDirectoryHandle("previous");

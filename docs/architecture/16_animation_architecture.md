@@ -60,7 +60,7 @@ evaluation kind를 한곳에서 연결한다. Definition은 Project나 React sta
 Definition의 evaluation kind를 따라 같은 평가 경로에서 계산한다.
 
 Modifier Library의 과거 구현 기록은
-`docs/completed/40_modifier_library.md`에 보존한다.
+`docs/completed/001_modifier_library.md`에 보존한다.
 
 `입뻥긋(기본)`은 연결 Audio를 한 번 분석해 만든 전환 frame을 Modifier 안에
 저장한다. 분석 결과는 수많은 keyframe이 아니라 이동·길이 조절이 가능한
@@ -73,7 +73,7 @@ Audio를 다시 분석하지 않는다. `반전`은 수식 클립 안에서 계�
 간격을 다시 계산하며, 연결된 Audio를 같은 Controller 경계에서 재분석한다.
 
 Audio 연결 시 PCM 분석과 source-local frame 계산은 Animation pure helper가
-담당하고, Properties Modifier Controller가 decoded-audio read port와 Owner의
+담당하고, Properties Modifier Controller가 decoded-audio read port와 Nexus의
 `set-modifiers` command를 조합한다. Composition Root는 이 port를 연결할 뿐
 분석하거나 Modifier 배열을 직접 변경하지 않는다.
 

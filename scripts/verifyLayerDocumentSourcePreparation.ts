@@ -1535,7 +1535,7 @@ taskFiles.forEach((path) => {
   );
 });
 const compositionRootSource = readFileSync(
-  "src/editor/useEditorCompositionRoot.ts",
+  "src/editor/useEditorRoot.ts",
   "utf8"
 );
 const productLibraryPanelSource = readFileSync(

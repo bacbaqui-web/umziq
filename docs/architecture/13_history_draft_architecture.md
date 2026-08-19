@@ -7,7 +7,7 @@ History는 확정된 Project Data만 복원하고, Draft는 사용자 조작 중
 
 ## Project Transaction
 
-저장 데이터 변경은 Project Owner의 검증된 transaction을 통한다.
+저장 데이터 변경은 Nexus의 검증된 transaction을 통한다.
 
 - Transform, Animation, Effect와 Modifier
 - Placement
@@ -75,7 +75,7 @@ PointerDown
 → Draft 폐기
 ```
 
-Cancel, Escape, scope 변경과 Owner effect는 Draft를 폐기하고 committed
+Cancel, Escape, scope 변경과 Nexus effect는 Draft를 폐기하고 committed
 Project로 돌아간다.
 
 Timeline의 DOM drag 수명은 공통 Pointer Drag Session Controller가 관리한다.
@@ -109,7 +109,7 @@ Timeline trim이나 Panel 고유 입력처럼 다른 Panel과 공유할 필요�
 않는다.
 
 Audio Properties의 gain/timing/source offset/fade와 Audio Effects의 parameter도
-연속 입력 중에는 해당 Engine Draft만 바꾸고 확정 시 Owner transaction 한 건을
+연속 입력 중에는 해당 Engine Draft만 바꾸고 확정 시 Nexus transaction 한 건을
 만든다. effect add/delete/reorder/bypass와 Audio mute/rename 같은 단발 command도
 사용자 action당 History 한 건이다. audition, waveform, 녹음 prepared session과
 export 진행 상태는 History에 들어가지 않는다.
@@ -122,7 +122,7 @@ global/local frame 또는 reset revision이 달라지면 scope를 교체하고 D
 
 - Visual 연속 change는 shared Transform Preview만 갱신하고 blur/Enter의 의미 있는
   변경만 commit한다.
-- Audio와 Modifier 연속 change는 문자열 Draft만 갱신하고 확정 시 기존 Owner
+- Audio와 Modifier 연속 change는 문자열 Draft만 갱신하고 확정 시 기존 Nexus
   command 한 건을 보낸다.
 - Escape, scope 변경, stale/invalid/no-op은 Draft를 폐기하고 History를 만들지 않는다.
 
@@ -147,3 +147,9 @@ savepoint 비교로 판단한다.
 - Project: `docs/architecture/10_project_architecture.md`
 - Timeline: `docs/architecture/12_timeline_playback_architecture.md`
 - Persistence: `docs/architecture/17_persistence_lifecycle_architecture.md`
+
+## Drawing Draft
+
+Brush와 Eraser의 PointerMove는 Drawing Engine의 stroke Draft만 갱신한다. PointerUp은
+`replace-drawing-document` transaction 한 건을 만들고 cancel과 stale selection은
+History를 만들지 않는다. 페인트통 한 번과 PSD→Drawing 변환도 각각 History 한 건이다.

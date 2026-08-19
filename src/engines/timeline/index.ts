@@ -44,6 +44,11 @@ export {
 export {
   createTimelinePointerDragSessionController,
 } from "@/engines/timeline/controllers/timelinePointerDragSessionController";
+export {
+  createLayerDocumentTimelineTimingDraftRuntime,
+  projectLayerDocumentTimelineTimingDraft,
+  type LayerDocumentTimelineTimingDraftRuntime,
+} from "@/engines/timeline/state/layerDocumentTimelineTimingDraftRuntime";
 export type {
   TimelinePointerDragBeginInput,
   TimelinePointerDragCancelReason,
@@ -63,16 +68,17 @@ export type {
   LayerDocumentTimelineConsumerRowsResult,
 } from "@/engines/timeline/models/layerDocumentTimelineConsumerModel";
 export type {
-  LayerDocumentTimelineOwnerPort,
+  LayerDocumentTimelineNexusPort,
 } from "@/engines/timeline/models/layerDocumentTimelineEngineModel";
 export {
   createLayerDocumentTimelineCommandAdapter,
-  prepareLayerDocumentTimelineOwnerCommit,
+  prepareLayerDocumentTimelineNexusCommit,
   transitionLayerDocumentTimelineKeyframeSelection,
-  type LayerDocumentTimelineOwnerCommitPreparation,
+  type LayerDocumentTimelineNexusCommitPreparation,
 } from "@/engines/timeline/adapters/layerDocumentTimelineIntentCommitAdapter";
 export {
   layerDocumentTimelineTimingChanged,
+  resolveLayerDocumentTimelineTimingClickIntent,
   resolveLayerDocumentTimelineTimingDraft,
   type LayerDocumentTimelineTimingOperation,
   type LayerDocumentTimelineTimingSession,

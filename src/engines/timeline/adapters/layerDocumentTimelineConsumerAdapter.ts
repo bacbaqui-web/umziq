@@ -6,8 +6,8 @@ import {
   type LayerDocumentTimelineRowReadModel,
 } from "@/models";
 import type {
-  LayerDocumentProjectOwnerPort,
   LayerDocumentSourceRuntimeResolutionReadPort,
+  NexusProjectReadPort,
 } from "@/engines/project";
 import type {
   LayerDocumentTimelineConsumerRow,
@@ -76,7 +76,7 @@ export function buildLayerDocumentTimelineConsumerRows(
 export function createLayerDocumentTimelineConsumerAdapter<
   TCommandResult,
 >(options: {
-  owner: LayerDocumentProjectOwnerPort;
+  nexus: NexusProjectReadPort;
   readProject: () => LayerDocumentProject;
   readActiveGroupLayerDocumentId:
     () => string;
@@ -106,10 +106,10 @@ export function createLayerDocumentTimelineConsumerAdapter<
         selectedLayerDocumentId:
           options.readSelectedLayerDocumentId(),
         selectedTransformKeyframe:
-          options.owner.state.runtimeSession
+          options.nexus.state.runtimeSession
             .selectedTransformKeyframe,
         acknowledgedSourceStatuses:
-          options.owner.state.runtimeSession
+          options.nexus.state.runtimeSession
             .acknowledgedSourceStatuses ?? [],
         scope: options.readScope(),
         rows: projection.rows,

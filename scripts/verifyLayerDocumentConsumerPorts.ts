@@ -21,16 +21,16 @@ import {
   createLayerDocumentCanvasCommands,
 } from "@/engines/canvas/adapters/layerDocumentCanvasCommandAdapter";
 import {
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   createLayerDocumentPreparedRuntimeLifecycle,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
   prepareLayerDocumentPsdImport,
   prepareLayerDocumentPsdRefresh,
-  reduceLayerDocumentProjectOwner,
-  type LayerDocumentProjectOwnerEffect,
-  type LayerDocumentProjectOwnerPort,
-  type LayerDocumentProjectOwnerState,
+  reduceLayerDocumentNexus,
+  type LayerDocumentNexusEffect,
+  type LayerDocumentNexusPort,
+  type LayerDocumentNexusState,
 } from "@/engines/project";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
@@ -38,7 +38,7 @@ import {
 } from "@/render";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-} from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
+} from "@/engines/visual/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
 } from "@/layer-types";
@@ -296,7 +296,7 @@ function flattenRows(
   ]);
 }
 
-const initialized = createLayerDocumentProjectOwnerState({
+const initialized = createLayerDocumentNexusState({
   project: projectFixture(),
   layerSelection: {
     kind: "layer-document",
@@ -310,20 +310,20 @@ const initialized = createLayerDocumentProjectOwnerState({
 assert.equal(initialized.ok, true);
 if (!initialized.ok) throw new Error(initialized.error.message);
 
-let ownerState: LayerDocumentProjectOwnerState =
+let nexusState: LayerDocumentNexusState =
   initialized.state;
 let transitionCallCount = 0;
-const owner: LayerDocumentProjectOwnerPort = {
+const nexus: LayerDocumentNexusPort = {
   get state() {
-    return ownerState;
+    return nexusState;
   },
   transition: (action) => {
     transitionCallCount += 1;
-    const result = reduceLayerDocumentProjectOwner(
-      ownerState,
+    const result = reduceLayerDocumentNexus(
+      nexusState,
       action
     );
-    if (result.ok) ownerState = result.state;
+    if (result.ok) nexusState = result.state;
     return result;
   },
 };
@@ -331,7 +331,7 @@ const owner: LayerDocumentProjectOwnerPort = {
 let draft: LayerDocumentTransformDraftSnapshot | null = null;
 let draftPublishCount = 0;
 let draftClearCount = 0;
-const effects: LayerDocumentProjectOwnerEffect[] = [];
+const effects: LayerDocumentNexusEffect[] = [];
 const metricCounts = new Map<string, number>();
 const metrics = {
   increment: (counter: string, amount = 1) => {
@@ -348,7 +348,7 @@ const sourceResolution =
 sourceResolution.setAvailable({ sourceId: "document" });
 sourceResolution.setAvailable({ sourceId: "node" });
 const ports = createLayerDocumentVerificationPorts({
-  owner,
+  nexus,
   panelPreparation:
     LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
   sourcePreparation:
@@ -373,7 +373,7 @@ const ports = createLayerDocumentVerificationPorts({
     },
   },
   effects: {
-    applyOwnerEffect: (effect) => {
+    applyNexusEffect: (effect) => {
       effects.push(effect);
     },
   },
@@ -478,7 +478,7 @@ let failedPreparedDisposeCount = 0;
 let confirmedPreparedDisposeCount = 0;
 const confirmedRuntimeKey = "confirmed-static-visual-key";
 callsBefore = transitionCallCount;
-const historyBeforeConfirmedImport = owner.state.undoStack.length;
+const historyBeforeConfirmedImport = nexus.state.undoStack.length;
 const confirmedPreparedInput = {
     fileName: "confirmed.psd",
     width: 640,
@@ -523,7 +523,7 @@ const confirmedPrepared =
 assert.equal(confirmedPrepared.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeConfirmedImport + 1
 );
 assert.equal(confirmedPreparedDisposeCount, 0);
@@ -534,14 +534,14 @@ assert.ok(
   })
 );
 callsBefore = transitionCallCount;
-const historyBeforeDoubleConfirm = owner.state.undoStack.length;
+const historyBeforeDoubleConfirm = nexus.state.undoStack.length;
 const confirmedAgain =
   ports.sources.confirmPreparedPsdImport(
     confirmedPreparedInput
   );
 assert.equal(confirmedAgain.ok, false);
 assert.equal(transitionCallCount, callsBefore);
-assert.equal(owner.state.undoStack.length, historyBeforeDoubleConfirm);
+assert.equal(nexus.state.undoStack.length, historyBeforeDoubleConfirm);
 assert.equal(confirmedPreparedDisposeCount, 0);
 const cancelAfterSuccess =
   ports.sources.cancelPreparedPsdImport(
@@ -563,7 +563,7 @@ assert.doesNotMatch(
 );
 
 callsBefore = transitionCallCount;
-const historyBeforeFailedConfirm = owner.state.undoStack.length;
+const historyBeforeFailedConfirm = nexus.state.undoStack.length;
 const failedRuntime = createLayerDocumentPreparedRuntimeLifecycle([{
   sourceId: "failed-runtime",
   sourceResourceCacheKey: "failed-runtime-key",
@@ -599,7 +599,7 @@ const failedPrepared =
   });
 assert.equal(failedPrepared.ok, false);
 assert.equal(transitionCallCount, callsBefore);
-assert.equal(owner.state.undoStack.length, historyBeforeFailedConfirm);
+assert.equal(nexus.state.undoStack.length, historyBeforeFailedConfirm);
 assert.equal(failedPreparedDisposeCount, 1);
 
 let cancelledPreparedDisposeCount = 0;
@@ -745,32 +745,32 @@ const pendingResources =
     registrationFailureInjection: (_entry, index) =>
       index === middleFailureIndex,
   });
-const pendingInitialized = createLayerDocumentProjectOwnerState({
+const pendingInitialized = createLayerDocumentNexusState({
   project: projectFixture(),
 });
 assert.equal(pendingInitialized.ok, true);
 if (!pendingInitialized.ok) {
   throw new Error(pendingInitialized.error.message);
 }
-let pendingOwnerState = pendingInitialized.state;
+let pendingNexusState = pendingInitialized.state;
 let pendingTransitionCount = 0;
-const pendingOwner: LayerDocumentProjectOwnerPort = {
+const pendingNexus: LayerDocumentNexusPort = {
   get state() {
-    return pendingOwnerState;
+    return pendingNexusState;
   },
   transition: (action) => {
     pendingTransitionCount += 1;
-    const result = reduceLayerDocumentProjectOwner(
-      pendingOwnerState,
+    const result = reduceLayerDocumentNexus(
+      pendingNexusState,
       action
     );
-    if (result.ok) pendingOwnerState = result.state;
+    if (result.ok) pendingNexusState = result.state;
     return result;
   },
 };
 const pendingAssembly =
   createLayerDocumentVerificationPorts({
-    owner: pendingOwner,
+    nexus: pendingNexus,
     panelPreparation: LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
     sourcePreparation: LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
     drawingPreparation: LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
@@ -784,7 +784,7 @@ const pendingAssembly =
       publish: () => undefined,
       clear: () => undefined,
     },
-    effects: { applyOwnerEffect: () => undefined },
+    effects: { applyNexusEffect: () => undefined },
     metrics: { increment: () => undefined },
   });
 const pendingDocument = psdDocument("pending-document");
@@ -861,7 +861,7 @@ assert.equal(
   "retry-runtime-registration"
 );
 assert.equal(pendingTransitionCount, 1);
-assert.equal(pendingOwner.state.undoStack.length, 1);
+assert.equal(pendingNexus.state.undoStack.length, 1);
 assert.equal(
   pendingPrepared.runtime.readState(),
   "runtime-registration-pending"
@@ -892,7 +892,7 @@ assert.equal(
   "runtime-registration-retried"
 );
 assert.equal(pendingTransitionCount, 1);
-assert.equal(pendingOwner.state.undoStack.length, 1);
+assert.equal(pendingNexus.state.undoStack.length, 1);
 assert.equal(pendingPrepared.runtime.readState(), "transferred");
 assert.equal(
   pendingAssembly.sources
@@ -1030,13 +1030,13 @@ assert.deepEqual(parsedComposition?.common.transform.anchor, {
   y: 39,
 });
 callsBefore = transitionCallCount;
-const historyBeforeParsedConfirm = owner.state.undoStack.length;
+const historyBeforeParsedConfirm = nexus.state.undoStack.length;
 const parsedConfirmed =
   ports.sources.confirmPreparedPsdImport(parsedPrepared);
 assert.equal(parsedConfirmed.ok, true);
 assert.equal(transitionCallCount, callsBefore + 2);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeParsedConfirm + 1
 );
 const parsedTreeNodes = ports.sources.readTree()
@@ -1089,12 +1089,12 @@ ports.sources.selectSource({
   sourceId: parsedGroup.common.source.sourceId,
 });
 assert.equal(
-  owner.state.session.activeGroupLayerDocumentId,
+  nexus.state.session.activeGroupLayerDocumentId,
   parsedGroup.layerDocumentId,
   "Selecting a PSD folder should enter that folder timeline"
 );
 assert.equal(
-  owner.state.session.layerSelection?.layerDocumentId,
+  nexus.state.session.layerSelection?.layerDocumentId,
   parsedCompositionId
 );
 ports.scope.enter("root");
@@ -1103,7 +1103,7 @@ ports.sources.selectSource({
   sourceId: parsedPrepared.resolution.documentSourceId,
 });
 assert.equal(
-  owner.state.session.activeGroupLayerDocumentId,
+  nexus.state.session.activeGroupLayerDocumentId,
   parsedCompositionId,
   "Selecting a PSD document should show its timeline"
 );
@@ -1112,12 +1112,12 @@ ports.sources.selectSource({
   sourceId: parsedNestedLeaf.common.source.sourceId,
 });
 assert.equal(
-  owner.state.session.activeGroupLayerDocumentId,
+  nexus.state.session.activeGroupLayerDocumentId,
   parsedGroup.layerDocumentId,
   "Selecting a nested PSD layer should show its parent timeline"
 );
 assert.equal(
-  owner.state.session.layerSelection?.layerDocumentId,
+  nexus.state.session.layerSelection?.layerDocumentId,
   parsedNestedLeaf.layerDocumentId
 );
 const parsedProperties =
@@ -1185,7 +1185,7 @@ const refreshConfirmed =
   );
 assert.equal(refreshConfirmed.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
-assert.equal(owner.state.undoStack.length, 0);
+assert.equal(nexus.state.undoStack.length, 0);
 assert.equal(preparedRefresh.runtime.readState(), "transferred");
 assert.equal(parsedCanvas.width, 0);
 assert.equal(parsedCanvas.height, 0);
@@ -1248,10 +1248,10 @@ const cancelledParsed = await prepareLayerDocumentPsdImport({
   parsePsd: async () => parsedPsdFixture(cancelledCanvas),
 });
 callsBefore = transitionCallCount;
-const historyBeforeParsedCancel = owner.state.undoStack.length;
+const historyBeforeParsedCancel = nexus.state.undoStack.length;
 ports.sources.cancelPreparedPsdImport(cancelledParsed);
 assert.equal(transitionCallCount, callsBefore);
-assert.equal(owner.state.undoStack.length, historyBeforeParsedCancel);
+assert.equal(nexus.state.undoStack.length, historyBeforeParsedCancel);
 assert.equal(cancelledCanvas.width, 0);
 assert.equal(cancelledCanvas.height, 0);
 
@@ -1285,12 +1285,12 @@ assert.deepEqual(
   }))
 );
 callsBefore = transitionCallCount;
-const historyBeforeParsedFailure = owner.state.undoStack.length;
+const historyBeforeParsedFailure = nexus.state.undoStack.length;
 const parsedFailure =
   ports.sources.confirmPreparedPsdImport(duplicateParsed);
 assert.equal(parsedFailure.ok, false);
 assert.equal(transitionCallCount, callsBefore);
-assert.equal(owner.state.undoStack.length, historyBeforeParsedFailure);
+assert.equal(nexus.state.undoStack.length, historyBeforeParsedFailure);
 assert.equal(failedCanvas.width, 0);
 assert.equal(failedCanvas.height, 0);
 
@@ -1354,15 +1354,15 @@ ports.runtime.registrationBridge.registerResources([{
   },
 }]);
 assert.doesNotMatch(
-  JSON.stringify(owner.state.currentProject),
+  JSON.stringify(nexus.state.currentProject),
   /runtimeOnly/
 );
 assert.doesNotMatch(
-  JSON.stringify(owner.state.undoStack),
+  JSON.stringify(nexus.state.undoStack),
   /runtimeOnly/
 );
 assert.doesNotMatch(
-  JSON.stringify(owner.state),
+  JSON.stringify(nexus.state),
   /runtimeOnly/
 );
 canvas = ports.canvas.readViewProps({
@@ -1381,7 +1381,7 @@ assert.equal(
   "drawable"
 );
 
-const historyBeforeDraft = owner.state.undoStack.length;
+const historyBeforeDraft = nexus.state.undoStack.length;
 const projectBeforeDraft = ports.project.read();
 const copyTransformBeforeDraft = structuredClone(
   projectBeforeDraft.payload.layerDocumentsById["psd-copy"]
@@ -1408,7 +1408,7 @@ const pointerMove = ports.canvas.pointerMove({
 assert.equal(pointerMove?.kind, "pointer-move");
 assert.equal(transitionCallCount, callsBefore);
 assert.strictEqual(ports.project.read(), projectBeforeDraft);
-assert.equal(owner.state.undoStack.length, historyBeforeDraft);
+assert.equal(nexus.state.undoStack.length, historyBeforeDraft);
 assert.equal(draftPublishCount, 1);
 assert.ok(draft);
 canvas = ports.canvas.readViewProps({
@@ -1432,7 +1432,7 @@ assert.equal(pointerUp.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(draft, null);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeDraft + 1
 );
 const committedCopy =
@@ -1505,7 +1505,7 @@ assert.deepEqual(
   ].common.animation,
   copyAnimationBeforeDraft
 );
-assert.equal(owner.state.undoStack.length, historyBeforeDraft);
+assert.equal(nexus.state.undoStack.length, historyBeforeDraft);
 assert.equal(ports.project.redo().ok, true);
 assert.deepEqual(
   ports.project.read().payload.layerDocumentsById[
@@ -1524,7 +1524,7 @@ assert.ok(
 );
 
 const historyBeforeMotionPathDraft =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 const projectBeforeMotionPathDraft =
   ports.project.read();
 const nativeCanvasCommands =
@@ -1574,7 +1574,7 @@ const originalFrameSevenSample =
     );
 assert.ok(originalFrameSevenSample);
 const historyBeforeKeyframeSelection =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 const projectBeforeKeyframeSelection =
   ports.project.read();
 callsBefore = transitionCallCount;
@@ -1591,15 +1591,15 @@ assert.strictEqual(
   projectBeforeKeyframeSelection
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeKeyframeSelection
 );
 assert.doesNotMatch(
-  JSON.stringify(owner.state.undoStack),
+  JSON.stringify(nexus.state.undoStack),
   /selectedTransformKeyframe/
 );
 assert.deepEqual(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe,
   {
     layerDocumentId: "psd-copy",
@@ -1613,7 +1613,7 @@ assert.deepEqual(
     globalFrame: externalFrame,
     sourceSamplingQuality: "preview",
   }).selectedTransformKeyframe,
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe
 );
 callsBefore = transitionCallCount;
@@ -1635,7 +1635,7 @@ assert.strictEqual(
   projectBeforeMotionPathDraft
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeMotionPathDraft
 );
 assert.equal(draft?.globalFrame, 7);
@@ -1671,7 +1671,7 @@ assert.strictEqual(
   projectBeforeMotionPathDraft
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeMotionPathDraft
 );
 const motionPathAfterCancel =
@@ -1713,7 +1713,7 @@ const motionPathCommit =
 assert.equal(motionPathCommit.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeMotionPathDraft + 1
 );
 assert.deepEqual(
@@ -1725,11 +1725,11 @@ assert.deepEqual(
   { frame: 7, value: { x: 777, y: 888 } }
 );
 assert.doesNotMatch(
-  JSON.stringify(owner.state.currentProject),
+  JSON.stringify(nexus.state.currentProject),
   /runtimeOnly/
 );
 assert.doesNotMatch(
-  JSON.stringify(owner.state.undoStack),
+  JSON.stringify(nexus.state.undoStack),
   /runtimeOnly|selectedTransformKeyframe/
 );
 
@@ -1784,7 +1784,7 @@ const disabledTrackCommands =
     }),
   });
 const historyBeforeDisabledTrackDraft =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 callsBefore = transitionCallCount;
 assert.equal(
   disabledTrackCommands
@@ -1803,7 +1803,7 @@ assert.strictEqual(
   disabledTrackProjectBefore
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeDisabledTrackDraft
 );
 disabledTrackCommands
@@ -1813,7 +1813,7 @@ assert.strictEqual(
   disabledTrackProjectBefore
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeDisabledTrackDraft
 );
 assert.equal(
@@ -1834,7 +1834,7 @@ const disabledTrackCommit =
 assert.equal(disabledTrackCommit.ok, true);
 assert.equal(transitionCallCount, callsBefore + 1);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeDisabledTrackDraft + 1
 );
 const disabledTrackLayerCommitted =
@@ -1857,7 +1857,7 @@ assert.deepEqual(
   { frame: 9, value: { x: 901, y: 902 } }
 );
 assert.deepEqual(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe,
   {
     layerDocumentId: "drawing",
@@ -1867,7 +1867,7 @@ assert.deepEqual(
   }
 );
 assert.doesNotMatch(
-  JSON.stringify(owner.state.undoStack.at(-1)),
+  JSON.stringify(nexus.state.undoStack.at(-1)),
   /runtimeSession|selectedTransformKeyframe/
 );
 assert.equal(ports.project.undo().ok, true);
@@ -1883,7 +1883,7 @@ assert.deepEqual(
   disabledTrackAnimationBefore
 );
 assert.equal(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe,
   null
 );
@@ -1908,7 +1908,7 @@ assert.deepEqual(
   { frame: 9, value: { x: 901, y: 902 } }
 );
 assert.equal(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe,
   null
 );
@@ -1993,7 +1993,8 @@ assert.equal(
     layerDocumentId: "drawing",
     data: {
       documentVersion: 2,
-      elements: [{ kind: "rectangle", width: 20 }],
+      elements: [{ kind: "stroke", tool: "brush", color: "#111111", size: 20,
+        points: [{ x: 1, y: 1 }, { x: 20, y: 20 }] }],
     },
   }).ok,
   true
@@ -2139,8 +2140,8 @@ const refreshResult = ports.sources.refreshSource({
   },
 });
 assert.equal(refreshResult.ok, true);
-assert.equal(owner.state.undoStack.length, 0);
-assert.equal(owner.state.redoStack.length, 0);
+assert.equal(nexus.state.undoStack.length, 0);
+assert.equal(nexus.state.redoStack.length, 0);
 assert.deepEqual(
   ports.project.read().payload.layerDocumentsById.psd,
   beforeRefreshLayer
@@ -2281,7 +2282,7 @@ assert.equal(
   }).ok,
   true
 );
-assert.equal(owner.state.redoStack.length, 0);
+assert.equal(nexus.state.redoStack.length, 0);
 assert.equal(orphanDisposed, 1);
 assert.ok(resources.resolve({
   sourceId: orphanSource.sourceId,
@@ -2318,8 +2319,8 @@ assert.equal(
   }).ok,
   true
 );
-assert.equal(owner.state.undoStack.length, 0);
-assert.equal(owner.state.redoStack.length, 0);
+assert.equal(nexus.state.undoStack.length, 0);
+assert.equal(nexus.state.redoStack.length, 0);
 assert.equal(
   orphanDisposed,
   1,
@@ -2360,7 +2361,7 @@ assert.equal(
   transitionCallCount
 );
 assert.equal(
-  metricCounts.get("layerDocumentOwnerTransition"),
+  metricCounts.get("layerDocumentNexusTransition"),
   transitionCallCount
 );
 assert.equal(
@@ -2371,7 +2372,7 @@ assert.ok(draftClearCount > 0);
 assert.equal(beforeDuplicateRevision, 2);
 
 const compositionRootSource = readFileSync(
-  "src/editor/useEditorCompositionRoot.ts",
+  "src/editor/useEditorRoot.ts",
   "utf8"
 );
 assert.doesNotMatch(

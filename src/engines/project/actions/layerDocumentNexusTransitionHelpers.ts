@@ -1,0 +1,220 @@
+import {
+  findNonPlainDataPath,
+  validateLayerDocumentProject,
+} from "@/models";
+import type {
+  LayerDocumentNexusEffect,
+  LayerDocumentNexusErrorCode,
+  LayerDocumentNexusState,
+  LayerDocumentNexusTransitionResult,
+} from "@/engines/project/models/layerDocumentNexusModel";
+import {
+  cloneNexusPlainData,
+} from "@/engines/project/helpers/layerDocumentNexusHelpers";
+import {
+  plainDataValuesEqual,
+} from "@/engines/project/actions/layerDocumentSourceTransactionHelpers";
+
+function noRuntimeEffect(): LayerDocumentNexusEffect {
+  return {
+    clearDraft: false,
+    resetLocalUi: false,
+    stopPlayback: false,
+    recomputeRender: false,
+    runtimeCachePolicy: "preserve",
+    cacheInvalidations: [],
+    sourceInvalidationIds: [],
+    sourceRestorationIds: [],
+    sourceDisposalIds: [],
+  };
+}
+
+export function projectTransitionEffect(options?: {
+  cacheInvalidations?: LayerDocumentNexusEffect[
+    "cacheInvalidations"
+  ];
+  sourceInvalidationsAreComplete?: boolean;
+  preserveSourceRuntime?: boolean;
+  sourceInvalidationIds?: readonly string[];
+  sourceRestorationIds?: readonly string[];
+  sourceDisposalIds?: readonly string[];
+  stopPlayback?: boolean;
+}): LayerDocumentNexusEffect {
+  const cacheInvalidations = cloneNexusPlainData(
+    options?.cacheInvalidations ?? []
+  );
+  const sourceInvalidationIds =
+    cloneNexusPlainData(
+      options?.sourceInvalidationIds ?? []
+    );
+  const sourceRestorationIds =
+    cloneNexusPlainData(
+      options?.sourceRestorationIds ?? []
+    );
+  const sourceDisposalIds =
+    cloneNexusPlainData(
+      options?.sourceDisposalIds ?? []
+    );
+  return {
+    clearDraft: true,
+    resetLocalUi: true,
+    stopPlayback: options?.stopPlayback ?? false,
+    recomputeRender: true,
+    runtimeCachePolicy:
+      options?.preserveSourceRuntime
+        ? "preserve"
+        : (
+          sourceInvalidationIds.length > 0 ||
+          sourceRestorationIds.length > 0 ||
+          sourceDisposalIds.length > 0
+        )
+          ? "apply-source-invalidations"
+          : options?.sourceInvalidationsAreComplete &&
+            cacheInvalidations.length > 0
+            ? "apply-source-invalidations"
+            : "invalidate-all",
+    cacheInvalidations,
+    sourceInvalidationIds,
+    sourceRestorationIds,
+    sourceDisposalIds,
+  };
+}
+
+export function nexusSourceRuntimePresenceDiff(options: {
+  from: LayerDocumentNexusState["currentProject"];
+  to: LayerDocumentNexusState["currentProject"];
+}): {
+  sourceInvalidationIds: string[];
+  sourceRestorationIds: string[];
+} {
+  const fromIds = new Set(
+    Object.keys(
+      options.from.payload.sourceRegistry.sourcesById
+    )
+  );
+  const toIds = new Set(
+    Object.keys(
+      options.to.payload.sourceRegistry.sourcesById
+    )
+  );
+  return {
+    sourceInvalidationIds: [...fromIds]
+      .filter((sourceId) => !toIds.has(sourceId))
+      .sort(),
+    sourceRestorationIds: [...toIds]
+      .filter((sourceId) => !fromIds.has(sourceId))
+      .sort(),
+  };
+}
+
+export function failNexusTransition(
+  state: LayerDocumentNexusState,
+  code: LayerDocumentNexusErrorCode,
+  message: string
+): LayerDocumentNexusTransitionResult {
+  return {
+    ok: false,
+    state,
+    error: { code, message },
+  };
+}
+
+export function successNexusTransition(options: {
+  previous: LayerDocumentNexusState;
+  state: LayerDocumentNexusState;
+  effect?: LayerDocumentNexusEffect;
+}): LayerDocumentNexusTransitionResult {
+  return {
+    ok: true,
+    changed: options.state !== options.previous,
+    state: options.state,
+    effect: options.effect ?? noRuntimeEffect(),
+  };
+}
+
+export function validateNexusTransactionAfter(options: {
+  state: LayerDocumentNexusState;
+  transaction: {
+    before: unknown;
+    after: LayerDocumentNexusState["currentProject"];
+  };
+  plainValue: unknown;
+}): LayerDocumentNexusTransitionResult | null {
+  if (options.transaction.before !== options.state.currentProject) {
+    return failNexusTransition(
+      options.state,
+      "stale-transaction",
+      "Transaction before is not the current nexus Project"
+    );
+  }
+  const nonPlainPath = findNonPlainDataPath(options.plainValue);
+  if (nonPlainPath) {
+    return failNexusTransition(
+      options.state,
+      "non-plain-data",
+      `Nexus transaction contains non-Plain Data: ${nonPlainPath}`
+    );
+  }
+  const issues = validateLayerDocumentProject(options.transaction.after);
+  if (issues.length > 0) {
+    return failNexusTransition(
+      options.state,
+      "invalid-after",
+      `Transaction after Project is invalid: ${issues[0].message}`
+    );
+  }
+  if (
+    plainDataValuesEqual(
+      options.state.currentProject,
+      options.transaction.after
+    )
+  ) {
+    return failNexusTransition(
+      options.state,
+      "no-change",
+      "Nexus rejects a transaction with no Project change"
+    );
+  }
+  return null;
+}
+
+export function changedNexusRecordIds<T>(
+  beforeById: Readonly<Record<string, T>>,
+  afterById: Readonly<Record<string, T>>
+): string[] {
+  return [...new Set([
+    ...Object.keys(beforeById),
+    ...Object.keys(afterById),
+  ])]
+    .filter((id) =>
+      !plainDataValuesEqual(beforeById[id], afterById[id])
+    )
+    .sort();
+}
+
+export function createdNexusRecordIds<T>(
+  beforeById: Readonly<Record<string, T>>,
+  afterById: Readonly<Record<string, T>>
+): string[] {
+  return Object.keys(afterById)
+    .filter((id) => beforeById[id] === undefined)
+    .sort();
+}
+
+export function deletedNexusRecordIds<T>(
+  beforeById: Readonly<Record<string, T>>,
+  afterById: Readonly<Record<string, T>>
+): string[] {
+  return Object.keys(beforeById)
+    .filter((id) => afterById[id] === undefined)
+    .sort();
+}
+
+export function nexusIdsMatch(
+  declared: readonly string[],
+  actual: readonly string[]
+): boolean {
+  const sorted = [...declared].sort();
+  return sorted.length === actual.length &&
+    sorted.every((id, index) => id === actual[index]);
+}

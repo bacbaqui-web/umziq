@@ -12,8 +12,12 @@ import {
 } from "@/animation";
 import {
   createModifierPropertiesController,
-} from "@/engines/properties";
-import type { LayerDocumentPropertiesDescriptor } from "@/engines/properties";
+  createPropertiesNumericDraftController,
+} from "@/engines/visual";
+import type { LayerDocumentPropertiesDescriptor } from "@/engines/visual";
+import type {
+  PropertiesNumericDraftState,
+} from "@/engines/visual";
 import type {
   LayerDocument,
   LayerDocumentProject,
@@ -173,12 +177,123 @@ if (connected?.type === "mouth-basic") {
   assert.equal(connected.audioLayerDocumentId, "audio");
   assert.equal(connected.startFrame, 10);
 }
+project.payload.layerDocumentsById.visual.common.modifiers =
+  structuredClone(dispatched?.modifiers ?? []);
 assert.deepEqual(modifierController.toggleMouthBasicInverted(), { ok: true });
 const inverted = dispatched?.modifiers.find((modifier) => modifier.type === "mouth-basic");
 assert.equal(inverted?.type === "mouth-basic" ? inverted.inverted : null, true);
 
+project.payload.layerDocumentsById.visual.common.modifiers =
+  structuredClone(dispatched?.modifiers ?? []);
+let mouthDraftState: PropertiesNumericDraftState = {
+  scopeIdentity: "visual:0",
+  focusedInputId: null,
+  inputDrafts: {},
+};
+const mouthDraft = createPropertiesNumericDraftController({
+  read: () => mouthDraftState,
+  replace: (state) => {
+    mouthDraftState = state;
+  },
+});
+let mouthScopeIdentity = "visual:0";
+let mouthAnalysisCount = 0;
+let mouthHistoryCount = 0;
+const mouthDraftController = createModifierPropertiesController({
+  readProject: () => project,
+  readDescriptor: () => ({
+    layerDocumentId: "visual",
+    type: "drawing",
+    modifiers: project.payload.layerDocumentsById.visual.common.modifiers,
+    placement: project.payload.layerDocumentsById.visual.common.placement,
+    capabilities: { modifiers: { status: "editable" } },
+  } as unknown as LayerDocumentPropertiesDescriptor),
+  readDecodedAudio: () => {
+    mouthAnalysisCount += 1;
+    return {
+      sampleRate: 48_000,
+      duration: 1,
+      numberOfChannels: 1,
+      getChannelData: () => silent,
+    };
+  },
+  dispatchModifiers: (_id, modifiers) => {
+    mouthHistoryCount += 1;
+    project.payload.layerDocumentsById.visual.common.modifiers =
+      structuredClone(modifiers);
+    return { ok: true };
+  },
+  draft: mouthDraft,
+  readScopeIdentity: () => mouthScopeIdentity,
+});
+
+mouthDraftController.focusMouthBasicRepetitions();
+mouthDraftController.changeMouthBasicRepetitions("1");
+mouthDraftController.changeMouthBasicRepetitions("10");
+assert.equal(mouthHistoryCount, 0, "mouth repetition draft does not create History while typing");
+assert.equal(mouthAnalysisCount, 0, "mouth repetition draft does not analyze Audio while typing");
+assert.equal(
+  mouthDraftState.inputDrafts["modifier.mouth-basic.repetitionsPerSecond"],
+  "10"
+);
+mouthDraftController.keyDownMouthBasicRepetitions("Enter");
+assert.equal(mouthHistoryCount, 1, "mouth repetition Enter creates one History entry");
+assert.equal(mouthAnalysisCount, 1, "mouth repetition Enter analyzes Audio once");
+assert.equal(
+  project.payload.layerDocumentsById.visual.common.modifiers.find(
+    (modifier) => modifier.type === "mouth-basic"
+  )?.repetitionsPerSecond,
+  10
+);
+
+mouthDraftController.focusMouthBasicRepetitions();
+mouthDraftController.changeMouthBasicRepetitions("");
+mouthDraftController.keyDownMouthBasicRepetitions("Escape");
+assert.equal(mouthHistoryCount, 1, "Escape leaves History unchanged");
+assert.equal(mouthAnalysisCount, 1, "Escape skips Audio analysis");
+
+mouthDraftController.focusMouthBasicRepetitions();
+mouthDraftController.changeMouthBasicRepetitions("99");
+mouthDraftController.blurMouthBasicRepetitions();
+assert.equal(
+  project.payload.layerDocumentsById.visual.common.modifiers.find(
+    (modifier) => modifier.type === "mouth-basic"
+  )?.repetitionsPerSecond,
+  12,
+  "mouth repetitions clamp to the maximum"
+);
+mouthDraftController.focusMouthBasicRepetitions();
+mouthDraftController.changeMouthBasicRepetitions("3.6");
+mouthDraftController.blurMouthBasicRepetitions();
+assert.equal(
+  project.payload.layerDocumentsById.visual.common.modifiers.find(
+    (modifier) => modifier.type === "mouth-basic"
+  )?.repetitionsPerSecond,
+  3.5,
+  "mouth repetitions normalize to the 0.5 step"
+);
+const historyBeforeSameMouthValue = mouthHistoryCount;
+const analysisBeforeSameMouthValue = mouthAnalysisCount;
+mouthDraftController.focusMouthBasicRepetitions();
+mouthDraftController.changeMouthBasicRepetitions("3.5");
+mouthDraftController.blurMouthBasicRepetitions();
+assert.equal(mouthHistoryCount, historyBeforeSameMouthValue);
+assert.equal(mouthAnalysisCount, analysisBeforeSameMouthValue);
+
+mouthDraftController.focusMouthBasicRepetitions();
+mouthDraftController.changeMouthBasicRepetitions("8");
+mouthScopeIdentity = "other:0";
+mouthDraftController.changeMouthBasicRepetitions("9");
+assert.equal(
+  mouthDraftState.focusedInputId,
+  null,
+  "selection scope change discards the mouth repetition draft"
+);
+assert.equal(mouthHistoryCount, historyBeforeSameMouthValue);
+assert.equal(mouthAnalysisCount, analysisBeforeSameMouthValue);
+
 const root = readFileSync(
-  new URL("../src/editor/useEditorCompositionRoot.ts", import.meta.url),
+  new URL("../src/editor/useEditorRoot.ts", import.meta.url),
   "utf8"
 );
 assert.doesNotMatch(root, /analyzeMouthBasicTransitions/);

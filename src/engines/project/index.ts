@@ -51,16 +51,6 @@ export {
   createLayerDocumentProjectOpenController,
 } from "@/engines/project/controllers/layerDocumentProjectOpenController";
 export {
-  createLayerDocumentProjectBrowserWriteAdapter,
-} from "@/engines/project/adapters/layerDocumentProjectBrowserWriteAdapter";
-export {
-  createLayerDocumentProjectBrowserOpenEnvironment,
-  createLayerDocumentProjectBrowserOpenAdapter,
-} from "@/engines/project/adapters/layerDocumentProjectBrowserOpenAdapter";
-export {
-  createLayerDocumentProjectReconnectBrowserAdapter,
-} from "@/engines/project/adapters/layerDocumentProjectReconnectBrowserAdapter";
-export {
   LAYER_DOCUMENT_PROJECT_LINKED_SOURCE_PREPARATION,
 } from "@/engines/project/adapters/layerDocumentProjectLinkedSourcePreparationAdapter";
 export {
@@ -134,9 +124,7 @@ export type {
 } from "@/engines/project/models/layerDocumentProjectOpenModel";
 export type {
   CreateLayerDocumentProjectReconnectControllerOptions,
-  LayerDocumentProjectLocalHandleUpdatePort,
-  LayerDocumentProjectReconnectBrowserEnvironment,
-  LayerDocumentProjectReconnectBrowserPort,
+  LayerDocumentProjectReconnectCommitPort,
   LayerDocumentProjectReconnectController,
   LayerDocumentProjectReconnectReadItem,
   LayerDocumentProjectReconnectReadModel,
@@ -160,7 +148,9 @@ export {
 } from "@/engines/project/adapters/layerDocumentSourcePreparationAdapter";
 export {
   prepareLayerDocumentPsdImport,
+  prepareLayerDocumentPsdImportFromSource,
   prepareLayerDocumentPsdRefresh,
+  prepareLayerDocumentPsdRefreshFromSource,
   type PreparedLayerDocumentPsdImport,
   type PreparedLayerDocumentPsdRefresh,
 } from "@/engines/project/import/layerDocumentPsdImportAdapter";
@@ -181,7 +171,6 @@ export type {
   PreparedLayerDocumentAudioImport,
 } from "@/engines/project/import/layerDocumentAudioImportAdapter";
 export {
-  LAYER_DOCUMENT_BROWSER_AUDIO_RECORDING_PORT,
   beginLayerDocumentAudioRecording,
   cancelLayerDocumentAudioRecording,
   startLayerDocumentAudioRecording,
@@ -189,35 +178,40 @@ export {
 } from "@/engines/project/import/layerDocumentAudioRecordingAdapter";
 export type {
   LayerDocumentAudioProcessingFeature,
-  LayerDocumentAudioProcessingSetting,
   LayerDocumentAudioProcessingSnapshot,
   LayerDocumentAudioRecorderPort,
-  LayerDocumentAudioRecordingBrowserPort,
   LayerDocumentAudioRecordingSession,
 } from "@/engines/project/import/layerDocumentAudioRecordingAdapter";
 export type {
-  CreateLayerDocumentProjectOwnerOptions,
-  LayerDocumentOwnerHistoryEntry,
-  LayerDocumentOwnerHistorySnapshot,
-  LayerDocumentOwnerRuntimeSession,
-  LayerDocumentOwnerRuntimeCachePolicy,
-  LayerDocumentOwnerSession,
+  CreateLayerDocumentNexusOptions,
+  LayerDocumentNexusHistoryEntry,
+  LayerDocumentNexusHistorySnapshot,
+  LayerDocumentNexusRuntimeSession,
+  LayerDocumentNexusRuntimeCachePolicy,
+  LayerDocumentNexusSession,
   LayerDocumentSourceStatusIdentity,
   LayerDocumentTransformKeyframeSelection,
-  LayerDocumentProjectOwnerAction,
-  LayerDocumentProjectOwnerEffect,
-  LayerDocumentProjectOwnerErrorCode,
-  LayerDocumentProjectOwnerInitializationResult,
-  LayerDocumentProjectOwnerPort,
-  LayerDocumentProjectOwnerState,
-  LayerDocumentProjectOwnerTransitionResult,
-} from "@/engines/project/models/layerDocumentProjectOwnerModel";
+  LayerDocumentNexusAction,
+  LayerDocumentNexusEffect,
+  LayerDocumentNexusErrorCode,
+  LayerDocumentNexusInitializationResult,
+  LayerDocumentNexusPort,
+  LayerDocumentNexusState,
+  LayerDocumentNexusTransitionResult,
+  NexusHistoryPort,
+  NexusProjectReadPort,
+  NexusReplacePort,
+  NexusSelectionPort,
+  NexusTransactionPort,
+} from "@/engines/project/models/layerDocumentNexusModel";
 export {
-  createLayerDocumentProjectOwnerState,
-  reduceLayerDocumentProjectOwner,
-} from "@/engines/project/actions/layerDocumentProjectOwnerReducer";
+  createLayerDocumentNexusState,
+  reduceLayerDocumentNexus,
+} from "@/engines/project/actions/layerDocumentNexusReducer";
 export {
   createLayerDocumentLibraryController,
+  buildLayerDocumentPsdRefreshSummary,
+  createLayerDocumentPsdImportPreviewPlan,
   type LayerDocumentPsdImportPreviewNode,
   type LayerDocumentPsdImportPreviewPlan,
   type LayerDocumentPsdRefreshDiffSummary,

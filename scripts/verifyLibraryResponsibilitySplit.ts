@@ -108,7 +108,7 @@ assert.match(
     "src/features/library/components/LibraryProjectHeader.tsx",
     "utf8"
   ),
-  /LibraryAudioMenu/
+  /LibraryProjectAddMenu/
 );
 assert.match(tree, /<LibraryNode/);
 assert.match(node, /<LibraryNodeIdentity/);

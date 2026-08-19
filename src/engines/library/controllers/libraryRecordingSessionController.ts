@@ -23,7 +23,7 @@ type RecordingControllerPorts = {
 const IDLE_SNAPSHOT: LibraryRecordingSnapshot = {
   status: "idle",
   name: null,
-  file: null,
+  preview: null,
   readLiveWaveform: null,
   audioProcessing: null,
   changingAudioProcessing: null,
@@ -33,6 +33,20 @@ const IDLE_SNAPSHOT: LibraryRecordingSnapshot = {
   canRetry: false,
   canConfirm: false,
 };
+
+function createRecordingPreview(file: {
+  readonly name: string;
+  readonly type: string;
+  readonly size: number;
+  readonly arrayBuffer: () => Promise<ArrayBuffer>;
+}) {
+  return {
+    name: file.name,
+    mimeType: file.type || null,
+    byteLength: file.size,
+    read: () => file.arrayBuffer(),
+  };
+}
 
 const DEFAULT_AUDIO_PROCESSING: LayerDocumentAudioProcessingSnapshot = {
   noiseSuppression: { supported: true, enabled: false, canToggle: true },
@@ -171,7 +185,7 @@ export function createLibraryRecordingSessionController(
             ...IDLE_SNAPSHOT,
             status: "review",
             name,
-            file: nextPrepared.file,
+            preview: createRecordingPreview(nextPrepared.file),
             readLiveWaveform: null,
             error: null,
             canCancel: true,
@@ -239,12 +253,12 @@ export function createLibraryRecordingSessionController(
       ) return;
       const currentRequest = ++request;
       const recordingName = snapshot.name;
-      const previewFile = snapshot.file;
+      const preview = snapshot.preview;
       publish({
         ...IDLE_SNAPSHOT,
         status: "saving",
         name: recordingName,
-        file: previewFile,
+        preview,
         readLiveWaveform: null,
         error: null,
         canCancel: false,
@@ -301,7 +315,7 @@ export function createLibraryRecordingSessionController(
           ...IDLE_SNAPSHOT,
           status: "error",
           name: recordingName,
-          file: previewFile,
+          preview,
           readLiveWaveform: null,
           error: result.message ?? "녹음을 추가하지 못했습니다.",
           canCancel: !registrationRetryOnly,
@@ -314,7 +328,7 @@ export function createLibraryRecordingSessionController(
           ...IDLE_SNAPSHOT,
           status: "error",
           name: recordingName,
-          file: previewFile,
+          preview,
           readLiveWaveform: null,
           error: messageOf(
             reason,

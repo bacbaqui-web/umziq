@@ -96,10 +96,20 @@ export function createLayerDocumentProjectOpenController(
       const token =
         options.lifecycle.beginOperation("loading");
       const selected =
-        await options.browser.chooseProjectFile();
+        await options.storage.chooseProject();
       if (!selected.ok) {
         options.lifecycle.finishOperation(token);
-        return selected;
+        return {
+          ok: false,
+          error: {
+            code: selected.error.code === "write-failed" ||
+              selected.error.code === "download-failed" ||
+              selected.error.code === "stale-write"
+              ? "read-failed"
+              : selected.error.code,
+            message: selected.error.message,
+          },
+        };
       }
       if (!activeTokenMatches(options, token)) {
         return staleResult();
@@ -126,10 +136,9 @@ export function createLayerDocumentProjectOpenController(
       const prepared: Array<{
         runtime:
           PreparedLayerDocumentLinkedSourceRuntime;
-        file: File;
-        handle: FileSystemFileHandle | null;
-        permission:
-          "unknown" | "prompt" | "granted";
+        commitAvailable: (
+          sourceIds: readonly string[]
+        ) => void;
       }> = [];
       const missingSourceIds = new Set<string>();
       const errorSourceIds = new Set<string>();
@@ -172,7 +181,7 @@ export function createLayerDocumentProjectOpenController(
             .prepare({
               project,
               source,
-              file: access.file,
+              input: access.input,
             });
         if (!activeTokenMatches(options, token)) {
           if (runtime.ok) runtime.value.discard();
@@ -203,9 +212,7 @@ export function createLayerDocumentProjectOpenController(
         );
         prepared.push({
           runtime: runtime.value,
-          file: access.file,
-          handle: access.handle,
-          permission: access.permission,
+          commitAvailable: access.commitAvailable,
         });
       }
 
@@ -294,19 +301,12 @@ export function createLayerDocumentProjectOpenController(
         }
       }
       prepared.forEach((entry) => {
-        entry.runtime.availableSourceIds.forEach(
-          (sourceId) => {
-            if (
-              errorSourceIds.has(sourceId) ||
-              missingSourceIds.has(sourceId)
-            ) return;
-            options.sourceResolution.setAvailable({
-              sourceId,
-              file: entry.file,
-              handle: entry.handle,
-              permission: entry.permission,
-            });
-          }
+        entry.commitAvailable(
+          entry.runtime.availableSourceIds.filter(
+            (sourceId) =>
+              !errorSourceIds.has(sourceId) &&
+              !missingSourceIds.has(sourceId)
+          )
         );
       });
       missingSourceIds.forEach((sourceId) =>
@@ -319,15 +319,7 @@ export function createLayerDocumentProjectOpenController(
         )
       );
       options.saveController?.commitTarget(
-        selected.value.handle
-          ? {
-              kind: "native-file-system",
-              fileName:
-                selected.value.handle.name ||
-                selected.value.file.name,
-              handle: selected.value.handle,
-            }
-          : null
+        selected.value.target
       );
       return {
         ok: true,

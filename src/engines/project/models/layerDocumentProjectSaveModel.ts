@@ -2,17 +2,17 @@ import type {
   LayerDocumentProject,
 } from "@/models";
 import type {
-  LayerDocumentProjectBrowserWritePort,
-  LayerDocumentProjectWriteErrorCode,
-  LayerDocumentProjectWriteTarget,
-} from "@/engines/project/models/layerDocumentProjectBrowserWriteModel";
+  ProjectStorageErrorCode,
+  ProjectStorageTarget,
+  ProjectWritePort,
+} from "@/gateway/contracts/projectStorageGateway";
 import type {
   LayerDocumentProjectLifecycleController,
   LayerDocumentProjectLifecycleState,
 } from "@/engines/project/models/layerDocumentProjectLifecycleModel";
 
 export type LayerDocumentProjectSaveErrorCode =
-  | LayerDocumentProjectWriteErrorCode
+  | ProjectStorageErrorCode
   | "invalid-project"
   | "stale-operation";
 
@@ -22,7 +22,7 @@ export type LayerDocumentProjectSaveResult =
       readonly lifecycle:
         LayerDocumentProjectLifecycleState;
       readonly targetKind:
-        LayerDocumentProjectWriteTarget["kind"];
+        ProjectStorageTarget["kind"];
       readonly byteLength: number;
     }
   | {
@@ -36,9 +36,9 @@ export type LayerDocumentProjectSaveResult =
 
 export interface LayerDocumentProjectSaveController {
   readonly readTarget: () =>
-    LayerDocumentProjectWriteTarget | null;
+    ProjectStorageTarget | null;
   readonly commitTarget: (
-    target: LayerDocumentProjectWriteTarget | null
+    target: ProjectStorageTarget | null
   ) => void;
   readonly save: () =>
     Promise<LayerDocumentProjectSaveResult>;
@@ -51,6 +51,5 @@ export interface CreateLayerDocumentProjectSaveControllerOptions {
     LayerDocumentProject;
   readonly lifecycle:
     LayerDocumentProjectLifecycleController;
-  readonly browser:
-    LayerDocumentProjectBrowserWritePort;
+  readonly storage: ProjectWritePort;
 }

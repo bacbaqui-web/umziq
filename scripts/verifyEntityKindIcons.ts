@@ -24,11 +24,13 @@ const layerDocumentIconSource = readFileSync(
   "src/shared/components/LayerDocumentIcon.tsx",
   "utf8"
 );
-assert.match(layerDocumentIconSource, /kind: "layer" \| "composition" \| "audio"/);
+assert.match(layerDocumentIconSource, /kind: "layer" \| "composition" \| "drawing" \| "audio"/);
+assert.match(layerDocumentIconSource, /kind === "drawing"/);
+assert.match(layerDocumentIconSource, /viewBox="2 2 20 20"/);
 assert.match(layerDocumentIconSource, /audioProvenance/);
 
 const timelineItemSource = readFileSync(
-  "src/features/timeline/components/TimelineItemTrackRow.tsx",
+  "src/features/timeline/components/TimelineItemNameCell.tsx",
   "utf8"
 );
 const breadcrumbSource = readFileSync(
@@ -40,11 +42,11 @@ const switcherSource = readFileSync(
   "utf8"
 );
 const propertiesSource = readFileSync(
-  "src/features/properties/components/PropertiesPanel.tsx",
+  "src/features/visual/components/VisualPanel.tsx",
   "utf8"
 );
 const propertiesModelSource = readFileSync(
-  "src/engines/properties/models/propertiesEngineModel.ts",
+  "src/engines/visual/models/propertiesEngineModel.ts",
   "utf8"
 );
 const libraryIdentitySource = readFileSync(
@@ -58,8 +60,9 @@ const importPreviewSource = readFileSync(
 
 assert.match(
   timelineItemSource,
-  /kind=\{item\.mediaKind === "audio" \? "audio" : item\.entityKind\}/
+  /kind=\{item\.mediaKind === "audio" \? "audio" : item\.iconKind\}/
 );
+assert.match(timelineItemSource, /item\.iconKind === "layer"/);
 assert.match(breadcrumbSource, /segment\.entityKind/);
 assert.doesNotMatch(
   breadcrumbSource,
@@ -79,9 +82,10 @@ assert.match(
 assert.match(libraryIdentitySource, /<PsdFileIcon \/>/);
 assert.match(
   libraryIdentitySource,
-  /kind=\{node\.entityKind \?\? "layer"\}/
+  /<LayerDocumentIcon kind=\{iconKind\}/
 );
 assert.match(libraryIdentitySource, /LayerDocumentIcon kind="audio"/);
+assert.match(libraryIdentitySource, /const iconKind = node\.entityKind \?\? "layer"/);
 assert.match(
   importPreviewSource,
   /kind=\{node\.kind === "group" \? "composition" : "layer"\}/

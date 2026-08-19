@@ -4,16 +4,13 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type RefObject,
 } from "react";
 import {
   createTimelinePointerDragSessionController,
 } from "@/engines/timeline/controllers/timelinePointerDragSessionController";
-import {
-  resolveTimelineAutoScroll,
-} from "@/engines/timeline/helpers/timelineInteractionHelpers";
 import type {
   TimelinePointerDragBeginInput,
+  TimelinePointerDragCompletion,
   TimelinePointerDragEnvironment,
 } from "@/engines/timeline/models/timelinePointerDragSessionModel";
 
@@ -28,8 +25,6 @@ type Options<TSession extends PointerSession> = {
   ) => TSession | void;
   commit: (session: TSession) => void;
   cancel: (session: TSession) => void;
-  scrollContainerRef?:
-    RefObject<HTMLElement | null>;
 };
 
 function createBrowserPointerDragEnvironment():
@@ -50,7 +45,9 @@ export function useTimelinePointerDragSessionRuntime<
   useLayoutEffect(() => {
     optionsRef.current = options;
   }, [options]);
-  const scrollStartLeftRef = useRef(0);
+  const completionRef = useRef<
+    TimelinePointerDragCompletion<TSession> | null
+  >(null);
   const mountedRef = useRef(true);
   const [activeType, setActiveType] =
     useState<TSession["type"] | null>(null);
@@ -65,45 +62,17 @@ export function useTimelinePointerDragSessionRuntime<
       createTimelinePointerDragSessionController<TSession>({
         environment:
           createBrowserPointerDragEnvironment(),
-        move: (session, rawClientX) => {
-          const currentOptions = optionsRef.current;
-          const scrollContainer =
-            currentOptions.scrollContainerRef?.current;
-          if (scrollContainer) {
-            const bounds =
-              scrollContainer.getBoundingClientRect();
-            const scrollDelta =
-              resolveTimelineAutoScroll(
-                rawClientX,
-                bounds.left,
-                bounds.right,
-                36,
-                18
-              );
-            if (scrollDelta !== 0) {
-              scrollContainer.scrollTo({
-                left:
-                  scrollContainer.scrollLeft +
-                  scrollDelta,
-              });
-            }
-          }
-          const clientX =
-            rawClientX +
-            (scrollContainer?.scrollLeft ?? 0) -
-            scrollStartLeftRef.current;
-          return currentOptions.move(
-            session,
-            clientX
-          );
-        },
-        commit: (session) => {
+        move: (session, clientX) =>
+          optionsRef.current.move(session, clientX),
+        commit: (session, _reason, completion) => {
+          completionRef.current = completion;
           if (mountedRef.current) {
             setActiveType(null);
           }
           optionsRef.current.commit(session);
         },
         cancel: (session) => {
+          completionRef.current = null;
           if (mountedRef.current) {
             setActiveType(null);
           }
@@ -135,15 +104,23 @@ export function useTimelinePointerDragSessionRuntime<
     session: TSession,
     input: TimelinePointerDragBeginInput
   ) => {
-    scrollStartLeftRef.current =
-      optionsRef.current.scrollContainerRef
-        ?.current?.scrollLeft ?? 0;
+    completionRef.current = null;
     controllerRef.current?.begin(session, input);
     setActiveType(session.type);
   }, []);
   const cancel = useCallback(() => {
     controllerRef.current?.cancel();
   }, []);
+  const consumeCompletion = useCallback(() => {
+    const completion = completionRef.current;
+    completionRef.current = null;
+    return completion;
+  }, []);
 
-  return { begin, cancel, activeType };
+  return {
+    begin,
+    cancel,
+    activeType,
+    consumeCompletion,
+  };
 }

@@ -8,6 +8,8 @@ export function createLibraryNodeCommandController(options: {
   audio: LibraryAudioCommandPort;
   nodes: readonly LibraryNodeViewModel[];
   beginRefresh: (sourceId: string) => void;
+  duplicate: (layerDocumentId: string) => boolean;
+  convertToDrawing: (layerDocumentId: string) => boolean;
 }) {
   const find = (nodeId: string) => findLibraryNode(options.nodes, nodeId);
   return {
@@ -26,6 +28,15 @@ export function createLibraryNodeCommandController(options: {
       } else if (node?.type === "main" && node.sourceId) {
         options.controller.selectSource(node.sourceId);
       } else if (node?.layerDocumentId) {
+        options.controller.selectLayerDocument(node.layerDocumentId);
+      }
+    },
+    selectForContextMenu: (nodeId: string) => {
+      const node = find(nodeId);
+      if (!node?.layerDocumentId) return;
+      if (node.contentKind === "audio") {
+        options.audio.select(node.layerDocumentId);
+      } else {
         options.controller.selectLayerDocument(node.layerDocumentId);
       }
     },
@@ -58,6 +69,16 @@ export function createLibraryNodeCommandController(options: {
         options.audio.delete(nodeId);
       } else if (node?.layerDocumentId) {
         options.controller.deleteLayerDocument(node.layerDocumentId);
+      }
+    },
+    duplicate: (nodeId: string) => {
+      const node = find(nodeId);
+      if (node?.layerDocumentId) options.duplicate(node.layerDocumentId);
+    },
+    convertToDrawing: (nodeId: string) => {
+      const node = find(nodeId);
+      if (node?.layerDocumentId && node.contentKind === "visual" && node.entityKind === "layer") {
+        options.convertToDrawing(node.layerDocumentId);
       }
     },
     refresh: options.beginRefresh,

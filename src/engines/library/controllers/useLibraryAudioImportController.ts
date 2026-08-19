@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PreparedLayerDocumentAudioImport } from "@/engines/project";
-import { copyFilesIntoProjectAssets } from "@/editor/projectAssetDirectoryRuntime";
+import type {
+  SourceAccessPort,
+  SourceResourceReference,
+} from "@/gateway/contracts/sourceAccessGateway";
 import type {
   LibraryAssetCopyRequestPort,
   LibraryAudioImportPort,
@@ -10,6 +13,7 @@ export function useLibraryAudioImportController(options: {
   audioImport: LibraryAudioImportPort;
   assetCopy: LibraryAssetCopyRequestPort;
   projectIdentity: string;
+  sourceAccess: SourceAccessPort;
 }) {
   const audioFileInputRef = useRef<HTMLInputElement | null>(null);
   const requestRef = useRef(0);
@@ -38,30 +42,38 @@ export function useLibraryAudioImportController(options: {
   }, []);
 
   const onFileInputChange = useCallback(
-    (files: FileList | readonly File[]) => {
-      const selectedFiles = Array.from(files);
-      if (selectedFiles.length === 0) return;
+    (selectedSources: readonly SourceResourceReference[]) => {
+      if (selectedSources.length === 0) return;
       const request = ++requestRef.current;
       activePreparedRef.current.forEach(options.audioImport.cancel);
       activePreparedRef.current = [];
       setError(null);
       const preparedImports: PreparedLayerDocumentAudioImport[] = [];
+      let copiedSources: readonly SourceResourceReference[] = [];
       void (async () => {
         const copy = await options.assetCopy.request(
           "audio",
-          selectedFiles.length
+          selectedSources.length
         );
         if (copy === null || request !== requestRef.current) return;
-        const imports = await copyFilesIntoProjectAssets({
-          files: selectedFiles,
+        const copied = await options.sourceAccess.copyIntoProjectAssets({
+          sources: selectedSources,
           kind: "audio",
           copy,
         });
+        if (!copied.ok) throw new Error(copied.error.message);
+        copiedSources = copied.value;
         let nextOrder: number | undefined;
-        for (const entry of imports) {
+        for (const source of copied.value) {
+          const read = await options.sourceAccess.readSource(source);
+          if (!read.ok) throw new Error(read.error.message);
           const prepared = await options.audioImport.prepare(
-            entry.file,
-            entry.relativePathHint,
+            {
+              fileName: source.fileName,
+              mimeType: source.mimeType,
+              bytes: read.value,
+            },
+            source.relativePathHint,
             nextOrder
           );
           if (request !== requestRef.current) {
@@ -102,9 +114,14 @@ export function useLibraryAudioImportController(options: {
               : "오디오를 분석하지 못했습니다."
           );
         }
+      }).finally(() => {
+        options.sourceAccess.release([
+          ...selectedSources,
+          ...copiedSources,
+        ]);
       });
     },
-    [options.assetCopy, options.audioImport]
+    [options.assetCopy, options.audioImport, options.sourceAccess]
   );
 
   return {

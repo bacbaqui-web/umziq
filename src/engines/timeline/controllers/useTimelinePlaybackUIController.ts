@@ -248,21 +248,6 @@ export function useTimelinePlaybackUIController(options: Options) {
     const nextEnd = drag.handle === "end"
       ? Math.max(drag.initialStartFrame + 1, drag.initialEndFrame + delta)
       : drag.initialEndFrame;
-    const gridElement = rulerRef.current?.parentElement;
-    const scrollContainer = gridElement?.parentElement;
-    if (scrollContainer instanceof HTMLDivElement) {
-      const bounds = scrollContainer.getBoundingClientRect();
-      const edgePadding = 48;
-      const overflow = drag.handle === "end"
-        ? clientX - (bounds.right - edgePadding)
-        : bounds.left + edgePadding - clientX;
-      if (overflow >= 0) {
-        const step = Math.min(36, Math.max(12, overflow));
-        scrollContainer.scrollTo({
-          left: scrollContainer.scrollLeft + (drag.handle === "end" ? step : -step),
-        });
-      }
-    }
     if (nextStart === range.startFrame && nextEnd === range.endFrame) return;
     options.playbackCommands.setPlaybackRange(nextStart, nextEnd);
     options.duration.markRangeEditDirty();

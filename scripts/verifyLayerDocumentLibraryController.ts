@@ -99,7 +99,7 @@ let project: LayerDocumentProject = {
 let sourceSelection: LibrarySourceSelection | null = null;
 const layerSelection = "root";
 const activeGroupLayerDocumentId = "root";
-let ownerCommitCount = 0;
+let nexusCommitCount = 0;
 let registrationAttemptCount = 0;
 const sourceResolution =
   createLayerDocumentSourceRuntimeResolutionStore();
@@ -112,15 +112,15 @@ function confirmPreparedImport(
   confirmedImport = prepared;
   const claim = prepared.runtime.claimForConfirm();
   if (!claim.ok) return claim;
-  if (claim.mode === "commit-owner") {
+  if (claim.mode === "commit-nexus") {
     const result = prepareSourceRegistryImport(project, prepared.command);
     if (!result.ok) {
-      prepared.runtime.failBeforeOwner();
+      prepared.runtime.failBeforeNexus();
       return result;
     }
     project = result.transaction.after;
-    ownerCommitCount += 1;
-    prepared.runtime.markOwnerCommitted();
+    nexusCommitCount += 1;
+    prepared.runtime.markNexusCommitted();
   }
   registrationAttemptCount += 1;
   if (failNextRegistration) {
@@ -157,7 +157,7 @@ const port: LayerDocumentLibraryCommandPort = {
   ) => {
     const claim = prepared.runtime.claimForConfirm();
     if (!claim.ok) return claim;
-    prepared.runtime.failBeforeOwner();
+    prepared.runtime.failBeforeNexus();
     return { ok: false as const };
   },
   cancelRefresh: (prepared) => prepared.runtime.cancel(),
@@ -276,14 +276,14 @@ assert.equal(
   originalChildren[1].layerDocumentId
 );
 assert.equal(controller.confirmImport(reordered).ok, false);
-assert.equal(ownerCommitCount, 1);
+assert.equal(nexusCommitCount, 1);
 assert.equal(registrationAttemptCount, 1);
 assert.equal(
   importPlan.prepared.runtime.readState(),
   "runtime-registration-pending"
 );
 assert.equal(controller.confirmImport(reordered).ok, true);
-assert.equal(ownerCommitCount, 1);
+assert.equal(nexusCommitCount, 1);
 assert.equal(registrationAttemptCount, 2);
 assert.equal(importPlan.prepared.runtime.readState(), "transferred");
 assert.ok(confirmedImport);
@@ -474,7 +474,7 @@ assert.equal(
 );
 assert.equal(
   refreshPlan.prepared.runtime.readState(),
-  "failed-before-owner"
+  "failed-before-nexus"
 );
 
 const cancelledPlan = await controller.prepareImport({
@@ -565,7 +565,7 @@ assert.deepEqual(
 );
 
 const propertiesControllerSource = readFileSync(
-  "src/engines/properties/controllers/layerDocumentPropertiesController.ts",
+  "src/engines/visual/controllers/layerDocumentPropertiesController.ts",
   "utf8"
 );
 const psdControllerSource = readFileSync(
@@ -577,7 +577,7 @@ assert.doesNotMatch(
   /@\/features/
 );
 const propertiesPortAdapterSource = readFileSync(
-  "src/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter.ts",
+  "src/engines/visual/adapters/layerDocumentPropertiesCommandPortAdapter.ts",
   "utf8"
 );
 const panelPortsSource = readFileSync(
@@ -590,7 +590,7 @@ assert.match(
 );
 assert.match(
   readFileSync(
-    "src/engines/properties/composers/propertiesViewPropsComposer.ts",
+    "src/engines/visual/composers/propertiesViewPropsComposer.ts",
     "utf8"
   ),
   /PropertiesEngineViewProps/

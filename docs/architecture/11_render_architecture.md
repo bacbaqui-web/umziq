@@ -5,9 +5,9 @@
 - 역할: Render의 영구 canonical Architecture
 - 현재 상태: 구현 완료된 canonical 구조
 - 현재 Runtime 조사 기록:
-  `docs/completed/59_render_runtime_optimization_architecture_audit.md`,
-  `docs/completed/60_render_runtime_architecture_inventory.md`,
-  `docs/completed/61_render_runtime_bible.md`
+  `docs/completed/020_render_runtime_optimization_architecture_audit.md`,
+  `docs/completed/021_render_runtime_architecture_inventory.md`,
+  `docs/completed/022_render_runtime_bible.md`
 
 ## 한 문장 정의
 
@@ -175,8 +175,23 @@ compressor/reverb/delay/Noise Gate를 반영한다. Audio가 있으면 AudioCont
 video frame deadline과 audio schedule의 단일 기준이다.
 
 GIF와 animated WebP는 이미지 형식이므로 Audio를 포함하지 않는다. Export
-lifecycle, encoder, Audio graph/mux, cancel/cleanup과 파일 생성은 Editor Export
-Runtime 책임이며 Render Runtime에 Store나 사용자 renderer mode를 추가하지 않는다.
+workflow, 진행률, cancel과 Dialog session은 Menu Engine의 Export Controller가
+소유한다. frame scheduling, encoder, Audio graph/mux와 cleanup은 Export Runtime Port의
+책임이고 destination 선택과 최종 write는 Gateway Export Destination Port가 담당한다.
+Export Controller는 DOM download, native handle과 MediaRecorder를 직접 사용하지 않으며
+Render Runtime에 Store나 사용자 renderer mode를 추가하지 않는다.
+
+```text
+Menu Export Controller
+├─ Nexus Project Read Port
+├─ Export Plan Helper
+├─ Render Runtime Port
+├─ Encoder Runtime Port
+└─ Gateway Export Destination Port
+```
+
+Encoder Runtime과 Gateway를 합치지 않는다. Encoder는 Project 결과를 생성하는 기술
+Runtime이고 Gateway는 플랫폼별 목적지 capability만 제공한다.
 
 ## 구현 규칙
 
@@ -201,3 +216,9 @@ Runtime 책임이며 Render Runtime에 Store나 사용자 renderer mode를 추�
 - Overlay가 작품 pixel에 포함되지 않음
 
 비교는 테스트 행위이며 별도 제품 Runtime이나 Renderer 종류가 아니다.
+
+## Drawing visual
+
+Drawing version 3의 stroke, eraser와 raster element는 Preview와 Accurate가 공유하는
+EvaluatedScene visual로 투영한다. Drawing은 독립 투명 surface에서 먼저 합성한 뒤
+작품 context에 그려 eraser가 아래 Layer pixel을 지우지 않게 한다.

@@ -8,20 +8,20 @@ import {
   type RuntimeMetricRecordPort,
 } from "@/render";
 import type {
-  LayerDocumentProjectOwnerEffect,
-  LayerDocumentProjectOwnerPort,
+  LayerDocumentNexusEffect,
+  LayerDocumentNexusPort,
   LayerDocumentSourcePreparationPort,
   LayerDocumentSourceRuntimeResolutionPort,
 } from "@/engines/project";
 import {
-  createLayerDocumentPropertiesOwnerCommandAdapter,
-} from "@/engines/properties/adapters/layerDocumentPropertiesOwnerCommandAdapter";
+  createLayerDocumentPropertiesNexusCommandAdapter,
+} from "@/engines/visual/adapters/layerDocumentPropertiesNexusCommandAdapter";
 import type {
   LayerDocumentPropertiesCommandPreparation,
-} from "@/engines/properties/models/layerDocumentPropertiesModel";
+} from "@/engines/visual/models/layerDocumentPropertiesModel";
 import type {
   LayerDocumentPanelPreparationPort,
-} from "@/engines/properties/models/layerDocumentPanelModel";
+} from "@/engines/visual/models/layerDocumentPanelModel";
 import {
   createLayerDocumentLibrarySourceCommandAdapter,
 } from "@/engines/library/adapters/layerDocumentLibrarySourceCommandAdapter";
@@ -32,16 +32,16 @@ import {
   createLayerDocumentTimelineConsumerAdapter,
 } from "@/engines/timeline/adapters/layerDocumentTimelineConsumerAdapter";
 import {
-  createLayerTypeOwnerCommandAdapter,
+  createLayerTypeNexusCommandAdapter,
   type LayerDocumentAudioPreparationPort,
   type LayerDocumentDrawingPreparationPort,
   type LayerDocumentTextPreparationPort,
 } from "@/layer-types";
 import {
-  createEditorProjectOwnerCommandAdapter,
-  readEditorOwnerGroupScope,
-  type EditorOwnerCommandResult,
-} from "@/editor/project-owner";
+  createEditorNexusCommandAdapter,
+  readEditorNexusGroupScope,
+  type EditorNexusCommandResult,
+} from "@/editor/nexus";
 
 /**
  * Verification-only fixture. Production wiring lives in the Editor Runtime,
@@ -49,7 +49,7 @@ import {
  */
 export function createLayerDocumentVerificationPorts(
   input: {
-    owner: LayerDocumentProjectOwnerPort;
+    nexus: LayerDocumentNexusPort;
     panelPreparation:
       LayerDocumentPanelPreparationPort;
     sourcePreparation:
@@ -66,54 +66,54 @@ export function createLayerDocumentVerificationPorts(
       LayerDocumentSourceRuntimeResolutionPort;
     draftSession: LayerDocumentCanvasDraftPort;
     effects: {
-      applyOwnerEffect: (
-        effect: LayerDocumentProjectOwnerEffect
+      applyNexusEffect: (
+        effect: LayerDocumentNexusEffect
       ) => void;
     };
     metrics: RuntimeMetricRecordPort;
   }
 ) {
   const readProject = () =>
-    input.owner.state.currentProject;
+    input.nexus.state.currentProject;
   const readSelectedLayerDocumentId = () =>
-    input.owner.state.session.layerSelection
+    input.nexus.state.session.layerSelection
       ?.layerDocumentId ?? null;
   const readActiveGroupLayerDocumentId = () =>
-    input.owner.state.session.activeGroupLayerDocumentId;
+    input.nexus.state.session.activeGroupLayerDocumentId;
   const readScope = () =>
-    readEditorOwnerGroupScope(input.owner);
-  const ownerCommands =
-    createEditorProjectOwnerCommandAdapter({
-      owner: input.owner,
+    readEditorNexusGroupScope(input.nexus);
+  const nexusCommands =
+    createEditorNexusCommandAdapter({
+      nexus: input.nexus,
       sourceRuntime: input.sourceRuntime,
       clearDraft: input.draftSession.clear,
-      applyOwnerEffect:
-        input.effects.applyOwnerEffect,
+      applyNexusEffect:
+        input.effects.applyNexusEffect,
       incrementMetric: input.metrics.increment,
     });
   const timelineCommands =
     createLayerDocumentTimelineCommandAdapter({
-      owner: input.owner,
+      nexus: input.nexus,
       readProject,
       commit:
-        ownerCommands.commitLayerPreparation,
-      deliver: ownerCommands.deliver,
+        nexusCommands.commitLayerPreparation,
+      deliver: nexusCommands.deliver,
     });
   const timelineConsumer =
     createLayerDocumentTimelineConsumerAdapter({
-      owner: input.owner,
+      nexus: input.nexus,
       readProject,
       readActiveGroupLayerDocumentId,
       readSelectedLayerDocumentId,
       readScope,
       resolution: input.sourceResolution,
-      selectLayer: ownerCommands.selectLayer,
+      selectLayer: nexusCommands.selectLayer,
       dispatchIntent:
         timelineCommands.dispatchIntent,
     });
-  const propertiesOwner =
-    createLayerDocumentPropertiesOwnerCommandAdapter<
-      EditorOwnerCommandResult<
+  const propertiesNexus =
+    createLayerDocumentPropertiesNexusCommandAdapter<
+      EditorNexusCommandResult<
         LayerDocumentPropertiesCommandPreparation
       >
     >({
@@ -122,13 +122,13 @@ export function createLayerDocumentVerificationPorts(
       preparation: input.panelPreparation,
       readSourceResolutionStatus: (sourceId) =>
         input.sourceResolution.read(sourceId).status,
-      reject: ownerCommands.reject,
+      reject: nexusCommands.reject,
       commit:
-        ownerCommands.commitLayerTransaction,
+        nexusCommands.commitLayerTransaction,
     });
   const canvasDraft =
     createLayerDocumentCanvasDraftAdapter<
-      EditorOwnerCommandResult<
+      EditorNexusCommandResult<
         LayerDocumentPropertiesCommandPreparation
       >
     >({
@@ -136,7 +136,7 @@ export function createLayerDocumentVerificationPorts(
       readActiveGroupLayerDocumentId,
       readSelectedLayerDocumentId,
       readSelectedTransformKeyframe: () =>
-        input.owner.state.runtimeSession
+        input.nexus.state.runtimeSession
           .selectedTransformKeyframe,
       readScope,
       draft: input.draftSession,
@@ -150,11 +150,11 @@ export function createLayerDocumentVerificationPorts(
       preparePointerUp:
         input.panelPreparation.draft.preparePointerUp,
       rejectCommit:
-        propertiesOwner.rejectCanvasDraft,
+        propertiesNexus.rejectCanvasDraft,
       commitTransform:
-        propertiesOwner.commitTransformIntent,
+        propertiesNexus.commitTransformIntent,
       commitMotionPath:
-        propertiesOwner.commitPositionKeyframe,
+        propertiesNexus.commitPositionKeyframe,
     });
   const registrationBridge =
     createLayerDocumentPsdRuntimeRegistrationBridge(
@@ -166,29 +166,29 @@ export function createLayerDocumentVerificationPorts(
       readSelectedLayerDocumentId,
       readActiveGroupLayerDocumentId,
       readSourceSelection: () =>
-        input.owner.state.session.sourceSelection,
-      selectLayer: ownerCommands.selectLayer,
-      selectSource: ownerCommands.selectSource,
-      enterGroup: ownerCommands.enterGroup,
+        input.nexus.state.session.sourceSelection,
+      selectLayer: nexusCommands.selectLayer,
+      selectSource: nexusCommands.selectSource,
+      enterGroup: nexusCommands.enterGroup,
       preparation: input.sourcePreparation,
       commit:
-        ownerCommands.commitSourcePreparation,
+        nexusCommands.commitSourcePreparation,
       bridge: registrationBridge,
       sourceResolution: input.sourceResolution,
     });
   return {
     project: {
       read: readProject,
-      undo: ownerCommands.undo,
-      redo: ownerCommands.redo,
+      undo: nexusCommands.undo,
+      redo: nexusCommands.redo,
     },
     selection: {
-      selectLayer: ownerCommands.selectLayer,
-      selectSource: ownerCommands.selectSource,
+      selectLayer: nexusCommands.selectLayer,
+      selectSource: nexusCommands.selectSource,
     },
     scope: {
       read: readScope,
-      enter: ownerCommands.enterGroup,
+      enter: nexusCommands.enterGroup,
     },
     timeline: {
       readViewProps:
@@ -198,7 +198,7 @@ export function createLayerDocumentVerificationPorts(
       selectTransformKeyframe:
         timelineCommands.selectTransformKeyframe,
       acknowledgeSourceStatus:
-        ownerCommands.acknowledgeSourceStatus,
+        nexusCommands.acknowledgeSourceStatus,
     },
     canvas: {
       readViewProps: canvasDraft.readViewProps,
@@ -209,20 +209,20 @@ export function createLayerDocumentVerificationPorts(
       motionPathPointerUp:
         canvasDraft.commitMotionPath,
       cancelDraft: canvasDraft.cancel,
-      directSelect: ownerCommands.selectLayer,
+      directSelect: nexusCommands.selectLayer,
       selectMotionPathKeyframe:
         timelineCommands.selectTransformKeyframe,
     },
     properties: {
-      describe: propertiesOwner.describe,
-      dispatch: propertiesOwner.dispatch,
+      describe: propertiesNexus.describe,
+      dispatch: propertiesNexus.dispatch,
     },
-    domains: createLayerTypeOwnerCommandAdapter({
+    domains: createLayerTypeNexusCommandAdapter({
       readProject,
       drawing: input.drawingPreparation,
       text: input.textPreparation,
       audio: input.audioPreparation,
-      commit: ownerCommands.commitLayerPreparation,
+      commit: nexusCommands.commitLayerPreparation,
     }),
     sources,
     runtime: {

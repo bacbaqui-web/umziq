@@ -8,11 +8,14 @@ const read = (path: string) =>
 const engine = read(
   "src/engines/timeline/useLayerDocumentTimelineEngine.ts"
 );
+const timelinePointerRuntime = read(
+  "src/engines/timeline/state/useLayerDocumentTimelinePointerRuntime.ts"
+);
 const playback = read(
   "src/engines/timeline/controllers/useTimelinePlaybackUIController.ts"
 );
 const itemRow = read(
-  "src/features/timeline/components/TimelineItemTrackRow.tsx"
+  "src/features/timeline/components/TimelineItemTrackClip.tsx"
 );
 const propertyRow = read(
   "src/features/timeline/components/TimelinePropertyTrackRow.tsx"
@@ -31,7 +34,7 @@ const formulaClip = read(
 );
 
 assert.match(
-  engine,
+  timelinePointerRuntime,
   /useTimelinePointerDragSessionRuntime\(\{/
 );
 assert.equal(
@@ -45,6 +48,7 @@ assert.match(accelerationClip, /<TimelineFormulaClip<AccelerationClipDraft, Acce
 
 for (const [name, source] of [
   ["Timeline engine", engine],
+  ["Timeline pointer runtime", timelinePointerRuntime],
   ["Playback UI", playback],
   ["Formula clip", formulaClip],
 ] as const) {

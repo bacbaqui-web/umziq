@@ -92,7 +92,12 @@ export function buildLayerDocumentLibraryNodes(
     return {
       id: layer.layerDocumentId,
       type: isCut ? "main" : "sub",
-      entityKind: layer.type === "group" ? "composition" : "layer",
+      entityKind:
+        layer.type === "group"
+          ? "composition"
+          : layer.type === "drawing"
+            ? "drawing"
+            : "layer",
       contentKind: isAudio ? "audio" : "visual",
       audioProvenance:
         isAudio && source?.kind === "audio" ? source.data.provenance : null,

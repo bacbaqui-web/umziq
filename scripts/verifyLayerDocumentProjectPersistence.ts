@@ -140,6 +140,14 @@ function projectFixture(): LayerDocumentProject {
       name: "Persistence Fixture",
     },
     payload: {
+      canvasSettings: {
+        showShortformFrameOverlay: false,
+        showSafeZoneGuides: false,
+        showSelectionHighlight: false,
+        cameraScalePercent: 137,
+        cameraDimOpacityPercent: 72,
+        showWhiteBackground: true,
+      },
       layerDocumentsById: {
         root,
         video,
@@ -270,6 +278,14 @@ assert.notStrictEqual(
   loaded.value.project.payload,
   current.payload
 );
+assert.deepEqual(loaded.value.project.payload.canvasSettings, {
+  showShortformFrameOverlay: false,
+  showSafeZoneGuides: false,
+  showSelectionHighlight: false,
+  cameraScalePercent: 137,
+  cameraDimOpacityPercent: 72,
+  showWhiteBackground: true,
+});
 assert.deepEqual(
   current,
   currentSnapshot,

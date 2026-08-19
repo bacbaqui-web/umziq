@@ -3,12 +3,20 @@ import type {
   PsdImportPlan,
 } from "@/engines/project";
 import type {
+  SourceResourceReference,
+} from "@/gateway/contracts/sourceAccessGateway";
+import type {
+  LibraryRecordingPreview,
+} from "@/engines/library/models/libraryRecordingModel";
+import type { MicrophoneDevice } from "@/gateway/contracts/microphoneCaptureGateway";
+import type {
   LibraryRecordingEditRequest,
   LibraryRecordingStatus,
 } from "@/engines/library/models/libraryRecordingModel";
 import type {
   LayerDocumentAudioProcessingFeature,
   LayerDocumentAudioProcessingSnapshot,
+  LayerDocumentProjectReconnectReadItem,
 } from "@/engines/project";
 
 export type LibraryDropPosition = "before" | "inside" | "after";
@@ -21,7 +29,7 @@ export type LibraryDropTarget = {
 export type LibraryNodeViewModel = {
   id: string;
   type: "project" | "main" | "sub";
-  entityKind: "layer" | "composition" | null;
+  entityKind: "layer" | "composition" | "drawing" | null;
   contentKind: "visual" | "audio";
   audioProvenance: "imported" | "recorded" | null;
   playing: boolean;
@@ -77,6 +85,7 @@ export type PsdRefreshSummaryViewModel = {
 };
 
 export type LibraryViewProps = {
+  projectIdentity?: string;
   nodes: LibraryNodeViewModel[];
   fileInputRef: RefObject<HTMLInputElement | null>;
   audioFileInputRef: RefObject<HTMLInputElement | null>;
@@ -87,7 +96,7 @@ export type LibraryViewProps = {
   importPreviewError: string | null;
   audioRecordingStatus: LibraryRecordingStatus;
   audioRecordingName: string | null;
-  audioRecordingFile: File | null;
+  audioRecordingPreview: LibraryRecordingPreview | null;
   audioRecordingLiveWaveform: ((target: Float32Array) => void) | null;
   audioRecordingProcessing: LayerDocumentAudioProcessingSnapshot | null;
   audioRecordingChangingProcessing: LayerDocumentAudioProcessingFeature | null;
@@ -96,6 +105,8 @@ export type LibraryViewProps = {
   audioRecordingCanCancel: boolean;
   audioRecordingCanRetry: boolean;
   audioRecordingCanConfirm: boolean;
+  enumerateMicrophoneDevices: () => Promise<readonly MicrophoneDevice[]>;
+  subscribeMicrophoneDevices: (listener: () => void) => () => void;
   assetCopyPrompt: { readonly kind: "psd" | "audio"; readonly fileCount: number } | null;
   hoverPreview: {
     readonly preview: LibraryHoverPreviewViewModel;
@@ -103,11 +114,14 @@ export type LibraryViewProps = {
     readonly y: number;
   } | null;
   refreshSummary: PsdRefreshSummaryViewModel | null;
+  missingSources: readonly LayerDocumentProjectReconnectReadItem[];
+  onReconnectSource: (sourceId: string) => void;
   onImportClick: () => void;
-  onFileInputChange: (files: FileList | readonly File[]) => void;
+  onFileInputChange: (sources: readonly SourceResourceReference[]) => void;
   onAudioImportClick: () => void;
-  onAudioFileInputChange: (files: FileList | readonly File[]) => void;
+  onAudioFileInputChange: (sources: readonly SourceResourceReference[]) => void;
   onStartAudioRecording: () => void;
+  onCreateDrawingLayer: () => void;
   onBeginAudioRecording: (deviceId?: string | null) => void;
   onStopAudioRecording: () => void;
   onSetAudioRecordingProcessing: (
@@ -125,11 +139,14 @@ export type LibraryViewProps = {
   ) => void;
   onPreviewEnd: () => void;
   onSelectNode: (nodeId: string) => void;
+  onSelectNodeForContextMenu: (nodeId: string) => void;
   onToggleNodeVisibility: (nodeId: string) => void;
   onToggleNodeLock: (nodeId: string) => void;
   onToggleNodePlayback: (nodeId: string) => void;
   onRenameNode: (nodeId: string, name: string) => void;
   onDeleteNode: (nodeId: string) => void;
+  onDuplicateNode: (nodeId: string) => void;
+  onConvertNodeToDrawing: (nodeId: string) => void;
   onRefreshMainComp: (compId: string) => void;
   onDeleteMainComp: (compId: string) => void;
   onBeginMainDrag: (compId: string) => void;
@@ -166,7 +183,7 @@ export type LibraryViewProps = {
   onDismissRefreshSummary: () => void;
 };
 
-export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "audioFileInputRef" | "onImportClick" | "onFileInputChange" | "onAudioImportClick" | "onAudioFileInputChange" | "audioRecordingStatus" | "audioRecordingName" | "audioRecordingFile" | "audioRecordingLiveWaveform" | "audioRecordingProcessing" | "audioRecordingChangingProcessing" | "audioRecordingProcessingError" | "audioRecordingError" | "audioRecordingCanCancel" | "audioRecordingCanRetry" | "audioRecordingCanConfirm" | "assetCopyPrompt" | "hoverPreview" | "onStartAudioRecording" | "onBeginAudioRecording" | "onStopAudioRecording" | "onSetAudioRecordingProcessing" | "onRetryAudioRecording" | "onCancelAudioRecording" | "onConfirmAudioRecording" | "onResolveAssetCopy" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
+export type LibraryNodeProps = Omit<LibraryViewProps, "nodes" | "fileInputRef" | "audioFileInputRef" | "onImportClick" | "onFileInputChange" | "onAudioImportClick" | "onAudioFileInputChange" | "audioRecordingStatus" | "audioRecordingName" | "audioRecordingPreview" | "audioRecordingLiveWaveform" | "audioRecordingProcessing" | "audioRecordingChangingProcessing" | "audioRecordingProcessingError" | "audioRecordingError" | "audioRecordingCanCancel" | "audioRecordingCanRetry" | "audioRecordingCanConfirm" | "enumerateMicrophoneDevices" | "subscribeMicrophoneDevices" | "assetCopyPrompt" | "hoverPreview" | "onStartAudioRecording" | "onCreateDrawingLayer" | "onBeginAudioRecording" | "onStopAudioRecording" | "onSetAudioRecordingProcessing" | "onRetryAudioRecording" | "onCancelAudioRecording" | "onConfirmAudioRecording" | "onResolveAssetCopy" | "importPlan" | "importPreviewStatus" | "importPreviewError" | "refreshSummary" | "missingSources" | "onReconnectSource" | "onCancelImport" | "onConfirmImport" | "onMoveImportNode" | "onScaleImport" | "onRenameImportNode" | "onRemoveImportNode" | "onDismissRefreshSummary"> & {
   node: LibraryNodeViewModel;
   isFirstRoot: boolean;
   onPreviewMove: (

@@ -392,7 +392,27 @@ export interface LayerDocumentProjectMetadata {
 export interface LayerDocumentProjectPayload {
   layerDocumentsById: Record<string, LayerDocument>;
   sourceRegistry: SourceRegistry;
+  canvasSettings?: LayerDocumentProjectCanvasSettings;
 }
+
+export interface LayerDocumentProjectCanvasSettings {
+  showShortformFrameOverlay: boolean;
+  showSafeZoneGuides: boolean;
+  showSelectionHighlight: boolean;
+  cameraScalePercent: number;
+  cameraDimOpacityPercent: number;
+  showWhiteBackground: boolean;
+}
+
+export const DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS:
+LayerDocumentProjectCanvasSettings = {
+  showShortformFrameOverlay: true,
+  showSafeZoneGuides: true,
+  showSelectionHighlight: true,
+  cameraScalePercent: 100,
+  cameraDimOpacityPercent: 50,
+  showWhiteBackground: false,
+};
 
 export interface LayerDocumentProject {
   metadata: LayerDocumentProjectMetadata;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { LibraryNodeViewModel } from "@/engines/library";
-import LibraryAudioMenu from "@/features/library/components/LibraryAudioMenu";
+import LibraryProjectAddMenu from "@/features/library/components/LibraryProjectAddMenu";
 import LayerCompositionIcon from "@/shared/components/LayerCompositionIcon";
 import {
   GROUP_HOVER_BACKGROUND,
@@ -17,12 +17,14 @@ export default function LibraryProjectHeader({
   onImportPsd,
   onImportAudio,
   onRecordAudio,
+  onCreateDrawing,
 }: {
   readonly node: LibraryNodeViewModel;
   readonly onSelect: () => void;
   readonly onImportPsd: () => void;
   readonly onImportAudio: () => void;
   readonly onRecordAudio: () => void;
+  readonly onCreateDrawing: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -94,31 +96,12 @@ export default function LibraryProjectHeader({
           프로젝트
         </span>
       </button>
-      <button
-        type="button"
-        onClick={onImportPsd}
-        style={{
-          height: 27,
-          padding: "0 8px",
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          border: "1px solid #4f7198",
-          borderRadius: 6,
-          background: "rgba(48, 85, 126, 0.48)",
-          color: "#bcd9f2",
-          cursor: "pointer",
-          fontSize: 11.5,
-          fontWeight: 650,
-          whiteSpace: "nowrap",
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
-          <path d="M6 1.5v9M1.5 6h9" />
-        </svg>
-        PSD
-      </button>
-      <LibraryAudioMenu onImport={onImportAudio} onRecord={onRecordAudio} />
+      <LibraryProjectAddMenu
+        onImportPsd={onImportPsd}
+        onCreateDrawing={onCreateDrawing}
+        onImportAudio={onImportAudio}
+        onRecordAudio={onRecordAudio}
+      />
     </div>
   );
 }

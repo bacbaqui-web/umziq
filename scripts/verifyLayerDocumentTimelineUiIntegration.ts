@@ -9,19 +9,19 @@ import {
   createLayerDocumentVerificationPorts,
 } from "./helpers/createLayerDocumentVerificationPorts";
 import {
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
-  reduceLayerDocumentProjectOwner,
-  type LayerDocumentProjectOwnerPort,
-  type LayerDocumentProjectOwnerState,
+  reduceLayerDocumentNexus,
+  type LayerDocumentNexusPort,
+  type LayerDocumentNexusState,
 } from "@/engines/project";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
 } from "@/render";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-} from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
+} from "@/engines/visual/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
 } from "@/layer-types";
@@ -37,6 +37,10 @@ import {
 import {
   createLayerDocumentTimelinePlaybackRuntime,
 } from "@/engines/timeline/state/layerDocumentTimelinePlaybackRuntime";
+import {
+  createLayerDocumentTimelineTimingDraftRuntime,
+  projectLayerDocumentTimelineTimingDraft,
+} from "@/engines/timeline/state/layerDocumentTimelineTimingDraftRuntime";
 import {
   resolveLayerDocumentTimelineTimingDraft,
 } from "@/engines/timeline/helpers/layerDocumentTimelineInteractionHelpers";
@@ -253,7 +257,7 @@ function projectFixture(): LayerDocumentProject {
 }
 
 const initialized =
-  createLayerDocumentProjectOwnerState({
+  createLayerDocumentNexusState({
     project: projectFixture(),
     layerSelection: {
       kind: "layer-document",
@@ -265,20 +269,20 @@ assert.equal(initialized.ok, true);
 if (!initialized.ok) {
   throw new Error(initialized.error.message);
 }
-let ownerState: LayerDocumentProjectOwnerState =
+let nexusState: LayerDocumentNexusState =
   initialized.state;
-let ownerTransitionCount = 0;
-const owner: LayerDocumentProjectOwnerPort = {
+let nexusTransitionCount = 0;
+const nexus: LayerDocumentNexusPort = {
   get state() {
-    return ownerState;
+    return nexusState;
   },
   transition: (action) => {
-    ownerTransitionCount += 1;
-    const result = reduceLayerDocumentProjectOwner(
-      ownerState,
+    nexusTransitionCount += 1;
+    const result = reduceLayerDocumentNexus(
+      nexusState,
       action
     );
-    if (result.ok) ownerState = result.state;
+    if (result.ok) nexusState = result.state;
     return result;
   },
 };
@@ -291,7 +295,7 @@ sourceResolution.setAvailable({
 });
 const ports =
   createLayerDocumentVerificationPorts({
-    owner,
+    nexus,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
     sourcePreparation:
@@ -310,7 +314,7 @@ const ports =
       clear: () => {},
     },
     effects: {
-      applyOwnerEffect: () => {},
+      applyNexusEffect: () => {},
     },
     metrics: {
       increment: () => {},
@@ -491,14 +495,14 @@ assert.deepEqual(
     });
   assert.equal(selection.ok, true);
   assert.equal(
-    owner.state.runtimeSession
+    nexus.state.runtimeSession
       .selectedTransformKeyframe?.property,
     property,
-    `${property} keyframe selection must be accepted by the shared owner Runtime Session`
+    `${property} keyframe selection must be accepted by the shared nexus Runtime Session`
   );
 });
 assert.deepEqual(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe,
   {
     layerDocumentId: "video-a",
@@ -516,7 +520,7 @@ const invalidScaleSelection =
   });
 assert.equal(invalidScaleSelection.ok, false);
 assert.equal(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe?.localFrame,
   4,
   "property-specific existence validation rejects stale keyframe identities"
@@ -540,11 +544,11 @@ const scaleRow = selectedScaleView.rows.find(
 assert.ok(
   scaleRow?.type === "property" &&
   scaleRow.keyframes[0]?.selected,
-  "Timeline keyframe rows must read the owner Runtime Session selection"
+  "Timeline keyframe rows must read the nexus Runtime Session selection"
 );
 
 const historyBeforeDuplicate =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 const duplicate =
   ports.timeline.dispatchIntent({
     kind: "duplicate-layer",
@@ -553,14 +557,14 @@ const duplicate =
   });
 assert.equal(duplicate.ok, true);
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeDuplicate + 1
 );
 const original =
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-a"];
 const duplicateLayer =
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-b"];
 assert.equal(
   original.common.source?.sourceId,
@@ -569,9 +573,9 @@ assert.equal(
 );
 
 const transitionsBeforeMove =
-  ownerTransitionCount;
+  nexusTransitionCount;
 const historyBeforeMove =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 const movedKeyframe =
   ports.timeline.dispatchIntent({
     kind: "move-keyframe",
@@ -582,16 +586,16 @@ const movedKeyframe =
   });
 assert.equal(movedKeyframe.ok, true);
 assert.equal(
-  ownerTransitionCount,
+  nexusTransitionCount,
   transitionsBeforeMove + 1
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeMove + 1,
   "keyframe PointerUp intent creates one History entry"
 );
 assert.deepEqual(
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-a"]
     .common.animation.positionKeyframes.map(
       (keyframe) => keyframe.frame
@@ -600,7 +604,7 @@ assert.deepEqual(
   "same-source duplicate animation remains independent"
 );
 assert.deepEqual(
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-b"]
     .common.animation.positionKeyframes.map(
       (keyframe) => keyframe.frame
@@ -608,7 +612,7 @@ assert.deepEqual(
   [8, 99]
 );
 assert.deepEqual(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe,
   {
     layerDocumentId: "video-b",
@@ -616,7 +620,7 @@ assert.deepEqual(
     localFrame: 8,
     globalFrame: 16,
   },
-  "move commit atomically keeps the new owner keyframe identity selected"
+  "move commit atomically keeps the new nexus keyframe identity selected"
 );
 
 assert.equal(
@@ -629,7 +633,7 @@ assert.equal(
   true
 );
 const historyBeforeRemove =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 assert.equal(
   ports.timeline.dispatchIntent({
     kind: "remove-keyframe",
@@ -640,18 +644,18 @@ assert.equal(
   true
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeRemove + 1
 );
 assert.equal(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe,
   null,
-  "removing the selected keyframe normalizes owner Runtime selection"
+  "removing the selected keyframe normalizes nexus Runtime selection"
 );
 
 const pointerMoveProjectBefore =
-  JSON.stringify(owner.state.currentProject);
+  JSON.stringify(nexus.state.currentProject);
 assert.equal(
   ports.timeline.selectTransformKeyframe({
     layerDocumentId: "video-b",
@@ -662,11 +666,11 @@ assert.equal(
   true
 );
 const transitionsBeforeDraft =
-  ownerTransitionCount;
+  nexusTransitionCount;
 const historyBeforeDraft =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 const timingBefore =
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-b"].common
     .placement;
 const trimDraft =
@@ -687,16 +691,16 @@ const trimDraft =
     3
   );
 assert.equal(
-  JSON.stringify(owner.state.currentProject),
+  JSON.stringify(nexus.state.currentProject),
   pointerMoveProjectBefore
 );
 assert.equal(
-  ownerTransitionCount,
+  nexusTransitionCount,
   transitionsBeforeDraft,
-  "PointerMove timing draft does not touch the owner"
+  "PointerMove timing draft does not touch the nexus"
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeDraft
 );
 const draftView =
@@ -721,9 +725,9 @@ assert.equal(
   timingBefore.startFrame + 3
 );
 const transitionsBeforeTrimCommit =
-  ownerTransitionCount;
+  nexusTransitionCount;
 const historyBeforeTrimCommit =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 assert.equal(
   ports.timeline.dispatchIntent({
     kind: "set-timing",
@@ -732,30 +736,30 @@ assert.equal(
   true
 );
 assert.equal(
-  ownerTransitionCount,
+  nexusTransitionCount,
   transitionsBeforeTrimCommit + 1
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeTrimCommit + 1,
   "trim PointerUp creates one transaction/history outcome"
 );
 assert.equal(
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-b"].common
     .placement.sourceOffsetFrames,
   timingBefore.sourceOffsetFrames + 3,
   "trim uses the shared Placement frame mapping"
 );
 assert.equal(
-  owner.state.runtimeSession
+  nexus.state.runtimeSession
     .selectedTransformKeyframe?.globalFrame,
   16,
   "trim-start preserves the selected keyframe global projection by advancing sourceOffset"
 );
 
 const nameBeforeAlias =
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-b"].name;
 assert.equal(
   ports.timeline.dispatchIntent({
@@ -766,19 +770,19 @@ assert.equal(
   true
 );
 assert.equal(
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-b"].name,
   nameBeforeAlias,
   "Timeline rename edits Placement alias, not Layer name or Source name"
 );
 assert.equal(
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById["video-b"].common
     .placement.alias,
   "Edited placement alias"
 );
 assert.equal(
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .sourceRegistry.sourcesById[
       "video-source"
     ].displayName,
@@ -786,18 +790,18 @@ assert.equal(
 );
 
 const historyBeforePlay =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 const transitionsBeforePlay =
-  ownerTransitionCount;
+  nexusTransitionCount;
 playback.commands.play();
 assert.equal(playback.read().isPlaying, true);
 assert.equal(
-  ownerTransitionCount,
+  nexusTransitionCount,
   transitionsBeforePlay,
-  "runtime-only play/pause does not create a shadow owner playback write"
+  "runtime-only play/pause does not create a shadow nexus playback write"
 );
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforePlay
 );
 playback.commands.seek(70);
@@ -808,7 +812,7 @@ assert.equal(
 );
 
 const historyBeforeDuration =
-  owner.state.undoStack.length;
+  nexus.state.undoStack.length;
 assert.equal(
   ports.timeline.dispatchIntent({
     kind: "set-group-duration",
@@ -819,16 +823,16 @@ assert.equal(
 );
 playback.validity.reconcile();
 assert.equal(
-  owner.state.undoStack.length,
+  nexus.state.undoStack.length,
   historyBeforeDuration + 1
 );
 assert.equal(
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById.root.type,
   "group"
 );
 const rootAfter =
-  owner.state.currentProject.payload
+  nexus.state.currentProject.payload
     .layerDocumentsById.root;
 assert.ok(rootAfter.type === "group");
 assert.equal(rootAfter.data.durationFrames, 40);
@@ -846,6 +850,57 @@ assert.equal(
   40,
   "active Group duration commit clamps Timeline Runtime through validity"
 );
+const timingDraftRuntime =
+  createLayerDocumentTimelineTimingDraftRuntime();
+let timingDraftNotifications = 0;
+const unsubscribeTimingDraft =
+  timingDraftRuntime.subscribe(() => {
+    timingDraftNotifications += 1;
+  });
+const committedProject = nexus.state.currentProject;
+const committedVideoPlacement =
+  committedProject.payload.layerDocumentsById["video-a"]
+    .common.placement;
+timingDraftRuntime.publish({
+  layerDocumentId: "video-a",
+  startFrame: 14,
+  durationFrames: 18,
+  sourceOffsetFrames: 4,
+});
+const projectedProject =
+  projectLayerDocumentTimelineTimingDraft(
+    committedProject,
+    timingDraftRuntime.read()
+  );
+assert.deepEqual(
+  projectedProject.payload.layerDocumentsById["video-a"]
+    .common.placement,
+  {
+    ...committedVideoPlacement,
+    startFrame: 14,
+    durationFrames: 18,
+    sourceOffsetFrames: 4,
+  },
+  "Timeline and Canvas consumers share the published timing Draft projection"
+);
+assert.equal(
+  committedProject.payload.layerDocumentsById["video-a"]
+    .common.placement,
+  committedVideoPlacement,
+  "timing Draft projection does not mutate the committed Project"
+);
+timingDraftRuntime.clear();
+assert.equal(timingDraftRuntime.read(), null);
+assert.equal(timingDraftNotifications, 2);
+assert.equal(
+  projectLayerDocumentTimelineTimingDraft(
+    committedProject,
+    timingDraftRuntime.read()
+  ),
+  committedProject,
+  "clear returns Canvas projection to the committed Project"
+);
+unsubscribeTimingDraft();
 playback.dispose();
 
 console.log(

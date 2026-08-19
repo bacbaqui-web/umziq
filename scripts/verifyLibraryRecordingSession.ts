@@ -161,7 +161,7 @@ assert.equal(requestedProcessing?.noiseSuppression, true);
 processingController.dispose();
 
 // Stop and repeated recording only touch the session Runtime. Confirm performs
-// the first and only file write, then one Owner confirm.
+// the first and only file write, then one Nexus confirm.
 let preparedDisposals = 0;
 const takes = [
   await makePrepared(() => { preparedDisposals += 1; }),
@@ -218,8 +218,16 @@ controller.begin();
 await waitFor(controller.read, "recording");
 controller.stop();
 await waitFor(controller.read, "review");
+const firstPreview = controller.read().preview;
+assert.ok(firstPreview);
+assert.equal(firstPreview.name, "take-1.webm");
+assert.equal(
+  new TextDecoder().decode(await firstPreview.read()),
+  "voice-1",
+  "recording review exposes a platform-neutral readable preview"
+);
 assert.equal(writes, 0, "stop does not write a project file");
-assert.equal(confirms, 0, "stop does not touch Owner/History");
+assert.equal(confirms, 0, "stop does not touch Nexus/History");
 controller.retry();
 await waitFor(controller.read, "ready");
 controller.begin();
@@ -231,7 +239,7 @@ await waitFor(controller.read, "review");
 controller.confirm();
 await waitFor(controller.read, "idle");
 assert.equal(writes, 1, "confirm writes exactly one final recording");
-assert.equal(confirms, 1, "confirm performs one Owner confirm");
+assert.equal(confirms, 1, "confirm performs one Nexus confirm");
 assert.equal(preparedDisposals, 1, "confirmed Runtime transfers without cancellation");
 controller.dispose();
 
@@ -312,7 +320,7 @@ await flush();
 assert.equal(staleDisposals, 1);
 assert.equal(staleWrites, 0);
 
-// Owner rejection happens only after the approved file write, leaves History
+// Nexus rejection happens only after the approved file write, leaves History
 // untouched and disposes the non-transferred prepared Runtime once.
 let rejectedDisposals = 0;
 const rejectedPrepared = await makePrepared(() => { rejectedDisposals += 1; });
@@ -332,8 +340,8 @@ const rejectedController = createLibraryRecordingSessionController({
     confirm: (candidate) => {
       const claim = candidate.runtime.claimForConfirm();
       assert.equal(claim.ok, true);
-      candidate.runtime.failBeforeOwner();
-      return { ok: false, recovery: "none", message: "Owner rejected" };
+      candidate.runtime.failBeforeNexus();
+      return { ok: false, recovery: "none", message: "Nexus rejected" };
     },
   },
   assetStore: {
@@ -361,7 +369,7 @@ assert.equal(rejectedRecorderCancels, 1);
 assert.equal(rejectedController.read().status, "idle");
 rejectedController.dispose();
 
-// If Owner committed but Runtime registration remains pending, Project/session
+// If Nexus committed but Runtime registration remains pending, Project/session
 // replacement abandons that retry resource exactly once instead of leaking it.
 let pendingRegistrationDisposals = 0;
 const pendingRegistrationPrepared = await makePrepared(
@@ -380,7 +388,7 @@ const pendingRegistrationController = createLibraryRecordingSessionController({
     confirm: (candidate) => {
       const claim = candidate.runtime.claimForConfirm();
       assert.equal(claim.ok, true);
-      candidate.runtime.markOwnerCommitted();
+      candidate.runtime.markNexusCommitted();
       candidate.runtime.markRegistrationFailed();
       return {
         ok: false,
@@ -404,7 +412,7 @@ pendingRegistrationController.dispose();
 assert.equal(pendingRegistrationDisposals, 1);
 assert.equal(
   pendingRegistrationPrepared.runtime.readState(),
-  "abandoned-after-owner"
+  "abandoned-after-nexus"
 );
 
 // The Editor adapter records the actual collision-safe path returned by the

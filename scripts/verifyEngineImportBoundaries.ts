@@ -11,13 +11,23 @@ const root = process.cwd();
 const sourceRoot = join(root, "src");
 const engineNames = [
   "canvas",
+  "drawing",
   "project",
-  "properties",
+  "visual",
   "library",
+  "psd-tree",
   "timeline",
-  "audio-effects",
+  "audio",
 ] as const;
-const uiEngines = new Set(["canvas", "properties", "library", "timeline", "audio-effects"]);
+const uiEngines = new Set([
+  "audio",
+  "canvas",
+  "drawing",
+  "library",
+  "visual",
+  "psd-tree",
+  "timeline",
+]);
 const coreEngines = new Set(["project"]);
 
 function collectSourceFiles(directory: string): string[] {
@@ -47,7 +57,7 @@ const layerTypeSupportRoot = join(
 );
 const layerTypeSupportFiles =
   collectSourceFiles(layerTypeSupportRoot);
-const compositionRootPath = join(sourceRoot, "editor/useEditorCompositionRoot.ts");
+const compositionRootPath = join(sourceRoot, "editor/useEditorRoot.ts");
 const layerDocumentRuntimePath = join(
   sourceRoot,
   "editor/useLayerDocumentEditorRuntime.ts"
@@ -60,19 +70,19 @@ const editorShellLayoutPath = join(
   sourceRoot,
   "editor/EditorShellLayout.tsx"
 );
-const editorOwnerModelPath = join(
+const editorNexusModelPath = join(
   sourceRoot,
-  "editor/project-owner/models/editorProjectOwnerModel.ts"
+  "editor/nexus/models/editorNexusModel.ts"
 );
 const internalEngineImport = /@\/engines\/([a-z-]+)\/[^"'\s]+/g;
 const engineFacadeImport = /@\/engines\/([a-z-]+)(?=["'])/g;
 
 for (const file of files) {
   const text = readFileSync(file, "utf8");
-  const owner = engineForFile(file);
+  const nexus = engineForFile(file);
   const label = relative(root, file).split(sep).join("/");
-  const isEditorProjectOwner =
-    label.startsWith("src/editor/project-owner/");
+  const isEditorNexus =
+    label.startsWith("src/editor/nexus/");
   const importedFacades = new Set(
     Array.from(text.matchAll(engineFacadeImport), (match) => match[1])
   );
@@ -88,9 +98,9 @@ for (const file of files) {
 
   for (const match of text.matchAll(internalEngineImport)) {
     if (
-      owner !== match[1] &&
+      nexus !== match[1] &&
       !(
-        isEditorProjectOwner &&
+        isEditorNexus &&
         match[1] === "project"
       )
     ) {
@@ -98,7 +108,7 @@ for (const file of files) {
     }
   }
 
-  if (owner && coreEngines.has(owner)) {
+  if (nexus && coreEngines.has(nexus)) {
     if (
       /@\/(editor|features)\//.test(text)
     ) {
@@ -111,10 +121,10 @@ for (const file of files) {
     }
   }
 
-  if (owner && uiEngines.has(owner)) {
+  if (nexus && uiEngines.has(nexus)) {
     for (const imported of importedFacades) {
-      if (uiEngines.has(imported) && imported !== owner) {
-        violations.push(`${label}: UI Engine ${owner}가 UI Engine ${imported}에 의존`);
+      if (uiEngines.has(imported) && imported !== nexus) {
+        violations.push(`${label}: UI Engine ${nexus}가 UI Engine ${imported}에 의존`);
       }
     }
   }
@@ -231,7 +241,7 @@ for (const file of files) {
   const text = readFileSync(file, "utf8");
   assert.doesNotMatch(
     text,
-    /@\/engines\/(?:drawing|text|audio)(?:\/|["'])/,
+    /@\/engines\/text(?:\/|["'])/,
     `${relative(root, file)}: Panel 없는 Layer Type을 Engine으로 import`
   );
 }
@@ -244,11 +254,7 @@ for (const file of collectSourceFiles(
     `${relative(root, file)}: models ↔ Layer Type 지원 모듈 순환 의존`
   );
 }
-for (const removedEngine of [
-  "drawing",
-  "text",
-  "audio",
-]) {
+for (const removedEngine of ["text"]) {
   assert.equal(
     files.some((file) =>
       relative(sourceRoot, file)
@@ -260,11 +266,16 @@ for (const removedEngine of [
     `${removedEngine}는 독립 Panel이 없어 Engine 경로를 가질 수 없습니다.`
   );
 }
+assert.equal(
+  files.some((file) => relative(sourceRoot, file).split(sep).join("/").startsWith("engines/drawing/")),
+  true,
+  "Drawing Panel은 독립 Drawing Engine 경계를 가져야 합니다."
+);
 
 const compositionRoot = readFileSync(compositionRootPath, "utf8");
 assert.match(
   compositionRoot,
-  /useLayerDocumentEditorOwner/
+  /useLayerDocumentEditorNexus/
 );
 assert.match(
   compositionRoot,
@@ -274,17 +285,17 @@ assert.doesNotMatch(
   compositionRoot,
   /useEditorState|useProjectSourceSession|useTimelineEngine|useCanvasComposition/
 );
-const ownerRoot = readFileSync(
-  join(sourceRoot, "editor/useLayerDocumentEditorOwner.ts"),
+const nexusRoot = readFileSync(
+  join(sourceRoot, "editor/useLayerDocumentEditorNexus.ts"),
   "utf8"
 );
 assert.match(
-  ownerRoot,
-  /useEditorProjectOwner/
+  nexusRoot,
+  /useEditorNexus/
 );
 for (const nativeHook of [
   "useLayerDocumentTimelineEngine",
-  "useLayerDocumentPropertiesEngine",
+  "useLayerDocumentVisualEngine",
   "useLayerDocumentLibraryEngine",
   "useLayerDocumentCanvasEngine",
 ]) {
@@ -295,7 +306,7 @@ for (const nativeHook of [
   );
 }
 assert.doesNotMatch(
-  ownerRoot,
+  nexusRoot,
   /@\/engines\/(canvas|timeline|properties|library)/
 );
 for (const file of files.filter((candidate) =>
@@ -315,9 +326,9 @@ assert.equal(
   "src/cutover: 제거된 전환 계층이 다시 생성되었습니다."
 );
 for (const removedCompatibilityPath of [
-  "engines/project/useLayerDocumentProjectOwner.ts",
-  "engines/project/helpers/layerDocumentProjectOwnerLivePortHelpers.ts",
-  "features/properties/types/propertiesPanelTypes.ts",
+  "engines/project/useLayerDocumentNexus.ts",
+  "engines/project/helpers/layerDocumentNexusLivePortHelpers.ts",
+  "features/visual/types/propertiesPanelTypes.ts",
 ]) {
   assert.equal(
     existsSync(join(sourceRoot, removedCompatibilityPath)),
@@ -332,7 +343,7 @@ const editorShellLayout = readFileSync(
 for (const featureComponentPath of [
   "@/features/library/components/LibraryPanel",
   "@/features/preview/components/PreviewWorkspacePane",
-  "@/features/properties/components/PropertiesPanel",
+  "@/features/visual/components/VisualPanel",
   "@/features/timeline/components/TimelinePanel",
 ]) {
   assert.match(
@@ -352,9 +363,9 @@ for (const panelEngine of uiEngines) {
   );
 }
 assert.match(
-  readFileSync(editorOwnerModelPath, "utf8"),
-  /export type EditorProjectOwnerPort\s*=\s*LayerDocumentProjectOwnerPort/,
-  "EditorProjectOwnerPort가 canonical Project Owner port를 가리키지 않습니다."
+  readFileSync(editorNexusModelPath, "utf8"),
+  /export type EditorNexusPort\s*=\s*NexusProjectReadPort\s*&[\s\S]*NexusTransactionPort\s*&[\s\S]*NexusReplacePort\s*&[\s\S]*NexusHistoryPort\s*&[\s\S]*NexusSelectionPort/,
+  "EditorNexusPort가 capability별 최소 Nexus port를 조립하지 않습니다."
 );
 assert.match(
   readFileSync(
@@ -402,18 +413,18 @@ const finalEditorWiring =
     ),
     "utf8"
   )}`;
-for (const finalOwnerAdapter of [
-  "createEditorProjectOwnerCommandAdapter",
+for (const finalNexusAdapter of [
+  "createEditorNexusCommandAdapter",
   "createLayerDocumentTimelineCommandAdapter",
   "createLayerDocumentTimelineConsumerAdapter",
-  "createLayerDocumentPropertiesOwnerCommandAdapter",
+  "createLayerDocumentPropertiesNexusCommandAdapter",
   "createLayerDocumentCanvasDraftAdapter",
   "createLayerDocumentLibrarySourceCommandAdapter",
 ]) {
   assert.match(
     finalEditorWiring,
-    new RegExp(finalOwnerAdapter),
-    `Editor wiring에 ${finalOwnerAdapter} 주입이 없습니다.`
+    new RegExp(finalNexusAdapter),
+    `Editor wiring에 ${finalNexusAdapter} 주입이 없습니다.`
   );
 }
 assert.doesNotMatch(

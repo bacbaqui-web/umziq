@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import type { AudioSourceRecord } from "@/models";
-import { createInitialLayerDocumentOwnerOptions } from "@/editor/layerDocumentEditorBootstrap";
+import { createInitialLayerDocumentNexusOptions } from "@/editor/layerDocumentEditorBootstrap";
 import { createLayerDocumentAudioRuntimeStore } from "@/engines/project";
 import { createLayerDocumentProjectLinkedSourcePreparation } from "@/engines/project/adapters/layerDocumentProjectLinkedSourcePreparationAdapter";
 
 const project = structuredClone(
-  createInitialLayerDocumentOwnerOptions().project
+  createInitialLayerDocumentNexusOptions().project
 );
 const file = new File(["reloaded audio"], "voice.wav", {
   type: "audio/wav",
@@ -47,7 +47,14 @@ const preparation = createLayerDocumentProjectLinkedSourcePreparation({
     }),
   },
 });
-const prepared = await preparation.prepare({ project, source, file });
+const prepared = await preparation.prepare({
+  project,
+  source,
+  input: {
+    fileName: file.name,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+  },
+});
 assert.equal(prepared.ok, true);
 if (!prepared.ok) throw new Error(prepared.message);
 assert.equal(prepared.value.resources.length, 0);

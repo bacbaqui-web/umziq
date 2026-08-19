@@ -1776,7 +1776,7 @@ function summarizeCpuProfile(profile, sourceMapInfo) {
   const focusedApplicationContributors = mappedApplicationFrames.filter((item) => {
     const source = item.mappedFrame.original?.source ?? "";
     const name = item.mappedFrame.original?.name ?? "";
-    return /EditorShell|EditorDraftBoundary|useEditorCompositionRoot|useEditorState|useProperties|useCanvas/.test(
+    return /EditorShell|EditorDraftBoundary|useEditorRoot|useEditorState|useProperties|useCanvas/.test(
       `${source}:${name}`
     );
   });

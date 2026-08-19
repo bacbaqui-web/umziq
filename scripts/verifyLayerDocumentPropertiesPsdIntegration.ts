@@ -12,12 +12,12 @@ import {
 } from "./helpers/createLayerDocumentVerificationPorts";
 import {
   createLayerDocumentLibraryController,
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   createLayerDocumentSourceRuntimeResolutionStore,
   LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
-  reduceLayerDocumentProjectOwner,
-  type LayerDocumentProjectOwnerPort,
-  type LayerDocumentProjectOwnerState,
+  reduceLayerDocumentNexus,
+  type LayerDocumentNexusPort,
+  type LayerDocumentNexusState,
 } from "@/engines/project";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
@@ -26,13 +26,13 @@ import {
 import {
   createLayerDocumentPropertiesController,
   type LayerDocumentPropertiesRuntimeState,
-} from "@/engines/properties/controllers/layerDocumentPropertiesController";
+} from "@/engines/visual/controllers/layerDocumentPropertiesController";
 import {
   createLayerDocumentPropertiesCommandPort,
-} from "@/engines/properties/adapters/layerDocumentPropertiesCommandPortAdapter";
+} from "@/engines/visual/adapters/layerDocumentPropertiesCommandPortAdapter";
 import {
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-} from "@/engines/properties/adapters/layerDocumentPanelPreparationAdapter";
+} from "@/engines/visual/adapters/layerDocumentPanelPreparationAdapter";
 import {
   LAYER_DOCUMENT_DRAWING_PREPARATION_PORT,
 } from "@/layer-types";
@@ -165,7 +165,7 @@ function projectFixture(): LayerDocumentProject {
   };
 }
 
-const initialized = createLayerDocumentProjectOwnerState({
+const initialized = createLayerDocumentNexusState({
   project: projectFixture(),
   layerSelection: {
     kind: "layer-document",
@@ -175,20 +175,20 @@ const initialized = createLayerDocumentProjectOwnerState({
 });
 assert.equal(initialized.ok, true);
 if (!initialized.ok) throw new Error(initialized.error.message);
-let ownerState: LayerDocumentProjectOwnerState =
+let nexusState: LayerDocumentNexusState =
   initialized.state;
-let ownerTransitionCount = 0;
-const owner: LayerDocumentProjectOwnerPort = {
+let nexusTransitionCount = 0;
+const nexus: LayerDocumentNexusPort = {
   get state() {
-    return ownerState;
+    return nexusState;
   },
   transition: (action) => {
-    ownerTransitionCount += 1;
-    const result = reduceLayerDocumentProjectOwner(
-      ownerState,
+    nexusTransitionCount += 1;
+    const result = reduceLayerDocumentNexus(
+      nexusState,
       action
     );
-    if (result.ok) ownerState = result.state;
+    if (result.ok) nexusState = result.state;
     return result;
   },
 };
@@ -208,7 +208,7 @@ sourceResolution.setAvailable({ sourceId: "document" });
 sourceResolution.setAvailable({ sourceId: "node" });
 const ports =
   createLayerDocumentVerificationPorts({
-    owner,
+    nexus,
     panelPreparation:
       LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
     sourcePreparation:
@@ -231,7 +231,7 @@ const ports =
       },
     },
     effects: {
-      applyOwnerEffect: (effect) => {
+      applyNexusEffect: (effect) => {
         if (effect.clearDraft) draft = null;
       },
     },
@@ -281,12 +281,12 @@ assert.equal(
   properties.read().displayedTransform?.position.x,
   -370
 );
-const transitionsBeforePreview = ownerTransitionCount;
-const historyBeforePreview = ownerState.undoStack.length;
+const transitionsBeforePreview = nexusTransitionCount;
+const historyBeforePreview = nexusState.undoStack.length;
 properties.focusNumericInput("position.x");
 properties.changeNumericInput("position.x", "-350");
-assert.equal(ownerTransitionCount, transitionsBeforePreview);
-assert.equal(ownerState.undoStack.length, historyBeforePreview);
+assert.equal(nexusTransitionCount, transitionsBeforePreview);
+assert.equal(nexusState.undoStack.length, historyBeforePreview);
 assert.equal(draft?.evaluatedTransform.position.x, 190);
 assert.equal(
   properties.read().displayedTransform?.position.x,
@@ -297,12 +297,12 @@ assert.equal(
   true
 );
 assert.equal(
-  ownerState.undoStack.length,
+  nexusState.undoStack.length,
   historyBeforePreview + 1
 );
 assert.equal(draft, null);
 assert.equal(
-  ownerState.currentProject.payload
+  nexusState.currentProject.payload
     .layerDocumentsById.psd.common.animation
     .positionKeyframes.find((keyframe) =>
       keyframe.frame === 7
@@ -333,16 +333,16 @@ const psdController =
     },
   });
 const selectedLayerBeforeSource =
-  ownerState.session.layerSelection?.layerDocumentId;
+  nexusState.session.layerSelection?.layerDocumentId;
 const activeGroupBeforeSource =
-  ownerState.session.activeGroupLayerDocumentId;
+  nexusState.session.activeGroupLayerDocumentId;
 psdController.selectSource("document");
 assert.equal(
-  ownerState.session.layerSelection?.layerDocumentId,
+  nexusState.session.layerSelection?.layerDocumentId,
   selectedLayerBeforeSource
 );
 assert.equal(
-  ownerState.session.activeGroupLayerDocumentId,
+  nexusState.session.activeGroupLayerDocumentId,
   activeGroupBeforeSource
 );
 
@@ -369,7 +369,7 @@ const importPlan = await psdController.prepareImport({
   durationFrames: 120,
   parsePsd: async () => parsed,
 });
-const historyBeforeImport = ownerState.undoStack.length;
+const historyBeforeImport = nexusState.undoStack.length;
 const firstConfirm = psdController.confirmImport(importPlan);
 assert.equal(firstConfirm.ok, false);
 assert.equal(
@@ -377,7 +377,7 @@ assert.equal(
   "runtime-registration-pending"
 );
 assert.equal(
-  ownerState.undoStack.length,
+  nexusState.undoStack.length,
   historyBeforeImport + 1
 );
 const secondConfirm = psdController.confirmImport(importPlan);
@@ -387,11 +387,11 @@ assert.equal(
   "transferred"
 );
 assert.equal(
-  ownerState.undoStack.length,
+  nexusState.undoStack.length,
   historyBeforeImport + 1
 );
 assert.ok(
-  ownerState.currentProject.payload
+  nexusState.currentProject.payload
     .layerDocumentsById[
       importPlan.prepared.command.selectLayerDocumentId
     ]
@@ -454,31 +454,31 @@ assert.ok(
   "Second PSD import must preserve the first PSD runtime resource"
 );
 const historyAfterSecondImport =
-  ownerState.undoStack.length;
+  nexusState.undoStack.length;
 assert.equal(ports.project.undo().ok, true);
 assert.ok(resources.resolve(firstResourceRequest));
 assert.equal(ports.project.redo().ok, true);
 assert.equal(
-  ownerState.undoStack.length,
+  nexusState.undoStack.length,
   historyAfterSecondImport
 );
 assert.ok(resources.resolve(firstResourceRequest));
 
 const rootSource = readFileSync(
-  "src/editor/useEditorCompositionRoot.ts",
+  "src/editor/useEditorRoot.ts",
   "utf8"
 );
-const ownerSource = readFileSync(
-  "src/editor/useLayerDocumentEditorOwner.ts",
+const nexusSource = readFileSync(
+  "src/editor/useLayerDocumentEditorNexus.ts",
   "utf8"
 );
 assert.match(
   rootSource,
-  /libraryProps:\s*library\.viewProps/
+  /libraryProps:\s*{[\s\S]{0,120}\.\.\.library\.viewProps,[\s\S]{0,120}registerSourceFiles:\s*sourceAccess\.registerFiles/
 );
 assert.match(
   rootSource,
-  /propertiesPanelProps:\s*properties\.viewProps/
+  /visualPanelProps:\s*visual\.viewProps/
 );
 assert.match(
   rootSource,
@@ -489,15 +489,15 @@ assert.match(
   /readPort:\s*panelPorts\.canvasRead/
 );
 assert.doesNotMatch(
-  `${rootSource}\n${ownerSource}`,
+  `${rootSource}\n${nexusSource}`,
   /useEditorState|useProjectSourceSession|useProjectPsdEngine|useTimelineEngine|usePropertiesEngine|useLibraryEngine|useCanvasComposition/
 );
 assert.match(
-  ownerSource,
-  /useState\(\s*createInitialLayerDocumentOwnerOptions\s*\)/
+  nexusSource,
+  /useState\(\s*createInitialLayerDocumentNexusOptions\s*\)/
 );
 assert.doesNotMatch(
-  ownerSource,
+  nexusSource,
   /useEffect\([\s\S]{0,200}migrateProjectSource/
 );
 

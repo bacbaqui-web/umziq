@@ -77,7 +77,7 @@ export function createLayerDocumentProjectLifecycleController(
       "idle";
   let operationToken:
     LayerDocumentProjectOperationToken | null = null;
-  let observedProject = options.owner.state.currentProject;
+  let observedProject = options.nexus.state.currentProject;
   const initialDigest =
     canonicalProjectDigest(observedProject);
   if (!initialDigest.ok) {
@@ -90,12 +90,12 @@ export function createLayerDocumentProjectLifecycleController(
       : currentProjectDigest;
 
   const refreshCurrentDigest = () => {
-    const project = options.owner.state.currentProject;
+    const project = options.nexus.state.currentProject;
     if (project === observedProject) return;
     const digest = canonicalProjectDigest(project);
     if (!digest.ok) {
       throw new Error(
-        `Owner Project became invalid: ${digest.error.message}`
+        `Nexus Project became invalid: ${digest.error.message}`
       );
     }
     observedProject = project;
@@ -169,16 +169,18 @@ export function createLayerDocumentProjectLifecycleController(
         endOperation(replaceOptions.token);
         return candidateDigest;
       }
-      const transition = options.owner.transition({
-        kind: "replace-project",
-        project: replaceOptions.project,
-      });
+      const transition = "replaceProject" in options.nexus
+        ? options.nexus.replaceProject(replaceOptions.project)
+        : options.nexus.transition({
+            kind: "replace-project",
+            project: replaceOptions.project,
+          });
       if (!transition.ok) {
         endOperation(replaceOptions.token);
         return {
           ok: false,
           error: {
-            code: "owner-rejected",
+            code: "nexus-rejected",
             message: transition.error.message,
           },
         };
@@ -204,7 +206,7 @@ export function createLayerDocumentProjectLifecycleController(
       if (transition.effect.recomputeRender) {
         options.runtime.recomputeRender?.();
       }
-      options.runtime.publishOwnerEffect?.(
+      options.runtime.publishNexusEffect?.(
         transition.effect
       );
       observedProject =

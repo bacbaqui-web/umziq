@@ -1,0 +1,11 @@
+export interface WebProjectWritableStream { write(data: Uint8Array): Promise<void>; close(): Promise<void>; abort?(): Promise<void> }
+export interface WebProjectWritableFileHandle { readonly name: string; createWritable(): Promise<WebProjectWritableStream> }
+export interface WebProjectOpenFileHandle extends WebProjectWritableFileHandle { getFile(): Promise<File> }
+export type WebProjectWriteTarget = { readonly kind: "native-file-system"; readonly fileName: string; readonly handle: WebProjectWritableFileHandle } | { readonly kind: "blob-download"; readonly fileName: string };
+export type WebProjectStorageErrorCode = "cancelled" | "permission-denied" | "read-failed" | "write-failed" | "download-failed" | "stale-write";
+export type WebProjectStorageResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: { readonly code: WebProjectStorageErrorCode; readonly message: string } };
+export type WebProjectOpenSelection = { readonly file: File; readonly bytes: Uint8Array; readonly handle: WebProjectOpenFileHandle | null };
+export interface WebProjectOpenPort { readonly capability: "native-file-system" | "file-input"; chooseProjectFile(): Promise<WebProjectStorageResult<WebProjectOpenSelection>> }
+export interface WebProjectWritePort { readonly capability: "native-file-system" | "blob-download"; chooseTarget(name: string): Promise<WebProjectStorageResult<WebProjectWriteTarget>>; write(options: { target: WebProjectWriteTarget; bytes: Uint8Array; shouldCommit: () => boolean }): Promise<WebProjectStorageResult<void>> }
+export interface WebProjectOpenEnvironment { showOpenFilePicker?(options: { multiple: false; types: readonly { description: string; accept: Readonly<Record<string, readonly string[]>> }[] }): Promise<readonly WebProjectOpenFileHandle[]>; chooseFileWithHiddenInput(accept: string): Promise<File | null> }
+export interface WebProjectWriteEnvironment { showSaveFilePicker?(options: { suggestedName: string; types: readonly { description: string; accept: Readonly<Record<string, readonly string[]>> }[] }): Promise<WebProjectWritableFileHandle>; createObjectURL(blob: Blob): string; revokeObjectURL(url: string): void; createDownloadAnchor(): { href: string; download: string; click(): void; remove?(): void } }

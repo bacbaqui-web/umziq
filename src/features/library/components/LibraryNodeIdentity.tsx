@@ -16,9 +16,10 @@ function PsdFileIcon() {
 }
 
 function VisualIcon({ node, hasChildren, expanded }: { readonly node: LibraryNodeViewModel; readonly hasChildren: boolean; readonly expanded: boolean }) {
+  const iconKind = node.entityKind ?? "layer";
   return (
-    <span style={{ color: "#8eb6d8", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", position: "relative", transform: node.entityKind === "layer" ? "translateY(3px)" : "translateY(1px)" }}>
-      <LayerDocumentIcon kind={node.entityKind ?? "layer"} size={14} />
+    <span style={{ color: "#8eb6d8", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", position: "relative", transform: iconKind === "layer" ? "translateY(3px)" : iconKind === "composition" ? "translateY(1px)" : undefined }}>
+      <LayerDocumentIcon kind={iconKind} size={14} />
       {hasChildren && expanded && (
         <span aria-hidden="true" style={{ position: "absolute", left: "50%", top: "calc(100% + 2px)", height: 2, borderLeft: "1px solid rgba(142, 182, 216, 0.82)", transform: "translateX(-0.5px)", pointerEvents: "none" }} />
       )}

@@ -1,4 +1,7 @@
-import type { LayerDocumentProject } from "@/models/layerDocumentModel";
+import {
+  DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS,
+  type LayerDocumentProject,
+} from "@/models/layerDocumentModel";
 import {
   validateLayerDocumentProject,
   type LayerDocumentValidationIssue,
@@ -177,6 +180,10 @@ export function normalizeLayerDocumentProject(
       : null;
     if (metadata && typeof metadata.name === "string") {
       metadata.name = metadata.name.trim();
+    }
+    const payload = isRecord(normalized.payload) ? normalized.payload : null;
+    if (payload && payload.canvasSettings === undefined) {
+      payload.canvasSettings = { ...DEFAULT_LAYER_DOCUMENT_PROJECT_CANVAS_SETTINGS };
     }
   }
   const issues = validateLayerDocumentProject(normalized);

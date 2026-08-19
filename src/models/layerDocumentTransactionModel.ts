@@ -32,6 +32,7 @@ export type LayerDocumentTransactionKind =
   | "update-common"
   | "update-domain";
 
+
 export type LayerDocumentSelectionChange =
   | {
       kind: "select";

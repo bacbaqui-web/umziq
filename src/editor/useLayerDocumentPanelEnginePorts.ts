@@ -6,7 +6,10 @@ import {
 } from "react";
 import {
   layerDocumentGlobalFrameToLocalFrame,
-  type LayerDocument,
+  buildCreateLayerDocumentTransaction,
+  buildDuplicateLayerDocumentTransaction,
+  buildUpdateLayerDocumentDomainTransaction,
+  type DrawingLayerDocument,
   type LayerDocumentProject,
 } from "@/models";
 import {
@@ -30,15 +33,16 @@ import {
   stopLayerDocumentAudioRecording,
   type LayerDocumentAudioProcessingFeature,
   type PreparedLayerDocumentAudioImport,
-  type LayerDocumentProjectOwnerPort,
+  type NexusProjectReadPort,
+  type NexusSelectionPort,
   type LayerDocumentSourceRuntimeResolutionPort,
 } from "@/engines/project";
 import {
   createLayerDocumentPropertiesCommandPort,
-  createLayerDocumentPropertiesOwnerCommandAdapter,
+  createLayerDocumentPropertiesNexusCommandAdapter,
   LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
-} from "@/engines/properties";
-import { createAudioEffectsOwnerPort } from "@/engines/audio-effects";
+} from "@/engines/visual";
+import { createAudioBasicNexusPort, createAudioEffectsNexusPort } from "@/engines/audio";
 import {
   createLayerDocumentLibrarySourceCommandAdapter,
   confirmLayerDocumentAudioPreparedSource,
@@ -48,24 +52,27 @@ import {
   createLayerDocumentTimelineCommandAdapter,
   createLayerDocumentTimelineConsumerAdapter,
   createLayerDocumentTimelineSourceStatusAdapter,
-  type LayerDocumentTimelineOwnerPort,
+  projectLayerDocumentTimelineTimingDraft,
+  type LayerDocumentTimelineNexusPort,
   type LayerDocumentTimelinePlaybackPort,
-  type LayerDocumentTimelineTimingDraft,
+  type LayerDocumentTimelineTimingDraftRuntime,
 } from "@/engines/timeline";
 import {
-  createEditorProjectOwnerCommandAdapter,
-  readEditorOwnerGroupScope,
-} from "@/editor/project-owner";
+  createEditorNexusCommandAdapter,
+  readEditorNexusGroupScope,
+} from "@/editor/nexus";
 import { editRecordedAudioFile } from "@/editor/audioRecordingEditAdapter";
+import type { MicrophoneCapturePort } from "@/gateway";
+import { prepareConvertLayerDocumentToDrawing } from "@/layer-types";
 
-type OwnerCommands = ReturnType<
-  typeof createEditorProjectOwnerCommandAdapter
+type NexusCommands = ReturnType<
+  typeof createEditorNexusCommandAdapter
 >;
 
 export function useLayerDocumentPanelEnginePorts(
   options: {
-    owner: LayerDocumentProjectOwnerPort;
-    ownerCommands: OwnerCommands;
+    nexus: NexusProjectReadPort & NexusSelectionPort;
+    nexusCommands: NexusCommands;
     resources:
       LayerDocumentSourceRuntimeResourcePort;
     audioRuntime: import("@/editor/audio-runtime").EditorAudioRuntimePort;
@@ -76,87 +83,72 @@ export function useLayerDocumentPanelEnginePorts(
       LayerDocumentTimelinePlaybackPort;
     sourceSamplingQuality:
       LayerDocumentSourceSamplingQuality;
-    readTimelineTimingDraft: () => LayerDocumentTimelineTimingDraft | null;
+    timelineTimingDraftRuntime:
+      LayerDocumentTimelineTimingDraftRuntime;
+    microphone: MicrophoneCapturePort;
   }
 ) {
   const {
-    owner,
-    ownerCommands,
+    nexus,
+    nexusCommands,
     resources,
     audioRuntime,
     sourceResolution,
     draftSession,
     frameInput,
     sourceSamplingQuality,
-    readTimelineTimingDraft,
+    timelineTimingDraftRuntime,
+    microphone,
   } = options;
   const readProject = () =>
-    owner.state.currentProject;
-  const readCanvasProject = (): LayerDocumentProject => {
-    const project = readProject();
-    const timingDraft = readTimelineTimingDraft();
-    if (!timingDraft) return project;
-    const layer = project.payload.layerDocumentsById[timingDraft.layerDocumentId];
-    if (!layer) return project;
-    return {
-      ...project,
-      payload: {
-        ...project.payload,
-        layerDocumentsById: {
-          ...project.payload.layerDocumentsById,
-          [layer.layerDocumentId]: {
-            ...layer,
-            common: {
-              ...layer.common,
-              placement: {
-                ...layer.common.placement,
-                startFrame: timingDraft.startFrame,
-                durationFrames: timingDraft.durationFrames,
-                sourceOffsetFrames: timingDraft.sourceOffsetFrames,
-              },
-            },
-          } as LayerDocument,
-        },
-      },
-    };
-  };
+    nexus.state.currentProject;
+  const readCanvasProject = (): LayerDocumentProject =>
+    projectLayerDocumentTimelineTimingDraft(
+      readProject(),
+      timelineTimingDraftRuntime.read()
+    );
   const readSelectedLayerDocumentId = () =>
-    owner.state.session.layerSelection
+    nexus.state.session.layerSelection
       ?.layerDocumentId ?? null;
   const readActiveGroupLayerDocumentId = () =>
-    owner.state.session.activeGroupLayerDocumentId;
+    nexus.state.session.activeGroupLayerDocumentId;
   const readScope = () =>
-    readEditorOwnerGroupScope(owner);
+    readEditorNexusGroupScope(nexus);
   const [ports] = useState(() => {
-    const audioEffects = createAudioEffectsOwnerPort({
+    const audioEffects = createAudioEffectsNexusPort({
       readProject,
       readSelectedLayerDocumentId,
-      commit: ownerCommands.commitLayerTransaction,
+      commit: nexusCommands.commitLayerTransaction,
+    });
+    const audioBasic = createAudioBasicNexusPort({
+      readProject,
+      readSelectedLayerDocumentId,
+      commit: nexusCommands.commitLayerTransaction,
     });
     const timelineCommands =
       createLayerDocumentTimelineCommandAdapter({
-        owner,
+        nexus,
         readProject,
         commit:
-          ownerCommands.commitLayerPreparation,
-        deliver: ownerCommands.deliver,
+          nexusCommands.commitLayerPreparation,
+        deliver: nexusCommands.deliver,
       });
     const timelineConsumer =
       createLayerDocumentTimelineConsumerAdapter({
-        owner,
+        nexus,
         readProject,
         readActiveGroupLayerDocumentId,
         readSelectedLayerDocumentId,
         readScope,
         resolution: sourceResolution,
-        selectLayer: ownerCommands.selectLayer,
+        selectLayer: nexusCommands.selectLayer,
         dispatchIntent:
           timelineCommands.dispatchIntent,
       });
-    const propertiesOwner =
-      createLayerDocumentPropertiesOwnerCommandAdapter<
+    const propertiesNexus =
+      createLayerDocumentPropertiesNexusCommandAdapter<
         ReturnType<
-          OwnerCommands["commitLayerTransaction"]
+          NexusCommands["commitLayerTransaction"]
         >
       >({
         readProject,
@@ -165,21 +157,21 @@ export function useLayerDocumentPanelEnginePorts(
           LAYER_DOCUMENT_PANEL_PREPARATION_PORT,
         readSourceResolutionStatus: (sourceId) =>
           sourceResolution.read(sourceId).status,
-        reject: ownerCommands.reject,
+        reject: nexusCommands.reject,
         commit:
-          ownerCommands.commitLayerTransaction,
+          nexusCommands.commitLayerTransaction,
       });
     const canvasDraft =
       createLayerDocumentCanvasDraftAdapter<
         ReturnType<
-          OwnerCommands["commitLayerTransaction"]
+          NexusCommands["commitLayerTransaction"]
         >
       >({
         readProject: readCanvasProject,
         readActiveGroupLayerDocumentId,
         readSelectedLayerDocumentId,
         readSelectedTransformKeyframe: () =>
-          owner.state.runtimeSession
+          nexus.state.runtimeSession
             .selectedTransformKeyframe,
         readScope,
         draft: draftSession,
@@ -194,11 +186,11 @@ export function useLayerDocumentPanelEnginePorts(
           LAYER_DOCUMENT_PANEL_PREPARATION_PORT
             .draft.preparePointerUp,
         rejectCommit:
-          propertiesOwner.rejectCanvasDraft,
+          propertiesNexus.rejectCanvasDraft,
         commitTransform:
-          propertiesOwner.commitTransformIntent,
+          propertiesNexus.commitTransformIntent,
         commitMotionPath:
-          propertiesOwner.commitPositionKeyframe,
+          propertiesNexus.commitPositionKeyframe,
       });
     const registrationBridge =
       createLayerDocumentPsdRuntimeRegistrationBridge(
@@ -210,24 +202,24 @@ export function useLayerDocumentPanelEnginePorts(
         readSelectedLayerDocumentId,
         readActiveGroupLayerDocumentId,
         readSourceSelection: () =>
-          owner.state.session.sourceSelection,
-        selectLayer: ownerCommands.selectLayer,
-        selectSource: ownerCommands.selectSource,
-        enterGroup: ownerCommands.enterGroup,
+          nexus.state.session.sourceSelection,
+        selectLayer: nexusCommands.selectLayer,
+        selectSource: nexusCommands.selectSource,
+        enterGroup: nexusCommands.enterGroup,
         preparation:
           LAYER_DOCUMENT_SOURCE_PREPARATION_PORT,
         commit:
-          ownerCommands.commitSourcePreparation,
+          nexusCommands.commitSourcePreparation,
         commitLayer:
-          ownerCommands.commitLayerPreparation,
+          nexusCommands.commitLayerPreparation,
         bridge: registrationBridge,
         sourceResolution,
       });
-    const timelineOwner: LayerDocumentTimelineOwnerPort = {
+    const timelineNexus: LayerDocumentTimelineNexusPort = {
       project: { read: readProject },
       scope: {
         read: readScope,
-        enter: ownerCommands.enterGroup,
+        enter: nexusCommands.enterGroup,
       },
       timeline: {
         readViewProps:
@@ -237,7 +229,7 @@ export function useLayerDocumentPanelEnginePorts(
         selectTransformKeyframe:
           timelineCommands.selectTransformKeyframe,
         acknowledgeSourceStatus:
-          ownerCommands.acknowledgeSourceStatus,
+          nexusCommands.acknowledgeSourceStatus,
       },
       runtime: {
         resources,
@@ -246,7 +238,7 @@ export function useLayerDocumentPanelEnginePorts(
     };
     const properties =
       createLayerDocumentPropertiesCommandPort({
-        readDescriptor: propertiesOwner.describe,
+        readDescriptor: propertiesNexus.describe,
         readProject,
         readDraft: draftSession.read,
         readGlobalFrame: () =>
@@ -254,7 +246,7 @@ export function useLayerDocumentPanelEnginePorts(
         previewDraft: canvasDraft.publish,
         commitDraft: canvasDraft.commitTransform,
         cancelDraft: canvasDraft.cancel,
-        dispatchPanel: propertiesOwner.dispatch,
+        dispatchPanel: propertiesNexus.dispatch,
         dispatchTimeline:
           timelineCommands.dispatchIntent,
         selectKeyframe:
@@ -306,9 +298,9 @@ export function useLayerDocumentPanelEnginePorts(
     const canvasCommands =
       createLayerDocumentCanvasCommandPort({
         draft: canvasDraft,
-        enterGroup: ownerCommands.enterGroup,
+        enterGroup: nexusCommands.enterGroup,
         directSelect:
-          ownerCommands.selectLayer,
+          nexusCommands.selectLayer,
         selectMotionPathKeyframe:
           timelineCommands.selectTransformKeyframe,
         playback: frameInput,
@@ -316,7 +308,8 @@ export function useLayerDocumentPanelEnginePorts(
       });
     return {
       audioEffects,
-      timelineOwner,
+      audioBasic,
+      timelineNexus,
       properties,
       libraryController,
       librarySources: sources,
@@ -327,16 +320,16 @@ export function useLayerDocumentPanelEnginePorts(
   const sourceStatus = useMemo(
     () =>
       createLayerDocumentTimelineSourceStatusAdapter({
-        owner: ports.timelineOwner,
+        nexus: ports.timelineNexus,
       }),
-    [ports.timelineOwner]
+    [ports.timelineNexus]
   );
   const allocatedIds = useRef(new Set<string>());
   const nextId = useRef(0);
   const allocateLayerDocumentId =
     useCallback(() => {
       const project =
-        owner.state.currentProject;
+        nexus.state.currentProject;
       while (true) {
         nextId.current += 1;
         const candidate =
@@ -351,13 +344,13 @@ export function useLayerDocumentPanelEnginePorts(
           return candidate;
         }
       }
-    }, [owner]);
+    }, [nexus]);
   const nextPsdLayerOrder =
     useCallback(() => {
       const project =
-        owner.state.currentProject;
+        nexus.state.currentProject;
       const scope =
-        readEditorOwnerGroupScope(owner);
+        readEditorNexusGroupScope(nexus);
       if (!scope.ok) return 0;
       return Object.values(
         project.payload.layerDocumentsById
@@ -366,11 +359,11 @@ export function useLayerDocumentPanelEnginePorts(
           .parentLayerDocumentId ===
         scope.model.activeGroupLayerDocumentId
       ).length;
-    }, [owner]);
+    }, [nexus]);
   const readPsdCacheContext =
     useCallback(() => {
       const project =
-        owner.state.currentProject;
+        nexus.state.currentProject;
       const globalFrame =
         frameInput.read().currentFrame;
       return {
@@ -390,7 +383,7 @@ export function useLayerDocumentPanelEnginePorts(
         quality: sourceSamplingQuality,
       };
     }, [
-      owner,
+      nexus,
       frameInput,
       sourceSamplingQuality,
     ]);
@@ -435,7 +428,8 @@ export function useLayerDocumentPanelEnginePorts(
   );
   return {
     audioEffects: ports.audioEffects,
-    timelineOwner: ports.timelineOwner,
+    audioBasic: ports.audioBasic,
+    timelineNexus: ports.timelineNexus,
     properties: ports.properties,
     libraryController: ports.libraryController,
     libraryAudio: {
@@ -457,8 +451,17 @@ export function useLayerDocumentPanelEnginePorts(
       move: ports.librarySources.moveLibraryLayer,
     },
     audioImport: {
-      prepare: (file: File, relativePathHint?: string | null, order?: number, explicitCutLayerDocumentId?: string | null) =>
-        prepareLayerDocumentAudioImport({
+      prepare: (source: {
+        readonly fileName: string;
+        readonly mimeType: string | null;
+        readonly bytes: Uint8Array;
+      }, relativePathHint?: string | null, order?: number, explicitCutLayerDocumentId?: string | null) => {
+        const file = new File(
+          [source.bytes.slice().buffer],
+          source.fileName,
+          { type: source.mimeType ?? "" }
+        );
+        return prepareLayerDocumentAudioImport({
           project: readProject(),
           file,
           token: `${Date.now()}:${file.name}`,
@@ -467,7 +470,8 @@ export function useLayerDocumentPanelEnginePorts(
           activeGroupLayerDocumentId: readActiveGroupLayerDocumentId(),
           relativePathHint,
           order,
-        }),
+        });
+      },
       confirm: (prepared: Awaited<ReturnType<typeof prepareLayerDocumentAudioImport>>) =>
         confirmLayerDocumentAudioPreparedSource({
           prepared,
@@ -477,7 +481,7 @@ export function useLayerDocumentPanelEnginePorts(
               project,
               command
             ),
-          commit: ownerCommands.commitSourcePreparation,
+          commit: nexusCommands.commitSourcePreparation,
           runtime: audioRuntime.resources,
           sourceResolution,
         }),
@@ -491,6 +495,7 @@ export function useLayerDocumentPanelEnginePorts(
       ) =>
         startLayerDocumentAudioRecording({
           project: readProject(),
+          microphone,
           audioProcessingPreferences,
           audioInputDeviceId,
           selectedLayerDocumentId: readSelectedLayerDocumentId(),
@@ -530,10 +535,99 @@ export function useLayerDocumentPanelEnginePorts(
     readPsdCacheContext,
     canvasCommands: ports.canvasCommands,
     canvasRead,
-    scope: ports.timelineOwner.scope,
+    drawing: {
+      readSelected: () => {
+        const id = readSelectedLayerDocumentId();
+        const layer = id ? readProject().payload.layerDocumentsById[id] : null;
+        return layer?.type === "drawing" ? layer : null;
+      },
+      replaceElements: (layerDocumentId: string, elements: DrawingLayerDocument["data"]["elements"]) =>
+        nexusCommands.commitLayerPreparation(
+          buildUpdateLayerDocumentDomainTransaction(readProject(), {
+            layerDocumentId,
+            update: { kind: "replace-drawing-document", data: { documentVersion: 3, elements } },
+          })
+        ).ok,
+    },
+    libraryLayerCommands: {
+      createDrawing: () => {
+        const scope = readEditorNexusGroupScope(nexus);
+        if (!scope.ok) return false;
+        const id = allocateLayerDocumentId();
+        const siblings = Object.values(readProject().payload.layerDocumentsById)
+          .filter((layer) => layer.common.placement.parentLayerDocumentId === scope.model.activeGroupLayerDocumentId);
+        const layer: DrawingLayerDocument = {
+          layerDocumentId: id,
+          name: `드로잉 레이어 ${siblings.filter((entry) => entry.type === "drawing").length + 1}`,
+          revision: 0,
+          type: "drawing",
+          common: {
+            source: null,
+            transform: {
+              position: { x: scope.model.activeGroup.data.width / 2, y: scope.model.activeGroup.data.height / 2 },
+              transformOffset: { x: 0, y: 0 },
+              anchor: { x: scope.model.activeGroup.data.width / 2, y: scope.model.activeGroup.data.height / 2 },
+              scale: { x: 100, y: 100 },
+              scaleLinked: true,
+              rotation: 0,
+              opacity: 100,
+            },
+            placement: {
+              parentLayerDocumentId: scope.model.activeGroupLayerDocumentId,
+              order: siblings.length,
+              startFrame: 0,
+              durationFrames: scope.model.activeGroup.data.durationFrames,
+              sourceOffsetFrames: 0,
+              visible: true,
+              alias: null,
+            },
+            animation: {
+              positionKeyframes: [], scaleKeyframes: [], rotationKeyframes: [], opacityKeyframes: [],
+              enabledProperties: { position: false, scale: false, rotation: false, opacity: false },
+            },
+            effects: [], modifiers: [],
+          },
+          data: { documentVersion: 3, elements: [] },
+        };
+        return nexusCommands.commitLayerPreparation(
+          buildCreateLayerDocumentTransaction(readProject(), { layer })
+        ).ok;
+      },
+      duplicate: (layerDocumentId: string) =>
+        nexusCommands.commitLayerPreparation(
+          buildDuplicateLayerDocumentTransaction(readProject(), {
+            layerDocumentId,
+            newLayerDocumentId: allocateLayerDocumentId(),
+          })
+        ).ok,
+      convertToDrawing: (layerDocumentId: string) => {
+        const frame = canvasRead.read({ sourceSamplingQuality: "original" });
+        if (!frame.runtime.ok) return false;
+        const input = frame.runtime.model.inputs.find((entry) => entry.layerDocumentId === layerDocumentId);
+        if (!input || input.type !== "psd" || input.content.kind !== "drawable" ||
+          !input.sourceId || !input.sourceResourceCacheKey) return false;
+        const resource = resources.resolve({ sourceId: input.sourceId,
+          sourceResourceCacheKey: input.sourceResourceCacheKey });
+        if (!resource) return false;
+        const { width, height } = input.content.resolution.logicalSize;
+        const surface = document.createElement("canvas");
+        surface.width = width; surface.height = height;
+        const context = surface.getContext("2d", { willReadFrequently: true });
+        if (!context) return false;
+        context.drawImage(resource.resource as CanvasImageSource, 0, 0, width, height);
+        const dataUrl = surface.toDataURL("image/png");
+        return nexusCommands.commitLayerPreparation(
+          prepareConvertLayerDocumentToDrawing(readProject(), layerDocumentId, {
+            documentVersion: 3,
+            elements: [{ kind: "raster", width, height, dataUrl }],
+          })
+        ).ok;
+      },
+    },
+    scope: ports.timelineNexus.scope,
     history: {
-      undo: ownerCommands.undo,
-      redo: ownerCommands.redo,
+      undo: nexusCommands.undo,
+      redo: nexusCommands.redo,
     },
   };
 }

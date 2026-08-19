@@ -18,6 +18,7 @@ export type {
 } from "@/engines/library/models/libraryEngineModel";
 export type {
   LibraryRecordingEditRequest,
+  LibraryRecordingPreview,
 } from "@/engines/library/models/libraryRecordingModel";
 export {
   confirmLayerDocumentPsdPreparedSource,

@@ -2,14 +2,12 @@ import type { ComponentProps } from "react";
 import LibraryPanel
   from "@/features/library/components/LibraryPanel";
 import PreviewWorkspacePane from "@/features/preview/components/PreviewWorkspacePane";
-import PropertiesPanel
-  from "@/features/properties/components/PropertiesPanel";
-import AudioEffectsPanel from "@/features/audio-effects/components/AudioEffectsPanel";
+import VisualPanel
+  from "@/features/visual/components/VisualPanel";
+import AudioPanel from "@/features/audio/components/AudioPanel";
 import TimelinePanel
   from "@/features/timeline/components/TimelinePanel";
-import {
-  ProjectLifecycleBar,
-} from "@/editor/ProjectLifecycleBar";
+import { MenuBar } from "@/engines/menu";
 
 export type EditorShellLayoutProps = {
   leftPanelWidth: number;
@@ -21,11 +19,11 @@ export type EditorShellLayoutProps = {
   onStartBottomResize: (clientX: number, clientY: number) => void;
   libraryProps: ComponentProps<typeof LibraryPanel>;
   previewPaneProps: ComponentProps<typeof PreviewWorkspacePane>;
-  propertiesPanelProps: ComponentProps<typeof PropertiesPanel>;
-  audioEffectsPanelProps: ComponentProps<typeof AudioEffectsPanel>;
+  visualPanelProps: ComponentProps<typeof VisualPanel>;
+  audioPanelProps: ComponentProps<typeof AudioPanel>;
   timelinePanelProps: ComponentProps<typeof TimelinePanel>;
-  projectLifecycleProps:
-    ComponentProps<typeof ProjectLifecycleBar>;
+  menuProps:
+    ComponentProps<typeof MenuBar>;
 };
 
 export function EditorShellLayout({
@@ -38,10 +36,10 @@ export function EditorShellLayout({
   onStartBottomResize,
   libraryProps,
   previewPaneProps,
-  propertiesPanelProps,
-  audioEffectsPanelProps,
+  visualPanelProps,
+  audioPanelProps,
   timelinePanelProps,
-  projectLifecycleProps,
+  menuProps,
 }: EditorShellLayoutProps) {
   return (
     <div
@@ -61,14 +59,14 @@ export function EditorShellLayout({
           gridRow: "1",
           minWidth: 0,
           zIndex:
-            projectLifecycleProps.viewModel
+            menuProps.viewModel
               .projectCreated
               ? 10
               : "auto",
         }}
       >
-        <ProjectLifecycleBar
-          {...projectLifecycleProps}
+        <MenuBar
+          {...menuProps}
         />
       </div>
       <div
@@ -132,11 +130,10 @@ export function EditorShellLayout({
           overflow: "hidden",
         }}
       >
-        <div style={{ height: "100%", display: "grid", gridTemplateRows: audioEffectsPanelProps.readModel.visible ? "minmax(0, 1fr) minmax(150px, 1fr)" : "minmax(0, 1fr)", minHeight: 0 }}>
-          <div style={{ minHeight: 0, overflow: "hidden" }}><PropertiesPanel {...propertiesPanelProps} /></div>
-          {audioEffectsPanelProps.readModel.visible && (
-            <div style={{ minHeight: 0, overflow: "hidden" }}><AudioEffectsPanel {...audioEffectsPanelProps} /></div>
-          )}
+        <div style={{ height: "100%", minHeight: 0 }}>
+          {audioPanelProps.effects.readModel.visible
+            ? <AudioPanel {...audioPanelProps} />
+            : <VisualPanel {...visualPanelProps} />}
         </div>
       </div>
 

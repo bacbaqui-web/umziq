@@ -6,6 +6,8 @@ import {
   buildLayerDocumentTimelineReadModel,
 } from "@/models";
 import { createLayerDocumentLibrarySourceCommandAdapter } from "@/engines/library";
+import { createLibraryNodeCommandController } from "@/engines/library/controllers/createLibraryNodeCommandController";
+import { flattenLibraryNodes } from "@/engines/library/helpers/libraryTreeProjectionHelpers";
 import { buildLayerDocumentLibraryNodes } from "@/engines/library/useLayerDocumentLibraryEngine";
 
 const common = (parent: string | null, order: number, sourceId: string | null): LayerDocumentCommon => ({
@@ -58,6 +60,23 @@ assert.equal(audio[0].playing, true);
 assert.equal(audio[1].selected, true);
 assert.equal(JSON.stringify(project).includes("playing"), false, "audition state must not persist in the project");
 
+const visualSelectionNodes = buildLayerDocumentLibraryNodes(
+  controller,
+  {
+    selectedLayerDocumentId: "pixelLayer",
+    playingLayerDocumentId: null,
+  }
+);
+const selectedVisual = flattenLibraryNodes(
+  visualSelectionNodes
+)
+  .find((node) => node.id === "pixelLayer");
+assert.equal(
+  selectedVisual?.selected,
+  true,
+  "Library projects the shared Layer selection for visual Layers"
+);
+
 const history: Array<{ before: LayerDocumentProject; after: LayerDocumentProject }> = [];
 let selected: string | null = null;
 const commands = createLayerDocumentLibrarySourceCommandAdapter({
@@ -87,6 +106,45 @@ const commands = createLayerDocumentLibrarySourceCommandAdapter({
 
 commands.selectLayerDocument("b");
 assert.equal(selected, "b");
+const selectedAudioNodes = buildLayerDocumentLibraryNodes(
+  controller,
+  {
+    selectedLayerDocumentId: selected,
+    playingLayerDocumentId: null,
+  }
+);
+let nodeSelection = selected;
+const nodeCommands = createLibraryNodeCommandController({
+  controller: {
+    selectLayerDocument: (layerDocumentId: string | null) => {
+      nodeSelection = layerDocumentId;
+    },
+  } as never,
+  audio: {
+    select: (layerDocumentId: string | null) => {
+      nodeSelection = layerDocumentId;
+    },
+  } as never,
+  nodes: selectedAudioNodes,
+  beginRefresh: () => undefined,
+});
+nodeCommands.select("b");
+assert.equal(
+  nodeSelection,
+  null,
+  "re-clicking a selected Library Audio Layer clears shared Layer selection"
+);
+nodeCommands.select("a");
+assert.equal(
+  nodeSelection,
+  "a",
+  "Library Audio selection writes the shared Layer selection"
+);
+assert.equal(
+  history.length,
+  0,
+  "Library selection does not create History"
+);
 commands.toggleAudioMuted("b");
 assert.equal(project.payload.layerDocumentsById.b.type === "audio" && project.payload.layerDocumentsById.b.data.muted, true);
 const mute = history.at(-1)!;

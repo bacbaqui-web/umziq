@@ -10,8 +10,6 @@ function unresolved(
   return {
     sourceId,
     status: "unresolved",
-    file: null,
-    handle: null,
     permission: "unknown",
     error: null,
   };
@@ -35,15 +33,11 @@ LayerDocumentSourceRuntimeResolutionPort {
     status: "resolving" | "available",
     options: {
       readonly sourceId: string;
-      readonly file?: File | null;
-      readonly handle?: FileSystemFileHandle | null;
       readonly permission?: LayerDocumentSourceRuntimePermission;
     }
   ) => publish({
     sourceId: options.sourceId,
     status,
-    file: options.file ?? null,
-    handle: options.handle ?? null,
     permission: options.permission ?? "unknown",
     error: null,
   });

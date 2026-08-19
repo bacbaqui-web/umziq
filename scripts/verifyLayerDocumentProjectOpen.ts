@@ -4,24 +4,25 @@ import {
   type LayerDocumentProject,
 } from "@/models";
 import {
-  createLayerDocumentProjectBrowserOpenAdapter,
   createLayerDocumentProjectLifecycleController,
   createLayerDocumentProjectOpenController,
-  createLayerDocumentProjectOwnerState,
+  createLayerDocumentNexusState,
   createLayerDocumentSourceRuntimeResolutionStore,
   saveLayerDocumentProjectToZiq,
-  reduceLayerDocumentProjectOwner,
+  reduceLayerDocumentNexus,
   type LayerDocumentProjectOpenFileHandle,
-  type LayerDocumentProjectOwnerAction,
-  type LayerDocumentProjectOwnerState,
+  type LayerDocumentNexusAction,
+  type LayerDocumentNexusState,
   type PreparedLayerDocumentLinkedSourceRuntime,
 } from "@/engines/project";
+import { createLayerDocumentProjectBrowserOpenAdapter } from "@/gateway";
 import {
   createLayerDocumentSourceRuntimeResourceCache,
 } from "@/render";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
+import { createWebProjectStorageGateway } from "@/gateway";
 
 function deferred() {
   let resolve!: () => void;
@@ -36,7 +37,7 @@ function projectFixture(
   name: string
 ): LayerDocumentProject {
   const initial =
-    createInitialLayerDocumentOwnerOptions().project;
+    createInitialLayerDocumentNexusOptions().project;
   const project = structuredClone(initial);
   project.metadata.projectId = projectId;
   project.metadata.name = name;
@@ -132,27 +133,27 @@ function openHandle(
   };
 }
 
-function ownerFixture() {
+function nexusFixture() {
   const initialized =
-    createLayerDocumentProjectOwnerState(
-      createInitialLayerDocumentOwnerOptions()
+    createLayerDocumentNexusState(
+      createInitialLayerDocumentNexusOptions()
     );
   assert.equal(initialized.ok, true);
   if (!initialized.ok) {
     throw new Error(initialized.error.message);
   }
   const stateRef: {
-    current: LayerDocumentProjectOwnerState;
+    current: LayerDocumentNexusState;
   } = { current: initialized.state };
-  const owner = {
+  const nexus = {
     get state() {
       return stateRef.current;
     },
     transition: (
-      action: LayerDocumentProjectOwnerAction
+      action: LayerDocumentNexusAction
     ) => {
       const result =
-        reduceLayerDocumentProjectOwner(
+        reduceLayerDocumentNexus(
           stateRef.current,
           action
         );
@@ -162,7 +163,7 @@ function ownerFixture() {
       return result;
     },
   };
-  return { owner };
+  return { nexus };
 }
 
 function preparedRuntime(options: {
@@ -204,7 +205,7 @@ function preparedRuntime(options: {
   };
 }
 
-const fixture = ownerFixture();
+const fixture = nexusFixture();
 const sourceRuntime =
   createLayerDocumentSourceRuntimeResourceCache();
 let oldDisposeCount = 0;
@@ -226,7 +227,7 @@ const sourceResolution =
 sourceResolution.setMissing("old-source");
 const lifecycle =
   createLayerDocumentProjectLifecycleController({
-    owner: fixture.owner,
+    nexus: fixture.nexus,
     runtime: {
       clearDraft: () => {},
       resetLocalUi: () => {},
@@ -276,15 +277,30 @@ let saveTarget: unknown = { oldTarget: true };
 const openController =
   createLayerDocumentProjectOpenController({
     lifecycle,
-    browser: nativeBrowser,
+    storage: createWebProjectStorageGateway({
+      readPort: nativeBrowser,
+    }),
     linkedSourceAccess: {
       find: async ({ locatorId }) =>
         locatorId === "linked:available"
           ? {
               status: "available",
-              file: linkedFile,
-              handle: null,
-              permission: "granted",
+              input: {
+                fileName: linkedFile.name,
+                bytes: new Uint8Array(
+                  await linkedFile.arrayBuffer()
+                ),
+              },
+              commitAvailable: (sourceIds) => {
+                sourceIds.forEach((sourceId) =>
+                  sourceResolution.setAvailable({
+                    sourceId,
+                    file: linkedFile,
+                    handle: null,
+                    permission: "granted",
+                  })
+                );
+              },
             }
           : {
               status: "missing",
@@ -321,18 +337,18 @@ function invalidFile(text: string, name: string) {
   });
 }
 
-const beforeFailureState = fixture.owner.state;
+const beforeFailureState = fixture.nexus.state;
 const beforeFailureProject =
-  fixture.owner.state.currentProject;
+  fixture.nexus.state.currentProject;
 const beforeFailureTarget = saveTarget;
 pickerQueue.push(openHandle(
   invalidFile("{broken", "broken.ziq")
 ));
 const corrupt = await openController.open();
 assert.equal(corrupt.ok, false);
-assert.strictEqual(fixture.owner.state, beforeFailureState);
+assert.strictEqual(fixture.nexus.state, beforeFailureState);
 assert.strictEqual(
-  fixture.owner.state.currentProject,
+  fixture.nexus.state.currentProject,
   beforeFailureProject
 );
 assert.equal(oldDisposeCount, 0);
@@ -352,7 +368,7 @@ pickerQueue.push(openHandle(invalidFile(
 )));
 const future = await openController.open();
 assert.equal(future.ok, false);
-assert.strictEqual(fixture.owner.state, beforeFailureState);
+assert.strictEqual(fixture.nexus.state, beforeFailureState);
 assert.equal(oldDisposeCount, 0);
 assert.strictEqual(saveTarget, beforeFailureTarget);
 
@@ -363,10 +379,10 @@ if (!loaded.ok) throw new Error(loaded.error.message);
 assert.equal(loaded.readiness, "ready-degraded");
 assert.deepEqual(loaded.project, validProject);
 assert.deepEqual(
-  fixture.owner.state.currentProject,
+  fixture.nexus.state.currentProject,
   validProject
 );
-assert.equal(fixture.owner.state.undoStack.length, 0);
+assert.equal(fixture.nexus.state.undoStack.length, 0);
 assert.equal(oldDisposeCount, 1);
 assert.ok(sourceRuntime.resolve({
   sourceId: "available",
@@ -384,10 +400,6 @@ assert.equal(
   sourceResolution.read("available").status,
   "available"
 );
-assert.strictEqual(
-  sourceResolution.read("available").file,
-  linkedFile
-);
 assert.equal(
   sourceResolution.read("missing").status,
   "missing"
@@ -395,11 +407,16 @@ assert.equal(
 assert.deepEqual(loaded.missingSourceIds, ["missing"]);
 assert.equal(preparationCount, 1);
 assert.equal(
-  (saveTarget as { handle?: unknown }).handle,
-  validHandle
+  (saveTarget as { fileName?: unknown }).fileName,
+  validHandle.name
 );
 assert.equal(
-  JSON.stringify(fixture.owner.state)
+  "handle" in (saveTarget as object),
+  false,
+  "Open exposes only an opaque Gateway target"
+);
+assert.equal(
+  JSON.stringify(fixture.nexus.state)
     .includes(validHandle.name),
   false,
   "Open File/Handle must remain outside Project, History, and Session"
@@ -440,13 +457,13 @@ assert.equal(
   "Stale prepared Runtime must be disposed exactly once"
 );
 assert.equal(
-  fixture.owner.state.currentProject
+  fixture.nexus.state.currentProject
     .metadata.projectId,
   "latest-load"
 );
 assert.equal(
-  (saveTarget as { handle?: unknown }).handle,
-  latestHandle
+  (saveTarget as { fileName?: unknown }).fileName,
+  latestHandle.name
 );
 assert.equal(oldDisposeCount, 1);
 

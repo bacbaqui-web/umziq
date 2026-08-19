@@ -7,10 +7,16 @@ import {
 } from "react";
 import {
   createLayerDocumentPsdPreparedSessionController,
+  buildLayerDocumentPsdRefreshSummary,
+  createLayerDocumentPsdImportPreviewPlan,
+  prepareLayerDocumentPsdImportFromSource,
+  prepareLayerDocumentPsdRefreshFromSource,
   type LayerDocumentPsdImportPreviewPlan,
   type LayerDocumentPsdPreparedSessionController,
 } from "@/engines/project";
-import { copyFilesIntoProjectAssets } from "@/editor/projectAssetDirectoryRuntime";
+import type {
+  SourceResourceReference,
+} from "@/gateway/contracts/sourceAccessGateway";
 import type {
   LayerDocumentLibraryEngineOptions,
   LibraryAssetCopyRequestPort,
@@ -81,25 +87,33 @@ export function useLibraryPsdImportController(options: {
 
   const prepareImports = useCallback(
     async (
-      files: readonly { file: File; relativePathHint: string | null }[]
+      sources: readonly SourceResourceReference[]
     ) => {
       const sequence = session.begin();
       setStatus("analyzing");
       setError(null);
       const prepared: LayerDocumentPsdImportPreviewPlan[] = [];
       try {
-        for (const [index, entry] of files.entries()) {
+        for (const [index, source] of sources.entries()) {
+          const read = await engine.sourceAccess.readSource(source);
+          if (!read.ok) throw new Error(read.error.message);
           prepared.push(
-            await engine.controller.prepareImport({
-              file: entry.file,
-              token: `ui:${sequence}:${index}:${entry.file.name}`,
+            createLayerDocumentPsdImportPreviewPlan(
+              await prepareLayerDocumentPsdImportFromSource({
+              source: {
+                fileName: source.fileName,
+                mimeType: source.mimeType,
+                bytes: read.value,
+              },
+              token: `ui:${sequence}:${index}:${source.fileName}`,
               parentLayerDocumentId: engine.parentLayerDocumentId,
               order: engine.nextOrder() + index,
               durationFrames: engine.durationFrames,
               parentWidth: engine.parentWidth,
               parentHeight: engine.parentHeight,
-              relativePathHint: entry.relativePathHint,
-            })
+              relativePathHint: source.relativePathHint,
+              })
+            )
           );
           if (sequence !== session.readSequence()) {
             prepared.forEach(engine.controller.cancelImport);
@@ -113,6 +127,8 @@ export function useLibraryPsdImportController(options: {
           setError("PSD 분석에 실패했습니다.");
         }
         return false;
+      } finally {
+        engine.sourceAccess.release(sources);
       }
       const accepted = session.acceptImports(sequence, prepared);
       if (!accepted.accepted) return false;
@@ -124,19 +140,32 @@ export function useLibraryPsdImportController(options: {
   );
 
   const prepareRefresh = useCallback(
-    async (sourceId: string, file: File) => {
-      const source = engine.controller.sourceForRefresh(sourceId);
-      if (!source) return;
+    async (sourceId: string, resource: SourceResourceReference) => {
+      const documentSource = engine.controller.sourceForRefresh(sourceId);
+      if (!documentSource) return;
       const sequence = session.begin();
       setError(null);
       try {
-        const plan = await engine.controller.prepareRefresh({
-          file,
-          documentSource: source,
+        const read = await engine.sourceAccess.readSource(resource);
+        if (!read.ok) throw new Error(read.error.message);
+        const prepared = await prepareLayerDocumentPsdRefreshFromSource({
+          source: {
+            fileName: resource.fileName,
+            mimeType: resource.mimeType,
+            bytes: read.value,
+          },
+          documentSource,
           existingSources: Object.values(
             engine.controller.readProject().payload.sourceRegistry.sourcesById
           ),
         });
+        const plan = {
+          prepared,
+          summary: buildLayerDocumentPsdRefreshSummary(
+            engine.controller.readProject(),
+            prepared
+          ),
+        };
         const accepted = session.acceptRefresh(sequence, plan);
         if (!accepted.accepted) return;
         let result = engine.controller.confirmRefresh(
@@ -159,7 +188,7 @@ export function useLibraryPsdImportController(options: {
         const active = session.read();
         if (active) session.clearTransferred(active);
         setSummary(
-          buildLibraryPsdRefreshSummary(source.displayName, plan.summary)
+          buildLibraryPsdRefreshSummary(documentSource.displayName, plan.summary)
         );
       } catch {
         if (sequence === session.readSequence()) {
@@ -171,35 +200,41 @@ export function useLibraryPsdImportController(options: {
   );
 
   const onFileInputChange = useCallback(
-    (files: FileList | readonly File[]) => {
-      const selected = Array.from(files);
+    (selected: readonly SourceResourceReference[]) => {
       if (picker?.kind === "refresh") {
-        const file = selected[0];
-        if (file) void prepareRefresh(picker.sourceId, file);
+        const source = selected[0];
+        if (source) void prepareRefresh(picker.sourceId, source);
       } else if (selected.length) {
         void options.assetCopy
           .request("psd", selected.length)
           .then((copy) =>
             copy === null
               ? null
-              : copyFilesIntoProjectAssets({
-                  files: selected,
+              : options.engine.sourceAccess.copyIntoProjectAssets({
+                  sources: selected,
                   kind: "psd",
                   copy,
                 })
           )
-          .then((imports) => imports ? prepareImports(imports) : false)
+          .then((result) => {
+            if (result === null) return false;
+            if (!result.ok) throw new Error(result.error.message);
+            return prepareImports(result.value);
+          })
           .catch((reason: unknown) =>
             setError(
               reason instanceof Error
                 ? reason.message
                 : "PSD 파일 복사에 실패했습니다."
             )
+          )
+          .finally(() =>
+            options.engine.sourceAccess.release(selected)
           );
       }
       setPicker(null);
     },
-    [options.assetCopy, picker, prepareImports, prepareRefresh]
+    [options.assetCopy, options.engine.sourceAccess, picker, prepareImports, prepareRefresh]
   );
 
   const cancel = useCallback(() => {
@@ -329,12 +364,12 @@ export function useLibraryPsdImportController(options: {
   }, []);
   const dismissSummary = useCallback(() => setSummary(null), []);
 
-  const importFiles = useCallback(
-    async (files: readonly File[]) => {
+  const importSources = useCallback(
+    async (sources: readonly SourceResourceReference[]) => {
       pendingExternalImportRef.current?.(false);
       pendingExternalImportRef.current = null;
       const prepared = await prepareImports(
-        files.map((file) => ({ file, relativePathHint: null }))
+        sources
       );
       if (!prepared) return false;
       return new Promise<boolean>((resolve) => {
@@ -362,6 +397,6 @@ export function useLibraryPsdImportController(options: {
     rename,
     remove,
     dismissSummary,
-    importFiles,
+    importSources,
   };
 }

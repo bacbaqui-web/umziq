@@ -5790,9 +5790,9 @@
             "timeMs": 0.887
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 3,
             "timeMs": 0.737
           },
@@ -5813,9 +5813,9 @@
             "timeMs": 7.407
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 38,
             "timeMs": 7.101
           }
@@ -5848,9 +5848,9 @@
               "name": "useEditorState"
             },
             {
-              "source": "../../src/editor/useEditorCompositionRoot.ts",
+              "source": "../../src/editor/useEditorRoot.ts",
               "line": 37,
-              "name": "useEditorCompositionRoot"
+              "name": "useEditorRoot"
             },
             {
               "source": "../../src/editor/EditorShell.tsx",
@@ -5925,9 +5925,9 @@
               "name": "useTimelineEngine"
             },
             {
-              "source": "../../src/editor/useEditorCompositionRoot.ts",
+              "source": "../../src/editor/useEditorRoot.ts",
               "line": 37,
-              "name": "useEditorCompositionRoot"
+              "name": "useEditorRoot"
             },
             {
               "source": "../../src/editor/EditorShell.tsx",
@@ -6010,9 +6010,9 @@
             "timeMs": 2.117
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 10,
             "timeMs": 1.373
           }
@@ -6026,9 +6026,9 @@
             "timeMs": 44.54
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 290,
             "timeMs": 43.748
           }
@@ -6169,9 +6169,9 @@
             "timeMs": 9.853
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 63,
             "timeMs": 9.625
           }
@@ -6246,9 +6246,9 @@
               "name": "useEditorState"
             },
             {
-              "source": "../../src/editor/useEditorCompositionRoot.ts",
+              "source": "../../src/editor/useEditorRoot.ts",
               "line": 37,
-              "name": "useEditorCompositionRoot"
+              "name": "useEditorRoot"
             },
             {
               "source": "../../src/editor/EditorShell.tsx",
@@ -6319,9 +6319,9 @@
         "timeMs": 2.762
       },
       {
-        "source": "../../src/editor/useEditorCompositionRoot.ts",
+        "source": "../../src/editor/useEditorRoot.ts",
         "line": 37,
-        "name": "useEditorCompositionRoot",
+        "name": "useEditorRoot",
         "observedRuns": 2,
         "samples": 13,
         "timeMs": 2.11
@@ -6353,9 +6353,9 @@
         "timeMs": 61.8
       },
       {
-        "source": "../../src/editor/useEditorCompositionRoot.ts",
+        "source": "../../src/editor/useEditorRoot.ts",
         "line": 37,
-        "name": "useEditorCompositionRoot",
+        "name": "useEditorRoot",
         "observedRuns": 3,
         "samples": 391,
         "timeMs": 60.474
@@ -9970,9 +9970,9 @@
             "timeMs": 30.432
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 196,
             "timeMs": 29.831
           }
@@ -10049,9 +10049,9 @@
             "timeMs": 2.894
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 13,
             "timeMs": 2.108
           },
@@ -10079,9 +10079,9 @@
             "timeMs": 33.285
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 213,
             "timeMs": 32.477
           }
@@ -10151,9 +10151,9 @@
         },
         "applicationSelfContributors": [
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 14,
             "timeMs": 2.262
           },
@@ -10188,9 +10188,9 @@
             "timeMs": 28.669
           },
           {
-            "source": "../../src/editor/useEditorCompositionRoot.ts",
+            "source": "../../src/editor/useEditorRoot.ts",
             "line": 37,
-            "name": "useEditorCompositionRoot",
+            "name": "useEditorRoot",
             "samples": 192,
             "timeMs": 27.65
           }
@@ -10256,9 +10256,9 @@
         "timeMs": 4.496
       },
       {
-        "source": "../../src/editor/useEditorCompositionRoot.ts",
+        "source": "../../src/editor/useEditorRoot.ts",
         "line": 37,
-        "name": "useEditorCompositionRoot",
+        "name": "useEditorRoot",
         "observedRuns": 2,
         "samples": 27,
         "timeMs": 4.37
@@ -10290,9 +10290,9 @@
         "timeMs": 92.386
       },
       {
-        "source": "../../src/editor/useEditorCompositionRoot.ts",
+        "source": "../../src/editor/useEditorRoot.ts",
         "line": 37,
-        "name": "useEditorCompositionRoot",
+        "name": "useEditorRoot",
         "observedRuns": 3,
         "samples": 601,
         "timeMs": 89.958
@@ -10322,9 +10322,9 @@
           "whMinusPositionTimeMs": null
         },
         {
-          "source": "../../src/editor/useEditorCompositionRoot.ts",
+          "source": "../../src/editor/useEditorRoot.ts",
           "line": 37,
-          "name": "useEditorCompositionRoot",
+          "name": "useEditorRoot",
           "whSamples": 27,
           "positionSamples": 13,
           "whTimeMs": 4.37,
@@ -10404,9 +10404,9 @@
           "whMinusPositionTimeMs": 30.586
         },
         {
-          "source": "../../src/editor/useEditorCompositionRoot.ts",
+          "source": "../../src/editor/useEditorRoot.ts",
           "line": 37,
-          "name": "useEditorCompositionRoot",
+          "name": "useEditorRoot",
           "whSamples": 601,
           "positionSamples": 391,
           "whTimeMs": 89.958,
@@ -13876,7 +13876,7 @@
                 "totalTimeMs": 5.381
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 36,
                 "name": "usePropertiesPropertyViewController",
                 "selfSamples": 6,
@@ -13885,7 +13885,7 @@
                 "totalTimeMs": 2.434
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 45,
                 "name": "usePropertiesEngine",
                 "selfSamples": 3,
@@ -13993,7 +13993,7 @@
                 "totalTimeMs": 0.31
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
                 "line": 33,
                 "name": "usePropertiesNumericInputController",
                 "selfSamples": 2,
@@ -14241,7 +14241,7 @@
                 "totalTimeMs": 3.671
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 36,
                 "name": "usePropertiesPropertyViewController",
                 "selfSamples": 2,
@@ -14250,7 +14250,7 @@
                 "totalTimeMs": 1.926
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 45,
                 "name": "usePropertiesEngine",
                 "selfSamples": 1,
@@ -14277,7 +14277,7 @@
                 "totalTimeMs": 2.046
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 72,
                 "name": "hasKeyframeAtFrame",
                 "selfSamples": 0,
@@ -14286,7 +14286,7 @@
                 "totalTimeMs": 0.155
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 97,
                 "name": "property",
                 "selfSamples": 0,
@@ -14331,7 +14331,7 @@
                 "totalTimeMs": 0.174
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
                 "line": 33,
                 "name": "usePropertiesNumericInputController",
                 "selfSamples": 1,
@@ -14606,7 +14606,7 @@
                 "totalTimeMs": 0.168
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 36,
                 "name": "usePropertiesPropertyViewController",
                 "selfSamples": 1,
@@ -14615,7 +14615,7 @@
                 "totalTimeMs": 1.333
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 45,
                 "name": "usePropertiesEngine",
                 "selfSamples": 1,
@@ -14696,7 +14696,7 @@
                 "totalTimeMs": 0.307
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesDraftController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesDraftController.ts",
                 "line": 14,
                 "name": "usePropertiesDraftController",
                 "selfSamples": 1,
@@ -14732,7 +14732,7 @@
                 "totalTimeMs": 0.157
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
                 "line": 33,
                 "name": "usePropertiesNumericInputController",
                 "selfSamples": 0,
@@ -14828,7 +14828,7 @@
             "totalTimeMs": 9.261
           },
           {
-            "source": "../../src/engines/properties/usePropertiesEngine.ts",
+            "source": "../../src/engines/visual/usePropertiesEngine.ts",
             "line": 45,
             "name": "usePropertiesEngine",
             "observedRuns": 3,
@@ -14868,7 +14868,7 @@
             "totalTimeMs": 5.754
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
             "line": 36,
             "name": "usePropertiesPropertyViewController",
             "observedRuns": 3,
@@ -14978,7 +14978,7 @@
             "totalTimeMs": 0.786
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
             "line": 33,
             "name": "usePropertiesNumericInputController",
             "observedRuns": 3,
@@ -15148,7 +15148,7 @@
             "totalTimeMs": 0.174
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesDraftController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesDraftController.ts",
             "line": 14,
             "name": "usePropertiesDraftController",
             "observedRuns": 1,
@@ -15158,7 +15158,7 @@
             "totalTimeMs": 0.159
           },
           {
-            "source": "../../src/engines/properties/usePropertiesEngine.ts",
+            "source": "../../src/engines/visual/usePropertiesEngine.ts",
             "line": 72,
             "name": "hasKeyframeAtFrame",
             "observedRuns": 1,
@@ -15168,7 +15168,7 @@
             "totalTimeMs": 0.155
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
             "line": 97,
             "name": "property",
             "observedRuns": 1,
@@ -15253,7 +15253,7 @@
                 "totalTimeMs": 1.813
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesDraftController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesDraftController.ts",
                 "line": 14,
                 "name": "usePropertiesDraftController",
                 "selfSamples": 2,
@@ -15262,7 +15262,7 @@
                 "totalTimeMs": 0.818
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 45,
                 "name": "usePropertiesEngine",
                 "selfSamples": 5,
@@ -15343,7 +15343,7 @@
                 "totalTimeMs": 6.272
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesModifierInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesModifierInputController.ts",
                 "line": 23,
                 "name": "usePropertiesModifierInputController",
                 "selfSamples": 0,
@@ -15361,7 +15361,7 @@
                 "totalTimeMs": 0.283
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 36,
                 "name": "usePropertiesPropertyViewController",
                 "selfSamples": 7,
@@ -15388,7 +15388,7 @@
                 "totalTimeMs": 0.127
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
                 "line": 33,
                 "name": "usePropertiesNumericInputController",
                 "selfSamples": 1,
@@ -15505,7 +15505,7 @@
                 "totalTimeMs": 0.139
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesKeyframeController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesKeyframeController.ts",
                 "line": 4,
                 "name": "usePropertiesKeyframeController",
                 "selfSamples": 1,
@@ -15645,7 +15645,7 @@
                 "totalTimeMs": 5.123
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 36,
                 "name": "usePropertiesPropertyViewController",
                 "selfSamples": 4,
@@ -15654,7 +15654,7 @@
                 "totalTimeMs": 1.802
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 45,
                 "name": "usePropertiesEngine",
                 "selfSamples": 3,
@@ -15663,7 +15663,7 @@
                 "totalTimeMs": 2.953
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesModifierInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesModifierInputController.ts",
                 "line": 23,
                 "name": "usePropertiesModifierInputController",
                 "selfSamples": 0,
@@ -15708,7 +15708,7 @@
                 "totalTimeMs": 0.438
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesDraftController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesDraftController.ts",
                 "line": 14,
                 "name": "usePropertiesDraftController",
                 "selfSamples": 1,
@@ -15735,7 +15735,7 @@
                 "totalTimeMs": 0.134
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
                 "line": 33,
                 "name": "usePropertiesNumericInputController",
                 "selfSamples": 0,
@@ -15753,7 +15753,7 @@
                 "totalTimeMs": 0.134
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 72,
                 "name": "hasKeyframeAtFrame",
                 "selfSamples": 1,
@@ -15762,7 +15762,7 @@
                 "totalTimeMs": 0.19
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 97,
                 "name": "property",
                 "selfSamples": 1,
@@ -15925,7 +15925,7 @@
                 "totalTimeMs": 2.056
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 45,
                 "name": "usePropertiesEngine",
                 "selfSamples": 4,
@@ -16060,7 +16060,7 @@
                 "totalTimeMs": 0.501
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 91,
                 "name": "inputId",
                 "selfSamples": 1,
@@ -16069,7 +16069,7 @@
                 "totalTimeMs": 0.127
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 36,
                 "name": "usePropertiesPropertyViewController",
                 "selfSamples": 7,
@@ -16087,7 +16087,7 @@
                 "totalTimeMs": 0.582
               },
               {
-                "source": "../../src/engines/properties/usePropertiesEngine.ts",
+                "source": "../../src/engines/visual/usePropertiesEngine.ts",
                 "line": 72,
                 "name": "hasKeyframeAtFrame",
                 "selfSamples": 1,
@@ -16096,7 +16096,7 @@
                 "totalTimeMs": 0.132
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
                 "line": 97,
                 "name": "property",
                 "selfSamples": 0,
@@ -16114,7 +16114,7 @@
                 "totalTimeMs": 0.281
               },
               {
-                "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+                "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
                 "line": 33,
                 "name": "usePropertiesNumericInputController",
                 "selfSamples": 1,
@@ -16234,7 +16234,7 @@
             "totalTimeMs": 11.47
           },
           {
-            "source": "../../src/engines/properties/usePropertiesEngine.ts",
+            "source": "../../src/engines/visual/usePropertiesEngine.ts",
             "line": 45,
             "name": "usePropertiesEngine",
             "observedRuns": 3,
@@ -16254,7 +16254,7 @@
             "totalTimeMs": 7.691
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
             "line": 36,
             "name": "usePropertiesPropertyViewController",
             "observedRuns": 3,
@@ -16334,7 +16334,7 @@
             "totalTimeMs": 1.083
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesDraftController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesDraftController.ts",
             "line": 14,
             "name": "usePropertiesDraftController",
             "observedRuns": 2,
@@ -16384,7 +16384,7 @@
             "totalTimeMs": 0.694
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesNumericInputController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesNumericInputController.ts",
             "line": 33,
             "name": "usePropertiesNumericInputController",
             "observedRuns": 3,
@@ -16414,7 +16414,7 @@
             "totalTimeMs": 0.555
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
             "line": 97,
             "name": "property",
             "observedRuns": 2,
@@ -16444,7 +16444,7 @@
             "totalTimeMs": 0.389
           },
           {
-            "source": "../../src/engines/properties/usePropertiesEngine.ts",
+            "source": "../../src/engines/visual/usePropertiesEngine.ts",
             "line": 72,
             "name": "hasKeyframeAtFrame",
             "observedRuns": 2,
@@ -16484,7 +16484,7 @@
             "totalTimeMs": 0.31
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesModifierInputController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesModifierInputController.ts",
             "line": 23,
             "name": "usePropertiesModifierInputController",
             "observedRuns": 2,
@@ -16534,7 +16534,7 @@
             "totalTimeMs": 0.253
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesKeyframeController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesKeyframeController.ts",
             "line": 4,
             "name": "usePropertiesKeyframeController",
             "observedRuns": 1,
@@ -16624,7 +16624,7 @@
             "totalTimeMs": 0.127
           },
           {
-            "source": "../../src/engines/properties/controllers/usePropertiesPropertyViewController.ts",
+            "source": "../../src/engines/visual/controllers/usePropertiesPropertyViewController.ts",
             "line": 91,
             "name": "inputId",
             "observedRuns": 1,
@@ -16677,7 +16677,7 @@
               }
             }
           },
-          "useEditorCompositionRoot": {
+          "useEditorRoot": {
             "self": {
               "before": {
                 "observed": true,
@@ -16842,7 +16842,7 @@
               }
             }
           },
-          "useEditorCompositionRoot": {
+          "useEditorRoot": {
             "self": {
               "before": {
                 "observed": true,

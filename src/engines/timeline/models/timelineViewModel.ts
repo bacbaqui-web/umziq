@@ -12,6 +12,7 @@ export type TimelineViewItem = {
   id: string;
   name: string;
   entityKind: "layer" | "composition";
+  iconKind: "layer" | "composition" | "drawing";
   mediaKind: "visual" | "audio";
   audioProvenance: "imported" | "recorded" | null;
   muted: boolean;

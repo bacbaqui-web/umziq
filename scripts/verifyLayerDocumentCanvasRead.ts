@@ -793,7 +793,7 @@ assert.match(
 );
 assert.doesNotMatch(
   readFileSync(
-    "src/editor/useEditorCompositionRoot.ts",
+    "src/editor/useEditorRoot.ts",
     "utf8"
   ),
   /buildLayerDocumentCanvasReadModel|createLayerDocumentCanvasCommands/

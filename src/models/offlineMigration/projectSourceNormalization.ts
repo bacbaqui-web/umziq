@@ -186,7 +186,7 @@ export function normalizeLegacyProjectSources(
   const timelineItemsByGroupId = Object.fromEntries(
     Object.entries(input.timelineItemsByCompId).map(([groupId, items]) => {
       if (!compositionIds.has(groupId)) {
-        throw new Error(`Legacy Timeline owner is not a Composition: ${groupId}`);
+        throw new Error(`Legacy Timeline nexus is not a Composition: ${groupId}`);
       }
       return [
         groupId,

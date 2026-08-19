@@ -21,15 +21,20 @@
 - 새 Layer Type은 같은 Project와 Layer Document 구조를 확장한다.
 - 구체 구조는 `docs/architecture/10_project_architecture.md`를 따른다.
 
-## 3. Project Owner
+## 3. Nexus
 
-- Project Owner는 Project를 소유하고 변경하는 유일한 경계다.
+- Nexus는 움직 내부 Project 세계의 본진이자 canonical Project를 소유하고 변경하는
+  유일한 authority다.
 - UI와 Engine은 Project object를 직접 mutation하지 않는다.
 - 모든 저장 변경은 공개 command와 검증된 transaction을 통한다.
 - 여러 영역을 바꾸는 작업도 하나의 Project transaction으로 조합한다.
 - 사용자 action 한 번은 History 한 건만 만든다.
-- Project Owner는 Panel Runtime, playback, Draft, viewport와 Cache를
+- Nexus는 Panel Runtime, playback, Draft, viewport와 Cache를
   소유하지 않는다.
+- Nexus는 Gateway, Platform Adapter, Browser/OS API, File/Handle과 제품 workflow를
+  import하거나 호출하지 않는다.
+- Engine에는 Nexus 전체가 아니라 필요한 Read, Transaction, Replace, History와
+  Selection Port만 공개한다.
 
 ## 4. Panel과 Engine
 
@@ -43,15 +48,35 @@
 - 독립 Panel이 없는 기능은 순수 모듈이나 기존 책임 안에 둔다.
 - 새로운 Engine은 전체 구조를 더 단순하게 만들 때만 추가한다.
 
-## 5. Composition Root
+## 5. Editor Root
 
-- Composition Root는 Owner, Runtime과 Panel Engine을 조립한다.
+- Editor Root는 Nexus, 현재 플랫폼 Gateway, Runtime과 Panel Engine을 각각 한 번
+  생성하고 조립한다.
 - 공유값은 원래 소유자를 구독해 필요한 Panel에 전달한다.
-- Composition Root는 공유값의 사본이나 두 번째 Runtime을 만들지 않는다.
-- Composition Root에서 Project 계산, 제품 mutation과 기능 구현을 하지
+- Editor Root는 공유값의 사본, 두 번째 Nexus나 Runtime을 만들지 않는다.
+- Editor Root에서 Project 계산, 제품 mutation, workflow와 기능 구현을 하지
   않는다.
+- Gateway 전체를 Engine에 Service Locator로 전달하지 않고 Controller가 필요한 최소
+  capability Port만 주입한다.
 
-## 6. Runtime
+## 6. Gateway
+
+- Gateway는 움직 밖의 저장소, 파일, 장치, 권한, clipboard와 OS capability로 나가는 공식
+  Architecture 경계다.
+- Gateway는 하나의 거대한 런타임 객체가 아니라 capability별 작은 Port와 Platform
+  Adapter의 집합이다.
+- Gateway 외부 capability 계약과 플랫폼별 구현은 Gateway public boundary에서 찾을 수
+  있어야 한다.
+- Platform Adapter는 Project mutation, 제품 workflow, History와 UI state를 소유하거나
+  변경하지 않는다.
+- Nexus와 Gateway는 서로 import하거나 호출하지 않는다. 양쪽이 필요한 사용자 흐름은
+  Engine Controller가 각각의 최소 Port를 사용해 소유한다.
+- Platform Adapter는 Editor Root에서 현재 플랫폼에 맞게 한 번 조립한다.
+- 실제 제품 기능이 없는 미래 capability와 플랫폼 Adapter를 미리 만들지 않는다.
+- Port는 구조상의 실행 계층이 아니라 Controller와 Nexus, Gateway 또는 Runtime 사이의
+  interface다.
+
+## 7. Runtime
 
 - Runtime은 저장되지 않는 현재 작업 상태다.
 - Draft, Cache, decoded resource, Canvas, playback, Selection과 UI state는
@@ -63,7 +88,7 @@
 - PointerUp 또는 명시적 확정에서만 Project를 commit한다.
 - Cancel은 Draft를 폐기하고 committed Project로 돌아간다.
 
-## 7. History
+## 8. History
 
 - Undo/Redo는 Project Data만 복원한다.
 - Selection, active Group, current frame, playback, Draft, Cache와 Panel
@@ -73,7 +98,10 @@
 - 현재 frame은 Undo/Redo 때문에 과거 편집 시점으로 이동하지 않는다.
 - 세부 계약은 `docs/architecture/13_history_draft_architecture.md`를 따른다.
 
-## 8. Architecture 원칙
+## 9. Architecture 원칙
+
+- 작업 전에 `docs/architecture/README.md`의 읽기 순서와 작업별 라우팅 표로
+  관련 canonical 문서를 선택한다.
 
 - Project: `docs/architecture/10_project_architecture.md`
 - Render: `docs/architecture/11_render_architecture.md`
@@ -84,10 +112,12 @@
 - Animation: `docs/architecture/16_animation_architecture.md`
 - Persistence와 Lifecycle:
   `docs/architecture/17_persistence_lifecycle_architecture.md`
+- Platform Gateway:
+  `docs/architecture/18_platform_gateway_architecture.md`
 - Architecture와 현재 코드가 다르면 차이는 `docs/98_sprint_plan.md`에
   기록하고 단계적으로 해소한다.
 
-## 9. 문서 체계
+## 10. 문서 체계
 
 - AI 코딩 에이전트의 공통 작업 태도와 절차는 저장소 루트의
   `AGENTS.md`를 따른다. 이 파일은 문서 체계상 00번 역할을 한다.
@@ -96,7 +126,10 @@
 - `docs/01_rule.md`는 변하지 않는 제품 철학과 운영 원칙만 담는다.
 - `docs/architecture/10~19_*.md`는 계속 갱신되는 영구 설계 법전이다.
 - `docs/20_src_map.md`는 현재 파일 위치와 책임을 기록한다.
-- `docs/completed/40~96_*.md`는 완료된 기능과 Sprint의 역사 기록이다.
+- `docs/completed/001_*.md`부터 세 자리 연속 번호로 완료된 기능과 Sprint의 역사
+  기록을 쌓는다.
+  `docs/completed/README.md`를 색인으로 사용하며 현재 설계는 원문이 아니라
+  Architecture를 따른다.
 - `docs/97_next_sprint.md`는 다음 Sprint 초안이다.
 - `docs/98_sprint_plan.md`는 현재 Sprint 하나의 계획과 상태만 담는다.
 - `docs/99_recent_task.md`는 작업을 멈춘 시점의 가장 최근 Task 한 건만
@@ -105,7 +138,7 @@
 - Architecture를 Sprint 문서에 반복하지 않고 필요한 문서를 참조한다.
 - 파일을 이동하거나 이름을 바꾸면 모든 문서 참조도 함께 갱신한다.
 
-## 10. 구현 원칙
+## 11. 구현 원칙
 
 - 하나의 파일은 하나의 주된 책임을 갖는다.
 - 기본 의존 방향은 `Engine → Composer → Controller → Helper`다.
@@ -129,16 +162,19 @@
   Composer로 분리한다.
 - Adapter는 서로 다른 공개 계약 사이의 변환만 담당하며 새로운 상태 원본이나
   제품 정책을 만들지 않는다.
+- Engine과 Controller는 외부 capability를 위한 `window`, `document`, `navigator`와
+  File System Access API를 직접 사용하지 않는다. DOM presentation과 Audio/Render 같은
+  Platform Runtime API는 명시적인 UI/Runtime Adapter 경계에서 사용할 수 있다.
 - 관련 없는 파일과 제품 동작을 함께 변경하지 않는다.
 - 추측성 패치, 임시 예외, 강제 refresh와 중복 Runtime을 만들지 않는다.
 - 구조 변경 전 현재 데이터 흐름과 책임을 실제 코드로 확인한다.
 - 새 파일이나 책임 변경은 `docs/20_src_map.md`에 반영한다.
 - 현재 Sprint의 범위와 금지 사항은 `docs/98_sprint_plan.md`를 따른다.
 
-## 11. 프로젝트 작업과 검증
+## 12. 프로젝트 작업과 검증
 
 - 관련 영역의 상세 계약은 `docs/architecture/`의 canonical 문서를 먼저
-  확인한다.
+  확인한다. 시작 문서는 `docs/architecture/README.md`다.
 - 현재 파일 위치와 책임은 `docs/20_src_map.md`를 확인한다.
 - 현재 작업의 범위, 금지 사항과 완료 조건은 `docs/98_sprint_plan.md`를
   따른다.

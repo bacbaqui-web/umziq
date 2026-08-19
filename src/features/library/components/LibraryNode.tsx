@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LibraryNodeProps } from "@/engines/library";
 import LibraryNodeActions from "@/features/library/components/LibraryNodeActions";
 import LibraryNodeIdentity from "@/features/library/components/LibraryNodeIdentity";
 import LibraryNodeRow from "@/features/library/components/LibraryNodeRow";
+import LibraryLayerContextMenu, { type LibraryLayerContextMenuPoint } from "@/features/library/components/LibraryLayerContextMenu";
 import {
   LibraryDropIndicator,
   LibraryTreeBranchGuide,
@@ -27,11 +28,14 @@ export default function LibraryNode({
   draggedMainCompId,
   dropTarget,
   onSelectNode,
+  onSelectNodeForContextMenu,
   onToggleNodeVisibility,
   onToggleNodeLock,
   onToggleNodePlayback,
   onRenameNode,
   onDeleteNode,
+  onDuplicateNode,
+  onConvertNodeToDrawing,
   onRefreshMainComp,
   onDeleteMainComp,
   onBeginMainDrag,
@@ -49,6 +53,21 @@ export default function LibraryNode({
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(node.name);
+  const [contextMenu, setContextMenu] = useState<LibraryLayerContextMenuPoint | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [contextMenu]);
   const isRoot = node.depth === 0;
   const isMain = node.type === "main";
   const usesOuterProjectConnector = projectRootChild && !isMain;
@@ -95,6 +114,16 @@ export default function LibraryNode({
 
   return (
     <div
+      onContextMenu={(event) => {
+        if (node.type !== "sub") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onSelectNodeForContextMenu(node.id);
+        setContextMenu({
+          x: Math.max(6, Math.min(event.clientX, window.innerWidth - 182)),
+          y: Math.max(6, Math.min(event.clientY, window.innerHeight - (node.entityKind === "layer" ? 154 : 126))),
+        });
+      }}
       draggable={node.canReorder}
       onDragStart={(event) => {
         event.stopPropagation();
@@ -147,6 +176,18 @@ export default function LibraryNode({
       }}
     >
       {showDropBefore && <LibraryDropIndicator edge="before" />}
+
+      {contextMenu && (
+        <LibraryLayerContextMenu
+          name={node.name}
+          point={contextMenu}
+          canConvertToDrawing={node.contentKind === "visual" && node.entityKind === "layer"}
+          rename={() => { setContextMenu(null); setNameDraft(node.name); setEditing(true); }}
+          duplicate={() => { setContextMenu(null); onDuplicateNode(node.id); }}
+          remove={() => { setContextMenu(null); onDeleteNode(node.id); }}
+          convertToDrawing={() => { setContextMenu(null); onConvertNodeToDrawing(node.id); }}
+        />
+      )}
 
       <LibraryTreeBranchGuide
         isMain={isMain}
@@ -234,7 +275,7 @@ export default function LibraryNode({
         )}
 
         <button
-          onClick={() => onSelectNode(node.id)}
+          onClick={() => { setContextMenu(null); onSelectNode(node.id); }}
           onKeyDown={(event) => {
             if (!event.altKey || !node.canReorder) return;
             if (event.key === "ArrowUp" || event.key === "ArrowDown") {
@@ -330,11 +371,14 @@ export default function LibraryNode({
               draggedMainCompId={draggedMainCompId}
               dropTarget={dropTarget}
               onSelectNode={onSelectNode}
+              onSelectNodeForContextMenu={onSelectNodeForContextMenu}
               onToggleNodeVisibility={onToggleNodeVisibility}
               onToggleNodeLock={onToggleNodeLock}
               onToggleNodePlayback={onToggleNodePlayback}
               onRenameNode={onRenameNode}
               onDeleteNode={onDeleteNode}
+              onDuplicateNode={onDuplicateNode}
+              onConvertNodeToDrawing={onConvertNodeToDrawing}
               onRefreshMainComp={onRefreshMainComp}
               onDeleteMainComp={onDeleteMainComp}
               onBeginMainDrag={onBeginMainDrag}

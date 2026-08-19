@@ -76,11 +76,6 @@ function TimelinePanel(props: TimelinePanelProps) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minHeight: 0 }}>
           <div
             ref={scrollContainerRef}
-            onScroll={(event) => {
-              if (event.currentTarget.scrollLeft !== 0) {
-                event.currentTarget.scrollLeft = 0;
-              }
-            }}
             style={{
               flex: 1,
               minHeight: 0,

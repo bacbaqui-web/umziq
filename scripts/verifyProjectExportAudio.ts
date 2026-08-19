@@ -127,6 +127,10 @@ try {
     let audioDisposed = 0;
     let scheduledAt: number | null = null;
     const mixedAudio = new FakeMediaStream([audioTrack]) as unknown as MediaStream;
+    const progressUpdates: Array<{
+      completedFrames: number;
+      totalFrames: number;
+    }> = [];
     const audioMix = {
       stream: mixedAudio,
       context: { get currentTime() { return performance.now() / 1_000; } } as AudioContext,
@@ -141,11 +145,16 @@ try {
       transparent: false,
       audioMix,
       renderFrame: async () => undefined,
-      onProgress: () => undefined,
+      onProgress: (progress) => progressUpdates.push(progress),
     });
     assert.equal(FakeMediaRecorder.lastAudioTrackCount, 1, "fake MediaRecorder receives the mixed Audio track");
     assert.ok(scheduledAt !== null, "Audio mix is scheduled on the export clock");
     assert.equal(audioDisposed, 1, "successful export disposes the Audio mix");
+    assert.deepEqual(
+      progressUpdates,
+      [{ completedFrames: 1, totalFrames: 1 }],
+      "successful export reports final frame progress"
+    );
   } finally {
     layers.voice.common.placement.visible = true;
     Object.defineProperties(globalThis, {

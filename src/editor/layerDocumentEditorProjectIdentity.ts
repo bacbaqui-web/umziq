@@ -2,7 +2,7 @@ import type {
   LayerDocumentProject,
 } from "@/models";
 import {
-  createInitialLayerDocumentOwnerOptions,
+  createInitialLayerDocumentNexusOptions,
 } from "@/editor/layerDocumentEditorBootstrap";
 
 let fallbackProjectIdSequence = 0;
@@ -33,7 +33,7 @@ export function createNewLayerDocumentEditorProject(
     );
   }
   const initial =
-    createInitialLayerDocumentOwnerOptions()
+    createInitialLayerDocumentNexusOptions()
       .project;
   return {
     ...initial,
