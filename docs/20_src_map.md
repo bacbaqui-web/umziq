@@ -19,8 +19,12 @@
 - `src/engines/library/`: Source/Layer Tree, PSD·Audio import, Reconnect와 Recording workflow다. 공개 계약은 neutral Source reference와 Recording preview를 사용하며 Browser `File` 선택은 UI/Web Gateway 경계에서 등록한다.
 - `src/engines/visual/`: visual Layer의 Transform, Opacity, Animation과 Modifier Inspector다.
 - `src/engines/audio/`: Audio Composer가 Basic/Effects Controller를 조립하고, 각 Controller가 Draft와 transaction을 담당하며 Helper가 순수 ViewModel 계산을 수행한다.
-- `src/engines/canvas/`, `timeline/`, `drawing/`, `psd-tree/`: 각 독립 Panel과 projection/interaction이다.
-- `src/engines/project/`: Project lifecycle, codec, source preparation과 Nexus용 core controller다.
+- `src/engines/canvas/`, `timeline/`, `drawing/`: 각 독립 Panel과 projection/interaction이다.
+- `src/engines/project/`: Nexus reducer, Project file workflow, codec와 Source preparation이 남아
+  있는 내부 core 위치다. 폴더 이름과 달리 독립 Panel Engine으로 분류하지 않는다.
+- `src/engines/psd-tree/`: 현재 Editor Root에서 조립되지 않는 과거 PSD Tree public boundary다.
+  현재 Library Panel의 Tree와 import workflow 기준은 `src/engines/library/`이며, 이 경로의
+  제거 또는 흡수는 별도 코드 정리에서 결정한다.
 
 각 Engine의 기본 구조는 `Engine facade → Composer → Controller → Helper`다. Port는 Controller가 Nexus, Gateway 또는 Runtime과 통신하는 계약이다.
 

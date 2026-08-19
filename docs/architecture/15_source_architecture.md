@@ -182,8 +182,8 @@ Port가 담당하고 Asset Store Adapter는 그 결과를 prepared Audio source 
 변환한다. Microphone Adapter와 Asset Store Adapter 모두 Nexus mutation을 수행하지
 않는다.
 
-현재 실제 구현 위치와 Browser 타입 누수는 `docs/20_src_map.md`와
-`docs/architecture/18_platform_gateway_architecture.md`의 전환 baseline을 따른다.
+현재 실제 구현 위치와 Browser 타입 boundary baseline은 `docs/20_src_map.md`와
+`docs/architecture/18_platform_gateway_architecture.md`를 따른다.
 
 ## Cache Invalidation
 
@@ -222,4 +222,4 @@ Source bitmap 또는 visual fingerprint가 바뀌면 다음 dependent 결과만
 
 - Project: `docs/architecture/10_project_architecture.md`
 - Canvas/Alpha: `docs/architecture/14_canvas_overlay_architecture.md`
-- Persistence/Reconnect: `docs/architecture/17_persistence_lifecycle_architecture.md`
+- Project File Workflow/Reconnect: `docs/architecture/17_project_file_workflow_architecture.md`

@@ -3,7 +3,7 @@
 > **상태:** Persistence Sprint 완료 기록
 >
 > 현재 canonical 설계는
-> `docs/architecture/17_persistence_lifecycle_architecture.md`를 따른다.
+> `docs/architecture/17_project_file_workflow_architecture.md`를 따른다.
 
 ## 1. 목적과 문서 경계
 

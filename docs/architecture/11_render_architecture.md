@@ -28,7 +28,7 @@ Preview Renderer     Accurate Renderer
         ↓                   ↓
   Editor Canvas       정확한 전체 Frame
         ↓                   ↓
-  Editor Overlay        미래 Export
+  Editor Overlay          Export
 ```
 
 작품 pixel과 Editor Overlay는 서로 다른 결과다.
@@ -72,10 +72,14 @@ Renderer가 공유하는 유일한 scene 입력이며 Canvas나 ImageBitmap을 �
 
 Renderer 내부 command identity를 Project identity로 사용하지 않는다.
 
+Drawing version 3의 stroke, eraser와 raster element도 같은 EvaluatedScene visual로
+투영한다. Drawing은 독립 투명 surface에서 먼저 합성한 뒤 작품 context에 그려 eraser가
+아래 Layer pixel을 지우지 않게 한다.
+
 ## Preview Renderer
 
 Preview Renderer는 사용자가 Editor에서 항상 보는 작품 화면을 담당한다.
-정지, Draft, Properties 변경, seek, playback과 Undo/Redo를 같은 제품
+정지, Draft, Visual 변경, seek, playback과 Undo/Redo를 같은 제품
 경로에서 처리한다.
 
 목표는 같은 시각 결과를 가능한 한 적은 계산으로 갱신하는 것이다.
@@ -103,7 +107,7 @@ Accurate Renderer는 같은 `EvaluatedScene`에서 현재 frame 전체를 처음
   재사용하지 않는다.
 - Editor Overlay를 포함하지 않는다.
 
-정확성이 속도보다 우선이며 미래 Export의 frame 생성 기반이다.
+정확성이 속도보다 우선이며 Export의 frame 생성 기반이다.
 
 ## Canvas Draw
 
@@ -216,9 +220,3 @@ Runtime이고 Gateway는 플랫폼별 목적지 capability만 제공한다.
 - Overlay가 작품 pixel에 포함되지 않음
 
 비교는 테스트 행위이며 별도 제품 Runtime이나 Renderer 종류가 아니다.
-
-## Drawing visual
-
-Drawing version 3의 stroke, eraser와 raster element는 Preview와 Accurate가 공유하는
-EvaluatedScene visual로 투영한다. Drawing은 독립 투명 surface에서 먼저 합성한 뒤
-작품 context에 그려 eraser가 아래 Layer pixel을 지우지 않게 한다.

@@ -32,7 +32,7 @@ AGENTS.md → docs/01_rule.md → docs/architecture/README.md
 | Render 구조와 최적화 | 004 → 005 → 003 → 020 → 021 → 022 → 023 | Architecture 11 |
 | Canvas·Draft·Transform | 006 → 007 → 008 → 009 → 010 → 011 | Architecture 13, 14 |
 | Library·Audio | 024 → 025 → 026 → 028 → 029 → 030 → 033 → 035 → 045 → 048 → 063 → 064 → 067 | Architecture 10, 13, 15, 17, 18 |
-| Nexus·Gateway·Engine 전환 | 057 → 058 → 059 → 060 → 061 → 062 → 063 → 064 → 065 → 066 → 067 | Architecture 10~18 |
+| Nexus·Gateway·Engine 전환 | 057 → 058 → 059 → 060 → 061 → 062 → 063 → 064 → 065 → 066 → 067 → 068 | Architecture 10~18 |
 | Timeline·Modifier | 001 → 040 → 041 → 042 → 043 → 044 → 049 → 050 → 051 → 052 → 053 | Architecture 12, 13, 16 |
 | 좌표·Canvas UI | 013 → 031 → 032 → 038 → 039 → 055 | Architecture 14 |
 | Drawing | 016 → 055 | Architecture 10, 13, 14 |
@@ -41,19 +41,19 @@ AGENTS.md → docs/01_rule.md → docs/architecture/README.md
 
 | Architecture | 관련 Completed 기록 |
 |---|---|
-| [10 Project](../architecture/10_project_architecture.md) | 015~019, 024, 026, 036~037, 045~046, 057~067 |
-| [11 Render](../architecture/11_render_architecture.md) | 003~005, 008, 010~011, 020~023, 038~039 |
-| [12 Timeline·Playback](../architecture/12_timeline_playback_architecture.md) | 012, 024, 040~044, 049, 051~053 |
-| [13 History·Draft](../architecture/13_history_draft_architecture.md) | 006, 010, 015, 024, 040~044, 047, 049~053 |
-| [14 Canvas·Overlay](../architecture/14_canvas_overlay_architecture.md) | 005~014, 023, 031~032, 038~039 |
-| [15 Source](../architecture/15_source_architecture.md) | 002~003, 017, 024~026, 028~030, 033~035, 042, 045, 048, 061~064, 067 |
-| [16 Animation](../architecture/16_animation_architecture.md) | 001, 004, 031~032, 040~044, 047, 050, 052~053 |
-| [17 Persistence·Lifecycle](../architecture/17_persistence_lifecycle_architecture.md) | 002, 018, 024, 027, 029, 033, 035~037, 042, 046, 048, 059~060, 065, 067 |
-| [18 Platform Gateway](../architecture/18_platform_gateway_architecture.md) | 057~067 |
+| [10 Project](../architecture/10_project_architecture.md) | 015~019, 024, 026, 036~037, 045~046, 057~068 |
+| [11 Render](../architecture/11_render_architecture.md) | 003~005, 008, 010~011, 020~023, 038~039, 068 |
+| [12 Timeline·Playback](../architecture/12_timeline_playback_architecture.md) | 012, 024, 040~044, 049, 051~053, 068 |
+| [13 History·Draft](../architecture/13_history_draft_architecture.md) | 006, 010, 015, 024, 040~044, 047, 049~053, 068 |
+| [14 Canvas·Overlay](../architecture/14_canvas_overlay_architecture.md) | 005~014, 023, 031~032, 038~039, 068 |
+| [15 Source](../architecture/15_source_architecture.md) | 002~003, 017, 024~026, 028~030, 033~035, 042, 045, 048, 061~064, 067~068 |
+| [16 Animation](../architecture/16_animation_architecture.md) | 001, 004, 031~032, 040~044, 047, 050, 052~053, 068 |
+| [17 Project File Workflow](../architecture/17_project_file_workflow_architecture.md) | 002, 018, 024, 027, 029, 033, 035~037, 042, 046, 048, 059~060, 065, 067~068 |
+| [18 Platform Gateway](../architecture/18_platform_gateway_architecture.md) | 057~068 |
 
 ## 5. 전체 기록
 
-아래 표는 001~067의 원문 67개를 번호순으로 모두 포함한다. Architecture 번호는 현재 책임을 찾아가기 위한 색인이다.
+아래 표는 001~068의 원문 68개를 번호순으로 모두 포함한다. Architecture 번호는 현재 책임을 찾아가기 위한 색인이다.
 
 | 번호 | 기록 | 주제 | 상태 | Architecture | 후속·참고 |
 |---:|---|---|---|---|---|
@@ -124,6 +124,7 @@ AGENTS.md → docs/01_rule.md → docs/architecture/README.md
 | 065 | [Menu Export·Destination Gateway Sprint 완료 기록](065_menu_export_destination_gateway.md) | Export Gateway | 완료 | 10, 18 | 066 |
 | 066 | [최종 Platform Boundary·Architecture Sprint 완료 기록](066_final_platform_boundary_architecture.md) | Architecture | 완료 | 전체 | — |
 | 067 | [최종 Architecture 안정화 Sprint 완료 기록](067_final_architecture_stabilization.md) | Architecture 안정화 | 완료 | 10, 11, 13, 15, 17, 18 | 제품 기능 개발 |
+| 068 | [문서·Architecture 정리 완료 기록](068_documentation_architecture_cleanup.md) | 문서 정리 | 완료 | 전체 | 제품 기능 개발 |
 
 ## 6. 중요한 대체 관계
 
@@ -138,7 +139,7 @@ AGENTS.md → docs/01_rule.md → docs/architecture/README.md
 ## 7. Archive 유지 규칙
 
 1. 파일명은 `001_이름.md` 형식의 세 자리 연속 번호를 사용한다.
-2. 다음 완료 기록은 `068_이름.md`로 추가하고 이후 번호를 하나씩 올린다.
+2. 다음 완료 기록은 `069_이름.md`로 추가하고 이후 번호를 하나씩 올린다.
 3. 기존 원문의 표현, 번호와 파일명은 소급해 고치지 않는다.
 4. 현재 설계가 바뀌면 Architecture를 수정하고 이 색인에는 후속·대체 관계만 추가한다.
 5. 새 기록을 추가할 때 전체 기록 표와 관련 주제별 경로를 함께 갱신한다.

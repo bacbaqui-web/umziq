@@ -14,18 +14,16 @@ Nexus가 하나의 canonical Project를 소유하고, 사용자는 Panel과 짝�
 통해 Layer Document를 편집한다. Editor Root는 Nexus, Gateway, Runtime과 Engine을
 조립한다.
 
-## 목표 용어와 현재 구현
+## 공식 용어
 
-| 목표 Architecture | 현재 코드 이름 | 전환 Sprint |
-|---|---|---|
-| Nexus | Nexus | Sprint 2 |
-| Editor Root | Editor Root | Sprint 4 완료 |
-| Menu Engine | Menu Engine | Sprint 4·9 완료 |
-| Visual Engine | Visual Engine | Sprint 7 완료 |
-| Audio Engine | Audio Engine | Sprint 7 완료 |
+- **Nexus**: canonical Project의 유일한 authority
+- **Gateway**: 외부 플랫폼 capability로 나가는 공식 관문
+- **Editor Root**: Nexus, Gateway, Runtime과 Engine을 한 번 조립하는 최상위 경계
+- **Panel Engine**: 독립 Panel과 사용자 기능의 공개 경계
+- **Port**: Controller가 Nexus, Gateway 또는 Runtime과 통신하는 interface
+- **Adapter**: 외부 또는 Runtime 계약의 구체 구현
 
-Canvas, Timeline과 Drawing은 현재 독립 Engine을 유지하며 이번 Roadmap의 rename 대상이
-아니다. 현재 실제 파일 위치는 `docs/20_src_map.md`를 따른다.
+현재 실제 파일 위치는 `docs/20_src_map.md`를 따른다.
 
 ## 전체 구조
 
@@ -49,8 +47,8 @@ Editor Root
 ```
 
 Nexus는 Project의 유일한 mutation 경계다. Editor Root는 값을 소유하거나 복사하지
-않고 Nexus, Gateway와 Runtime의 최소 Port를 Panel Engine에 연결한다. 이 구조와 용어는
-Roadmap Sprint 1~10에서 현재 코드에 반영됐다.
+않고 Nexus, Gateway와 Runtime의 최소 Port를 Panel Engine에 연결한다. 이 구조와 용어가
+현재 Architecture의 기준이다.
 
 ## Project와 Layer Document
 
@@ -81,7 +79,7 @@ LayerDocument
    └─ PSD / Drawing / Text / Audio / Video / Shape / Group
 ```
 
-Canvas Layer, Timeline row, Properties state와 Render item은 별도 편집 원본이
+Canvas Layer, Timeline row, Visual Panel state와 Render item은 별도 편집 원본이
 아니다. Layer Document에서 계산되는 projection이거나 저장되지 않는
 Runtime이다.
 
@@ -111,7 +109,7 @@ authority다. 내부 책임은 다음처럼 분리한다.
 - Project-only History
 - Selection Runtime과 Project 교체 후 유효성 보정
 
-Nexus는 lifecycle/persistence workflow, Gateway, Source/Audio Runtime resource,
+Nexus는 Project file workflow, Gateway, Source/Audio Runtime resource,
 Panel별 Draft, viewport, playback clock, hover, Cache와 UI state를 소유하지 않는다.
 Engine은 Nexus 전체가 아니라 자신의 사용자 흐름에 필요한 최소 Port만 사용한다.
 
@@ -129,6 +127,10 @@ Library는 PSD 전용 Tree가 아니라 현재 Project의 PSD와 Audio Source/La
 녹음은 Library Controller 책임이다. Visual Engine은 visual Layer의 Transform,
 Opacity, Animation과 Modifier를 담당하고 Audio Engine은 gain/mute/fade, Audio Source와
 ordered effect chain을 담당한다.
+
+Drawing은 Canvas 안의 전용 Toolbar Panel과 연속 Pointer Draft가 있으므로 독립 Panel
+Engine이다. tool, color, size, active pointer와 stroke Draft만 소유하며, 확정 element,
+새 Layer 생성과 PSD→Drawing 변환은 Nexus transaction으로 반영한다.
 
 복합 Panel Engine 내부 책임은 다음 경계를 따른다.
 
@@ -222,11 +224,4 @@ rebuild 또는 dispose한다. Runtime은 Layer Document를 대신하는 원본�
 - Timeline: `docs/architecture/12_timeline_playback_architecture.md`
 - History와 Draft: `docs/architecture/13_history_draft_architecture.md`
 - Source: `docs/architecture/15_source_architecture.md`
-- Persistence: `docs/architecture/17_persistence_lifecycle_architecture.md`
-
-## Drawing Panel Engine
-
-Drawing은 캔버스 안에 전용 Toolbar Panel과 연속 Pointer Draft를 가지므로 독립 Panel
-Engine이다. Engine은 tool, color, size, active pointer와 stroke Draft만 소유한다.
-확정 element, 새 Layer 생성과 PSD→Drawing 변환은 Nexus transaction으로만
-반영하며 Engine이 Project를 직접 mutation하지 않는다.
+- Project File Workflow: `docs/architecture/17_project_file_workflow_architecture.md`

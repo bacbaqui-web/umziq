@@ -14,7 +14,7 @@ Animation이 없는 값은 Layer Document의 기본 Transform/Property를 사용
 
 ## 편집
 
-Timeline과 Properties는 같은 Animation command 계약을 사용한다.
+Timeline과 Visual Panel은 같은 Animation command 계약을 사용한다.
 
 - keyframe 생성/삭제
 - keyframe 시간과 값 변경
@@ -50,7 +50,7 @@ Modifier 적용 순서와 결과는 Renderer 경로에 따라 달라지지 않�
 
 `LayerDocument.common.modifiers`의 `LayerModifier`가 저장과 실행의 canonical
 authority다. `layerModifierDefinition.ts`의 typed Definition registry는 각
-Modifier type의 기본값, 정규화·검증, Properties editor, Timeline projection과
+Modifier type의 기본값, 정규화·검증, Visual editor, Timeline projection과
 evaluation kind를 한곳에서 연결한다. Definition은 Project나 React state를
 소유하지 않고 Project 변경도 수행하지 않는다.
 
@@ -73,13 +73,13 @@ Audio를 다시 분석하지 않는다. `반전`은 수식 클립 안에서 계�
 간격을 다시 계산하며, 연결된 Audio를 같은 Controller 경계에서 재분석한다.
 
 Audio 연결 시 PCM 분석과 source-local frame 계산은 Animation pure helper가
-담당하고, Properties Modifier Controller가 decoded-audio read port와 Nexus의
-`set-modifiers` command를 조합한다. Composition Root는 이 port를 연결할 뿐
+담당하고, Visual Modifier Controller가 decoded-audio Read Port와 Nexus의
+`set-modifiers` command를 조합한다. Editor Root는 이 Port를 연결할 뿐
 분석하거나 Modifier 배열을 직접 변경하지 않는다.
 
-Properties 분리 후에도 Modifier 숫자 Draft, toggle, 입뻥긋 Audio 연결과
+Visual Engine 안에서 Modifier 숫자 Draft, toggle, 입뻥긋 Audio 연결과
 가속·감속 property/curve는 하나의 Modifier Controller가 소유한다. Visual과
-Audio Controller 또는 Audio Effects Engine을 참조하지 않으며 canonical
+Audio Engine의 Controller를 참조하지 않으며 canonical
 `LayerModifierDefinition`의 기본값·정규화·descriptor를 계속 사용한다.
 
 `가속·감속`은 선택한 위치·크기·회전·투명도의 기존 keyframe 평가 frame만
@@ -102,15 +102,15 @@ Motion Path는 Animation 원본이 아니라 Editor projection이다.
 - polyline, sample, current/keyframe point는 공통 geometry를 사용한다.
 - Motion Path UI state는 Project와 History에 저장하지 않는다.
 
-## Timeline과 Properties
+## Timeline과 Visual
 
-Timeline은 keyframe의 시간과 curve를 보여주고 Properties는 현재 frame의
+Timeline은 keyframe의 시간과 curve를 보여주고 Visual Panel은 현재 frame의
 값을 보여준다. 두 Panel은 서로 직접 갱신하지 않고 같은 Project, current
 frame과 Draft를 다시 평가한다.
 
 ## Anchor와 Transform Origin
 
-Anchor는 Transform의 공통 편집 값이다. Canvas와 Properties에서 수정할 때
+Anchor는 Transform의 공통 편집 값이다. Canvas와 Visual Panel에서 수정할 때
 같은 Draft/Commit 계약을 사용한다. Animation 지원 여부는 property 계약에서
 명시하며 UI만으로 새로운 track 의미를 만들지 않는다.
 

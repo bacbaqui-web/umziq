@@ -70,7 +70,7 @@ Draft는 PointerMove나 연속 입력 중 Project Commit 전에 사용하는 Run
 PointerDown
 → committed 값으로 Draft 시작
 → PointerMove에서 Draft만 갱신
-→ Canvas/Properties/Overlay가 같은 Draft를 읽음
+→ Canvas/Visual/Overlay가 같은 Draft를 읽음
 → PointerUp에서 Project transaction 1회
 → Draft 폐기
 ```
@@ -87,7 +87,7 @@ visibility와 lost pointer capture도 마지막 유효 Draft를 한 번 확정�
 
 ## Shared Transform Draft
 
-Canvas와 Properties가 같은 Transform을 동시에 표시해야 하므로 Transform
+Canvas와 Visual Panel이 같은 Transform을 동시에 표시해야 하므로 Transform
 Draft는 Editor session의 공유 Runtime이다. Project Data가 아니며 새 Store나
 History 원본이 아니다.
 
@@ -99,8 +99,12 @@ History 원본이 아니다.
 - Opacity
 - Anchor
 
-Layer, Selection, Handle, Motion Path와 Properties는 활성 Draft가 있으면 같은
+Layer, Selection, Handle, Motion Path와 Visual Panel은 활성 Draft가 있으면 같은
 Draft snapshot을 소비한다.
+
+Brush와 Eraser의 PointerMove는 Drawing Engine의 stroke Draft만 갱신한다. PointerUp은
+`replace-drawing-document` transaction 한 건을 만들고 cancel과 stale selection은
+History를 만들지 않는다. 페인트통 한 번과 PSD→Drawing 변환도 각각 History 한 건이다.
 
 ## Panel별 Draft
 
@@ -108,13 +112,13 @@ Timeline trim이나 Panel 고유 입력처럼 다른 Panel과 공유할 필요�
 임시값은 해당 Engine Runtime이 소유한다. 공통 Draft로 과도하게 확장하지
 않는다.
 
-Audio Properties의 gain/timing/source offset/fade와 Audio Effects의 parameter도
+Audio의 gain/timing/source offset/fade와 Effect parameter도
 연속 입력 중에는 해당 Engine Draft만 바꾸고 확정 시 Nexus transaction 한 건을
 만든다. effect add/delete/reorder/bypass와 Audio mute/rename 같은 단발 command도
 사용자 action당 History 한 건이다. audition, waveform, 녹음 prepared session과
 export 진행 상태는 History에 들어가지 않는다.
 
-Properties의 Numeric Draft Controller는 Visual/Audio/Modifier가 함께 쓰는
+공통 Numeric Draft Controller는 Visual/Audio/Modifier가 함께 쓰는
 focused input과 문자열 Draft 수명만 소유한다. selection id, selected revision,
 global/local frame 또는 reset revision이 달라지면 scope를 교체하고 Draft를
 폐기한다. 이 Controller는 숫자 clamp, Transform Preview와 Project command를
@@ -146,10 +150,4 @@ savepoint 비교로 판단한다.
 
 - Project: `docs/architecture/10_project_architecture.md`
 - Timeline: `docs/architecture/12_timeline_playback_architecture.md`
-- Persistence: `docs/architecture/17_persistence_lifecycle_architecture.md`
-
-## Drawing Draft
-
-Brush와 Eraser의 PointerMove는 Drawing Engine의 stroke Draft만 갱신한다. PointerUp은
-`replace-drawing-document` transaction 한 건을 만들고 cancel과 stale selection은
-History를 만들지 않는다. 페인트통 한 번과 PSD→Drawing 변환도 각각 History 한 건이다.
+- Project File Workflow: `docs/architecture/17_project_file_workflow_architecture.md`

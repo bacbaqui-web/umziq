@@ -110,12 +110,12 @@
 - Canvas와 Overlay: `docs/architecture/14_canvas_overlay_architecture.md`
 - Source: `docs/architecture/15_source_architecture.md`
 - Animation: `docs/architecture/16_animation_architecture.md`
-- Persistence와 Lifecycle:
-  `docs/architecture/17_persistence_lifecycle_architecture.md`
+- Project File Workflow:
+  `docs/architecture/17_project_file_workflow_architecture.md`
 - Platform Gateway:
   `docs/architecture/18_platform_gateway_architecture.md`
-- Architecture와 현재 코드가 다르면 차이는 `docs/98_sprint_plan.md`에
-  기록하고 단계적으로 해소한다.
+- Architecture와 현재 코드가 다르면 현재 사실은 `docs/20_src_map.md`에 기록하고,
+  해소 작업이 승인된 경우에만 `docs/98_sprint_plan.md`에 범위를 정한다.
 
 ## 10. 문서 체계
 
@@ -138,7 +138,7 @@
 - Architecture를 Sprint 문서에 반복하지 않고 필요한 문서를 참조한다.
 - 파일을 이동하거나 이름을 바꾸면 모든 문서 참조도 함께 갱신한다.
 
-## 11. 구현 원칙
+## 11. 움직 구현 원칙
 
 - 하나의 파일은 하나의 주된 책임을 갖는다.
 - 기본 의존 방향은 `Engine → Composer → Controller → Helper`다.
@@ -171,13 +171,8 @@
 - 새 파일이나 책임 변경은 `docs/20_src_map.md`에 반영한다.
 - 현재 Sprint의 범위와 금지 사항은 `docs/98_sprint_plan.md`를 따른다.
 
-## 12. 프로젝트 작업과 검증
+## 12. 움직 검증 원칙
 
-- 관련 영역의 상세 계약은 `docs/architecture/`의 canonical 문서를 먼저
-  확인한다. 시작 문서는 `docs/architecture/README.md`다.
-- 현재 파일 위치와 책임은 `docs/20_src_map.md`를 확인한다.
-- 현재 작업의 범위, 금지 사항과 완료 조건은 `docs/98_sprint_plan.md`를
-  따른다.
 - CRG는 실제 코드 연결과 변경 영향 확인에 사용하되 제품 의도와 Architecture의
   authority로 사용하지 않는다.
 - 정적 검증은 실제 Browser QA 통과를 의미하지 않는다.
@@ -186,12 +181,6 @@
 - 실제 Chrome QA는 사용자가 명시적으로 요청한 경우에만 기존 Chrome 환경의
   새 창에서 수행한다.
 - QA를 위해 별도 브라우저 앱이나 사용자 프로필을 만들지 않는다.
-- UI, 상태, event와 style을 하나의 파일에 무제한으로 쌓지 않는다.
-- 500줄 이상인 TypeScript 파일은 이름과 줄 수만 refactor 후보로 보고하며
-  승인 없이 분해하지 않는다.
-- 사용자가 Sprint 전체 실행을 요청하면 루트 에이전트는 독립적인 Task를
-  서브에이전트에 배정할 수 있다. 단일 Task 요청은 직접 수행한다.
-- 서브에이전트는 할당된 Task만 수행하고 Sprint, QA, 다음 Task와 완료 여부를
-  결정하거나 `docs/99_recent_task.md`를 수정하지 않는다.
-- 루트 에이전트가 Task 순서와 결과 통합을 책임지고, 전체 verification,
-  build, 문서 동기화와 Sprint 완료 판정을 수행한다.
+- Project alias를 해석하는 검증은 `npm test` 또는
+  `node scripts/runVerificationSuite.mjs`를 사용한다.
+- 정적 검증과 실제 Browser·picker·microphone·출력 QA 결과를 구분해 보고한다.

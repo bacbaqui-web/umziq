@@ -41,7 +41,7 @@ Panel 간 공유값을 건드리면 표에 연결된 교차 문서를 함께 읽
 | [`14_canvas_overlay_architecture.md`](14_canvas_overlay_architecture.md) | Canvas interaction, Overlay, hit test, alpha, motion path | 선택 외곽선, handle, 직접 선택, 좌표 변환, overlay 변경 |
 | [`15_source_architecture.md`](15_source_architecture.md) | Source descriptor/Runtime, Library, import, reconnect, cache lifecycle | PSD·Audio·외부 파일, Library, recording, missing source 변경 |
 | [`16_animation_architecture.md`](16_animation_architecture.md) | Animation, keyframe, Modifier, 평가, Motion Path | 수식, 입뻥긋, 가속·감속, keyframe, animation 평가 변경 |
-| [`17_persistence_lifecycle_architecture.md`](17_persistence_lifecycle_architecture.md) | `.ziq`, Menu Save/Open, migration, Project Replace, dirty | 저장 schema, 폴더, Save/Open, Menu UI 변경 |
+| [`17_project_file_workflow_architecture.md`](17_project_file_workflow_architecture.md) | `.ziq`, Menu Save/Open, migration, Project Replace, dirty | 저장 schema, 폴더, Save/Open, Menu UI 변경 |
 | [`18_platform_gateway_architecture.md`](18_platform_gateway_architecture.md) | Gateway, capability Port, Platform Adapter | 파일/장치/권한, 플랫폼 API, Web/Electron/native 경계 변경 |
 
 ## 4. Engine·작업 영역에서 찾아가기

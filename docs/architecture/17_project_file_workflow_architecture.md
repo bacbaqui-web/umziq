@@ -1,4 +1,4 @@
-# Persistence & Menu Project Session Architecture
+# Project File Workflow Architecture
 
 ## 한 문장 정의
 
@@ -57,6 +57,7 @@ ordered effect envelope도 Plain Data round trip 대상이다.
 - Layer Documents
 - Source Registry descriptor
 - Canvas 촬영범위 설정(표시, 안전영역, 선택 강조, 확대 수치, 바깥 어둡기, 배경)
+- Drawing version 3의 stroke command와 압축 PNG data URL
 
 저장하지 않음:
 
@@ -72,6 +73,11 @@ ordered effect envelope도 Plain Data round trip 대상이다.
 아니라 Project Plain Data다. 촬영범위 메뉴에서 함께 편집하는 표시, 안전영역,
 선택 강조, 바깥 어둡기와 흰 배경 설정도 같은 `canvasSettings` 묶음으로 round trip한다.
 미리보기 자체의 zoom과 pan은 출력 framing과 무관하므로 Runtime으로 유지한다.
+
+Drawing version 1·2는 범용 element 호환 경계로 유지하고 version 3부터 알려진 element
+구조를 검증한다. 외부 `image/drawing-layer/`를 canonical 원본으로 전환하려면 locator,
+원자 파일 저장, Undo revision 보존과 Missing 복구 계약을 먼저 추가해야 하며 현재
+구현의 이중 원본으로 만들지 않는다.
 
 ## Save와 Save As
 
@@ -200,7 +206,7 @@ Browser 권한은 저장할 수 없으므로 새 session에서 descriptor를 기
 - Project Replace는 원자적이다.
 - Load 뒤 Runtime은 descriptor로 다시 만든다.
 - Missing Source가 Project Plain Data를 훼손하지 않는다.
-- 새 Layer Type도 같은 envelope와 lifecycle을 재사용한다.
+- 새 Layer Type도 같은 envelope와 file workflow를 재사용한다.
 - Menu Controller는 구체 Platform Adapter를 import하지 않는다.
 - Gateway Storage Adapter는 Nexus를 호출하지 않는다.
 
@@ -211,15 +217,4 @@ Browser 권한은 저장할 수 없으므로 새 session에서 descriptor를 기
 - Source/Reconnect: `docs/architecture/15_source_architecture.md`
 - Gateway: `docs/architecture/18_platform_gateway_architecture.md`
 
-현재 실제 Controller/Adapter 이름과 위치는 `docs/20_src_map.md`를 따른다. 이 문서는
-Roadmap 완료 뒤의 canonical 책임을 정의하며 현재 코드와의 차이는 Gateway 전환
-baseline에 기록한다.
-
-## Drawing persistence
-
-Drawing version 3의 stroke command와 압축 PNG data URL은 Layer Document Plain Data로
-저장되어 기존 Save/Open/History lifecycle을 그대로 사용한다. version 1·2 Drawing은
-범용 element 호환 경계로 유지하고 version 3부터 알려진 element 구조를 검증한다.
-외부 `image/drawing-layer/`를 canonical 원본으로 전환하려면 locator, 원자 파일 저장,
-Undo revision 보존과 Missing 복구 계약을 먼저 추가해야 하며 현재 구현의 이중 원본으로
-만들지 않는다.
+현재 실제 Controller/Adapter 이름과 위치는 `docs/20_src_map.md`를 따른다.

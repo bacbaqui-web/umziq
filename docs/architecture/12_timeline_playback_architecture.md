@@ -42,26 +42,26 @@ Audio Runtime에서 계산하는 session projection이며 Project나 History에 
 
 ## 공유 방식
 
-Canvas와 Properties는 Timeline Engine을 직접 import하지 않는다. Composition
-Root가 Timeline Runtime을 구독하고 current frame 등 필요한 값만 공개 port로
+Canvas와 Visual Engine은 Timeline Engine을 직접 import하지 않는다. Editor
+Root가 Timeline Runtime을 구독하고 current frame 등 필요한 값만 공개 Port로
 전달한다.
 
-Composition Root는 값을 복사해 보관하거나 두 번째 frame Runtime을 만들지
+Editor Root는 값을 복사해 보관하거나 두 번째 frame Runtime을 만들지
 않는다.
 
 ```text
 Timeline Runtime
-→ Composition Root wiring
+→ Editor Root wiring
 ├─ Timeline Panel
 ├─ Canvas Engine
-├─ Properties Engine
+├─ Visual Engine
 └─ Frame Evaluation
 ```
 
 모든 소비자는 같은 frame 값을 사용한다.
 
-Editor Audio Runtime도 이 Timeline Runtime의 read/subscribe를 Composition Root
-public port로 받아 play/pause/seek/range/loop를 동기화한다. 일반 재생 중 별도
+Editor Audio Runtime도 이 Timeline Runtime의 Read/Subscribe Port를 Editor Root에서
+주입받아 play/pause/seek/range/loop를 동기화한다. 일반 재생 중 별도
 Audio frame timer나 두 번째 current-frame nexus를 만들지 않는다. Library의
 single-active 미리 듣기는 저장되지 않는 별도 audition session이다.
 
@@ -150,7 +150,7 @@ Layer는 이 여백에서 이동 방향을 보여주되 Layer 이름 열 안으�
 - Placement만 저장 데이터다.
 - playback과 viewport state는 Runtime이다.
 - current frame의 단일 소유자는 Timeline Runtime이다.
-- Panel 간 공유는 Composition Root wiring을 통한다.
+- Panel 간 공유는 Editor Root wiring을 통한다.
 - Timeline intent는 Renderer를 직접 호출하지 않는다.
 
 ## 관련 Architecture

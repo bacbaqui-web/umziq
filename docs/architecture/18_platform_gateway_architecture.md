@@ -224,4 +224,4 @@ Editor Export/Audio Runtime 경계에 유지한다.
 - Project/Nexus/Editor Root: `docs/architecture/10_project_architecture.md`
 - Render/Export Runtime: `docs/architecture/11_render_architecture.md`
 - Source/Recording/Reconnect: `docs/architecture/15_source_architecture.md`
-- Persistence/Menu Project Session: `docs/architecture/17_persistence_lifecycle_architecture.md`
+- Project File Workflow/Menu Project Session: `docs/architecture/17_project_file_workflow_architecture.md`

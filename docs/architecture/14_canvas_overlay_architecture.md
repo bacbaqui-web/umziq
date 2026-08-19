@@ -51,6 +51,10 @@ Position, Scale, Rotation, Anchor와 Opacity 조작은 같은 계약을 따른�
 
 Overlay는 Export와 Accurate frame에 포함되지 않는다.
 
+선택된 Drawing Layer는 전용 SVG interaction surface를 표시한다. surface는 Layer의
+position, anchor, scale과 rotation을 따라가며 화면 좌표를 Layer local 좌표로 저장한다.
+Drawing pointer session은 capture/cancel 경계를 사용하고 작품 pixel과 분리된다.
+
 ## Selection과 Direct Hit Test
 
 Canvas direct selection은 후보를 다음 순서로 줄인다.
@@ -110,7 +114,7 @@ Source Runtime이 소유한다.
 ## 불변 조건
 
 - 작품 pixel과 Editor Overlay를 섞지 않는다.
-- Canvas는 Project/Timeline/Properties를 직접 mutation하지 않는다.
+- Canvas는 Project/Timeline/Visual Engine을 직접 mutation하지 않는다.
 - 모든 Transform 표시가 같은 Draft snapshot을 사용한다.
 - hit test와 silhouette는 같은 alpha 의미를 사용한다.
 - Cache는 결과를 빠르게 만들 뿐 편집 원본이 아니다.
@@ -121,9 +125,3 @@ Source Runtime이 소유한다.
 - History/Draft: `docs/architecture/13_history_draft_architecture.md`
 - Source: `docs/architecture/15_source_architecture.md`
 - Animation: `docs/architecture/16_animation_architecture.md`
-
-## Drawing interaction overlay
-
-선택된 Drawing Layer만 전용 SVG interaction surface를 표시한다. surface는 Layer의
-position, anchor, scale과 rotation을 따라가며 화면 좌표를 Layer local 좌표로 저장한다.
-Drawing pointer session은 capture/cancel 경계를 사용하고 작품 pixel과 분리된다.

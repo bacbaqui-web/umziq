@@ -19,7 +19,7 @@ PSD만 다루던 패널을 Project의 파일과 배치를 함께 관리하는 Li
 - Timeline과 단일 재생 시계: `docs/architecture/12_timeline_playback_architecture.md`
 - History와 Draft: `docs/architecture/13_history_draft_architecture.md`
 - Source와 Runtime resource: `docs/architecture/15_source_architecture.md`
-- 저장·열기·Migration: `docs/architecture/17_persistence_lifecycle_architecture.md`
+- 저장·열기·Migration: `docs/architecture/17_project_file_workflow_architecture.md`
 
 ## 주요 결과
 
@@ -124,4 +124,3 @@ PSD만 다루던 패널을 Project의 파일과 배치를 함께 관리하는 Li
 - Library drag-and-drop, 키보드 이동과 pointer 취소
 - Timeline trim/move와 Properties/Effects 숫자 drag
 - MP4/WebM 실제 출력 파일의 음원 포함, 장시간 A/V sync와 투명 WebM 재생
-
